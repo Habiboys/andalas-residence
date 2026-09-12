@@ -1,0 +1,300 @@
+@import 'tailwindcss';
+
+@source '../views';
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+
+/*
+| Design direction (why these tokens exist)
+| ---------------------------------------------------------------------------
+| Andalas Residen is a university dormitory system for Universitas Andalas.
+| The identity is institutional and calm, taken from the existing brand: a deep
+| forest green (campus, heritage, tropical grounds), warm cream/sand paper
+| surfaces (print, records, ledgers) and a single antique gold accent reserved
+| for the moment that matters. Green carries hierarchy, cream carries the page,
+| gold stays rare so it still reads as an accent.
+|
+| Radii are three deliberate steps (selector / field / box), not one pill for
+| everything. Depth and noise are 0: surfaces sit flat on real borders instead
+| of floating on soft shadows.
+|
+| Status colours are functional, not decorative. Six tinted hues were reduced to
+| five semantic ones; every pair below was checked for WCAG AA (4.5:1 text,
+| 3:1 control boundaries) in both themes.
+|
+|   theme          text on base-100   content on fill
+|   andalas        primary 11.7       primary 11.7
+|                  secondary 7.7      secondary 7.7
+|                  accent 5.65        accent 5.65
+|                  warning 5.66       warning 5.41
+|                  success 6.26       success 6.26
+|                  error 6.97         error 6.97
+|                  info 6.04          info 6.04
+|                  muted 5.52
+|   andalas-dark   primary 7.50       primary 8.01
+|                  secondary 8.61     secondary 8.21
+|                  accent 8.60        accent 8.50
+|                  warning 9.43       warning 8.08
+|                  success 7.68       success 8.20
+|                  error 6.48         error 6.95
+|                  info 8.60          info 9.18
+|                  muted 8.55
+|
+| Field borders hold 3:1 against both page surfaces (4.4:1 / 3.33 light,
+| 3.03 / 3.23 dark) because a control boundary is required to be identifiable,
+| which daisyUI's default base-content/20 border is not.
+*/
+
+@plugin 'daisyui' {
+    themes: false;
+    logs: false;
+}
+
+@plugin 'daisyui/theme' {
+    name: 'andalas';
+    default: true;
+    prefersdark: false;
+    color-scheme: 'light';
+
+    --color-base-100: #fdfcfa;
+    --color-base-200: #f7f5f0;
+    --color-base-300: #e4ddd0;
+    --color-base-content: #16281e;
+
+    --color-primary: #1a3d2b;
+    --color-primary-content: #fdfcfa;
+    --color-secondary: #2d5a40;
+    --color-secondary-content: #fdfcfa;
+    --color-accent: #7d6212;
+    --color-accent-content: #fdfcfa;
+    --color-neutral: #0f1f17;
+    --color-neutral-content: #f7f5f0;
+
+    --color-info: #2f6591;
+    --color-info-content: #fdfcfa;
+    --color-success: #2c6b39;
+    --color-success-content: #fdfcfa;
+    --color-warning: #9a5312;
+    --color-warning-content: #fdf6ee;
+    --color-error: #a7261f;
+    --color-error-content: #fdfcfa;
+
+    /* Supporting tokens that daisyUI has no slot for. */
+    --muted-content: #5a6b61;
+    --field-border: #948a76;
+
+    --radius-selector: 0.375rem;
+    --radius-field: 0.375rem;
+    --radius-box: 0.375rem;
+    --size-selector: 0.25rem;
+    --size-field: 0.275rem;
+    --border: 1px;
+    --depth: 0;
+    --noise: 0;
+}
+
+@plugin 'daisyui/theme' {
+    name: 'andalas-dark';
+    default: false;
+    prefersdark: false;
+    color-scheme: 'dark';
+
+    --color-base-100: #0f1f17;
+    --color-base-200: #0a1810;
+    --color-base-300: #2b4735;
+    --color-base-content: #e9efea;
+
+    --color-primary: #7fb98c;
+    --color-primary-content: #0a1810;
+    --color-secondary: #9fc0a8;
+    --color-secondary-content: #10241a;
+    --color-accent: #d9b444;
+    --color-accent-content: #241c05;
+    --color-neutral: #eff3f0;
+    --color-neutral-content: #0f1f17;
+
+    --color-info: #8fbedc;
+    --color-info-content: #0a1810;
+    --color-success: #6fbf7f;
+    --color-success-content: #0a1810;
+    --color-warning: #e3bc55;
+    --color-warning-content: #33270a;
+    --color-error: #e58578;
+    --color-error-content: #2a0a07;
+
+    --muted-content: #a9bcaf;
+    --field-border: #5c6b5f;
+
+    --radius-selector: 0.375rem;
+    --radius-field: 0.375rem;
+    --radius-box: 0.375rem;
+    --size-selector: 0.25rem;
+    --size-field: 0.275rem;
+    --border: 1px;
+    --depth: 0;
+    --noise: 0;
+}
+
+@theme {
+    --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    --font-serif: 'DM Serif Display', Georgia, 'Times New Roman', serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', monospace;
+}
+
+/*
+| Utility bridge for the supporting tokens. `inline` keeps the var reference so
+| the value follows whichever theme is active.
+*/
+@theme inline {
+    --color-muted-content: var(--muted-content);
+}
+
+/*
+| Dark mode is driven by the `.dark` class, which the appearance store and the
+| server-rendered shell both set. daisyUI reads `data-theme`, so the two are
+| kept in sync at every toggle site rather than duplicating the palette.
+*/
+@custom-variant dark (&:is(.dark *));
+
+@layer base {
+    body {
+        @apply bg-base-100 text-base-content font-sans;
+    }
+
+    /* Antialiasing is a choice, not a default: it keeps the serif headings from
+       looking heavier than the Inter body text at small sizes. */
+    html {
+        -webkit-font-smoothing: antialiased;
+    }
+
+    * {
+        @apply border-base-300;
+    }
+
+    :focus-visible {
+        @apply outline-2 outline-offset-2 outline-primary;
+    }
+
+    /* daisyUI marks a field boundary with base-content at 20%, which measures
+       below the 3:1 a control boundary needs. --field-border is chosen to pass
+       against both page surfaces in each theme. */
+    .input,
+    .select,
+    .textarea,
+    .file-input {
+        --input-color: var(--field-border);
+    }
+
+    /*
+     * The shared `inputClass` string is applied to <input>, <select> and
+     * <textarea> around the app, while daisyUI splits those into three
+     * components. Where the shared class lands on the other two elements, the
+     * element-specific detail is restored here rather than duplicated at every
+     * call site.
+     */
+    select.input {
+        /* .input sets appearance:none, which removes the dropdown affordance. */
+        appearance: auto;
+        padding-inline-end: 2.25rem;
+    }
+
+    textarea.input {
+        /* .input pins a single-line height, which would clip a textarea. */
+        height: auto;
+        min-height: calc(var(--size-field) * 22);
+        align-items: flex-start;
+        padding-block: 0.5rem;
+    }
+
+    /* Dense academic records need explicit row and column boundaries. */
+    .table {
+        border-collapse: collapse;
+        border: 1px solid var(--color-base-300);
+        font-variant-numeric: tabular-nums;
+    }
+
+    .table :is(th, td) {
+        border: 1px solid var(--color-base-300);
+    }
+
+    [data-sonner-toaster] {
+        --normal-bg: var(--color-base-100);
+        --normal-text: var(--color-base-content);
+        --normal-border: var(--color-base-300);
+        font-family: var(--font-sans);
+    }
+}
+
+@layer utilities {
+    /* Muted copy has one definition so it cannot drift into an unreadable grey. */
+    .text-muted {
+        color: var(--muted-content);
+    }
+
+    /* Identifiers (NIM, barcode, room number) use the mono face because the
+       fixed width plus tabular figures is what makes them scannable. */
+    .text-identifier {
+        font-family: var(--font-mono);
+        font-variant-numeric: tabular-nums;
+    }
+}
+
+/* A thin, themed scrollbar instead of hiding scrollbars outright. */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-base-300) transparent;
+}
+
+/*
+| TEMPORARY, delete when resources/js/components/ui is fully on daisyUI.
+| The shadcn primitives still read these names, so they are pointed at the
+| daisyUI theme variables. That way the whole site is already on one palette
+| while the primitives are replaced one by one.
+*/
+@theme inline {
+    --color-background: var(--color-base-100);
+    --color-foreground: var(--color-base-content);
+    --color-card: var(--color-base-100);
+    --color-card-foreground: var(--color-base-content);
+    --color-popover: var(--color-base-100);
+    --color-popover-foreground: var(--color-base-content);
+    --color-primary-foreground: var(--color-primary-content);
+    --color-secondary-foreground: var(--color-base-content);
+    --color-muted: var(--color-base-200);
+    --color-muted-foreground: var(--muted-content);
+    --color-accent-foreground: var(--color-base-content);
+    --color-destructive: var(--color-error);
+    --color-destructive-foreground: var(--color-error-content);
+    --color-border: var(--color-base-300);
+    --color-input: var(--field-border);
+    --color-ring: var(--color-primary);
+}
+
+/*
+| TEMPORARY shim: the pre-daisyUI brand names still spelled in older screens.
+| Each one resolves to a daisyUI theme variable, so those screens already paint
+| with the new palette, in both themes, instead of their old hardcoded hex.
+|
+| This is a bridge, not the destination: the class names themselves still need
+| renaming to the daisyUI token (`text-forest` becomes `text-primary`). What is
+| already correct is the colour behind the name.
+|
+| Caveat that the shim cannot cover: a hand-written `bg-leaf text-white` pair.
+| White on the dark theme's light-sage primary fails contrast, so those specific
+| pairs are rewritten at the call site rather than shimmed here.
+*/
+@theme inline {
+    --color-forest: var(--color-primary);
+    --color-forest-dark: var(--color-primary);
+    --color-forest-light: var(--color-secondary);
+    --color-gold: var(--color-accent);
+    --color-gold-light: var(--color-accent);
+    --color-cream: var(--color-base-100);
+    --color-warm-white: var(--color-base-100);
+    --color-sand: var(--color-base-200);
+    --color-night: var(--color-base-200);
+    --color-night-deep: var(--color-base-100);
+    --color-leaf: var(--color-primary);
+    --color-leaf-light: var(--color-primary);
+    --color-slate: var(--muted-content);
+}
+

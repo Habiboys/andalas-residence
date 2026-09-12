@@ -1,0 +1,9 @@
+/*
+ * The palette, the fonts and the daisyUI themes for this app now live in a
+ * single place: resources/css/app.css, which app.blade.php loads for every
+ * page. This file used to import Tailwind a second time and declare a parallel
+ * set of brand colours; both are gone.
+ *
+ * It is kept as an empty entry point only because older modules import it.
+ * Nothing should be added here: a second palette is what this refactor removed.
+ */
