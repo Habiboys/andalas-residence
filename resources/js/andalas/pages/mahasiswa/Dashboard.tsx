@@ -1,21 +1,18 @@
 import { PageHeader, StatCard, Card } from "../../components/ui";
-import { useAndalasApi } from "../../hooks/useAndalasApi";
 import { formatRupiah } from "../../lib/format";
-import type { DashboardStats } from "../../lib/api";
+import type { DashboardStats } from "../../lib/types";
 import { useAuth } from "../../context/AppContext";
 
 type PembayaranRow = { status?: string; nominal?: number; jenis_pembayaran?: string };
 
-export default function MahasiswaDashboard() {
+export default function MahasiswaDashboard({ stats, pembayaran = [] }: { stats?: DashboardStats; pembayaran?: PembayaranRow[] }) {
   const { currentUser } = useAuth();
-  const { data: stats } = useAndalasApi<DashboardStats>("/api/andalas/dashboard");
-  const { data: pembayaran } = useAndalasApi<PembayaranRow[]>("/api/andalas/pembayaran");
 
   const pending = (pembayaran ?? []).filter((p) => p.status === "menunggu_verifikasi").length;
   const totalTagihan = (pembayaran ?? []).reduce((s, p) => s + Number(p.nominal ?? 0), 0);
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       <PageHeader title={`Halo, ${currentUser?.nama?.split(" ")[0] ?? "Mahasiswa"}`} subtitle="Ringkasan hunian dan tagihan Anda" />
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatCard label="Status Huni" value={currentUser?.status_huni ?? "calon"} color="green" />

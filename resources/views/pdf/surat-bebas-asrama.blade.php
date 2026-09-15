@@ -19,7 +19,7 @@
         <strong>UNIVERSITAS ANDALAS</strong><br>
         <strong>ANDALAS RESIDEN</strong><br>
         <div class="title">SURAT KETERANGAN BEBAS ASRAMA</div>
-        <div>Nomor: {{ $pengajuan->nomor_surat_resmi ?? $pengajuan->nomor_pengajuan }}</div>
+        <div>Nomor: {{ $documentNumber ?? $pengajuan->nomor_surat_resmi ?? $pengajuan->nomor_pengajuan }}</div>
     </div>
 
     <p>Yang bertanda tangan di bawah ini, Staff Administrasi Andalas Residen, menerangkan bahwa:</p>

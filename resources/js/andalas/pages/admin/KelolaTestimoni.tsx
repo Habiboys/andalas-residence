@@ -1,8 +1,7 @@
 import { useState } from "react";
-import { toast } from "sonner";
-import { PageHeader, Card, Button, Drawer, FormField, inputClass, StatusBadge, CardSkeleton, ConfirmDialog } from "../../components/ui";
-import { useAndalasApi } from "../../hooks/useAndalasApi";
-import { andalasApi } from "../../lib/api";
+import { useForm } from "@inertiajs/react";
+import { PageHeader, Card, Button, Drawer, FormField, inputClass, StatusBadge, ConfirmDialog, RowActions } from "../../components/ui";
+import { store as testimoniStore, update as testimoniUpdate, destroy as testimoniDestroy } from "@/routes/andalas/landing/testimoni";
 
 type Item = {
     id: string;
@@ -13,81 +12,60 @@ type Item = {
     published?: boolean;
 };
 
-export default function KelolaTestimoni() {
-    const { data, loading, reload } = useAndalasApi<Item[]>("/api/andalas/landing/testimoni");
+export default function KelolaTestimoni({ testimoni = [] }: { testimoni?: Item[] }) {
     const [modal, setModal] = useState(false);
     const [editing, setEditing] = useState<Item | null>(null);
-    const [form, setForm] = useState({ nama: "", prodi: "", teks: "", published: true });
-    const [foto, setFoto] = useState<File | null>(null);
-    const [busy, setBusy] = useState(false);
+    const { data, setData, post, put, processing, errors, reset } = useForm({ nama: "", prodi: "", teks: "", published: true, foto: null as File | null });
+    const deleteForm = useForm<Record<string, string>>({});
     const [deleting, setDeleting] = useState<Item | null>(null);
-    const [deletingBusy, setDeletingBusy] = useState(false);
 
     function openCreate() {
         setEditing(null);
-        setForm({ nama: "", prodi: "", teks: "", published: true });
-        setFoto(null);
+        reset();
         setModal(true);
     }
 
     function openEdit(item: Item) {
         setEditing(item);
-        setForm({ nama: item.nama ?? "", prodi: item.prodi ?? "", teks: item.teks ?? "", published: item.published ?? true });
-        setFoto(null);
+        setData({ nama: item.nama ?? "", prodi: item.prodi ?? "", teks: item.teks ?? "", published: item.published ?? true, foto: null });
         setModal(true);
     }
 
-    async function save(e: React.FormEvent) {
+    function save(e: React.FormEvent) {
         e.preventDefault();
-        setBusy(true);
-        try {
-            const fd = new FormData();
-            fd.append("nama", form.nama);
-            fd.append("prodi", form.prodi);
-            fd.append("teks", form.teks);
-            fd.append("published", form.published ? "1" : "0");
-            if (foto) fd.append("foto", foto);
-
-            if (editing) {
-                fd.append("_method", "PUT");
-                await andalasApi.post(`/api/andalas/landing/testimoni/${editing.id}`, fd);
-            } else {
-                await andalasApi.post("/api/andalas/landing/testimoni", fd);
-            }
-            setModal(false);
-            await reload();
-            toast.success(editing ? "Testimoni berhasil diperbarui." : "Testimoni berhasil ditambahkan.");
-        } catch (err) {
-            toast.error(err instanceof Error ? err.message : "Gagal menyimpan");
-        } finally {
-            setBusy(false);
+        if (editing) {
+            put(testimoniUpdate.url({ id: editing.id }), {
+                onSuccess: () => {
+                    setModal(false);
+                    setEditing(null);
+                    reset();
+                },
+            });
+        } else {
+            post(testimoniStore.url(), {
+                onSuccess: () => {
+                    setModal(false);
+                    reset();
+                },
+            });
         }
     }
 
-    async function confirmDelete() {
+    function confirmDelete() {
         if (!deleting) return;
-        setDeletingBusy(true);
-        try {
-            await andalasApi.delete(`/api/andalas/landing/testimoni/${deleting.id}`);
-            toast.success("Testimoni berhasil dihapus.");
-            setDeleting(null);
-            await reload();
-        } catch (err) {
-            toast.error(err instanceof Error ? err.message : "Gagal menghapus");
-        } finally {
-            setDeletingBusy(false);
-        }
+        deleteForm.delete(testimoniDestroy.url({ id: deleting.id }), {
+            onSuccess: () => setDeleting(null),
+        });
     }
 
     return (
-        <div className="p-6 space-y-4">
+        <div className="space-y-4">
             <PageHeader
                 title="Kelola Testimoni"
                 subtitle="Testimoni mahasiswa di halaman Beranda"
                 actions={<Button onClick={openCreate}>Tambah</Button>}
             />
-            {loading && <CardSkeleton items={3} />}
-            {(data ?? []).map((item) => (
+            {(testimoni ?? []).map((item) => (
                 <Card key={item.id} className="p-5">
                     <div className="flex justify-between items-start gap-4">
                         <div className="flex items-start gap-3 flex-1 min-w-0">
@@ -102,8 +80,7 @@ export default function KelolaTestimoni() {
                             </div>
                         </div>
                         <div className="flex gap-2 flex-shrink-0">
-                            <Button size="sm" variant="secondary" onClick={() => openEdit(item)}>Edit</Button>
-                            <Button size="sm" variant="danger" onClick={() => setDeleting(item)}>Hapus</Button>
+                            <RowActions onEdit={() => openEdit(item)} onDelete={() => setDeleting(item)} />
                         </div>
                     </div>
                 </Card>
@@ -117,24 +94,32 @@ export default function KelolaTestimoni() {
                 footer={
                     <div className="flex justify-end gap-2">
                         <Button variant="secondary" onClick={() => setModal(false)}>Batal</Button>
-                        <Button type="submit" form="kelola-testimoni-form" disabled={busy}>Simpan</Button>
+                        <Button type="submit" form="kelola-testimoni-form" disabled={processing}>Simpan</Button>
                     </div>
                 }
             >
                 <form id="kelola-testimoni-form" onSubmit={save} className="space-y-3">
-                    <FormField label="Nama"><input className={inputClass} value={form.nama} onChange={(e) => setForm({ ...form, nama: e.target.value })} required /></FormField>
-                    <FormField label="Prodi"><input className={inputClass} value={form.prodi} onChange={(e) => setForm({ ...form, prodi: e.target.value })} /></FormField>
+                    <FormField label="Nama">
+                        <input className={inputClass} value={data.nama} onChange={(e) => setData("nama", e.target.value)} required />
+                        {errors.nama && <p className="mt-1 text-sm text-error">{errors.nama}</p>}
+                    </FormField>
+                    <FormField label="Prodi">
+                        <input className={inputClass} value={data.prodi} onChange={(e) => setData("prodi", e.target.value)} />
+                        {errors.prodi && <p className="mt-1 text-sm text-error">{errors.prodi}</p>}
+                    </FormField>
                     <FormField label="Teks">
-                        <textarea rows={4} className={inputClass} value={form.teks} onChange={(e) => setForm({ ...form, teks: e.target.value })} required />
+                        <textarea rows={4} className={inputClass} value={data.teks} onChange={(e) => setData("teks", e.target.value)} required />
+                        {errors.teks && <p className="mt-1 text-sm text-error">{errors.teks}</p>}
                     </FormField>
                     <FormField label="Foto (opsional)">
-                        <input type="file" className={inputClass} onChange={(e) => setFoto(e.target.files?.[0] ?? null)} />
+                        <input type="file" className={inputClass} onChange={(e) => setData("foto", e.target.files?.[0] ?? null)} />
                         {editing?.foto && <p className="text-xs text-muted">Foto saat ini: {editing.foto}</p>}
                     </FormField>
                     <label className="flex items-center gap-2 text-sm">
-                        <input type="checkbox" checked={form.published} onChange={(e) => setForm({ ...form, published: e.target.checked })} />
+                        <input type="checkbox" checked={data.published} onChange={(e) => setData("published", e.target.checked)} />
                         Tampilkan di publik
                     </label>
+                    {errors.published && <p className="mt-1 text-sm text-error">{errors.published}</p>}
                 </form>
             </Drawer>
 
@@ -142,7 +127,7 @@ export default function KelolaTestimoni() {
                 open={!!deleting}
                 onClose={() => setDeleting(null)}
                 onConfirm={confirmDelete}
-                loading={deletingBusy}
+                loading={deleteForm.processing}
                 title="Hapus Testimoni"
                 message={`Hapus testimoni dari "${deleting?.nama ?? ""}"? Tindakan ini tidak dapat dibatalkan.`}
             />

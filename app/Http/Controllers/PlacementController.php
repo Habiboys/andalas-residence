@@ -7,34 +7,37 @@ use App\Models\MahasiswaProfil;
 use App\Models\PenempatanKamar;
 use App\Services\AuditLogService;
 use App\Services\AutoPlacementService;
-use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class PlacementController extends Controller
 {
-    public function index(Request $request): JsonResponse
-    {
-        $this->authorizePermission($request, 'penempatan.view');
-
-        return response()->json(PenempatanKamar::with(['mahasiswa.user', 'kamar.lantai.gedung'])->latest()->get());
-    }
-
-    public function autoPreview(Request $request, AutoPlacementService $service): JsonResponse
+    public function autoPreview(Request $request, AutoPlacementService $service): RedirectResponse
     {
         $this->authorizePermission($request, 'penempatan.manage');
 
-        return response()->json($service->runBatch($request->user(), false));
+        $preview = $service->runBatch($request->user(), false);
+
+        return redirect()->back()->with('auto_preview', $preview)->with('toast', [
+            'type' => 'success',
+            'message' => 'Pratinjau penempatan otomatis disiapkan.',
+        ]);
     }
 
-    public function autoCommit(Request $request, AutoPlacementService $service): JsonResponse
+    public function autoCommit(Request $request, AutoPlacementService $service): RedirectResponse
     {
         $this->authorizePermission($request, 'penempatan.manage');
 
-        return response()->json($service->runBatch($request->user(), true));
+        $result = $service->runBatch($request->user(), true);
+
+        return redirect()->back()->with('toast', [
+            'type' => 'success',
+            'message' => 'Penempatan otomatis berhasil dikomit '.($result['assigned'] ?? 0).' mahasiswa.',
+        ]);
     }
 
-    public function manual(Request $request): JsonResponse
+    public function manual(Request $request): RedirectResponse
     {
         $this->authorizePermission($request, 'penempatan.manage');
 
@@ -71,6 +74,9 @@ class PlacementController extends Controller
             return $penempatan;
         });
 
-        return response()->json($penempatan->load(['mahasiswa.user', 'kamar']), 201);
+        return redirect()->back()->with('toast', [
+            'type' => 'success',
+            'message' => "Mahasiswa ditempatkan di kamar {$kamar->nomor_kamar}.",
+        ]);
     }
 }

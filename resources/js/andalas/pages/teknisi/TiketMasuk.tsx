@@ -1,12 +1,14 @@
-import { PageHeader, Card, DataTable, StatusBadge, TableSkeleton } from "../../components/ui";
-import { useAndalasApi } from "../../hooks/useAndalasApi";
+import { PageHeader, Card, DataTable, StatusBadge } from "../../components/ui";
 import { mapTicketStatus } from "../../lib/format";
 
 type TiketRow = { id: string; nomor_tiket?: string; deskripsi?: string; status?: string; tanggal_lapor?: string };
 
-export default function TiketMasuk() {
-  const { data, loading } = useAndalasApi<TiketRow[]>("/api/andalas/tiket");
-  const incoming = (data ?? []).filter((t) => ["menunggu_triage", "didisposisikan"].includes(t.status ?? ""));
+type Props = {
+  tiket: TiketRow[];
+};
+
+export default function TiketMasuk({ tiket = [] }: Props) {
+  const incoming = tiket.filter((t) => ["menunggu_triage", "didisposisikan"].includes(t.status ?? ""));
 
   const columns = [
     { key: "nomor_tiket", label: "No. Tiket" },
@@ -16,9 +18,9 @@ export default function TiketMasuk() {
   ];
 
   return (
-    <div className="p-6">
+    <div className="space-y-4">
       <PageHeader title="Tiket Masuk" subtitle="Daftar tiket yang perlu ditangani" />
-      <Card className="p-4">{loading ? <TableSkeleton /> : <DataTable columns={columns as never} data={incoming as never} emptyMessage="Tidak ada tiket masuk" />}</Card>
+      <Card className="p-4"><DataTable columns={columns as never} data={incoming as never} emptyMessage="Tidak ada tiket masuk" /></Card>
     </div>
   );
 }

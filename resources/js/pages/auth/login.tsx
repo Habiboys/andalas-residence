@@ -1,7 +1,10 @@
-import { Form, Head } from '@inertiajs/react';
+import { Form, Head, Link } from '@inertiajs/react';
 import { useState } from 'react';
 import { KeyRound } from 'lucide-react';
 import { AndalasLogo } from '@/andalas/components/AndalasLogo';
+import { login } from '@/routes';
+import { store as loginStore } from '@/routes/login';
+import { request as passwordRequest } from '@/routes/password';
 import {
     AndalasAuthShell,
     AuthField,
@@ -29,7 +32,7 @@ export default function Login({ status, canResetPassword, ssoUrl }: Props) {
                 </div>
 
                 <div className="mb-6 text-center">
-                    <h1 className="mb-1 font-serif text-2xl text-base-content md:text-3xl">
+                    <h1 className="mb-1 font-sans text-2xl font-bold text-base-content md:text-3xl">
                         Masuk ke Portal
                     </h1>
                     <p className="text-sm text-muted">
@@ -41,7 +44,7 @@ export default function Login({ status, canResetPassword, ssoUrl }: Props) {
                  * The accent colour is spent here, on the one action this page
                  * actually exists for.
                  */}
-                <a href={ssoUrl || '/login'} className="btn btn-accent mb-6 w-full">
+                <a href={ssoUrl || login.url()} className="btn btn-accent mb-6 w-full">
                     <KeyRound className="size-4" aria-hidden="true" />
                     Login dengan SSO Unand
                 </a>
@@ -49,8 +52,7 @@ export default function Login({ status, canResetPassword, ssoUrl }: Props) {
                 <div className="divider mb-6 text-xs text-muted">atau login staff</div>
 
                 <Form
-                    action="/login"
-                    method="post"
+                    {...loginStore.form()}
                     resetOnSuccess={['password']}
                     className="flex flex-col gap-4"
                 >
@@ -91,9 +93,9 @@ export default function Login({ status, canResetPassword, ssoUrl }: Props) {
 
                             {canResetPassword && (
                                 <p className="text-center text-xs">
-                                    <a href="/forgot-password" className="link link-primary font-medium">
+                                    <Link href={passwordRequest()} className="link link-primary font-medium">
                                         Lupa password?
-                                    </a>
+                                    </Link>
                                 </p>
                             )}
                         </>

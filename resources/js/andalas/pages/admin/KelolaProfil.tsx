@@ -1,8 +1,7 @@
 import { useState } from "react";
-import { toast } from "sonner";
-import { PageHeader, Card, Button, Drawer, FormField, inputClass, StatusBadge, CardSkeleton } from "../../components/ui";
-import { useAndalasApi } from "../../hooks/useAndalasApi";
-import { andalasApi } from "../../lib/api";
+import { useForm } from "@inertiajs/react";
+import { PageHeader, Card, Button, Drawer, FormField, inputClass, StatusBadge } from "../../components/ui";
+import { update as contentsUpdate } from "@/routes/andalas/landing/contents";
 
 type Content = {
     id: string;
@@ -12,38 +11,30 @@ type Content = {
     published?: boolean;
 };
 
-export default function KelolaProfil() {
-    const { data, loading, reload } = useAndalasApi<Content[]>("/api/andalas/landing/contents");
-    const [edit, setEdit] = useState<Content | null>(null);
-    const [form, setForm] = useState<{ title: string; content: string; published: boolean }>({ title: "", content: "", published: true });
-    const [busy, setBusy] = useState(false);
+type Props = { contents: Content[] };
 
-    async function openEdit(item: Content) {
-        setForm({ title: item.title ?? "", content: item.content ?? "", published: item.published ?? true });
+const emptyForm = { title: "", content: "", published: true };
+
+export default function KelolaProfil({ contents }: Props) {
+    const [edit, setEdit] = useState<Content | null>(null);
+    const { data, setData, put, errors, processing, resetAndClearErrors, clearErrors } = useForm(emptyForm);
+
+    function openEdit(item: Content) {
+        setData({ title: item.title ?? "", content: item.content ?? "", published: item.published ?? true });
+        clearErrors();
         setEdit(item);
     }
 
-    async function save(e: React.FormEvent) {
+    function save(e: React.FormEvent) {
         e.preventDefault();
         if (!edit) return;
-        setBusy(true);
-        try {
-            await andalasApi.put(`/api/andalas/landing/contents/${edit.id}`, form);
-            setEdit(null);
-            await reload();
-            toast.success("Konten profil berhasil disimpan.");
-        } catch (e) {
-            toast.error(e instanceof Error ? e.message : "Gagal menyimpan konten");
-        } finally {
-            setBusy(false);
-        }
+        put(contentsUpdate.url({ id: edit.id }), { onSuccess: () => setEdit(null) });
     }
 
     return (
-        <div className="p-6 space-y-4">
+        <div className="space-y-4">
             <PageHeader title="Kelola Profil" subtitle="Edit konten bagian Profil (sejarah, visi misi, struktur organisasi)" />
-            {loading && <CardSkeleton items={3} />}
-            {(data ?? []).map((item) => (
+            {(contents ?? []).map((item) => (
                 <Card key={item.id} className="p-5">
                     <div className="flex justify-between items-start gap-4">
                         <div className="flex-1 min-w-0">
@@ -62,22 +53,23 @@ export default function KelolaProfil() {
             <Drawer
                 open={!!edit}
                 onClose={() => setEdit(null)}
-                        title={`Edit ${edit?.title ?? ""}`}
+                title={`Edit ${edit?.title ?? ""}`}
                 width="w-full max-w-xl"
                 footer={
                     <div className="flex justify-end gap-2">
-                        <Button variant="secondary" onClick={() => setEdit(null)}>Batal</Button>
-                        <Button type="submit" form="kelola-profil-form" disabled={busy}>Simpan</Button>
+                        <Button type="button" variant="secondary" onClick={() => setEdit(null)}>Batal</Button>
+                        <Button type="submit" form="kelola-profil-form" disabled={processing}>{processing ? "Menyimpan..." : "Simpan"}</Button>
                     </div>
                 }
             >
                 <form id="kelola-profil-form" onSubmit={save} className="space-y-3">
-                    <FormField label="Judul"><input className={inputClass} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required /></FormField>
+                    <FormField label="Judul"><input className={inputClass} value={data.title} onChange={(e) => setData("title", e.target.value)} required /></FormField>
+                    {errors.title && <p className="text-sm text-error">{errors.title}</p>}
                     <FormField label="Konten">
-                        <textarea rows={10} className={inputClass} value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} />
+                        <textarea rows={10} className={inputClass} value={data.content} onChange={(e) => setData("content", e.target.value)} />
                     </FormField>
                     <label className="flex items-center gap-2 text-sm">
-                        <input type="checkbox" checked={form.published} onChange={(e) => setForm({ ...form, published: e.target.checked })} />
+                        <input type="checkbox" checked={data.published} onChange={(e) => setData("published", e.target.checked)} />
                         Tampilkan di publik
                     </label>
                 </form>

@@ -1,26 +1,14 @@
-import { PageHeader, Card, Skeleton } from "../../components/ui";
-import { useAndalasApi } from "../../hooks/useAndalasApi";
-
+import { PageHeader, Card } from "../../components/ui";
 type Penempatan = {
   kamar?: { nomor_kamar?: string; status?: string; kapasitas?: number; tipe_kamar?: string; lantai?: { nama_lantai?: string; gedung?: { nama_gedung?: string } } };
   mahasiswa?: { user?: { nama?: string } };
 };
 
-export default function DetailKamar() {
-  const { data: penempatan, loading } = useAndalasApi<Penempatan[]>("/api/andalas/penempatan");
+export default function DetailKamar({ penempatan = [] }: { penempatan?: Penempatan[] }) {
   const mine = penempatan?.[0];
 
-  if (loading)
-    return (
-      <div className="p-6 space-y-3">
-        <Skeleton className="h-6 w-48" />
-        <Skeleton className="h-24 w-full" />
-        <Skeleton className="h-24 w-full" />
-      </div>
-    );
-
   return (
-    <div className="p-6">
+    <div className="space-y-4">
       <PageHeader title="Detail Kamar" subtitle="Informasi kamar hunian Anda" />
       {!mine ? (
         <Card className="p-6 text-muted">Anda belum ditempatkan ke kamar.</Card>

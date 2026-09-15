@@ -19,7 +19,7 @@ export default function KontakPage() {
                                 Hubungi Kami<br />Asrama Andalas Residence
                             </h2>
                             <p className="text-base-content/70 text-base leading-relaxed mb-10">
-                                Kami hadir untuk memenuhi segala kebutuhan Anda terkait hunian nyaman. Baik Anda mencari tempat tinggal, menyewa kamar, atau memesan ruang untuk jangka panjang, tim kami siap memberikan layanan terbaik.
+                                Butuh informasi tentang hunian, pendaftaran sebagai penghuni, atau layanan asrama lainnya? Kirim pesan lewat formulir di samping dan tim kami akan menghubungi Anda.
                             </p>
 
                             <div className="space-y-5">
@@ -47,7 +47,7 @@ export default function KontakPage() {
                                     </div>
                                     <div>
                                         <div className="font-semibold text-base-content text-sm">Telepon</div>
-                                        <p className="text-base-content/70 text-sm mt-0.5">(+62) 812-3456-7890</p>
+                                        <p className="text-base-content/70 text-sm mt-0.5">(0751) 71111</p>
                                     </div>
                                 </div>
                             </div>
@@ -57,11 +57,26 @@ export default function KontakPage() {
                         <div className="bg-base-100 border border-base-300 rounded-lg p-8">
                             <h3 className="font-semibold text-base-content text-lg mb-1">Kirimkan Pesan</h3>
                             <p className="text-base-content/70 text-sm mb-6">Isi formulir di bawah ini dan tim kami akan segera menghubungi Anda.</p>
-                            <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
+                            <form
+                                className="space-y-4"
+                                onSubmit={(e) => {
+                                    e.preventDefault();
+                                    const fd = new FormData(e.currentTarget);
+                                    const subject = String(fd.get("subjek") ?? "");
+                                    const body = [
+                                        fd.get("nama_depan"),
+                                        fd.get("nama_belakang"),
+                                        fd.get("email"),
+                                        fd.get("nomor_hp"),
+                                        fd.get("pesan"),
+                                    ].filter(Boolean).join("\n");
+                                    window.location.href = `mailto:andalasresidence@unand.ac.id?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+                                }}
+                            >
                                 <div className="grid sm:grid-cols-2 gap-4">
                                     <div>
                                         <label htmlFor="nama-depan" className="text-xs font-medium text-base-content/70 uppercase tracking-wide">Nama Depan</label>
-                                        <input id="nama-depan" name="nama_depan" autoComplete="given-name" className="input input-bordered input-sm mt-1 w-full" placeholder="Nama depan" />
+                                        <input id="nama-depan" name="nama_depan" required autoComplete="given-name" className="input input-bordered input-sm mt-1 w-full" placeholder="Nama depan" />
                                     </div>
                                     <div>
                                         <label htmlFor="nama-belakang" className="text-xs font-medium text-base-content/70 uppercase tracking-wide">Nama Belakang</label>
@@ -71,7 +86,7 @@ export default function KontakPage() {
                                 <div className="grid sm:grid-cols-2 gap-4">
                                     <div>
                                         <label htmlFor="email" className="text-xs font-medium text-base-content/70 uppercase tracking-wide">Email</label>
-                                        <input id="email" name="email" type="email" autoComplete="email" className="input input-bordered input-sm mt-1 w-full" placeholder="email@example.com" />
+                                        <input id="email" name="email" type="email" required autoComplete="email" className="input input-bordered input-sm mt-1 w-full" placeholder="email@example.com" />
                                     </div>
                                     <div>
                                         <label htmlFor="nomor-hp" className="text-xs font-medium text-base-content/70 uppercase tracking-wide">Nomor HP</label>
@@ -80,11 +95,11 @@ export default function KontakPage() {
                                 </div>
                                 <div>
                                     <label htmlFor="subjek" className="text-xs font-medium text-base-content/70 uppercase tracking-wide">Subjek</label>
-                                    <input id="subjek" name="subjek" className="input input-bordered input-sm mt-1 w-full" placeholder="Subjek pesan" />
+                                    <input id="subjek" name="subjek" required className="input input-bordered input-sm mt-1 w-full" placeholder="Subjek pesan" />
                                 </div>
                                 <div>
                                     <label htmlFor="pesan" className="text-xs font-medium text-base-content/70 uppercase tracking-wide">Pesan</label>
-                                    <textarea id="pesan" name="pesan" rows={4} className="textarea textarea-bordered mt-1 w-full" placeholder="Tulis pesan Anda" />
+                                    <textarea id="pesan" name="pesan" rows={4} required className="textarea textarea-bordered mt-1 w-full" placeholder="Tulis pesan Anda" />
                                 </div>
                                 <button type="submit" className="btn btn-primary btn-sm w-full">
                                     Kirim Pesan

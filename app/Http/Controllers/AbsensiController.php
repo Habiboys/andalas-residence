@@ -4,27 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Models\AbsensiSholat;
 use App\Models\MahasiswaProfil;
-use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
 class AbsensiController extends Controller
 {
-    public function index(Request $request): JsonResponse
-    {
-        $this->authorizePermission($request, 'absensi.view');
-
-        $query = AbsensiSholat::with(['mahasiswa.user', 'scanner']);
-
-        if ($request->filled('tanggal')) {
-            $query->whereDate('tanggal', $request->tanggal);
-        } else {
-            $query->whereDate('tanggal', now()->toDateString());
-        }
-
-        return response()->json($query->latest('waktu_scan')->get());
-    }
-
-    public function scan(Request $request): JsonResponse
+    public function scan(Request $request): RedirectResponse
     {
         $this->authorizePermission($request, 'absensi.scan');
 
@@ -48,10 +33,17 @@ class AbsensiController extends Controller
             ]
         );
 
-        return response()->json([
+        $result = [
             'absensi' => $absensi,
             'mahasiswa' => $mhs->load('user'),
             'already_scanned' => ! $absensi->wasRecentlyCreated,
+        ];
+
+        return redirect()->back()->with('scan_result', $result)->with('toast', [
+            'type' => $result['already_scanned'] ? 'info' : 'success',
+            'message' => $result['already_scanned']
+                ? "{$mhs->nama} sudah scan hari ini."
+                : "Scan berhasil untuk {$mhs->nama}.",
         ]);
     }
 }

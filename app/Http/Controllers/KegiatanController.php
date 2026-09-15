@@ -3,19 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\Kegiatan;
-use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
 class KegiatanController extends Controller
 {
-    public function index(Request $request): JsonResponse
-    {
-        $this->authorizePermission($request, 'kegiatan.view');
-
-        return response()->json(Kegiatan::with('partisipan')->latest('tanggal_mulai')->get());
-    }
-
-    public function store(Request $request): JsonResponse
+    public function store(Request $request): RedirectResponse
     {
         $this->authorizePermission($request, 'kegiatan.manage');
 
@@ -33,10 +26,13 @@ class KegiatanController extends Controller
             'dibuat_oleh' => $request->user()->id,
         ]);
 
-        return response()->json($kegiatan, 201);
+        return redirect()->back()->with('toast', [
+            'type' => 'success',
+            'message' => "Kegiatan {$kegiatan->judul} berhasil dibuat.",
+        ]);
     }
 
-    public function update(Request $request, Kegiatan $kegiatan): JsonResponse
+    public function update(Request $request, Kegiatan $kegiatan): RedirectResponse
     {
         $this->authorizePermission($request, 'kegiatan.manage');
 
@@ -51,14 +47,20 @@ class KegiatanController extends Controller
 
         $kegiatan->update($validated);
 
-        return response()->json($kegiatan);
+        return redirect()->back()->with('toast', [
+            'type' => 'success',
+            'message' => "Kegiatan {$kegiatan->judul} diperbarui.",
+        ]);
     }
 
-    public function destroy(Request $request, Kegiatan $kegiatan): JsonResponse
+    public function destroy(Request $request, Kegiatan $kegiatan): RedirectResponse
     {
         $this->authorizePermission($request, 'kegiatan.manage');
         $kegiatan->delete();
 
-        return response()->json(['ok' => true]);
+        return redirect()->back()->with('toast', [
+            'type' => 'success',
+            'message' => 'Kegiatan dihapus.',
+        ]);
     }
 }

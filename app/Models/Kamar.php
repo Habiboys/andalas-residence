@@ -16,18 +16,27 @@ class Kamar extends BaseModel
         return ['tarif_per_periode' => 'decimal:2'];
     }
 
+    /** @return BelongsTo<Lantai, $this> */
     public function lantai(): BelongsTo
     {
         return $this->belongsTo(Lantai::class);
     }
 
+    /** @return HasMany<PenempatanKamar, $this> */
     public function penempatanKamar(): HasMany
     {
         return $this->hasMany(PenempatanKamar::class);
     }
 
+    /** @return HasMany<Aset, $this> */
     public function aset(): HasMany
     {
         return $this->hasMany(Aset::class);
+    }
+
+    /** @return HasMany<RoomPreference, $this> */
+    public function roomPreferences(): HasMany
+    {
+        return $this->hasMany(RoomPreference::class);
     }
 }

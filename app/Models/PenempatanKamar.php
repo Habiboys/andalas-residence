@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class PenempatanKamar extends BaseModel
 {
@@ -21,18 +22,33 @@ class PenempatanKamar extends BaseModel
         ];
     }
 
+    /** @return BelongsTo<MahasiswaProfil, $this> */
     public function mahasiswa(): BelongsTo
     {
         return $this->belongsTo(MahasiswaProfil::class, 'mahasiswa_id');
     }
 
+    /** @return BelongsTo<Kamar, $this> */
     public function kamar(): BelongsTo
     {
         return $this->belongsTo(Kamar::class);
     }
 
+    /** @return BelongsTo<Periode, $this> */
     public function periode(): BelongsTo
     {
         return $this->belongsTo(Periode::class);
+    }
+
+    /** @return HasMany<CheckoutRequest, $this> */
+    public function checkoutRequests(): HasMany
+    {
+        return $this->hasMany(CheckoutRequest::class);
+    }
+
+    /** @return HasMany<Checkin, $this> */
+    public function checkins(): HasMany
+    {
+        return $this->hasMany(Checkin::class);
     }
 }

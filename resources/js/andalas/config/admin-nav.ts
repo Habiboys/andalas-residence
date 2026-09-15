@@ -50,16 +50,15 @@ export const ANDALAS_ADMIN_NAV: AndalasAdminNavItem[] = [
 ];
 
 export function andalasAppHref(page: string): string {
-    return page === 'dashboard' ? '/app' : `/app?p=${page}`;
+    const slug = page === 'data-mahasiswa' ? 'mahasiswa' : page;
+
+    return `/admin/${slug}`;
 }
 
 export function currentAndalasPage(url: string): string {
-    try {
-        const params = new URL(url, 'http://localhost').searchParams;
-        return params.get('p') ?? 'dashboard';
-    } catch {
-        return 'dashboard';
-    }
+    const slug = url.split('?')[0]?.split('/').filter(Boolean).at(-1) ?? 'dashboard';
+
+    return slug === 'mahasiswa' ? 'data-mahasiswa' : slug;
 }
 
 export function filterAdminNav(isSuperadmin: boolean): AndalasAdminNavItem[] {

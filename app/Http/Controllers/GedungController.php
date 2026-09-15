@@ -3,19 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\Gedung;
-use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
 class GedungController extends Controller
 {
-    public function index(Request $request): JsonResponse
-    {
-        $this->authorizePermission($request, 'gedung.view');
-
-        return response()->json(Gedung::with(['lantai.kamar.penempatanKamar.mahasiswa.user'])->get());
-    }
-
-    public function store(Request $request): JsonResponse
+    public function store(Request $request): RedirectResponse
     {
         $this->authorizePermission($request, 'gedung.manage');
 
@@ -32,10 +25,15 @@ class GedungController extends Controller
             $validated['foto'] = $request->file('foto')->store('gedung', 'public');
         }
 
-        return response()->json(Gedung::create($validated), 201);
+        $gedung = Gedung::create($validated);
+
+        return redirect()->back()->with('toast', [
+            'type' => 'success',
+            'message' => "Gedung {$gedung->nama_gedung} berhasil ditambahkan.",
+        ]);
     }
 
-    public function update(Request $request, Gedung $gedung): JsonResponse
+    public function update(Request $request, Gedung $gedung): RedirectResponse
     {
         $this->authorizePermission($request, 'gedung.manage');
 
@@ -54,14 +52,20 @@ class GedungController extends Controller
 
         $gedung->update($validated);
 
-        return response()->json($gedung);
+        return redirect()->back()->with('toast', [
+            'type' => 'success',
+            'message' => "Gedung {$gedung->nama_gedung} diperbarui.",
+        ]);
     }
 
-    public function destroy(Request $request, Gedung $gedung): JsonResponse
+    public function destroy(Request $request, Gedung $gedung): RedirectResponse
     {
         $this->authorizePermission($request, 'gedung.manage');
         $gedung->delete();
 
-        return response()->json(['ok' => true]);
+        return redirect()->back()->with('toast', [
+            'type' => 'success',
+            'message' => 'Gedung dihapus.',
+        ]);
     }
 }

@@ -1,19 +1,16 @@
 import { PageHeader, StatCard, Card } from "../../components/ui";
-import { useAndalasApi } from "../../hooks/useAndalasApi";
-import type { DashboardStats } from "../../lib/api";
+import type { DashboardStats } from "../../lib/types";
 import { formatRupiah } from "../../lib/format";
 
 type TransaksiRow = { tipe?: string; nominal?: number };
 
-export default function DashboardEksekutif() {
-  const { data: stats } = useAndalasApi<DashboardStats>("/api/andalas/dashboard");
-  const { data: keuangan } = useAndalasApi<TransaksiRow[]>("/api/andalas/keuangan");
+export default function DashboardEksekutif({ stats, keuangan = [] }: { stats?: DashboardStats; keuangan?: TransaksiRow[] }) {
 
   const pemasukan = (keuangan ?? []).filter((t) => t.tipe === "pemasukan").reduce((s, t) => s + Number(t.nominal ?? 0), 0);
   const pengeluaran = (keuangan ?? []).filter((t) => t.tipe === "pengeluaran").reduce((s, t) => s + Number(t.nominal ?? 0), 0);
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       <PageHeader title="Dashboard Eksekutif" subtitle="Mode analitik pimpinan asrama" />
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <StatCard label="Penghuni Aktif" value={stats?.penghuni_aktif ?? 0} color="green" />

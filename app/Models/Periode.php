@@ -18,8 +18,15 @@ class Periode extends BaseModel
         ];
     }
 
+    /** @return HasMany<MahasiswaProfil, $this> */
     public function mahasiswaProfil(): HasMany
     {
         return $this->hasMany(MahasiswaProfil::class);
+    }
+
+    /** @return HasMany<ResidenceRegistration, $this> */
+    public function residenceRegistrations(): HasMany
+    {
+        return $this->hasMany(ResidenceRegistration::class);
     }
 }

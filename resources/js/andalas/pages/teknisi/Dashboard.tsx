@@ -1,15 +1,12 @@
 import { PageHeader, StatCard, Card } from "../../components/ui";
-import { useAndalasApi } from "../../hooks/useAndalasApi";
-
 type TiketRow = { id: string; status?: string };
 
-export default function TeknisiDashboard() {
-  const { data: tiket } = useAndalasApi<TiketRow[]>("/api/andalas/tiket");
+export default function TeknisiDashboard({ tiket = [] }: { tiket?: TiketRow[] }) {
   const aktif = (tiket ?? []).filter((t) => !["selesai", "dibatalkan"].includes(t.status ?? "")).length;
   const selesai = (tiket ?? []).filter((t) => t.status === "selesai").length;
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       <PageHeader title="Dashboard Teknisi" subtitle="Ringkasan tiket maintenance" />
       <div className="grid grid-cols-2 gap-4 max-w-lg">
         <StatCard label="Tiket Aktif" value={aktif} color="red" />

@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\MahasiswaProfil;
 use App\Models\User;
 use App\Services\AuditLogService;
-use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -13,16 +13,7 @@ use Illuminate\Support\Str;
 
 class MahasiswaController extends Controller
 {
-    public function index(Request $request): JsonResponse
-    {
-        $this->authorizePermission($request, 'mahasiswa.view');
-
-        return response()->json(
-            MahasiswaProfil::with(['user', 'prodi', 'periode', 'penempatanKamar.kamar.lantai.gedung'])->get()
-        );
-    }
-
-    public function store(Request $request): JsonResponse
+    public function store(Request $request): RedirectResponse
     {
         $this->authorizePermission($request, 'mahasiswa.create');
 
@@ -61,10 +52,13 @@ class MahasiswaController extends Controller
 
         AuditLogService::log($request->user(), 'create_mahasiswa', $mhs, null, $mhs->toArray(), $request);
 
-        return response()->json($mhs->load(['user', 'prodi', 'periode']), 201);
+        return redirect()->back()->with('toast', [
+            'type' => 'success',
+            'message' => "Mahasiswa {$validated['nama']} berhasil ditambahkan.",
+        ]);
     }
 
-    public function update(Request $request, MahasiswaProfil $mahasiswa): JsonResponse
+    public function update(Request $request, MahasiswaProfil $mahasiswa): RedirectResponse
     {
         $this->authorizePermission($request, 'mahasiswa.update');
 
@@ -95,10 +89,13 @@ class MahasiswaController extends Controller
             }
         });
 
-        return response()->json($mahasiswa->fresh(['user', 'prodi', 'periode']));
+        return redirect()->back()->with('toast', [
+            'type' => 'success',
+            'message' => "Mahasiswa {$mahasiswa->user?->nama} diperbarui.",
+        ]);
     }
 
-    public function destroy(Request $request, MahasiswaProfil $mahasiswa): JsonResponse
+    public function destroy(Request $request, MahasiswaProfil $mahasiswa): RedirectResponse
     {
         $this->authorizePermission($request, 'mahasiswa.delete');
 
@@ -108,6 +105,9 @@ class MahasiswaController extends Controller
             $user?->delete();
         });
 
-        return response()->json(['ok' => true]);
+        return redirect()->back()->with('toast', [
+            'type' => 'success',
+            'message' => 'Mahasiswa dihapus.',
+        ]);
     }
 }

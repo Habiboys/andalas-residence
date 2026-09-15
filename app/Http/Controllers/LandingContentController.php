@@ -8,21 +8,14 @@ use App\Models\Program;
 use App\Models\ProgramSub;
 use App\Models\Testimoni;
 use App\Services\LandingContentService;
-use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
 class LandingContentController extends Controller
 {
     // ─── Profil sections (landing_contents) ───────────────────────────────
 
-    public function listContents(): JsonResponse
-    {
-        $this->authorizePermission(request(), 'landing.manage');
-
-        return response()->json(LandingContentService::contents());
-    }
-
-    public function updateContent(Request $request, LandingContent $content): JsonResponse
+    public function updateContent(Request $request, LandingContent $content): RedirectResponse
     {
         $this->authorizePermission(request(), 'landing.manage');
 
@@ -34,47 +27,53 @@ class LandingContentController extends Controller
             'published' => 'sometimes|boolean',
         ]);
 
-        return response()->json(LandingContentService::updateContent($content, $validated));
+        $result = LandingContentService::updateContent($content, $validated);
+
+        return redirect()->back()->with('toast', [
+            'type' => 'success',
+            'message' => 'Konten profil berhasil diperbarui.',
+        ]);
     }
 
     // ─── Informasi (regulasi / sop / panduan / pengumuman) ────────────────
 
-    public function listInformasi(Request $request): JsonResponse
-    {
-        $this->authorizePermission(request(), 'landing.manage');
-
-        return response()->json(LandingContentService::informasi($request->query('kategori')));
-    }
-
-    public function storeInformasi(Request $request): JsonResponse
+    public function storeInformasi(Request $request): RedirectResponse
     {
         $this->authorizePermission(request(), 'landing.manage');
 
         $validated = $this->validateInformasi($request);
 
-        return response()->json(
-            LandingContentService::storeInformasi($validated, $request->file('file')),
-            201,
-        );
+        $informasi = LandingContentService::storeInformasi($validated, $request->file('file'));
+
+        return redirect()->back()->with('toast', [
+            'type' => 'success',
+            'message' => "Informasi {$informasi->judul} berhasil ditambahkan.",
+        ]);
     }
 
-    public function updateInformasi(Request $request, Informasi $informasi): JsonResponse
+    public function updateInformasi(Request $request, Informasi $informasi): RedirectResponse
     {
         $this->authorizePermission(request(), 'landing.manage');
 
         $validated = $this->validateInformasi($request, true);
 
-        return response()->json(
-            LandingContentService::updateInformasi($informasi, $validated, $request->file('file')),
-        );
+        $result = LandingContentService::updateInformasi($informasi, $validated, $request->file('file'));
+
+        return redirect()->back()->with('toast', [
+            'type' => 'success',
+            'message' => "Informasi {$informasi->judul} diperbarui.",
+        ]);
     }
 
-    public function destroyInformasi(Informasi $informasi): JsonResponse
+    public function destroyInformasi(Request $request, Informasi $informasi): RedirectResponse
     {
         $this->authorizePermission(request(), 'landing.manage');
         LandingContentService::destroyInformasi($informasi);
 
-        return response()->json(['ok' => true]);
+        return redirect()->back()->with('toast', [
+            'type' => 'success',
+            'message' => 'Informasi dihapus.',
+        ]);
     }
 
     private function validateInformasi(Request $request, bool $update = false): array
@@ -92,37 +91,43 @@ class LandingContentController extends Controller
 
     // ─── Program + sub-program ────────────────────────────────────────────
 
-    public function listPrograms(): JsonResponse
-    {
-        $this->authorizePermission(request(), 'landing.manage');
-
-        return response()->json(LandingContentService::programs());
-    }
-
-    public function storeProgram(Request $request): JsonResponse
+    public function storeProgram(Request $request): RedirectResponse
     {
         $this->authorizePermission(request(), 'landing.manage');
 
         $validated = $this->validateProgram($request);
 
-        return response()->json(LandingContentService::storeProgram($validated), 201);
+        $program = LandingContentService::storeProgram($validated);
+
+        return redirect()->back()->with('toast', [
+            'type' => 'success',
+            'message' => "Program {$program->nama} berhasil ditambahkan.",
+        ]);
     }
 
-    public function updateProgram(Request $request, Program $program): JsonResponse
+    public function updateProgram(Request $request, Program $program): RedirectResponse
     {
         $this->authorizePermission(request(), 'landing.manage');
 
         $validated = $this->validateProgram($request);
 
-        return response()->json(LandingContentService::updateProgram($program, $validated));
+        $result = LandingContentService::updateProgram($program, $validated);
+
+        return redirect()->back()->with('toast', [
+            'type' => 'success',
+            'message' => "Program {$program->nama} diperbarui.",
+        ]);
     }
 
-    public function destroyProgram(Program $program): JsonResponse
+    public function destroyProgram(Request $request, Program $program): RedirectResponse
     {
         $this->authorizePermission(request(), 'landing.manage');
         LandingContentService::destroyProgram($program);
 
-        return response()->json(['ok' => true]);
+        return redirect()->back()->with('toast', [
+            'type' => 'success',
+            'message' => 'Program dihapus.',
+        ]);
     }
 
     private function validateProgram(Request $request): array
@@ -136,35 +141,43 @@ class LandingContentController extends Controller
         ]);
     }
 
-    public function storeProgramSub(Request $request): JsonResponse
+    public function storeProgramSub(Request $request): RedirectResponse
     {
         $this->authorizePermission(request(), 'landing.manage');
 
         $validated = $this->validateProgramSub($request);
 
-        return response()->json(
-            LandingContentService::storeProgramSub($validated, $request->file('gambar')),
-            201,
-        );
+        $programSub = LandingContentService::storeProgramSub($validated, $request->file('gambar'));
+
+        return redirect()->back()->with('toast', [
+            'type' => 'success',
+            'message' => "Sub-program {$programSub->judul} berhasil ditambahkan.",
+        ]);
     }
 
-    public function updateProgramSub(Request $request, ProgramSub $programSub): JsonResponse
+    public function updateProgramSub(Request $request, ProgramSub $programSub): RedirectResponse
     {
         $this->authorizePermission(request(), 'landing.manage');
 
         $validated = $this->validateProgramSub($request);
 
-        return response()->json(
-            LandingContentService::updateProgramSub($programSub, $validated, $request->file('gambar')),
-        );
+        $result = LandingContentService::updateProgramSub($programSub, $validated, $request->file('gambar'));
+
+        return redirect()->back()->with('toast', [
+            'type' => 'success',
+            'message' => "Sub-program {$programSub->judul} diperbarui.",
+        ]);
     }
 
-    public function destroyProgramSub(ProgramSub $programSub): JsonResponse
+    public function destroyProgramSub(Request $request, ProgramSub $programSub): RedirectResponse
     {
         $this->authorizePermission(request(), 'landing.manage');
         LandingContentService::destroyProgramSub($programSub);
 
-        return response()->json(['ok' => true]);
+        return redirect()->back()->with('toast', [
+            'type' => 'success',
+            'message' => 'Sub-program dihapus.',
+        ]);
     }
 
     private function validateProgramSub(Request $request): array
@@ -185,42 +198,43 @@ class LandingContentController extends Controller
 
     // ─── Testimoni ────────────────────────────────────────────────────────
 
-    public function listTestimoni(): JsonResponse
-    {
-        $this->authorizePermission(request(), 'landing.manage');
-
-        return response()->json(LandingContentService::testimonials());
-    }
-
-    public function storeTestimoni(Request $request): JsonResponse
+    public function storeTestimoni(Request $request): RedirectResponse
     {
         $this->authorizePermission(request(), 'landing.manage');
 
         $validated = $this->validateTestimoni($request);
 
-        return response()->json(
-            LandingContentService::storeTestimoni($validated, $request->file('foto')),
-            201,
-        );
+        $testimoni = LandingContentService::storeTestimoni($validated, $request->file('foto'));
+
+        return redirect()->back()->with('toast', [
+            'type' => 'success',
+            'message' => "Testimoni {$testimoni->nama} berhasil ditambahkan.",
+        ]);
     }
 
-    public function updateTestimoni(Request $request, Testimoni $testimoni): JsonResponse
+    public function updateTestimoni(Request $request, Testimoni $testimoni): RedirectResponse
     {
         $this->authorizePermission(request(), 'landing.manage');
 
         $validated = $this->validateTestimoni($request);
 
-        return response()->json(
-            LandingContentService::updateTestimoni($testimoni, $validated, $request->file('foto')),
-        );
+        $result = LandingContentService::updateTestimoni($testimoni, $validated, $request->file('foto'));
+
+        return redirect()->back()->with('toast', [
+            'type' => 'success',
+            'message' => "Testimoni {$testimoni->nama} diperbarui.",
+        ]);
     }
 
-    public function destroyTestimoni(Testimoni $testimoni): JsonResponse
+    public function destroyTestimoni(Request $request, Testimoni $testimoni): RedirectResponse
     {
         $this->authorizePermission(request(), 'landing.manage');
         LandingContentService::destroyTestimoni($testimoni);
 
-        return response()->json(['ok' => true]);
+        return redirect()->back()->with('toast', [
+            'type' => 'success',
+            'message' => 'Testimoni dihapus.',
+        ]);
     }
 
     private function validateTestimoni(Request $request): array

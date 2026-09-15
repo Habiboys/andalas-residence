@@ -3,12 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\Checkin;
-use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
 class CheckinController extends Controller
 {
-    public function store(Request $request): JsonResponse
+    public function store(Request $request): RedirectResponse
     {
         $this->authorizePermission($request, 'checkin.create');
 
@@ -26,6 +26,9 @@ class CheckinController extends Controller
             'status' => 'menunggu_verifikasi_pembayaran',
         ]);
 
-        return response()->json($checkin, 201);
+        return redirect()->back()->with('toast', [
+            'type' => 'success',
+            'message' => 'Check-in berhasil diajukan. Lanjutkan pembayaran untuk verifikasi.',
+        ]);
     }
 }

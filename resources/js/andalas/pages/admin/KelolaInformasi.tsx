@@ -1,8 +1,7 @@
 import { useState } from "react";
-import { toast } from "sonner";
-import { PageHeader, Card, Button, Drawer, FormField, inputClass, StatusBadge, CardSkeleton, ConfirmDialog } from "../../components/ui";
-import { useAndalasApi } from "../../hooks/useAndalasApi";
-import { andalasApi } from "../../lib/api";
+import { useForm, router } from "@inertiajs/react";
+import { PageHeader, Card, Button, Drawer, FormField, inputClass, StatusBadge, ConfirmDialog, RowActions } from "../../components/ui";
+import { store as infoStore, update as infoUpdate, destroy as infoDestroy } from "@/routes/andalas/landing/informasi";
 
 type Item = {
     id: string;
@@ -14,87 +13,64 @@ type Item = {
     published?: boolean;
 };
 
+type Props = { informasi: Item[] };
+
 const KATEGORI = ["regulasi", "sop", "panduan", "pengumuman"];
 const KATEGORI_LABEL: Record<string, string> = { regulasi: "Regulasi", sop: "SOP", panduan: "Panduan", pengumuman: "Pengumuman" };
 
-const emptyForm = { kategori: "regulasi", judul: "", konten: "", tanggal: "", published: true };
+const emptyForm = { kategori: "regulasi", judul: "", konten: "", tanggal: "", published: true, file: null as File | null };
 
-export default function KelolaInformasi() {
+export default function KelolaInformasi({ informasi }: Props) {
     const [kategori, setKategori] = useState<string>("semua");
-    const { data, loading, reload } = useAndalasApi<Item[]>(`/api/andalas/landing/informasi${kategori === "semua" ? "" : `?kategori=${kategori}`}`);
     const [modal, setModal] = useState(false);
     const [editing, setEditing] = useState<Item | null>(null);
-    const [form, setForm] = useState({ ...emptyForm });
-    const [file, setFile] = useState<File | null>(null);
-    const [busy, setBusy] = useState(false);
     const [deleting, setDeleting] = useState<Item | null>(null);
     const [deletingBusy, setDeletingBusy] = useState(false);
+    const { data, setData, post, put, errors, processing, resetAndClearErrors, clearErrors } = useForm(emptyForm);
+
+    const filteredData = (informasi ?? []).filter((item) => kategori === "semua" || item.kategori === kategori);
 
     function openCreate() {
         setEditing(null);
-        setForm({ ...emptyForm, kategori: kategori === "semua" ? "regulasi" : kategori });
-        setFile(null);
+        resetAndClearErrors();
+        setData("kategori", kategori === "semua" ? "regulasi" : kategori);
         setModal(true);
     }
 
     function openEdit(item: Item) {
         setEditing(item);
-        setForm({
+        setData({
             kategori: item.kategori ?? "regulasi",
             judul: item.judul ?? "",
             konten: item.konten ?? "",
             tanggal: item.tanggal ?? "",
             published: item.published ?? true,
+            file: null,
         });
-        setFile(null);
+        clearErrors();
         setModal(true);
     }
 
-    async function save(e: React.FormEvent) {
+    function save(e: React.FormEvent) {
         e.preventDefault();
-        setBusy(true);
-        try {
-            const fd = new FormData();
-            fd.append("kategori", form.kategori);
-            fd.append("judul", form.judul);
-            fd.append("konten", form.konten);
-            if (form.tanggal) fd.append("tanggal", form.tanggal);
-            fd.append("published", form.published ? "1" : "0");
-            if (file) fd.append("file", file);
-
-            if (editing) {
-                fd.append("_method", "PUT");
-                await andalasApi.post(`/api/andalas/landing/informasi/${editing.id}`, fd);
-            } else {
-                await andalasApi.post("/api/andalas/landing/informasi", fd);
-            }
-            setModal(false);
-            await reload();
-            toast.success(editing ? "Informasi berhasil diperbarui." : "Informasi berhasil ditambahkan.");
-        } catch (err) {
-            toast.error(err instanceof Error ? err.message : "Gagal menyimpan");
-        } finally {
-            setBusy(false);
+        if (editing) {
+            put(infoUpdate.url({ id: editing.id }), { onSuccess: () => setModal(false) });
+        } else {
+            post(infoStore.url(), { onSuccess: () => setModal(false) });
         }
     }
 
-    async function confirmDelete() {
+    function confirmDelete() {
         if (!deleting) return;
         setDeletingBusy(true);
-        try {
-            await andalasApi.delete(`/api/andalas/landing/informasi/${deleting.id}`);
-            toast.success("Informasi berhasil dihapus.");
-            setDeleting(null);
-            await reload();
-        } catch (err) {
-            toast.error(err instanceof Error ? err.message : "Gagal menghapus");
-        } finally {
-            setDeletingBusy(false);
-        }
+        router.delete(infoDestroy.url({ id: deleting.id }), {
+            onSuccess: () => setDeleting(null),
+            onFinish: () => setDeletingBusy(false),
+        });
     }
 
     return (
-        <div className="p-6 space-y-4">
+        <div className="space-y-4">
             <PageHeader
                 title="Kelola Informasi"
                 subtitle="Regulasi, SOP, Panduan, dan Pengumuman"
@@ -112,8 +88,7 @@ export default function KelolaInformasi() {
                 ))}
             </div>
 
-            {loading && <CardSkeleton items={2} />}
-            {(data ?? []).map((item) => (
+            {filteredData.map((item) => (
                 <Card key={item.id} className="p-5">
                     <div className="flex justify-between items-start gap-4">
                         <div className="flex-1 min-w-0">
@@ -128,8 +103,7 @@ export default function KelolaInformasi() {
                             </div>
                         </div>
                         <div className="flex gap-2 flex-shrink-0">
-                            <Button size="sm" variant="secondary" onClick={() => openEdit(item)}>Edit</Button>
-                            <Button size="sm" variant="danger" onClick={() => setDeleting(item)}>Hapus</Button>
+                            <RowActions onEdit={() => openEdit(item)} onDelete={() => setDeleting(item)} />
                         </div>
                     </div>
                 </Card>
@@ -142,30 +116,33 @@ export default function KelolaInformasi() {
                 width="w-full max-w-xl"
                 footer={
                     <div className="flex justify-end gap-2">
-                        <Button variant="secondary" onClick={() => setModal(false)}>Batal</Button>
-                        <Button type="submit" form="kelola-informasi-form" disabled={busy}>Simpan</Button>
+                        <Button type="button" variant="secondary" onClick={() => setModal(false)}>Batal</Button>
+                        <Button type="submit" form="kelola-informasi-form" disabled={processing}>{processing ? "Menyimpan..." : "Simpan"}</Button>
                     </div>
                 }
             >
                 <form id="kelola-informasi-form" onSubmit={save} className="space-y-3">
                     <FormField label="Kategori">
-                        <select className={inputClass} value={form.kategori} onChange={(e) => setForm({ ...form, kategori: e.target.value })}>
+                        <select className={inputClass} value={data.kategori} onChange={(e) => setData("kategori", e.target.value)}>
                             {KATEGORI.map((k) => <option key={k} value={k}>{KATEGORI_LABEL[k]}</option>)}
                         </select>
+                        {errors.kategori && <p className="text-sm text-error">{errors.kategori}</p>}
                     </FormField>
-                    <FormField label="Judul"><input className={inputClass} value={form.judul} onChange={(e) => setForm({ ...form, judul: e.target.value })} required /></FormField>
+                    <FormField label="Judul"><input className={inputClass} value={data.judul} onChange={(e) => setData("judul", e.target.value)} required /></FormField>
+                    {errors.judul && <p className="text-sm text-error">{errors.judul}</p>}
                     <FormField label="Konten">
-                        <textarea rows={8} className={inputClass} value={form.konten} onChange={(e) => setForm({ ...form, konten: e.target.value })} />
+                        <textarea rows={8} className={inputClass} value={data.konten} onChange={(e) => setData("konten", e.target.value)} />
                     </FormField>
                     <FormField label="Tanggal">
-                        <input type="date" className={inputClass} value={form.tanggal} onChange={(e) => setForm({ ...form, tanggal: e.target.value })} />
+                        <input type="date" className={inputClass} value={data.tanggal} onChange={(e) => setData("tanggal", e.target.value)} />
                     </FormField>
                     <FormField label="File (opsional)">
-                        <input type="file" className={inputClass} onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+                        <input type="file" className={inputClass} onChange={(e) => setData("file", e.target.files?.[0] ?? null)} />
                         {editing?.file && <p className="text-xs text-muted">File saat ini: {editing.file}</p>}
+                        {errors.file && <p className="text-sm text-error">{errors.file}</p>}
                     </FormField>
                     <label className="flex items-center gap-2 text-sm">
-                        <input type="checkbox" checked={form.published} onChange={(e) => setForm({ ...form, published: e.target.checked })} />
+                        <input type="checkbox" checked={data.published} onChange={(e) => setData("published", e.target.checked)} />
                         Tampilkan di publik
                     </label>
                 </form>

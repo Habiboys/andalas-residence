@@ -1,35 +1,27 @@
-import { useState } from "react";
-import { toast } from "sonner";
+import { useForm } from "@inertiajs/react";
 import { PageHeader, Card, Button, FormField, inputClass } from "../../components/ui";
-import { andalasApi } from "../../lib/api";
+import { store as laporanStore } from "@/routes/andalas/laporan";
 
 export default function LaporKerusakan() {
-  const [deskripsi, setDeskripsi] = useState("");
-  const [busy, setBusy] = useState(false);
+  const { data, setData, post, processing, errors, reset } = useForm({ deskripsi: "" });
 
-  async function submit(e: React.FormEvent) {
+  function submit(e: React.FormEvent) {
     e.preventDefault();
-    setBusy(true);
-    try {
-      const res = await andalasApi.post<{ nomor_tiket?: string }>("/api/andalas/laporan-kerusakan", { deskripsi });
-      toast.success(`Tiket ${res.nomor_tiket ?? ""} berhasil dibuat.`);
-      setDeskripsi("");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Gagal melaporkan");
-    } finally {
-      setBusy(false);
-    }
+    post(laporanStore.url(), {
+      onSuccess: () => reset(),
+    });
   }
 
   return (
-    <div className="p-6 max-w-xl">
+    <div className="max-w-xl space-y-4">
       <PageHeader title="Laporkan Kerusakan" subtitle="Buat tiket laporan kerusakan fasilitas/kamar" />
       <Card className="p-6">
         <form onSubmit={submit} className="space-y-4">
           <FormField label="Deskripsi Kerusakan">
-            <textarea className={inputClass} rows={5} value={deskripsi} onChange={(e) => setDeskripsi(e.target.value)} required placeholder="Jelaskan kerusakan secara detail..." />
+            <textarea className={inputClass} rows={5} value={data.deskripsi} onChange={(e) => setData("deskripsi", e.target.value)} required placeholder="Jelaskan kerusakan secara detail..." />
+            {errors.deskripsi && <p className="mt-1 text-sm text-error">{errors.deskripsi}</p>}
           </FormField>
-          <Button type="submit" disabled={busy}>Kirim Laporan</Button>
+          <Button type="submit" disabled={processing}>{processing ? "Mengirim..." : "Kirim Laporan"}</Button>
         </form>
       </Card>
     </div>

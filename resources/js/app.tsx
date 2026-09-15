@@ -14,7 +14,11 @@ void createInertiaApp({
     layout: (name) => {
         switch (true) {
             case name === 'welcome':
-            case name.startsWith('andalas/'):
+            case name.startsWith('mahasiswa/'):
+            case name.startsWith('admin/'):
+            case name.startsWith('fasilitator/'):
+            case name.startsWith('teknisi/'):
+            case name.startsWith('pimpinan/'):
                 return [AndalasShellLayout];
             case name.startsWith('landing/'):
             case name.startsWith('auth/'):
@@ -35,7 +39,7 @@ void createInertiaApp({
         );
     },
     progress: {
-        color: '#4B5563',
+        color: 'var(--color-primary)',
     },
 });
 

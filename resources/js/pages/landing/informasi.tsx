@@ -68,7 +68,7 @@ export default function InformasiPage(props: Props) {
                                         <div key={item.id} className="bg-base-100 border border-base-300 rounded-lg overflow-hidden">
                                             <button
                                                 onClick={() => setOpen(open === item.id ? null : item.id)}
-                                                className="w-full flex items-center justify-between gap-4 text-left px-6 py-4 hover:bg-primary/2 hover:bg-base-200 transition-colors"
+                                                className="w-full flex items-center justify-between gap-4 text-left px-6 py-4 hover:bg-base-200 transition-colors"
                                             >
                                                 <div className="flex-1 min-w-0">
                                                     <h3 className="font-semibold text-base-content text-base leading-snug">{item.judul}</h3>
@@ -83,7 +83,7 @@ export default function InformasiPage(props: Props) {
                                                 </svg>
                                             </button>
                                             {open === item.id && (
-                                                <div className="px-6 pb-6 pt-2 border-t border-primary/8 border-base-300">
+                                                <div className="px-6 pb-6 pt-2 border-t border-base-300">
                                                     <p className="text-base-content/80 text-sm leading-relaxed whitespace-pre-line">{item.konten ?? "Tidak ada konten."}</p>
                                                     {item.file && (
                                                         <a href={`/storage/${item.file}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 mt-4 text-sm font-medium text-base-content border-b border-base-content/30 pb-0.5 hover:border-base-content transition-colors">

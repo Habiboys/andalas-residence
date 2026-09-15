@@ -1,6 +1,5 @@
 import { PageHeader, Card } from "../../components/ui";
 import { useAuth } from "../../context/AppContext";
-import { useAndalasApi } from "../../hooks/useAndalasApi";
 
 type TeknisiStat = {
   teknisi_id: string;
@@ -11,15 +10,18 @@ type TeknisiStat = {
   total_penilaian: number;
 };
 
-export default function RiwayatPenilaian() {
+type Props = {
+  performance: TeknisiStat[];
+};
+
+export default function RiwayatPenilaian({ performance = [] }: Props) {
   const { currentUser } = useAuth();
-  const { data } = useAndalasApi<TeknisiStat[]>("/api/andalas/teknisi/performance");
-  const mine = data?.find(
+  const mine = performance.find(
     (t) => t.nim_nip === currentUser?.nim || t.nama === currentUser?.nama,
   );
 
   return (
-    <div className="p-6">
+    <div className="space-y-4">
       <PageHeader title="Riwayat & Penilaian" subtitle="Skor kinerja dari kuesioner teknis" />
       <Card className="p-6">
         {mine ? (

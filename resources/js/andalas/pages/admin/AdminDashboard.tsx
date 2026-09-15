@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { PageHeader, StatCard, Card, Table, StatusBadge } from "../../components/ui";
-import { useAndalasApi } from "../../hooks/useAndalasApi";
-import type { DashboardStats } from "../../lib/api";
+import type { DashboardStats } from "../../lib/types";
 
 const formatRupiah = (n: number) =>
   new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(n);
@@ -16,9 +15,7 @@ type PembayaranRow = {
   mahasiswa?: { user?: { nim_nip?: string; nama?: string } };
 };
 
-export default function AdminDashboard() {
-  const { data: stats } = useAndalasApi<DashboardStats>("/api/andalas/dashboard");
-  const { data: pembayaran } = useAndalasApi<PembayaranRow[]>("/api/andalas/pembayaran");
+export default function AdminDashboard({ stats, pembayaran = [] }: { stats?: DashboardStats; pembayaran?: PembayaranRow[] }) {
 
   const pendingPembayaran = (pembayaran ?? [])
     .filter((p) => p.status === "menunggu_verifikasi")
@@ -38,7 +35,7 @@ export default function AdminDashboard() {
   ];
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       <PageHeader title="Dashboard Administrasi" subtitle="Ringkasan aktivitas dan status terkini asrama" />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">

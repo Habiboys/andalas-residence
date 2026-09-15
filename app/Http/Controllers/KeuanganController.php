@@ -2,43 +2,15 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Pembayaran;
 use App\Models\TransaksiKeuangan;
 use App\Services\AuditLogService;
-use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
 class KeuanganController extends Controller
 {
-    public function index(Request $request): JsonResponse
-    {
-        $this->authorizePermission($request, 'keuangan.view');
-
-        return response()->json(TransaksiKeuangan::with(['kategori', 'pencatat'])->latest('tanggal_transaksi')->get());
-    }
-
-    public function dashboard(Request $request): JsonResponse
-    {
-        $this->authorizePermission($request, 'keuangan.view');
-
-        $transaksi = TransaksiKeuangan::query()->get();
-        $pemasukan = $transaksi->where('tipe', 'pemasukan')->sum('nominal');
-        $pengeluaran = $transaksi->where('tipe', 'pengeluaran')->sum('nominal');
-        $pembayaranPending = Pembayaran::where('status', 'menunggu_verifikasi')->sum('nominal');
-        $pembayaranLunas = Pembayaran::where('status', 'lunas')->sum('nominal');
-
-        return response()->json([
-            'saldo' => $pemasukan - $pengeluaran,
-            'pemasukan' => $pemasukan,
-            'pengeluaran' => $pengeluaran,
-            'pembayaran_pending' => $pembayaranPending,
-            'pembayaran_lunas' => $pembayaranLunas,
-            'jumlah_transaksi' => $transaksi->count(),
-        ]);
-    }
-
-    public function store(Request $request): JsonResponse
+    public function store(Request $request): RedirectResponse
     {
         $this->authorizePermission($request, 'keuangan.create');
 
@@ -62,10 +34,13 @@ class KeuanganController extends Controller
 
         AuditLogService::log($request->user(), 'create_transaksi', $transaksi, null, $transaksi->toArray(), $request);
 
-        return response()->json($transaksi->load(['kategori', 'pencatat']), 201);
+        return redirect()->back()->with('toast', [
+            'type' => 'success',
+            'message' => "Transaksi {$transaksi->nomor_bukti} berhasil dicatat.",
+        ]);
     }
 
-    public function update(Request $request, TransaksiKeuangan $transaksi): JsonResponse
+    public function update(Request $request, TransaksiKeuangan $transaksi): RedirectResponse
     {
         $this->authorizePermission($request, 'keuangan.update');
 
@@ -79,14 +54,20 @@ class KeuanganController extends Controller
 
         $transaksi->update($validated);
 
-        return response()->json($transaksi->fresh(['kategori', 'pencatat']));
+        return redirect()->back()->with('toast', [
+            'type' => 'success',
+            'message' => "Transaksi {$transaksi->nomor_bukti} diperbarui.",
+        ]);
     }
 
-    public function destroy(Request $request, TransaksiKeuangan $transaksi): JsonResponse
+    public function destroy(Request $request, TransaksiKeuangan $transaksi): RedirectResponse
     {
         $this->authorizePermission($request, 'keuangan.delete');
         $transaksi->delete();
 
-        return response()->json(['ok' => true]);
+        return redirect()->back()->with('toast', [
+            'type' => 'success',
+            'message' => 'Transaksi dihapus.',
+        ]);
     }
 }

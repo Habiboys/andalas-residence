@@ -1,13 +1,10 @@
 import { PageHeader, StatCard, Card } from "../../components/ui";
-import { useAndalasApi } from "../../hooks/useAndalasApi";
-import type { DashboardStats } from "../../lib/api";
+import type { DashboardStats } from "../../lib/types";
 
-export default function FasilitatorDashboard() {
-  const { data: stats } = useAndalasApi<DashboardStats>("/api/andalas/dashboard");
-  const { data: absensi } = useAndalasApi<unknown[]>("/api/andalas/absensi");
+export default function FasilitatorDashboard({ stats, absensi = [] }: { stats?: DashboardStats; absensi?: unknown[] }) {
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       <PageHeader title="Dashboard Fasilitator" subtitle="Ringkasan wilayah dan absensi hari ini" />
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatCard label="Absensi Hari Ini" value={absensi?.length ?? 0} color="green" />

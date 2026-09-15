@@ -1,8 +1,23 @@
 import { createContext, useCallback, useContext, useState, type ReactNode } from 'react';
 import { router } from '@inertiajs/react';
 import { useAppearance } from '@/hooks/use-appearance';
+import {
+    login as loginRoute,
+    logout as logoutRoute,
+} from '@/routes';
+import {
+    DEFAULT_FONT_SCALE,
+    FONT_SCALES,
+    applyFontScaleToDocument,
+    getFontScale,
+    persistFontScale,
+    readFontScale,
+    type FontScaleId,
+} from '@/lib/theme';
 
-export type UserRole = 'mahasiswa' | 'fasilitator' | 'staff_admin' | 'superadmin' | 'teknisi' | 'pimpinan';
+applyFontScaleToDocument(readFontScale());
+
+export type UserRole = 'mahasiswa' | 'orang_tua' | 'fasilitator' | 'go' | 'admin_layanan' | 'admin_aset' | 'staff_admin' | 'superadmin' | 'teknisi' | 'pimpinan';
 
 export interface User {
     id?: string;
@@ -38,13 +53,13 @@ export function AuthProvider({
     const [currentUser, setCurrentUser] = useState<User | null>(initialUser);
 
     const login = (_nim: string, _password: string): User | null => {
-        window.location.href = '/login';
+        router.visit(loginRoute.url());
         return null;
     };
 
     const logout = () => {
         setCurrentUser(null);
-        router.post('/logout');
+        router.post(logoutRoute.url());
     };
 
     return (
@@ -75,11 +90,55 @@ interface ThemeContextType {
  *
  * There is now one store. `useAppearance` already persists to both the cookie
  * the server reads and localStorage, and it hands React a stable server
- * snapshot, so the first client render matches the server. `ThemeProvider` is
- * kept as a pass-through so existing call sites keep working.
+ * snapshot, so the first client render matches the server. `ThemeProvider` only
+ * owns the Kemudahan font scale; the appearance store manages colours.
  */
+interface AccessibilityContextType {
+    fontScale: FontScaleId;
+    setFontScale: (id: FontScaleId) => void;
+    stepFontScale: (direction: 1 | -1) => void;
+}
+
+const AccessibilityContext = createContext<AccessibilityContextType | null>(null);
+
 export function ThemeProvider({ children }: { children: ReactNode }) {
-    return <>{children}</>;
+    const [fontScale, setFontScaleState] = useState<FontScaleId>(readFontScale);
+
+    const setFontScale = useCallback((id: FontScaleId) => {
+        setFontScaleState(id);
+        persistFontScale(id);
+        applyFontScaleToDocument(id);
+    }, []);
+
+    const stepFontScale = useCallback(
+        (direction: 1 | -1) => {
+            setFontScaleState((current) => {
+                const index = FONT_SCALES.findIndex((item) => item.id === current);
+                const next = FONT_SCALES[index + direction];
+
+                if (!next) {
+                    return current;
+                }
+
+                persistFontScale(next.id);
+                applyFontScaleToDocument(next.id);
+                return next.id;
+            });
+        },
+        [],
+    );
+
+    return (
+        <AccessibilityContext.Provider value={{ fontScale, setFontScale, stepFontScale }}>
+            {children}
+        </AccessibilityContext.Provider>
+    );
+}
+
+export function useAccessibility(): AccessibilityContextType {
+    const ctx = useContext(AccessibilityContext);
+    if (!ctx) throw new Error('useAccessibility must be used within ThemeProvider');
+    return ctx;
 }
 
 export function useTheme(): ThemeContextType {

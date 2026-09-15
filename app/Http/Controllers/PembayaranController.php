@@ -6,27 +6,14 @@ use App\Models\KategoriTransaksi;
 use App\Models\Pembayaran;
 use App\Models\TransaksiKeuangan;
 use App\Services\AuditLogService;
-use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class PembayaranController extends Controller
 {
-    public function index(Request $request): JsonResponse
-    {
-        $this->authorizePermission($request, 'pembayaran.view');
-
-        $query = Pembayaran::with(['mahasiswa.user', 'verifikator']);
-
-        if ($request->user()->hasRole('mahasiswa')) {
-            $query->where('mahasiswa_id', $request->user()->mahasiswaProfil?->id);
-        }
-
-        return response()->json($query->latest()->get());
-    }
-
-    public function store(Request $request): JsonResponse
+    public function store(Request $request): RedirectResponse
     {
         $this->authorizePermission($request, 'pembayaran.create');
 
@@ -65,10 +52,13 @@ class PembayaranController extends Controller
             'status' => 'menunggu_verifikasi',
         ]);
 
-        return response()->json($pembayaran, 201);
+        return redirect()->back()->with('toast', [
+            'type' => 'success',
+            'message' => 'Pembayaran berhasil diajukan dan menunggu verifikasi admin.',
+        ]);
     }
 
-    public function verify(Request $request, Pembayaran $pembayaran): JsonResponse
+    public function verify(Request $request, Pembayaran $pembayaran): RedirectResponse
     {
         $this->authorizePermission($request, 'pembayaran.verify');
 
@@ -107,7 +97,10 @@ class PembayaranController extends Controller
 
         AuditLogService::log($request->user(), 'verify_pembayaran', $pembayaran, null, $pembayaran->fresh()->toArray(), $request);
 
-        return response()->json($pembayaran->fresh(['mahasiswa.user', 'verifikator']));
+        return redirect()->back()->with('toast', [
+            'type' => 'success',
+            'message' => 'Pembayaran '.($validated['status'] === 'lunas' ? 'disetujui (lunas)' : 'ditolak').'.',
+        ]);
     }
 
     public function downloadBukti(Request $request, Pembayaran $pembayaran)

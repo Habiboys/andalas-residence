@@ -27,11 +27,7 @@ class LandingController extends Controller
         return Inertia::render('landing/beranda', [
             ...$this->shared(),
             'testimoni' => Testimoni::where('published', true)->orderBy('urutan')->get(),
-            'statistik' => [
-                'gedung' => Gedung::count(),
-                'kamar' => Kamar::count(),
-                'penghuni' => PenempatanKamar::where('status', 'aktif')->count(),
-            ],
+            'statistik' => $this->statistik(),
         ]);
     }
 
@@ -49,6 +45,7 @@ class LandingController extends Controller
             'section' => $key,
             'sections' => $sections,
             'content' => $content,
+            'statistik' => $this->statistik(),
         ]);
     }
 
@@ -105,6 +102,15 @@ class LandingController extends Controller
     public function kontak(): Response
     {
         return Inertia::render('landing/kontak', $this->shared());
+    }
+
+    private function statistik(): array
+    {
+        return [
+            'gedung' => Gedung::count(),
+            'kamar' => Kamar::count(),
+            'penghuni' => PenempatanKamar::where('status', 'aktif')->count(),
+        ];
     }
 
     private function shared(): array

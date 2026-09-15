@@ -1,15 +1,13 @@
 import { PageHeader, Card, Table } from "../../components/ui";
 import { useAuth } from "../../context/AppContext";
-import { useAndalasApi } from "../../hooks/useAndalasApi";
 
 type AbsensiRow = { tanggal?: string; waktu_sholat?: string; waktu_scan?: string };
 
-export default function BarcodeAbsensi() {
+export default function BarcodeAbsensi({ absensi = [] }: { absensi?: AbsensiRow[] }) {
   const { currentUser } = useAuth();
-  const { data: absensi } = useAndalasApi<AbsensiRow[]>("/api/andalas/absensi");
 
   return (
-    <div className="p-6">
+    <div className="space-y-4">
       <PageHeader title="Absensi Sholat" subtitle="Barcode pribadi dan riwayat kehadiran" />
       <Card className="p-6 mb-6 text-center">
         <p className="text-xs text-muted uppercase mb-2">Barcode Anda</p>
@@ -24,7 +22,7 @@ export default function BarcodeAbsensi() {
             { key: "waktu_sholat", label: "Sholat", render: (r: AbsensiRow) => <span className="capitalize">{r.waktu_sholat}</span> },
             { key: "waktu_scan", label: "Jam", render: (r: AbsensiRow) => String(r.waktu_scan ?? "").slice(11, 16) },
           ]}
-          data={absensi ?? []}
+          data={absensi}
           emptyMessage="Belum ada riwayat absensi"
         />
       </Card>

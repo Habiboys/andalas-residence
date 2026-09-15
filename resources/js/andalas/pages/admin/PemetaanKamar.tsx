@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { PageHeader, Card, Modal, inputClass, Skeleton } from "../../components/ui";
+import { PageHeader, Card, inputClass } from "../../components/ui";
 import { RoomGridMap, RoomDetailModal, type RoomGridItem } from "../../components/organisms/RoomGridMap";
-import { andalasApi } from "../../lib/api";
-import { useAndalasApi } from "../../hooks/useAndalasApi";
 
 type Gedung = {
   id: string;
@@ -16,22 +14,21 @@ type Gedung = {
   }>;
 };
 
-export default function PemetaanKamar() {
-  const { data: gedungList, loading } = useAndalasApi<Gedung[]>("/api/andalas/gedung");
+export default function PemetaanKamar({ gedung = [] }: { gedung?: Gedung[] }) {
   const [selectedGedung, setSelectedGedung] = useState("");
   const [selectedLantai, setSelectedLantai] = useState("");
   const [selectedKamar, setSelectedKamar] = useState<RoomGridItem | null>(null);
 
   useEffect(() => {
-    if (gedungList?.length && !selectedGedung) {
-      setSelectedGedung(gedungList[0].id);
-      setSelectedLantai(gedungList[0].lantai?.[0]?.id ?? "");
+    if (gedung?.length && !selectedGedung) {
+      setSelectedGedung(gedung[0].id);
+      setSelectedLantai(gedung[0].lantai?.[0]?.id ?? "");
     }
-  }, [gedungList, selectedGedung]);
+  }, [gedung, selectedGedung]);
 
   const lantaiForGedung = useMemo(
-    () => gedungList?.find((g) => g.id === selectedGedung)?.lantai ?? [],
-    [gedungList, selectedGedung],
+    () => gedung?.find((g) => g.id === selectedGedung)?.lantai ?? [],
+    [gedung, selectedGedung],
   );
 
   const filteredKamar = useMemo(() => {
@@ -42,12 +39,8 @@ export default function PemetaanKamar() {
     }));
   }, [lantaiForGedung, selectedLantai]);
 
-  if (loading) {
-    return <div className="p-6 space-y-3"><Skeleton className="h-8 w-56" /><Skeleton className="h-72 w-full" /></div>;
-  }
-
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       <PageHeader title="Pemetaan Kamar" subtitle="Visualisasi status dan detail kamar per gedung dan lantai" />
 
       <Card className="p-4">
@@ -56,10 +49,10 @@ export default function PemetaanKamar() {
             <label className="text-sm font-medium">Gedung:</label>
             <select className={inputClass} value={selectedGedung} onChange={(e) => {
               setSelectedGedung(e.target.value);
-              const first = gedungList?.find((g) => g.id === e.target.value)?.lantai?.[0];
+              const first = gedung?.find((g) => g.id === e.target.value)?.lantai?.[0];
               setSelectedLantai(first?.id ?? "");
             }}>
-              {(gedungList ?? []).map((g) => (
+              {(gedung ?? []).map((g) => (
                 <option key={g.id} value={g.id}>{g.nama_gedung}</option>
               ))}
             </select>

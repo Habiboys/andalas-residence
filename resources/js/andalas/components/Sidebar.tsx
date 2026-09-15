@@ -32,22 +32,23 @@ import {
 import type { UserRole } from "../data/mockData";
 import { AndalasLogo } from "./AndalasLogo";
 
+export type { UserRole } from "../data/mockData";
+
 /*
- * Navigation is derived from the same lucide set the rest of the app uses, so
- * there is one icon language instead of a second hand-drawn one. The icons are
- * chosen for what the destination actually is: a bed for a room, a wrench for a
- * repair ticket, a wallet for the ledger.
+ * Navigation follows MyUNAND-Akademik: a plain white rail where the active link
+ * is a filled primary pill and groups are tiny uppercase headings. Icons use
+ * the same lucide set as the rest of the app so there is one icon language.
  */
 
-interface NavItem {
-  label: string;
-  page: string;
-  icon: LucideIcon;
+export interface NavItem {
+    label: string;
+    page: string;
+    icon: LucideIcon;
 }
 
-interface NavGroup {
-  group?: string;
-  items: NavItem[];
+export interface NavGroup {
+    group?: string;
+    items: NavItem[];
 }
 
 const MAHASISWA_NAV: NavGroup[] = [
@@ -169,7 +170,7 @@ const PIMPINAN_NAV: NavGroup[] = [
   },
 ];
 
-const NAV_MAP: Record<UserRole, NavGroup[]> = {
+export const NAV_MAP: Record<UserRole, NavGroup[]> = {
   mahasiswa: MAHASISWA_NAV,
   fasilitator: FASILITATOR_NAV,
   staff_admin: ADMIN_NAV,
@@ -195,14 +196,10 @@ export default function Sidebar({
   const groups = NAV_MAP[role] ?? [];
 
   return (
-    <aside
-      className={`flex h-full flex-col border-r border-base-300 bg-base-100 ${
-        collapsed ? "w-16" : "w-56"
-      }`}
-    >
+    <aside className={`flex h-full flex-col border-r border-base-300 bg-base-100 ${collapsed ? "w-20" : "w-64"}`}>
       <div
-        className={`flex h-14 shrink-0 items-center gap-2 border-b border-base-300 px-3 ${
-          collapsed ? "justify-center px-2" : ""
+        className={`flex h-16 shrink-0 items-center border-b border-base-300 px-3 ${
+          collapsed ? "justify-center px-2" : "gap-2"
         }`}
       >
         <AndalasLogo size="sm" variant={collapsed ? "icon" : "full"} className="min-w-0" />
@@ -218,38 +215,43 @@ export default function Sidebar({
         )}
       </div>
 
-      <nav className="flex-1 overflow-y-auto py-2" aria-label="Navigasi utama">
-        <ul className={`menu w-full gap-0.5 ${collapsed ? "menu-xs px-1" : "menu-sm"}`}>
-          {groups.map((g, gi) => (
-            <Fragment key={g.group ?? `group-${gi}`}>
-              {g.group && !collapsed && <li className="menu-title">{g.group}</li>}
+      <nav className="no-scrollbar flex-1 space-y-4 overflow-y-auto px-3 py-4" aria-label="Navigasi utama">
+        {groups.map((g, gi) => (
+          <div key={g.group ?? `group-${gi}`}>
+            {g.group && !collapsed && (
+              <p className="px-3 text-[10px] font-bold tracking-wider text-base-content/40 uppercase">
+                {g.group}
+              </p>
+            )}
+            <ul className={g.group && !collapsed ? "mt-1.5 space-y-0.5" : "space-y-0.5"}>
               {g.items.map((item) => {
                 const active = currentPage === item.page;
                 const Icon = item.icon;
 
                 return (
                   <li key={item.page}>
-                    {/*
-                     * The active state is the daisyUI `menu-active` treatment on
-                     * its own. A previous gold stripe beside the label repeated
-                     * the same fact in a second channel, so it is gone.
-                     */}
                     <button
                       type="button"
                       onClick={() => setPage(item.page)}
                       title={collapsed ? item.label : undefined}
                       aria-current={active ? "page" : undefined}
-                      className={active ? "menu-active" : ""}
+                      className={`flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-xs font-semibold transition-colors ${
+                        collapsed ? "justify-center px-2" : ""
+                      } ${
+                        active
+                          ? "bg-primary text-primary-content shadow-xs"
+                          : "text-base-content/80 hover:bg-base-200 hover:text-base-content"
+                      }`}
                     >
-                      <Icon className="size-4 shrink-0" aria-hidden="true" />
+                      <Icon className="size-[18px] shrink-0" aria-hidden="true" />
                       {!collapsed && <span className="truncate">{item.label}</span>}
                     </button>
                   </li>
                 );
               })}
-            </Fragment>
-          ))}
-        </ul>
+            </ul>
+          </div>
+        ))}
       </nav>
     </aside>
   );

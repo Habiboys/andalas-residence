@@ -2,6 +2,7 @@ import { Link, usePage } from '@inertiajs/react';
 import { AndalasLogo } from '@/andalas/components/AndalasLogo';
 import { AndalasAdminNav } from '@/components/andalas-admin-nav';
 import { NavUser } from '@/components/nav-user';
+import { redirect as dashboardRedirect } from '@/routes/dashboard';
 import {
     Sidebar,
     SidebarContent,
@@ -23,7 +24,7 @@ function isAndalasAdmin(user: AuthUser | null | undefined): boolean {
 
 export function AppSidebar() {
     const { url, props } = usePage<{ auth: { user: AuthUser | null } }>();
-    const onAndalasApp = url.startsWith('/app');
+    const onAndalasApp = url.startsWith('/admin/');
     const showAndalasAdminNav = onAndalasApp && isAndalasAdmin(props.auth?.user);
 
     return (
@@ -32,7 +33,7 @@ export function AppSidebar() {
                 <SidebarMenu>
                     <SidebarMenuItem>
                         <SidebarMenuButton size="lg" asChild>
-                            <Link href={showAndalasAdminNav ? '/app' : '/app'} prefetch>
+                            <Link href={dashboardRedirect()} prefetch>
                                 <AndalasLogo size="sm" theme="dark" variant="full" className="group-data-[collapsible=icon]:hidden" />
                                 <AndalasLogo size="sm" theme="dark" variant="icon" className="hidden group-data-[collapsible=icon]:flex" />
                             </Link>

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { toast } from "sonner";
+import { useForm } from "@inertiajs/react";
 import {
   PageHeader,
   Card,
@@ -10,11 +10,17 @@ import {
   FormField,
   inputClass,
   Tabs,
-  TableSkeleton,
   Badge,
   ConfirmDialog,
+  RowActions,
 } from "../../components/ui";
-import { andalasApi } from "../../lib/api";
+import { store as fakultasStore, update as fakultasUpdate, destroy as fakultasDestroy } from "@/routes/admin/master-data/fakultas";
+import { store as departemenStore, update as departemenUpdate, destroy as departemenDestroy } from "@/routes/admin/master-data/departemen";
+import { store as prodiStore, update as prodiUpdate, destroy as prodiDestroy } from "@/routes/admin/master-data/prodi";
+import { store as periodeStore, update as periodeUpdate, destroy as periodeDestroy } from "@/routes/admin/master-data/periode";
+import { store as provinsiStore, update as provinsiUpdate, destroy as provinsiDestroy } from "@/routes/admin/master-data/provinsi";
+import { store as kotaStore, update as kotaUpdate, destroy as kotaDestroy } from "@/routes/admin/master-data/kota";
+import { store as kategoriStore, update as kategoriUpdate, destroy as kategoriDestroy } from "@/routes/admin/master-data/kategori";
 
 type Row = Record<string, unknown>;
 
@@ -23,14 +29,16 @@ interface Field {
   label: string;
   type?: "text" | "number" | "date" | "select" | "textarea";
   options?: { value: string; label: string }[];
-  optionsLoader?: () => Promise<Array<{ id?: string; name?: string; value?: string; label?: string }>>;
   required?: boolean;
 }
 
 interface SectionProps {
   title: string;
   subtitle: string;
-  endpoint: string;
+  data: Row[];
+  store: { url: () => string };
+  update: { url: (args: { id: string }) => string };
+  destroy: { url: (args: { id: string }) => string };
   columns: DataColumn<Row>[];
   fields: Field[];
   emptyMessage: string;
@@ -38,45 +46,12 @@ interface SectionProps {
   registerAdd?: (fn: () => void) => void;
 }
 
-function MasterCrudSection({ title, subtitle, endpoint, columns, fields, emptyMessage, rowLabel, registerAdd }: SectionProps) {
-  const [data, setData] = useState<Row[]>([]);
-  const [loading, setLoading] = useState(true);
+function MasterCrudSection({ title, subtitle, data, store, update, destroy, columns, fields, emptyMessage, rowLabel, registerAdd }: SectionProps) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Row | null>(null);
-  const [form, setForm] = useState<Record<string, unknown>>({});
-  const [busy, setBusy] = useState(false);
   const [deleting, setDeleting] = useState<Row | null>(null);
-  const [deletingBusy, setDeletingBusy] = useState(false);
-  const [optionMaps, setOptionMaps] = useState<Record<string, Array<{ value: string; label: string }>>>({});
-
-  const load = async () => {
-    setLoading(true);
-    try {
-      const res = await andalasApi.get<Row[]>(endpoint);
-      setData(Array.isArray(res) ? res : []);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Gagal memuat data");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    load();
-    fields.forEach((f) => {
-      if (f.optionsLoader) {
-        f.optionsLoader()
-          .then((rows) => {
-            setOptionMaps((prev) => ({
-              ...prev,
-              [f.key]: rows.map((r) => ({ value: String(r.id ?? r.value ?? ""), label: r.label ?? r.name ?? "" })),
-            }));
-          })
-          .catch(() => undefined);
-      }
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const { data: formData, setData, post, put, processing, errors } = useForm<Record<string, string>>({});
+  const deleteForm = useForm<Record<string, string>>({});
 
   useEffect(() => {
     registerAdd?.(openCreate);
@@ -85,72 +60,54 @@ function MasterCrudSection({ title, subtitle, endpoint, columns, fields, emptyMe
 
   function openCreate() {
     setEditing(null);
-    const d: Record<string, unknown> = {};
+    const d: Record<string, string> = {};
     fields.forEach((f) => {
       if (f.options?.length) d[f.key] = f.options[0].value;
     });
-    setForm(d);
+    setData(d);
     setOpen(true);
   }
 
   function openEdit(row: Row) {
     setEditing(row);
-    const d: Record<string, unknown> = {};
+    const d: Record<string, string> = {};
     fields.forEach((f) => {
       let v = row[f.key];
       if (v == null && f.key.endsWith("_id")) {
         const rel = row[f.key.replace("_id", "")] as { id?: string } | undefined;
         v = rel?.id;
       }
-      d[f.key] = v ?? "";
+      d[f.key] = String(v ?? "");
     });
-    setForm(d);
+    setData(d);
     setOpen(true);
   }
 
-  async function save(e: React.FormEvent) {
+  function save(e: React.FormEvent) {
     e.preventDefault();
-    setBusy(true);
-    try {
-      if (editing) {
-        await andalasApi.put(`${endpoint}/${String(editing.id)}`, form);
-        toast.success(`${title} berhasil diperbarui.`);
-      } else {
-        await andalasApi.post(endpoint, form);
-        toast.success(`${title} berhasil ditambahkan.`);
-      }
-      setOpen(false);
-      await load();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Gagal menyimpan");
-    } finally {
-      setBusy(false);
+    if (editing) {
+      put(update.url({ id: String(editing.id) }), {
+        onSuccess: () => setOpen(false),
+      });
+    } else {
+      post(store.url(), {
+        onSuccess: () => setOpen(false),
+      });
     }
   }
 
-  async function confirmDelete() {
+  function confirmDelete() {
     if (!deleting) return;
-    setDeletingBusy(true);
-    try {
-      await andalasApi.delete(`${endpoint}/${String(deleting.id)}`);
-      toast.success(`${title} berhasil dihapus.`);
-      setDeleting(null);
-      await load();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Gagal menghapus");
-    } finally {
-      setDeletingBusy(false);
-    }
+    deleteForm.delete(destroy.url({ id: String(deleting.id) }), {
+      onSuccess: () => setDeleting(null),
+    });
   }
 
   const actionCol: DataColumn<Row> = {
     key: "aksi",
     label: "",
     render: (r) => (
-      <div className="flex gap-2">
-        <Button size="sm" variant="secondary" onClick={() => openEdit(r)}>Edit</Button>
-        <Button size="sm" variant="danger" onClick={() => setDeleting(r)}>Hapus</Button>
-      </div>
+      <RowActions onEdit={() => openEdit(r)} onDelete={() => setDeleting(r)} />
     ),
   };
 
@@ -166,16 +123,12 @@ function MasterCrudSection({ title, subtitle, endpoint, columns, fields, emptyMe
         </div>
       </div>
 
-      {loading ? (
-        <div className="p-4"><TableSkeleton /></div>
-      ) : (
-        <DataTable
-          columns={[...columns, actionCol]}
-          data={data}
-          searchKeys={columns.map((c) => c.key)}
-          emptyMessage={emptyMessage}
-        />
-      )}
+      <DataTable
+        columns={[...columns, actionCol]}
+        data={data}
+        searchKeys={columns.map((c) => c.key)}
+        emptyMessage={emptyMessage}
+      />
 
       <Drawer
         open={open}
@@ -185,28 +138,28 @@ function MasterCrudSection({ title, subtitle, endpoint, columns, fields, emptyMe
         footer={
           <div className="flex justify-end gap-2">
             <Button type="button" variant="secondary" onClick={() => setOpen(false)}>Batal</Button>
-            <Button type="submit" form="master-crud-form" disabled={busy}>Simpan</Button>
+            <Button type="submit" form="master-crud-form" disabled={processing}>Simpan</Button>
           </div>
         }
       >
         <form id="master-crud-form" onSubmit={save} className="space-y-3">
           {fields.map((f) => {
-            const options = f.options ?? optionMaps[f.key] ?? [];
+            const options = f.options ?? [];
             return (
               <FormField key={f.key} label={f.label}>
                 {f.type === "textarea" ? (
                   <textarea
                     className={inputClass}
                     rows={3}
-                    value={String(form[f.key] ?? "")}
-                    onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
+                    value={String(formData[f.key] ?? "")}
+                    onChange={(e) => setData(f.key, e.target.value)}
                     required={f.required}
                   />
                 ) : f.type === "select" ? (
                   <select
                     className={`${inputClass} w-full`}
-                    value={String(form[f.key] ?? "")}
-                    onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
+                    value={String(formData[f.key] ?? "")}
+                    onChange={(e) => setData(f.key, e.target.value)}
                     required={f.required}
                   >
                     <option value="">-- Pilih --</option>
@@ -218,11 +171,12 @@ function MasterCrudSection({ title, subtitle, endpoint, columns, fields, emptyMe
                   <input
                     type={f.type === "date" ? "date" : f.type === "number" ? "number" : "text"}
                     className={`${inputClass} w-full`}
-                    value={String(form[f.key] ?? "")}
-                    onChange={(e) => setForm({ ...form, [f.key]: f.type === "number" ? Number(e.target.value) : e.target.value })}
+                    value={String(formData[f.key] ?? "")}
+                    onChange={(e) => setData(f.key, e.target.value)}
                     required={f.required}
                   />
                 )}
+                {errors[f.key] && <p className="mt-1 text-sm text-error">{errors[f.key]}</p>}
               </FormField>
             );
           })}
@@ -233,7 +187,7 @@ function MasterCrudSection({ title, subtitle, endpoint, columns, fields, emptyMe
         open={!!deleting}
         onClose={() => setDeleting(null)}
         onConfirm={confirmDelete}
-        loading={deletingBusy}
+        loading={deleteForm.processing}
         title={`Hapus ${title}`}
         message={`Hapus ${title.toLowerCase()} "${rowLabel(deleting ?? {})}"? Tindakan ini tidak dapat dibatalkan.`}
       />
@@ -249,16 +203,32 @@ const JENJANG = [
   { value: "S3", label: "S3" },
 ];
 
-export default function MasterData() {
+type FakultasRow = { id: string; name: string };
+type DepartemenRow = { id: string; name: string; faculty?: { name?: string } };
+type ProdiRow = { id: string; name: string; jenjang?: string; departemen?: { name?: string } };
+type PeriodeRow = { id: string; nama_periode?: string; status?: string; tanggal_mulai?: string; tanggal_selesai?: string };
+type ProvinsiRow = { id: string; name: string };
+type KotaRow = { id: string; name: string; province?: { name?: string } };
+type KategoriRow = { id: string; nama_kategori?: string; tipe?: string; kode_rekening?: string };
+
+export default function MasterData({ fakultas = [], departemen = [], prodi = [], periode = [], provinsi = [], kota = [], kategori_transaksi = [] }: {
+  fakultas?: FakultasRow[];
+  departemen?: DepartemenRow[];
+  prodi?: ProdiRow[];
+  periode?: PeriodeRow[];
+  provinsi?: ProvinsiRow[];
+  kota?: KotaRow[];
+  kategori_transaksi?: KategoriRow[];
+}) {
   const [tab, setTab] = useState(0);
   const addFns = useRef<Array<() => void>>([]);
   const registerAdd = (i: number) => (fn: () => void) => {
     addFns.current[i] = fn;
   };
 
-  const loadFakultas = () => andalasApi.get<Array<{ id: string; name: string }>>("/api/andalas/master/fakultas");
-  const loadDepartemen = () => andalasApi.get<Array<{ id: string; name: string }>>("/api/andalas/master/departemen");
-  const loadProvinsi = () => andalasApi.get<Array<{ id: string; name: string }>>("/api/andalas/master/provinsi");
+  const fakultasOptions = fakultas.map((f) => ({ value: String(f.id), label: f.name }));
+  const departemenOptions = departemen.map((d) => ({ value: String(d.id), label: d.name }));
+  const provinsiOptions = provinsi.map((p) => ({ value: String(p.id), label: p.name }));
 
   const tabs: { label: string; section: ReactNode }[] = [
     {
@@ -267,7 +237,10 @@ export default function MasterData() {
         <MasterCrudSection
           title="Fakultas"
           subtitle="Unit akademik tingkat fakultas"
-          endpoint="/api/andalas/master/fakultas"
+          data={fakultas}
+          store={fakultasStore}
+          update={fakultasUpdate}
+          destroy={fakultasDestroy}
           emptyMessage="Belum ada fakultas"
           rowLabel={(r) => String(r.name ?? "")}
           registerAdd={registerAdd(0)}
@@ -285,12 +258,15 @@ export default function MasterData() {
         <MasterCrudSection
           title="Departemen"
           subtitle="Departemen di bawah fakultas"
-          endpoint="/api/andalas/master/departemen"
+          data={departemen}
+          store={departemenStore}
+          update={departemenUpdate}
+          destroy={departemenDestroy}
           emptyMessage="Belum ada departemen"
           rowLabel={(r) => String(r.name ?? "")}
           registerAdd={registerAdd(1)}
           fields={[
-            { key: "faculty_id", label: "Fakultas", type: "select", required: true, optionsLoader: loadFakultas },
+            { key: "faculty_id", label: "Fakultas", type: "select", required: true, options: fakultasOptions },
             { key: "name", label: "Nama Departemen", required: true },
           ]}
           columns={[
@@ -311,12 +287,15 @@ export default function MasterData() {
         <MasterCrudSection
           title="Program Studi"
           subtitle="Program studi di bawah departemen"
-          endpoint="/api/andalas/master/all-prodi"
+          data={prodi}
+          store={prodiStore}
+          update={prodiUpdate}
+          destroy={prodiDestroy}
           emptyMessage="Belum ada program studi"
           rowLabel={(r) => String(r.name ?? "")}
           registerAdd={registerAdd(2)}
           fields={[
-            { key: "departemen_id", label: "Departemen", type: "select", required: true, optionsLoader: loadDepartemen },
+            { key: "departemen_id", label: "Departemen", type: "select", required: true, options: departemenOptions },
             { key: "name", label: "Nama Prodi", required: true },
             { key: "jenjang", label: "Jenjang", type: "select", required: true, options: JENJANG },
           ]}
@@ -338,10 +317,13 @@ export default function MasterData() {
         <MasterCrudSection
           title="Periode"
           subtitle="Periode akademik asrama"
-          registerAdd={registerAdd(3)}
-          endpoint="/api/andalas/master/periode"
+          data={periode}
+          store={periodeStore}
+          update={periodeUpdate}
+          destroy={periodeDestroy}
           emptyMessage="Belum ada periode"
           rowLabel={(r) => String(r.nama_periode ?? "")}
+          registerAdd={registerAdd(3)}
           fields={[
             { key: "nama_periode", label: "Nama Periode", required: true },
             { key: "status", label: "Status", type: "select", required: true, options: [
@@ -366,7 +348,10 @@ export default function MasterData() {
         <MasterCrudSection
           title="Provinsi"
           subtitle="Provinsi asal mahasiswa"
-          endpoint="/api/andalas/master/provinsi"
+          data={provinsi}
+          store={provinsiStore}
+          update={provinsiUpdate}
+          destroy={provinsiDestroy}
           emptyMessage="Belum ada provinsi"
           rowLabel={(r) => String(r.name ?? "")}
           registerAdd={registerAdd(4)}
@@ -384,12 +369,15 @@ export default function MasterData() {
         <MasterCrudSection
           title="Kota / Kabupaten"
           subtitle="Kota/kabupaten di bawah provinsi"
-          endpoint="/api/andalas/master/kota"
+          data={kota}
+          store={kotaStore}
+          update={kotaUpdate}
+          destroy={kotaDestroy}
           emptyMessage="Belum ada kota"
           rowLabel={(r) => String(r.name ?? "")}
           registerAdd={registerAdd(5)}
           fields={[
-            { key: "province_id", label: "Provinsi", type: "select", required: true, optionsLoader: loadProvinsi },
+            { key: "province_id", label: "Provinsi", type: "select", required: true, options: provinsiOptions },
             { key: "name", label: "Nama Kota/Kabupaten", required: true },
           ]}
           columns={[
@@ -409,7 +397,10 @@ export default function MasterData() {
         <MasterCrudSection
           title="Kategori Transaksi"
           subtitle="Kategori pemasukan/pengeluaran keuangan"
-          endpoint="/api/andalas/master/kategori"
+          data={kategori_transaksi}
+          store={kategoriStore}
+          update={kategoriUpdate}
+          destroy={kategoriDestroy}
           emptyMessage="Belum ada kategori transaksi"
           rowLabel={(r) => String(r.nama_kategori ?? "")}
           registerAdd={registerAdd(6)}
@@ -433,7 +424,7 @@ export default function MasterData() {
   ];
 
   return (
-    <div className="p-6 space-y-4">
+    <div className="space-y-4">
       <PageHeader
         title="Data Master"
         subtitle="Kelola data master sistem (superadmin)"
@@ -441,9 +432,9 @@ export default function MasterData() {
           <Button onClick={() => addFns.current[tab]?.()}>Tambah {tabs[tab]?.label}</Button>
         }
       />
-      <Card>
+      <Card className="p-4">
         <Tabs tabs={tabs.map((t) => t.label)} active={tab} onChange={setTab} />
-        <div className="p-4">{tabs[tab]?.section}</div>
+        <div className="mt-2">{tabs[tab]?.section}</div>
       </Card>
     </div>
   );

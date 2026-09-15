@@ -8,9 +8,15 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  Eye,
+  Filter,
+  Inbox,
+  Pencil,
   Search,
   Star,
+  Trash2,
   X,
+  type LucideIcon,
 } from "lucide-react";
 
 /*
@@ -52,7 +58,9 @@ const badgeTone: Record<BadgeColor, string> = {
 };
 
 export function Badge({ color = "gray", children }: BadgeProps) {
-  return <span className={`badge badge-sm ${badgeTone[color]}`}>{children}</span>;
+  return (
+    <span className={`badge badge-sm font-medium ${badgeTone[color]}`}>{children}</span>
+  );
 }
 
 // ─── STATUS BADGE ───────────────────────────────────────────────────────────
@@ -93,9 +101,7 @@ export function StatusBadge({ status }: { status: string }) {
 
 export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
-    <div className={`card rounded-box border border-base-300 bg-base-100 ${className}`}>
-      {children}
-    </div>
+    <div className={`card rounded-box bg-base-100 shadow-xs ${className}`}>{children}</div>
   );
 }
 
@@ -111,11 +117,11 @@ export function PageHeader({ title, subtitle, actions }: PageHeaderProps) {
   return (
     <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
       <div className="min-w-0">
-        {/* The serif face is the one piece of display type in the system. It is
-            what makes a screen read as this institution rather than a generic
-            admin panel. */}
-        <h1 className="font-serif text-xl text-base-content">{title}</h1>
-        {subtitle && <p className="mt-0.5 text-sm text-muted">{subtitle}</p>}
+        {/* Titles are bold DM Sans, matching MyUNAND's page headers. */}
+        <h1 className="text-xl font-bold tracking-tight text-base-content md:text-2xl">
+          {title}
+        </h1>
+        {subtitle && <p className="mt-0.5 text-xs text-base-content/70 md:text-sm">{subtitle}</p>}
       </div>
       {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
     </div>
@@ -138,22 +144,28 @@ interface StatCardProps {
  */
 export function StatCard({ label, value, icon, color = "green" }: StatCardProps) {
   const tone = {
-    green: "text-primary",
-    gold: "text-accent",
+    green: "text-success",
+    gold: "text-warning",
     red: "text-error",
-    gray: "text-muted",
+    gray: "text-base-content",
   }[color];
 
   return (
-    <Card className="p-5">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-xs font-medium text-muted">{label}</p>
-          <p className={`mt-1 font-serif text-2xl ${tone}`}>{value}</p>
-        </div>
+    <Card className="shadow-xs">
+      <div className="card-body flex-row items-center gap-4 p-4 md:p-5">
         {icon && (
-          <div className="shrink-0 rounded-field bg-base-200 p-2 text-primary">{icon}</div>
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-base-200 text-base-content/60">
+            {icon}
+          </div>
         )}
+        <div className="min-w-0">
+          <p className="text-xs font-medium tracking-wider text-base-content/60 uppercase">
+            {label}
+          </p>
+          <p className={`mt-0.5 text-2xl font-semibold tracking-tight text-base-content md:text-3xl ${tone}`}>
+            {value}
+          </p>
+        </div>
       </div>
     </Card>
   );
@@ -186,12 +198,12 @@ export function Table<T extends Record<string, unknown>>({
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="table table-zebra">
+    <div className="overflow-x-auto rounded-box">
+      <table className="table table-sm table-zebra">
         <thead>
           <tr>
             {columns.map((col) => (
-              <th key={col.key} className={`text-xs font-semibold text-muted ${col.width ?? ""}`}>
+              <th key={col.key} className={`text-xs font-semibold text-base-content/60 uppercase ${col.width ?? ""}`}>
                 {col.label}
               </th>
             ))}
@@ -236,6 +248,8 @@ export interface DataColumn<T> {
   render?: (row: T) => ReactNode;
   sortable?: boolean;
   width?: string;
+  /** Filter kolom, ala MyUNAND: select (sama persis) atau text (LIKE). */
+  filter?: { type: "select" | "text"; options?: (string | { value: string; label: string })[]; placeholder?: string };
 }
 
 interface DataTableProps<T extends Record<string, unknown>> {
@@ -244,6 +258,7 @@ interface DataTableProps<T extends Record<string, unknown>> {
   searchKeys?: string[];
   searchPlaceholder?: string;
   filters?: ReactNode;
+  /** Aksi toolbar (mis. tombol "Tambah"), ditampilkan di kanan. */
   actions?: ReactNode;
   onRowClick?: (row: T) => void;
   defaultPerPage?: number;
@@ -258,6 +273,59 @@ function SortIcon({ active, dir }: { active: boolean; dir: "asc" | "desc" }) {
     <ArrowUp className="size-3" aria-hidden="true" />
   ) : (
     <ArrowDown className="size-3" aria-hidden="true" />
+  );
+}
+
+/*
+ * Column filter lives directly under the sortable header, one control per
+ * column, exactly like MyUNAND's filter row. Selects match the raw value
+ * exactly; text inputs are LIKE.
+ */
+function ColumnFilter<T extends Record<string, unknown>>({
+  col,
+  value,
+  onChange,
+}: {
+  col: DataColumn<T>;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const f = col.filter;
+  if (!f) return null;
+
+  if (f.type === "select") {
+    const options = f.options ?? [];
+    return (
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="select select-xs w-full"
+        aria-label={`Filter ${col.label}`}
+      >
+        <option value="">{f.placeholder ?? `Semua ${col.label.toLowerCase()}`}</option>
+        {options.map((opt) => {
+          const optValue = typeof opt === "string" ? opt : opt.value;
+          const optLabel = typeof opt === "string" ? opt : opt.label;
+          return (
+            <option key={optValue} value={optValue}>
+              {optLabel}
+            </option>
+          );
+        })}
+      </select>
+    );
+  }
+
+  return (
+    <label className="input input-xs w-full">
+      <input
+        type="search"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={f.placeholder ?? `Filter ${col.label.toLowerCase()}`}
+        aria-label={`Filter ${col.label}`}
+      />
+    </label>
   );
 }
 
@@ -281,7 +349,7 @@ function PageButton({
       disabled={disabled}
       aria-label={label}
       aria-current={active ? "page" : undefined}
-      className={`btn btn-sm ${active ? "btn-active" : "btn-ghost"}`}
+      className={`btn btn-sm join-item ${active ? "btn-primary" : "btn-ghost"}`}
     >
       {children}
     </button>
@@ -304,10 +372,26 @@ export function DataTable<T extends Record<string, unknown>>({
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(defaultPerPage);
+  const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
+  const filterable = columns.filter((c) => c.filter);
+  const activeFilterCount = Object.values(columnFilters).filter(Boolean).length;
 
   useEffect(() => {
     setPage(1);
-  }, [data.length, search]);
+  }, [data.length, search, columnFilters]);
+
+  const setFilter = (key: string, value: string) => {
+    setColumnFilters((prev) => ({ ...prev, [key]: value }));
+    setPage(1);
+  };
+
+  const clearFilters = () => {
+    setColumnFilters({});
+    setSearch("");
+    setPage(1);
+  };
 
   const processed = useMemo(() => {
     let rows = data;
@@ -316,6 +400,22 @@ export function DataTable<T extends Record<string, unknown>>({
       const q = search.toLowerCase();
       rows = rows.filter((row) =>
         searchKeys.some((k) => String(row[k] ?? "").toLowerCase().includes(q)),
+      );
+    }
+
+    const activeFilters = Object.entries(columnFilters).filter(([, v]) => v);
+    if (activeFilters.length > 0) {
+      rows = rows.filter((row) =>
+        activeFilters.every(([key, value]) => {
+          const col = columns.find((c) => c.key === key);
+          const match = (value: unknown) => String(value ?? "").toLowerCase();
+
+          if (col?.filter?.type === "select") {
+            return match(row[key]) === match(value);
+          }
+
+          return match(row[key]).includes(match(value));
+        }),
       );
     }
 
@@ -334,7 +434,7 @@ export function DataTable<T extends Record<string, unknown>>({
     }
 
     return rows;
-  }, [data, search, searchKeys, sortKey, sortDir]);
+  }, [data, search, searchKeys, sortKey, sortDir, columnFilters, columns]);
 
   const totalRows = processed.length;
   const totalPages = Math.max(1, Math.ceil(totalRows / perPage));
@@ -344,11 +444,13 @@ export function DataTable<T extends Record<string, unknown>>({
   const to = Math.min(safePage * perPage, totalRows);
 
   const toggleSort = (key: string) => {
-    if (sortKey === key) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    } else {
+    if (sortKey !== key) {
       setSortKey(key);
       setSortDir("asc");
+    } else if (sortDir === "asc") {
+      setSortDir("desc");
+    } else {
+      setSortKey(null);
     }
     setPage(1);
   };
@@ -377,74 +479,129 @@ export function DataTable<T extends Record<string, unknown>>({
     return nums;
   };
 
-  const isFiltered = search.trim().length > 0;
+  const isFiltered = search.trim().length > 0 || activeFilterCount > 0;
 
   return (
-    <div>
-      <div className="flex flex-wrap items-center gap-2 px-4 py-3">
-        {searchKeys.length > 0 && (
-          <label className="input input-sm max-w-xs flex-1 sm:min-w-52">
-            <Search className="size-3.5 opacity-50" aria-hidden="true" />
-            <input
-              type="search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder={searchPlaceholder}
-              aria-label={searchPlaceholder}
-            />
-          </label>
-        )}
+    <div className="rounded-box overflow-hidden">
+      <div className="flex flex-col gap-2 px-4 pt-4 pb-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-2">
+          {searchKeys.length > 0 && (
+            <label className="input input-sm w-full sm:max-w-xs">
+              <Search className="size-3.5 opacity-50" aria-hidden="true" />
+              <input
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder={searchPlaceholder}
+                aria-label={searchPlaceholder}
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  className="btn btn-circle btn-ghost btn-xs"
+                  aria-label="Hapus pencarian"
+                >
+                  <X className="size-3.5" aria-hidden="true" />
+                </button>
+              )}
+            </label>
+          )}
 
-        {filters && <div className="flex flex-wrap items-center gap-2">{filters}</div>}
-        {actions && <div className="ml-auto flex items-center gap-2">{actions}</div>}
+          {filterable.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setFiltersOpen((o) => !o)}
+              className={`btn btn-sm gap-1.5 ${
+                filtersOpen || activeFilterCount > 0 ? "btn-primary" : "btn-outline"
+              }`}
+              aria-expanded={filtersOpen}
+              aria-controls="data-table-filter-row"
+            >
+              <Filter className="size-3.5" aria-hidden="true" />
+              Filter
+              {activeFilterCount > 0 && (
+                <span className="badge badge-sm badge-secondary badge-outline">
+                  {activeFilterCount}
+                </span>
+              )}
+            </button>
+          )}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {filters}
+          {actions && <div className="ml-auto flex items-center gap-2">{actions}</div>}
+        </div>
       </div>
 
       <div className="overflow-x-auto">
-        <table className="table table-zebra">
+        <table className="table table-sm table-zebra">
           <thead>
             <tr>
               {columns.map((col) => (
-                <th key={col.key} className={col.width ?? ""}>
+                <th
+                  key={col.key}
+                  className={col.width ?? ""}
+                  aria-sort={
+                    sortKey === col.key
+                      ? sortDir === "asc"
+                        ? "ascending"
+                        : "descending"
+                      : undefined
+                  }
+                >
                   {col.sortable ? (
-                    /*
-                     * Sorting lives on a real button so it is reachable by Tab
-                     * and fired with Enter or Space. A click handler on the
-                     * header cell itself is invisible to the keyboard.
-                     */
                     <button
                       type="button"
                       onClick={() => toggleSort(col.key)}
-                      className="flex items-center gap-1 text-xs font-semibold text-muted hover:text-base-content"
+                      className="flex items-center gap-1 text-xs font-semibold text-base-content/60 uppercase hover:text-base-content"
                       aria-label={`Urutkan berdasarkan ${col.label}`}
                     >
                       {col.label}
                       <SortIcon active={sortKey === col.key} dir={sortDir} />
                     </button>
                   ) : (
-                    <span className="text-xs font-semibold text-muted">{col.label}</span>
+                    <span className="text-xs font-semibold text-base-content/60 uppercase">
+                      {col.label}
+                    </span>
                   )}
                 </th>
               ))}
             </tr>
+            {filterable.length > 0 && filtersOpen && (
+              <tr id="data-table-filter-row" className="bg-base-200/60">
+                {columns.map((col, idx) => (
+                  <th key={idx} className="py-1.5 font-normal">
+                    <ColumnFilter
+                      col={col}
+                      value={columnFilters[col.key] ?? ""}
+                      onChange={(v) => setFilter(col.key, v)}
+                    />
+                  </th>
+                ))}
+              </tr>
+            )}
           </thead>
           <tbody>
             {paginated.length === 0 ? (
               <tr>
                 <td colSpan={columns.length}>
-                  <div className="flex flex-col items-center gap-3 py-10 text-center">
+                  <div className="flex flex-col items-center gap-2 py-12 text-center">
+                    <Inbox className="size-7 text-base-content/30" aria-hidden="true" />
                     <p className="text-sm text-muted">
                       {isFiltered
-                        ? `Tidak ada baris yang cocok dengan "${search}".`
+                        ? `Tidak ada data yang cocok dengan pencarian atau filter saat ini.`
                         : emptyMessage}
                     </p>
                     {isFiltered && (
                       <button
                         type="button"
-                        onClick={() => setSearch("")}
-                        className="btn btn-sm btn-outline"
+                        onClick={clearFilters}
+                        className="btn btn-ghost btn-xs gap-1.5 text-base-content/60"
                       >
                         <X className="size-3.5" aria-hidden="true" />
-                        Hapus pencarian
+                        Bersihkan pencarian &amp; filter
                       </button>
                     )}
                   </div>
@@ -480,23 +637,23 @@ export function DataTable<T extends Record<string, unknown>>({
         </table>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-        <span className="text-xs text-muted">
+      <div className="mt-0 flex flex-col gap-2 border-t border-base-200 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <span className="text-xs text-base-content/60">
           {totalRows === 0
             ? "Tidak ada baris untuk ditampilkan"
-            : `Menampilkan ${from} sampai ${to} dari ${totalRows} baris`}
+            : `Menampilkan ${from}-${to} dari ${totalRows} data`}
         </span>
 
         <div className="flex items-center gap-4">
-          <label className="flex items-center gap-1.5 text-xs text-muted">
-            Baris per halaman
+          <label className="flex items-center gap-1.5 text-xs text-base-content/60">
+            Tampil
             <select
               value={perPage}
               onChange={(e) => {
                 setPerPage(Number(e.target.value));
                 setPage(1);
               }}
-              className="select select-sm w-20"
+              className="select select-xs w-18"
               aria-label="Baris per halaman"
             >
               {[10, 25, 50, 100].map((n) => (
@@ -506,7 +663,7 @@ export function DataTable<T extends Record<string, unknown>>({
           </label>
 
           {totalPages > 1 && (
-            <nav className="flex items-center gap-1" aria-label="Navigasi halaman">
+            <div className="join" aria-label="Navigasi halaman">
               <PageButton onClick={() => setPage(1)} disabled={safePage === 1} label="Halaman pertama">
                 <ChevronsLeft className="size-3.5" aria-hidden="true" />
               </PageButton>
@@ -520,7 +677,7 @@ export function DataTable<T extends Record<string, unknown>>({
 
               {pageNumbers().map((n, i) =>
                 n === "gap" ? (
-                  <span key={`gap-${i}`} className="px-1 text-xs text-muted" aria-hidden="true">
+                  <span key={`gap-${i}`} className="join-item px-1 text-xs" aria-hidden="true">
                     …
                   </span>
                 ) : (
@@ -549,7 +706,7 @@ export function DataTable<T extends Record<string, unknown>>({
               >
                 <ChevronsRight className="size-3.5" aria-hidden="true" />
               </PageButton>
-            </nav>
+            </div>
           )}
         </div>
       </div>
@@ -610,29 +767,26 @@ export function Modal({ open, onClose, title, children, width = "max-w-lg" }: Mo
   }, [open]);
 
   return (
-    <dialog ref={ref} className="modal" onClose={onClose}>
-      <div className={`modal-box ${width}`}>
+    <dialog ref={ref} className="modal modal-bottom sm:modal-middle" onClose={onClose}>
+      <div className={`modal-box flex max-h-[calc(100vh-5em)] flex-col overflow-hidden p-0 ${width}`}>
         {title && (
-          <div className="mb-4 flex items-start justify-between gap-4">
-            <h2 className="font-serif text-base">{title}</h2>
+          <div className="flex shrink-0 items-start justify-between gap-3 border-b border-base-200 px-5 py-3">
+            <h2 className="text-base font-semibold text-base-content">{title}</h2>
             <button
               type="button"
               onClick={onClose}
-              className="btn btn-ghost btn-sm"
+              className="btn btn-ghost btn-xs btn-square"
               aria-label="Tutup"
             >
               <X className="size-4" aria-hidden="true" />
             </button>
           </div>
         )}
-        {children}
+        <div className="flex-1 overflow-y-auto px-5 py-4">{children}</div>
       </div>
-      <button
-        type="button"
-        className="modal-backdrop"
-        onClick={onClose}
-        aria-label="Tutup dialog"
-      />
+      <form method="dialog" className="modal-backdrop">
+        <button aria-label="Tutup dialog" onClick={onClose} />
+      </form>
     </dialog>
   );
 }
@@ -719,32 +873,33 @@ export function Drawer({
 
   return (
     <dialog ref={ref} className="modal modal-end" onClose={onClose}>
-      <div className={`modal-box ${width} mr-0 flex h-full max-h-screen flex-col rounded-box`}>
-        <div className="mb-4 flex items-start justify-between gap-4">
+      <div className={`modal-box ${width} mr-0 flex h-full max-h-screen flex-col overflow-hidden rounded-box p-0`}>
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-base-200 px-5 py-3">
           <div className="min-w-0">
-            {title && <h2 className="font-serif text-base">{title}</h2>}
-            {subtitle && <p className="mt-0.5 text-xs text-muted">{subtitle}</p>}
+            {title && <h2 className="text-base font-semibold text-base-content">{title}</h2>}
+            {subtitle && <p className="mt-0.5 text-xs text-base-content/60">{subtitle}</p>}
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="btn btn-ghost btn-sm"
+            className="btn btn-ghost btn-xs btn-square"
             aria-label="Tutup panel"
           >
             <X className="size-4" aria-hidden="true" />
           </button>
         </div>
 
-        <div className="-mx-3 min-h-0 flex-1 overflow-y-auto px-3">{children}</div>
+        <div className="flex-1 overflow-y-auto px-5 py-4">{children}</div>
 
-        {footer && <div className="modal-action mt-4">{footer}</div>}
+        {footer && (
+          <div className="modal-action mt-0 shrink-0 border-t border-base-200 px-5 py-3">
+            {footer}
+          </div>
+        )}
       </div>
-      <button
-        type="button"
-        className="modal-backdrop"
-        onClick={onClose}
-        aria-label="Tutup panel"
-      />
+      <form method="dialog" className="modal-backdrop">
+        <button aria-label="Tutup panel" onClick={onClose} />
+      </form>
     </dialog>
   );
 }
@@ -839,6 +994,78 @@ export function Button({
   );
 }
 
+// ─── ICON BUTTON & ROW ACTIONS ──────────────────────────────────────────────
+
+const iconBtnSize = { xs: "btn-xs", sm: "btn-sm", md: "btn-md" } as const;
+const iconBtnIconSize = { xs: 14, sm: 16, md: 18 } as const;
+
+/*
+ * Row-level action buttons, copied from MyUNAND-Akademik's IconButton: a small
+ * square ghost button with a semantic tone and a tooltip. Tooltips carry the
+ * human label while the button itself stays icon-only, so the grid column
+ * stays narrow and the row stays readable.
+ */
+export function IconButton({
+  label,
+  icon: Icon,
+  onClick,
+  tone = "",
+  size = "xs",
+  tooltipPosition = "tooltip-top",
+  disabled = false,
+  className = "",
+}: {
+  label: string;
+  icon: LucideIcon;
+  onClick?: () => void;
+  tone?: string;
+  size?: keyof typeof iconBtnSize;
+  tooltipPosition?: string;
+  disabled?: boolean;
+  className?: string;
+}) {
+  return (
+    <div className={`tooltip ${tooltipPosition}`} data-tip={label}>
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        aria-label={label}
+        className={`btn btn-ghost btn-square ${iconBtnSize[size]} ${tone} ${className}`}
+      >
+        <Icon size={iconBtnIconSize[size]} aria-hidden="true" />
+      </button>
+    </div>
+  );
+}
+
+export function RowActions({
+  onDetail,
+  onEdit,
+  onDelete,
+  extra,
+}: {
+  onDetail?: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
+  extra?: ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-end gap-0.5">
+      {onDetail && (
+        <IconButton label="Lihat detail" icon={Eye} tone="text-info" onClick={onDetail} />
+      )}
+      {onEdit && (
+        <IconButton label="Ubah data" icon={Pencil} tone="text-warning" onClick={onEdit} />
+      )}
+      {onDelete && (
+        <IconButton label="Hapus data" icon={Trash2} tone="text-error" onClick={onDelete} />
+      )}
+      {extra}
+    </div>
+  );
+}
+
 // ─── TABS ───────────────────────────────────────────────────────────────────
 
 interface TabsProps {
@@ -849,7 +1076,7 @@ interface TabsProps {
 
 export function Tabs({ tabs, active, onChange }: TabsProps) {
   return (
-    <div role="tablist" className="tabs tabs-box mb-6 w-fit">
+    <div role="tablist" className="tabs tabs-box mb-4 w-fit">
       {tabs.map((t, i) => (
         <button
           key={t}

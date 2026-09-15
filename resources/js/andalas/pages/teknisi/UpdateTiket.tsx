@@ -1,40 +1,34 @@
 import { useState } from "react";
-import { toast } from "sonner";
+import { useForm } from "@inertiajs/react";
 import { PageHeader, Card, FormField, inputClass, Button, StatusBadge } from "../../components/ui";
-import { useAndalasApi } from "../../hooks/useAndalasApi";
-import { andalasApi } from "../../lib/api";
 import { mapTicketStatus } from "../../lib/format";
+import { update as tiketUpdate } from "@/routes/andalas/tiket";
 
 type TiketRow = { id: string; nomor_tiket?: string; deskripsi?: string; status?: string };
 
-export default function UpdateTiket() {
-  const { data, reload } = useAndalasApi<TiketRow[]>("/api/andalas/tiket");
+type Props = {
+  tiket: TiketRow[];
+};
+
+export default function UpdateTiket({ tiket = [] }: Props) {
   const [selected, setSelected] = useState("");
-  const [status, setStatus] = useState("sedang_dikerjakan");
-  const [catatan, setCatatan] = useState("");
-  const [busy, setBusy] = useState(false);
+  const { data, setData, put, processing, errors } = useForm({ status: "sedang_dikerjakan", catatan_penyelesaian: "" });
 
-  const aktif = (data ?? []).filter((t) => !["selesai", "dibatalkan"].includes(t.status ?? ""));
+  const aktif = tiket.filter((t) => !["selesai", "dibatalkan"].includes(t.status ?? ""));
 
-  async function submit(e: React.FormEvent) {
+  function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!selected) return;
-    setBusy(true);
-    try {
-      await andalasApi.put(`/api/andalas/tiket/${selected}`, { status, catatan_penyelesaian: catatan });
-      toast.success("Tiket berhasil diperbarui.");
-      setSelected("");
-      setCatatan("");
-      await reload();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Gagal memperbarui tiket");
-    } finally {
-      setBusy(false);
-    }
+    put(tiketUpdate.url({ laporan: selected }), {
+      onSuccess: () => {
+        setSelected("");
+        setData("catatan_penyelesaian", "");
+      },
+    });
   }
 
   return (
-    <div className="p-6 max-w-2xl">
+    <div className="max-w-2xl space-y-4">
       <PageHeader title="Update Tiket" subtitle="Perbarui status pengerjaan tiket" />
       <Card className="p-6 mb-4 space-y-2">
         {aktif.map((t) => (
@@ -47,14 +41,17 @@ export default function UpdateTiket() {
       <Card className="p-6">
         <form onSubmit={submit} className="space-y-4">
           <FormField label="Status">
-            <select className={inputClass} value={status} onChange={(e) => setStatus(e.target.value)}>
+            <select className={inputClass} value={data.status} onChange={(e) => setData("status", e.target.value)}>
               <option value="sedang_dikerjakan">Sedang Dikerjakan</option>
               <option value="selesai">Selesai</option>
               <option value="dibatalkan">Dibatalkan</option>
             </select>
+            {errors.status && <p className="mt-1 text-sm text-error">{errors.status}</p>}
           </FormField>
-          <FormField label="Catatan"><textarea className={inputClass} rows={3} value={catatan} onChange={(e) => setCatatan(e.target.value)} /></FormField>
-          <Button type="submit" disabled={!selected || busy}>Simpan Update</Button>
+          <FormField label="Catatan"><textarea className={inputClass} rows={3} value={data.catatan_penyelesaian} onChange={(e) => setData("catatan_penyelesaian", e.target.value)} />
+            {errors.catatan_penyelesaian && <p className="mt-1 text-sm text-error">{errors.catatan_penyelesaian}</p>}
+          </FormField>
+          <Button type="submit" disabled={!selected || processing}>Simpan Update</Button>
         </form>
       </Card>
     </div>

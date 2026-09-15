@@ -3,19 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\Aset;
-use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
 class AsetController extends Controller
 {
-    public function index(Request $request): JsonResponse
-    {
-        $this->authorizePermission($request, 'aset.view');
-
-        return response()->json(Aset::with(['kamar', 'fasilitasUmum'])->get());
-    }
-
-    public function store(Request $request): JsonResponse
+    public function store(Request $request): RedirectResponse
     {
         $this->authorizePermission($request, 'aset.create');
 
@@ -28,13 +21,18 @@ class AsetController extends Controller
             'nilai_aset' => 'nullable|numeric|min:0',
         ]);
 
-        return response()->json(Aset::create([
+        $aset = Aset::create([
             ...$validated,
             'kondisi' => $validated['kondisi'] ?? 'baik',
-        ]), 201);
+        ]);
+
+        return redirect()->back()->with('toast', [
+            'type' => 'success',
+            'message' => "Aset {$aset->nama_aset} berhasil ditambahkan.",
+        ]);
     }
 
-    public function update(Request $request, Aset $aset): JsonResponse
+    public function update(Request $request, Aset $aset): RedirectResponse
     {
         $this->authorizePermission($request, 'aset.update');
 
@@ -49,14 +47,20 @@ class AsetController extends Controller
 
         $aset->update($validated);
 
-        return response()->json($aset->fresh(['kamar']));
+        return redirect()->back()->with('toast', [
+            'type' => 'success',
+            'message' => "Aset {$aset->nama_aset} diperbarui.",
+        ]);
     }
 
-    public function destroy(Request $request, Aset $aset): JsonResponse
+    public function destroy(Request $request, Aset $aset): RedirectResponse
     {
         $this->authorizePermission($request, 'aset.delete');
         $aset->delete();
 
-        return response()->json(['ok' => true]);
+        return redirect()->back()->with('toast', [
+            'type' => 'success',
+            'message' => 'Aset dihapus.',
+        ]);
     }
 }

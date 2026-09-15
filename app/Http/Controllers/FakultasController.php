@@ -2,42 +2,31 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\MasterDataRequest;
 use App\Models\Faculty;
 use App\Services\MasterDataService;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
+use Illuminate\Http\RedirectResponse;
 
 class FakultasController extends Controller
 {
-    public function index(Request $request): JsonResponse
+    public function store(MasterDataRequest $request): RedirectResponse
     {
-        $this->authorizePermission($request, 'master.view');
+        $faculty = MasterDataService::createFakultas($request->validated());
 
-        return response()->json(MasterDataService::fakultasList());
+        return back()->with('toast', ['type' => 'success', 'message' => "Fakultas {$faculty->name} berhasil ditambahkan."]);
     }
 
-    public function store(Request $request): JsonResponse
+    public function update(MasterDataRequest $request, Faculty $faculty): RedirectResponse
     {
-        $this->authorizePermission($request, 'master.manage');
-        $validated = $request->validate(['name' => 'required|string|max:150|unique:faculty,name']);
+        MasterDataService::updateFakultas($faculty, $request->validated());
 
-        return response()->json(MasterDataService::createFakultas($validated), 201);
+        return back()->with('toast', ['type' => 'success', 'message' => "Fakultas {$faculty->name} diperbarui."]);
     }
 
-    public function update(Request $request, Faculty $faculty): JsonResponse
+    public function destroy(MasterDataRequest $request, Faculty $faculty): RedirectResponse
     {
-        $this->authorizePermission($request, 'master.manage');
-        $validated = $request->validate(['name' => 'sometimes|string|max:150|unique:faculty,name,'.$faculty->id]);
-        MasterDataService::updateFakultas($faculty, $validated);
-
-        return response()->json($faculty);
-    }
-
-    public function destroy(Request $request, Faculty $faculty): JsonResponse
-    {
-        $this->authorizePermission($request, 'master.manage');
         MasterDataService::deleteFakultas($faculty);
 
-        return response()->json(['ok' => true]);
+        return back()->with('toast', ['type' => 'success', 'message' => 'Fakultas dihapus.']);
     }
 }

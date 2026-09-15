@@ -1,8 +1,7 @@
 import { useState } from "react";
-import { toast } from "sonner";
-import { PageHeader, Card, DataTable, Button, Drawer, FormField, inputClass, TableSkeleton, ConfirmDialog } from "../../components/ui";
-import { useAndalasApi } from "../../hooks/useAndalasApi";
-import { andalasApi } from "../../lib/api";
+import { useForm, router } from "@inertiajs/react";
+import { PageHeader, Card, DataTable, Button, Drawer, FormField, inputClass, ConfirmDialog, RowActions } from "../../components/ui";
+import { store as mahasiswaStore, update as mahasiswaUpdate, destroy as mahasiswaDestroy } from "@/routes/andalas/mahasiswa";
 
 type MhsRow = {
   id: string;
@@ -16,6 +15,8 @@ type MhsRow = {
 type ProdiRow = { id: string; name?: string };
 type PeriodeRow = { id: string; nama_periode?: string };
 
+type Props = { mahasiswa: MhsRow[]; prodi: ProdiRow[]; periode: PeriodeRow[] };
+
 const emptyForm = {
   nim_nip: "",
   nama: "",
@@ -28,26 +29,22 @@ const emptyForm = {
   status_huni: "calon",
 };
 
-export default function DataMahasiswa() {
-  const { data, loading, reload } = useAndalasApi<MhsRow[]>("/api/andalas/mahasiswa");
-  const { data: prodi } = useAndalasApi<ProdiRow[]>("/api/andalas/master/prodi");
-  const { data: periode } = useAndalasApi<PeriodeRow[]>("/api/andalas/master/periode");
+export default function DataMahasiswa({ mahasiswa, prodi, periode }: Props) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<MhsRow | null>(null);
-  const [form, setForm] = useState(emptyForm);
-  const [busy, setBusy] = useState(false);
   const [deleting, setDeleting] = useState<MhsRow | null>(null);
   const [deletingBusy, setDeletingBusy] = useState(false);
+  const { data, setData, post, put, errors, processing, resetAndClearErrors, clearErrors } = useForm(emptyForm);
 
   function openCreate() {
     setEditing(null);
-    setForm(emptyForm);
+    resetAndClearErrors();
     setOpen(true);
   }
 
   function openEdit(row: MhsRow) {
     setEditing(row);
-    setForm({
+    setData({
       nim_nip: row.user?.nim_nip ?? "",
       nama: row.user?.nama ?? "",
       email: row.user?.email ?? "",
@@ -58,43 +55,26 @@ export default function DataMahasiswa() {
       angkatan: row.angkatan ?? "",
       status_huni: row.status_huni ?? "calon",
     });
+    clearErrors();
     setOpen(true);
   }
 
-  async function save(e: React.FormEvent) {
+  function save(e: React.FormEvent) {
     e.preventDefault();
-    setBusy(true);
-    try {
-      if (editing) {
-        const payload = { ...form };
-        if (!payload.password) delete (payload as { password?: string }).password;
-        await andalasApi.put(`/api/andalas/mahasiswa/${editing.id}`, payload);
-      } else {
-        await andalasApi.post("/api/andalas/mahasiswa", form);
-      }
-      setOpen(false);
-      await reload();
-      toast.success(editing ? "Data mahasiswa berhasil diperbarui." : "Mahasiswa berhasil ditambahkan.");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Gagal menyimpan");
-    } finally {
-      setBusy(false);
+    if (editing) {
+      put(mahasiswaUpdate.url({ id: editing.id }), { onSuccess: () => setOpen(false) });
+    } else {
+      post(mahasiswaStore.url(), { onSuccess: () => setOpen(false) });
     }
   }
 
-  async function confirmDelete() {
+  function confirmDelete() {
     if (!deleting) return;
     setDeletingBusy(true);
-    try {
-      await andalasApi.delete(`/api/andalas/mahasiswa/${deleting.id}`);
-      toast.success("Mahasiswa berhasil dihapus.");
-      setDeleting(null);
-      await reload();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Gagal menghapus");
-    } finally {
-      setDeletingBusy(false);
-    }
+    router.delete(mahasiswaDestroy.url({ id: deleting.id }), {
+      onSuccess: () => setDeleting(null),
+      onFinish: () => setDeletingBusy(false),
+    });
   }
 
   const columns = [
@@ -108,25 +88,20 @@ export default function DataMahasiswa() {
       key: "aksi",
       label: "",
       render: (r: MhsRow) => (
-        <div className="flex gap-2">
-          <Button size="sm" variant="secondary" onClick={() => openEdit(r)}>Edit</Button>
-          <Button size="sm" variant="danger" onClick={() => setDeleting(r)}>Hapus</Button>
-        </div>
+        <RowActions onEdit={() => openEdit(r)} onDelete={() => setDeleting(r)} />
       ),
     },
   ];
 
   return (
-    <div className="p-6">
+    <div className="space-y-4">
       <PageHeader
         title="Data Mahasiswa"
         subtitle="Kelola data mahasiswa penghuni asrama"
         actions={<Button onClick={openCreate}>Tambah Mahasiswa</Button>}
       />
       <Card className="p-4">
-        {loading ? <TableSkeleton /> : (
-          <DataTable columns={columns as never} data={(data ?? []) as never} searchKeys={["angkatan", "status_huni"]} />
-        )}
+        <DataTable columns={columns as never} data={(mahasiswa ?? []) as never} searchKeys={["angkatan", "status_huni"]} />
       </Card>
 
       <Drawer
@@ -137,37 +112,53 @@ export default function DataMahasiswa() {
         footer={
           <div className="flex justify-end gap-2">
             <Button type="button" variant="secondary" onClick={() => setOpen(false)}>Batal</Button>
-            <Button type="submit" form="mahasiswa-form" disabled={busy}>{busy ? "Menyimpan..." : "Simpan"}</Button>
+            <Button type="submit" form="mahasiswa-form" disabled={processing}>{processing ? "Menyimpan..." : "Simpan"}</Button>
           </div>
         }
       >
         <form id="mahasiswa-form" onSubmit={save} className="space-y-3">
-          <FormField label="NIM"><input className={inputClass} value={form.nim_nip} onChange={(e) => setForm({ ...form, nim_nip: e.target.value })} required /></FormField>
-          <FormField label="Nama"><input className={inputClass} value={form.nama} onChange={(e) => setForm({ ...form, nama: e.target.value })} required /></FormField>
-          <FormField label="Email"><input type="email" className={inputClass} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required /></FormField>
+          <FormField label="NIM">
+            <input className={inputClass} value={data.nim_nip} onChange={(e) => setData("nim_nip", e.target.value)} required />
+            {errors.nim_nip && <p className="mt-1 text-sm text-error">{errors.nim_nip}</p>}
+          </FormField>
+          <FormField label="Nama">
+            <input className={inputClass} value={data.nama} onChange={(e) => setData("nama", e.target.value)} required />
+            {errors.nama && <p className="mt-1 text-sm text-error">{errors.nama}</p>}
+          </FormField>
+          <FormField label="Email">
+            <input type="email" className={inputClass} value={data.email} onChange={(e) => setData("email", e.target.value)} required />
+            {errors.email && <p className="mt-1 text-sm text-error">{errors.email}</p>}
+          </FormField>
           <FormField label={editing ? "Password (kosongkan jika tidak diubah)" : "Password"}>
-            <input type="password" className={inputClass} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required={!editing} />
+            <input type="password" className={inputClass} value={data.password} onChange={(e) => setData("password", e.target.value)} required={!editing} />
+            {errors.password && <p className="mt-1 text-sm text-error">{errors.password}</p>}
           </FormField>
           <FormField label="Prodi">
-            <select className={inputClass} value={form.prodi_id} onChange={(e) => setForm({ ...form, prodi_id: e.target.value })} required>
+            <select className={inputClass} value={data.prodi_id} onChange={(e) => setData("prodi_id", e.target.value)} required>
               <option value="">Pilih prodi</option>
               {(prodi ?? []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
+            {errors.prodi_id && <p className="mt-1 text-sm text-error">{errors.prodi_id}</p>}
           </FormField>
           <FormField label="Periode">
-            <select className={inputClass} value={form.periode_id} onChange={(e) => setForm({ ...form, periode_id: e.target.value })} required>
+            <select className={inputClass} value={data.periode_id} onChange={(e) => setData("periode_id", e.target.value)} required>
               <option value="">Pilih periode</option>
               {(periode ?? []).map((p) => <option key={p.id} value={p.id}>{p.nama_periode}</option>)}
             </select>
+            {errors.periode_id && <p className="mt-1 text-sm text-error">{errors.periode_id}</p>}
           </FormField>
-          <FormField label="Angkatan"><input className={inputClass} value={form.angkatan} onChange={(e) => setForm({ ...form, angkatan: e.target.value })} required /></FormField>
+          <FormField label="Angkatan">
+            <input className={inputClass} value={data.angkatan} onChange={(e) => setData("angkatan", e.target.value)} required />
+            {errors.angkatan && <p className="mt-1 text-sm text-error">{errors.angkatan}</p>}
+          </FormField>
           <FormField label="Status Huni">
-            <select className={inputClass} value={form.status_huni} onChange={(e) => setForm({ ...form, status_huni: e.target.value })}>
+            <select className={inputClass} value={data.status_huni} onChange={(e) => setData("status_huni", e.target.value)}>
               <option value="calon">Calon</option>
               <option value="aktif">Aktif</option>
               <option value="nonaktif">Nonaktif</option>
               <option value="keluar">Keluar</option>
             </select>
+            {errors.status_huni && <p className="mt-1 text-sm text-error">{errors.status_huni}</p>}
           </FormField>
         </form>
       </Drawer>

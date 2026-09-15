@@ -1,35 +1,27 @@
-import { useState } from "react";
-import { toast } from "sonner";
+import { useForm } from "@inertiajs/react";
 import { PageHeader, Card, Button, FormField, inputClass } from "../../components/ui";
-import { andalasApi } from "../../lib/api";
+import { bebas as bebasRoute } from "@/routes/andalas/pengajuan";
 
 export default function PengajuanBebasAsrama() {
-  const [alasan, setAlasan] = useState("");
-  const [busy, setBusy] = useState(false);
+  const { data, setData, post, processing, errors, reset } = useForm({ alasan: "" });
 
-  async function submit(e: React.FormEvent) {
+  function submit(e: React.FormEvent) {
     e.preventDefault();
-    setBusy(true);
-    try {
-      const res = await andalasApi.post<{ nomor_pengajuan?: string }>("/api/andalas/pengajuan/bebas-asrama", { alasan });
-      toast.success(`Pengajuan berhasil: ${res.nomor_pengajuan ?? ""}`);
-      setAlasan("");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Gagal mengajukan");
-    } finally {
-      setBusy(false);
-    }
+    post(bebasRoute.url(), {
+      onSuccess: () => reset(),
+    });
   }
 
   return (
-    <div className="p-6 max-w-xl">
+    <div className="max-w-xl space-y-4">
       <PageHeader title="Pengajuan Bebas Asrama" subtitle="Ajukan surat keterangan bebas asrama" />
       <Card className="p-6">
         <form onSubmit={submit} className="space-y-4">
           <FormField label="Alasan">
-            <textarea className={inputClass} rows={4} value={alasan} onChange={(e) => setAlasan(e.target.value)} required />
+            <textarea className={inputClass} rows={4} value={data.alasan} onChange={(e) => setData("alasan", e.target.value)} required />
+            {errors.alasan && <p className="mt-1 text-sm text-error">{errors.alasan}</p>}
           </FormField>
-          <Button type="submit" disabled={busy}>Kirim Pengajuan</Button>
+          <Button type="submit" disabled={processing}>{processing ? "Mengirim..." : "Kirim Pengajuan"}</Button>
         </form>
       </Card>
     </div>

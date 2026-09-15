@@ -3,28 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\LaporanKerusakan;
-use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
 class TiketController extends Controller
 {
-    public function index(Request $request): JsonResponse
-    {
-        $this->authorizeAnyPermission($request, ['tiket.view', 'tiket.create']);
-
-        $query = LaporanKerusakan::with(['aset', 'kamar', 'pelapor', 'teknisi', 'penilaian']);
-
-        if ($request->user()->hasRole('teknisi')) {
-            $query->where(function ($q) use ($request) {
-                $q->whereNull('teknisi_id')->orWhere('teknisi_id', $request->user()->id);
-            });
-        }
-
-        return response()->json($query->latest('tanggal_lapor')->get());
-    }
-
-    public function store(Request $request): JsonResponse
+    public function store(Request $request): RedirectResponse
     {
         $this->authorizePermission($request, 'tiket.create');
 
@@ -42,10 +27,13 @@ class TiketController extends Controller
             'tanggal_lapor' => now(),
         ]);
 
-        return response()->json($laporan, 201);
+        return redirect()->back()->with('toast', [
+            'type' => 'success',
+            'message' => "Tiket {$laporan->nomor_tiket} berhasil dibuat.",
+        ]);
     }
 
-    public function update(Request $request, LaporanKerusakan $laporan): JsonResponse
+    public function update(Request $request, LaporanKerusakan $laporan): RedirectResponse
     {
         $this->authorizePermission($request, 'tiket.update');
 
@@ -66,6 +54,9 @@ class TiketController extends Controller
 
         $laporan->update($validated);
 
-        return response()->json($laporan->fresh());
+        return redirect()->back()->with('toast', [
+            'type' => 'success',
+            'message' => "Tiket {$laporan->nomor_tiket} diperbarui.",
+        ]);
     }
 }

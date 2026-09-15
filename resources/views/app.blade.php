@@ -32,11 +32,11 @@
         {{-- Inline style to prevent a flash of the wrong theme before app.css loads. Keep in sync with --color-base-100 in app.css. --}}
         <style>
             html {
-                background-color: #fdfcfa;
+                background-color: #f3f4f6;
             }
 
             html.dark {
-                background-color: #0f1f17;
+                background-color: #1e293b;
             }
         </style>
 

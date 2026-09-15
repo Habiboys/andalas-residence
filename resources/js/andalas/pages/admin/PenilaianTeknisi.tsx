@@ -1,42 +1,31 @@
 import { useState } from "react";
-import { toast } from "sonner";
+import { useForm } from "@inertiajs/react";
 import { PageHeader, Card, Tabs, DataTable, Button, Drawer } from "../../components/ui";
-import { TechnicianAssessment } from "../../components/molecules/TechnicianAssessment";
+import { TechnicianAssessment, type KuesionerPertanyaan } from "../../components/molecules/TechnicianAssessment";
 import { PerformanceSummary } from "../../components/molecules/PerformanceSummary";
-import { useAndalasApi } from "../../hooks/useAndalasApi";
-import { andalasApi } from "../../lib/api";
+import { store as penilaianStore } from "@/routes/andalas/penilaian";
 import { mapTicketStatus } from "../../lib/format";
 
 type TiketRow = { id: string; nomor_tiket?: string; status?: string; teknisi?: { nama?: string }; penilaian?: unknown[] };
-type Kuesioner = { pertanyaan?: Array<{ id: string; kode_pertanyaan: string; teks_pertanyaan: string; tipe_jawaban: string; bobot: number; skor_minimal: number; skor_maksimal: number; wajib: boolean }> };
+type Kuesioner = { pertanyaan?: KuesionerPertanyaan[] };
 type TeknisiStat = { teknisi_id: string; nama: string; nim_nip: string; rata_skor: number | null; total_tiket: number; total_penilaian: number };
 
-export default function PenilaianTeknisi() {
-  const { data: tiket, reload: reloadTiket } = useAndalasApi<TiketRow[]>("/api/andalas/tiket");
-  const { data: kuesionerList } = useAndalasApi<Kuesioner[]>("/api/andalas/kuesioner");
-  const { data: performance } = useAndalasApi<TeknisiStat[]>("/api/andalas/teknisi/performance");
+export default function PenilaianTeknisi({ tiket = [], kuesioner = [], performance = [] }: { tiket?: TiketRow[]; kuesioner?: Kuesioner[]; performance?: TeknisiStat[] }) {
+  const { data: formData, setData, post, processing, errors, reset } = useForm<{ answers: Record<string, { nilai_skor?: number; jawaban_teks?: string }> }>({ answers: {} });
   const [tab, setTab] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
-  const [answers, setAnswers] = useState<Record<string, { nilai_skor?: number }>>({});
-  const [busy, setBusy] = useState(false);
 
-  const kuesioner = kuesionerList?.find((k) => true);
-  const belumDinilai = (tiket ?? []).filter((t) => t.status === "selesai" && !(t.penilaian?.length));
+  const activeKuesioner = kuesioner[0];
+  const belumDinilai = tiket.filter((t) => t.status === "selesai" && !(t.penilaian?.length));
 
-  async function submitPenilaian() {
+  function submitPenilaian() {
     if (!selected) return;
-    setBusy(true);
-    try {
-      await andalasApi.post(`/api/andalas/penilaian/${selected}`, { answers });
-      toast.success("Penilaian berhasil disimpan.");
-      setSelected(null);
-      setAnswers({});
-      await reloadTiket();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Gagal menyimpan penilaian");
-    } finally {
-      setBusy(false);
-    }
+    post(penilaianStore.url({ id: selected }), {
+      onSuccess: () => {
+        setSelected(null);
+        reset();
+      },
+    });
   }
 
   const tiketCols = [
@@ -47,21 +36,22 @@ export default function PenilaianTeknisi() {
   ];
 
   return (
-    <div className="p-6">
+    <div className="space-y-4">
       <PageHeader title="Penilaian Teknisi" subtitle="Kuesioner dinamis penilaian kinerja teknisi" />
-      <Card>
+      <Card className="p-4">
         <Tabs tabs={["Tiket Belum Dinilai", "Rekap Performa"]} active={tab} onChange={setTab} />
         {tab === 0 ? (
           <DataTable columns={tiketCols as never} data={belumDinilai as never} emptyMessage="Semua tiket sudah dinilai" />
         ) : (
-          <PerformanceSummary stats={performance ?? []} />
+          <PerformanceSummary stats={performance} />
         )}
       </Card>
       <Drawer open={!!selected} onClose={() => setSelected(null)} title="Penilaian Kuesioner"
-        footer={<div className="flex gap-2 justify-end"><Button variant="secondary" onClick={() => setSelected(null)}>Batal</Button><Button onClick={submitPenilaian} disabled={busy}>Simpan</Button></div>}>
-        {kuesioner?.pertanyaan && (
-          <TechnicianAssessment pertanyaan={kuesioner.pertanyaan} answers={answers} onChange={(id, val) => setAnswers({ ...answers, [id]: val })} />
+        footer={<div className="flex gap-2 justify-end"><Button variant="secondary" onClick={() => setSelected(null)}>Batal</Button><Button onClick={submitPenilaian} disabled={processing}>Simpan</Button></div>}>
+        {activeKuesioner?.pertanyaan && (
+          <TechnicianAssessment pertanyaan={activeKuesioner.pertanyaan} answers={formData.answers} onChange={(id, val) => setData("answers", { ...formData.answers, [id]: val })} />
         )}
+        {errors.answers && <p className="mt-3 text-sm text-error">{errors.answers}</p>}
       </Drawer>
     </div>
   );

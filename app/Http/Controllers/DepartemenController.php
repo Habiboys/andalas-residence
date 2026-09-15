@@ -2,47 +2,31 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\MasterDataRequest;
 use App\Models\Departemen;
 use App\Services\MasterDataService;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
+use Illuminate\Http\RedirectResponse;
 
 class DepartemenController extends Controller
 {
-    public function index(Request $request): JsonResponse
+    public function store(MasterDataRequest $request): RedirectResponse
     {
-        $this->authorizePermission($request, 'master.view');
+        $departemen = MasterDataService::createDepartemen($request->validated());
 
-        return response()->json(MasterDataService::departemenList());
+        return back()->with('toast', ['type' => 'success', 'message' => "Departemen {$departemen->name} berhasil ditambahkan."]);
     }
 
-    public function store(Request $request): JsonResponse
+    public function update(MasterDataRequest $request, Departemen $departemen): RedirectResponse
     {
-        $this->authorizePermission($request, 'master.manage');
-        $validated = $request->validate([
-            'faculty_id' => 'required|uuid|exists:faculty,id',
-            'name' => 'required|string|max:150',
-        ]);
+        MasterDataService::updateDepartemen($departemen, $request->validated());
 
-        return response()->json(MasterDataService::createDepartemen($validated), 201);
+        return back()->with('toast', ['type' => 'success', 'message' => "Departemen {$departemen->name} diperbarui."]);
     }
 
-    public function update(Request $request, Departemen $departemen): JsonResponse
+    public function destroy(MasterDataRequest $request, Departemen $departemen): RedirectResponse
     {
-        $this->authorizePermission($request, 'master.manage');
-        $validated = $request->validate([
-            'faculty_id' => 'sometimes|uuid|exists:faculty,id',
-            'name' => 'sometimes|string|max:150',
-        ]);
-
-        return response()->json(MasterDataService::updateDepartemen($departemen, $validated));
-    }
-
-    public function destroy(Request $request, Departemen $departemen): JsonResponse
-    {
-        $this->authorizePermission($request, 'master.manage');
         MasterDataService::deleteDepartemen($departemen);
 
-        return response()->json(['ok' => true]);
+        return back()->with('toast', ['type' => 'success', 'message' => 'Departemen dihapus.']);
     }
 }

@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\ClientProfileCategory;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
@@ -33,6 +34,20 @@ class UserFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'email_verified_at' => null,
+        ]);
+    }
+
+    public function student(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'client_profile_category' => ClientProfileCategory::Student,
+        ]);
+    }
+
+    public function parent(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'client_profile_category' => ClientProfileCategory::Parent,
         ]);
     }
 

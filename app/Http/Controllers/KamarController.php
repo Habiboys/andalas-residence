@@ -4,12 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Models\Kamar;
 use App\Models\Lantai;
-use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
 class KamarController extends Controller
 {
-    public function storeLantai(Request $request): JsonResponse
+    public function storeLantai(Request $request): RedirectResponse
     {
         $this->authorizePermission($request, 'gedung.manage');
 
@@ -19,10 +19,15 @@ class KamarController extends Controller
             'nama_lantai' => 'required|string|max:100',
         ]);
 
-        return response()->json(Lantai::create($validated), 201);
+        $lantai = Lantai::create($validated);
+
+        return redirect()->back()->with('toast', [
+            'type' => 'success',
+            'message' => "Lantai {$lantai->nama_lantai} berhasil ditambahkan.",
+        ]);
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(Request $request): RedirectResponse
     {
         $this->authorizePermission($request, 'gedung.manage');
 
@@ -35,14 +40,19 @@ class KamarController extends Controller
             'status' => 'nullable|in:kosong,terisi_sebagian,penuh,maintenance',
         ]);
 
-        return response()->json(Kamar::create([
+        $kamar = Kamar::create([
             ...$validated,
             'status' => $validated['status'] ?? 'kosong',
             'tipe_kamar' => $validated['tipe_kamar'] ?? 'reguler',
-        ]), 201);
+        ]);
+
+        return redirect()->back()->with('toast', [
+            'type' => 'success',
+            'message' => "Kamar {$kamar->nomor_kamar} berhasil ditambahkan.",
+        ]);
     }
 
-    public function update(Request $request, Kamar $kamar): JsonResponse
+    public function update(Request $request, Kamar $kamar): RedirectResponse
     {
         $this->authorizePermission($request, 'gedung.manage');
 
@@ -56,14 +66,20 @@ class KamarController extends Controller
 
         $kamar->update($validated);
 
-        return response()->json($kamar);
+        return redirect()->back()->with('toast', [
+            'type' => 'success',
+            'message' => "Kamar {$kamar->nomor_kamar} diperbarui.",
+        ]);
     }
 
-    public function destroy(Request $request, Kamar $kamar): JsonResponse
+    public function destroy(Request $request, Kamar $kamar): RedirectResponse
     {
         $this->authorizePermission($request, 'gedung.manage');
         $kamar->delete();
 
-        return response()->json(['ok' => true]);
+        return redirect()->back()->with('toast', [
+            'type' => 'success',
+            'message' => 'Kamar dihapus.',
+        ]);
     }
 }

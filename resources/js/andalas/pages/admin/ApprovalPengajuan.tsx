@@ -1,42 +1,27 @@
-import { useState } from "react";
-import { toast } from "sonner";
-import { PageHeader, Card, Tabs, DataTable, Button, StatusBadge } from "../../components/ui";
-import { useAndalasApi } from "../../hooks/useAndalasApi";
-import { andalasApi } from "../../lib/api";
+import { useForm } from "@inertiajs/react";
+import { PageHeader, Card, DataTable, Button, StatusBadge } from "../../components/ui";
+import { approve as approveBebas } from "@/routes/andalas/pengajuan/bebas";
+import { approve as approveIzin } from "@/routes/andalas/pengajuan/izin";
 import { mapPengajuanStatus } from "../../lib/format";
 
 type BebasRow = { id: string; nomor_pengajuan?: string; alasan?: string; status?: string; mahasiswa?: { user?: { nama?: string; nim_nip?: string } } };
 type IzinRow = { id: string; tanggal_mulai?: string; tanggal_kembali?: string; alasan?: string; status?: string; mahasiswa?: { user?: { nama?: string } } };
 
-export default function ApprovalPengajuan() {
-  const { data, reload } = useAndalasApi<{ bebas_asrama: BebasRow[]; izin_pulang: IzinRow[] }>("/api/andalas/pengajuan");
-  const [tab, setTab] = useState(0);
-  const [busy, setBusy] = useState<string | null>(null);
+type Props = { page: string; bebas_asrama?: BebasRow[]; izin_pulang?: IzinRow[] };
 
-  async function approveBebas(id: string, status: "disetujui" | "ditolak") {
-    setBusy(id);
-    try {
-      await andalasApi.post(`/api/andalas/pengajuan/bebas-asrama/${id}/approve`, { status });
-      toast.success(status === "disetujui" ? "Pengajuan bebas asrama disetujui." : "Pengajuan bebas asrama ditolak.");
-      await reload();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Gagal memproses pengajuan");
-    } finally {
-      setBusy(null);
-    }
+export default function ApprovalPengajuan({ page, bebas_asrama, izin_pulang }: Props) {
+  const { post, processing, transform } = useForm({ status: "disetujui" });
+
+  const showBebas = page === "approval-bebas-asrama" ? true : page === "approval-izin-pulang" ? false : !!bebas_asrama;
+
+  function approveBebasRow(id: string, status: "disetujui" | "ditolak") {
+    transform(() => ({ status }));
+    post(approveBebas.url({ pengajuan: id }));
   }
 
-  async function approveIzin(id: string, status: "disetujui" | "ditolak") {
-    setBusy(id);
-    try {
-      await andalasApi.post(`/api/andalas/pengajuan/izin-pulang/${id}/approve`, { status });
-      toast.success(status === "disetujui" ? "Pengajuan izin pulang disetujui." : "Pengajuan izin pulang ditolak.");
-      await reload();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Gagal memproses pengajuan");
-    } finally {
-      setBusy(null);
-    }
+  function approveIzinRow(id: string, status: "disetujui" | "ditolak") {
+    transform(() => ({ status }));
+    post(approveIzin.url({ pengajuan: id }));
   }
 
   const bebasCols = [
@@ -44,7 +29,7 @@ export default function ApprovalPengajuan() {
     { key: "nama", label: "Mahasiswa", render: (r: BebasRow) => r.mahasiswa?.user?.nama },
     { key: "status", label: "Status", render: (r: BebasRow) => <StatusBadge status={mapPengajuanStatus(r.status ?? "")} /> },
     { key: "aksi", label: "", render: (r: BebasRow) => r.status === "diajukan" ? (
-      <div className="flex gap-1"><Button size="sm" disabled={busy === r.id} onClick={() => approveBebas(r.id, "disetujui")}>Setuju</Button><Button size="sm" variant="secondary" disabled={busy === r.id} onClick={() => approveBebas(r.id, "ditolak")}>Tolak</Button></div>
+      <div className="flex gap-1"><Button size="sm" disabled={processing} onClick={() => approveBebasRow(r.id, "disetujui")}>Setuju</Button><Button size="sm" variant="secondary" disabled={processing} onClick={() => approveBebasRow(r.id, "ditolak")}>Tolak</Button></div>
     ) : null },
   ];
 
@@ -54,16 +39,21 @@ export default function ApprovalPengajuan() {
     { key: "tanggal_kembali", label: "Kembali" },
     { key: "status", label: "Status", render: (r: IzinRow) => <StatusBadge status={mapPengajuanStatus(r.status ?? "")} /> },
     { key: "aksi", label: "", render: (r: IzinRow) => r.status === "diajukan" ? (
-      <div className="flex gap-1"><Button size="sm" disabled={busy === r.id} onClick={() => approveIzin(r.id, "disetujui")}>Setuju</Button><Button size="sm" variant="secondary" disabled={busy === r.id} onClick={() => approveIzin(r.id, "ditolak")}>Tolak</Button></div>
+      <div className="flex gap-1"><Button size="sm" disabled={processing} onClick={() => approveIzinRow(r.id, "disetujui")}>Setuju</Button><Button size="sm" variant="secondary" disabled={processing} onClick={() => approveIzinRow(r.id, "ditolak")}>Tolak</Button></div>
     ) : null },
   ];
 
+  const columns = showBebas ? bebasCols : izinCols;
+  const rows = showBebas ? (bebas_asrama ?? []) : (izin_pulang ?? []);
+
   return (
-    <div className="p-6">
-      <PageHeader title="Approval Pengajuan" subtitle="Bebas asrama dan izin pulang" />
+    <div className="space-y-4">
+      <PageHeader
+        title="Approval Pengajuan"
+        subtitle={showBebas ? "Bebas asrama" : "Izin pulang"}
+      />
       <Card>
-        <Tabs tabs={["Bebas Asrama", "Izin Pulang"]} active={tab} onChange={setTab} />
-        {tab === 0 ? <DataTable columns={bebasCols as never} data={(data?.bebas_asrama ?? []) as never} /> : <DataTable columns={izinCols as never} data={(data?.izin_pulang ?? []) as never} />}
+        <DataTable columns={columns as never} data={rows as never} />
       </Card>
     </div>
   );

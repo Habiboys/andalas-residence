@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { PageHeader, Card, FormField, inputClass, Button, Table } from "../../components/ui";
+import { useForm } from "@inertiajs/react";
+import { PageHeader, Card, FormField, inputClass, Table } from "../../components/ui";
 import { BarcodeScanner } from "../../components/organisms/BarcodeScanner";
-import { andalasApi } from "../../lib/api";
-import { useAndalasApi } from "../../hooks/useAndalasApi";
+import { scan as absensiScan } from "@/routes/andalas/absensi";
 
 type WaktuSholat = "subuh" | "dzuhur" | "ashar" | "maghrib" | "isya";
 
@@ -14,27 +14,42 @@ type AbsensiRow = {
   mahasiswa?: { user?: { nim_nip?: string; nama?: string } };
 };
 
-export default function ScanBarcode() {
-  const { data: absensi, reload } = useAndalasApi<AbsensiRow[]>("/api/andalas/absensi");
-  const [waktu, setWaktu] = useState<WaktuSholat>("subuh");
+type ScanResult = {
+  mahasiswa?: { user?: { nama?: string; nim_nip?: string } };
+  already_scanned?: boolean;
+  error?: string;
+};
 
-  async function handleScan(code: string) {
-    try {
-      const res = await andalasApi.post<{ mahasiswa?: { user?: { nama?: string; nim_nip?: string } }; already_scanned?: boolean }>(
-        "/api/andalas/absensi/scan",
-        { barcode_code: code, waktu_sholat: waktu },
-      );
-      const nama = res.mahasiswa?.user?.nama ?? code;
-      const nim = res.mahasiswa?.user?.nim_nip ?? "";
-      if (res.already_scanned) {
-        toast.info(`${nama} sudah tercatat hari ini`);
-      } else {
-        toast.success(`Absensi tercatat: ${nama} (${nim})`);
-      }
-      await reload();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Scan gagal");
+type Props = {
+  absensi: AbsensiRow[];
+  scan_result: ScanResult | null;
+};
+
+export default function ScanBarcode({ absensi = [], scan_result = null }: Props) {
+  const [waktu, setWaktu] = useState<WaktuSholat>("subuh");
+  const { setData, post, reset } = useForm({ barcode_code: "", waktu_sholat: "subuh" });
+
+  useEffect(() => {
+    if (!scan_result) return;
+    if (scan_result.error) {
+      toast.error(scan_result.error);
+      return;
     }
+    const nama = scan_result.mahasiswa?.user?.nama ?? "";
+    const nim = scan_result.mahasiswa?.user?.nim_nip ?? "";
+    if (scan_result.already_scanned) {
+      toast.info(`${nama} sudah tercatat hari ini`);
+    } else {
+      toast.success(`Absensi tercatat: ${nama}${nim ? ` (${nim})` : ""}`);
+    }
+  }, [scan_result]);
+
+  function handleScan(code: string) {
+    setData("barcode_code", code);
+    setData("waktu_sholat", waktu);
+    post(absensiScan.url(), {
+      onSuccess: () => reset(),
+    });
   }
 
   const columns = [
@@ -45,7 +60,7 @@ export default function ScanBarcode() {
   ];
 
   return (
-    <div className="p-6">
+    <div className="space-y-4">
       <PageHeader title="Scan Barcode Absensi" subtitle="Rekam kehadiran sholat mahasiswa via barcode" />
 
       <Card className="p-6 mb-6">
@@ -65,9 +80,9 @@ export default function ScanBarcode() {
 
       <Card>
         <div className="border-b border-base-300 px-6 py-4">
-          <h2 className="font-semibold">Scan Hari Ini ({absensi?.length ?? 0})</h2>
+          <h2 className="font-semibold">Scan Hari Ini ({absensi.length})</h2>
         </div>
-        <Table columns={columns} data={absensi ?? []} emptyMessage="Belum ada scan hari ini" />
+        <Table columns={columns} data={absensi} emptyMessage="Belum ada scan hari ini" />
       </Card>
     </div>
   );

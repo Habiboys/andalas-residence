@@ -6,24 +6,14 @@ use App\Models\PengajuanBebasAsrama;
 use App\Models\PengajuanIzinPulang;
 use App\Services\AuditLogService;
 use App\Services\SuratPdfService;
-use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class PengajuanController extends Controller
 {
-    public function index(Request $request): JsonResponse
-    {
-        $this->authorizeAnyPermission($request, ['pengajuan.submit', 'pengajuan.approve']);
-
-        return response()->json([
-            'bebas_asrama' => PengajuanBebasAsrama::with(['mahasiswa.user'])->latest()->get(),
-            'izin_pulang' => PengajuanIzinPulang::with(['mahasiswa.user'])->latest()->get(),
-        ]);
-    }
-
-    public function storeBebas(Request $request): JsonResponse
+    public function storeBebas(Request $request): RedirectResponse
     {
         $this->authorizePermission($request, 'pengajuan.submit');
 
@@ -39,10 +29,13 @@ class PengajuanController extends Controller
             'status' => 'diajukan',
         ]);
 
-        return response()->json($pengajuan, 201);
+        return redirect()->back()->with('toast', [
+            'type' => 'success',
+            'message' => "Pengajuan berhasil: {$pengajuan->nomor_pengajuan}",
+        ]);
     }
 
-    public function storeIzin(Request $request): JsonResponse
+    public function storeIzin(Request $request): RedirectResponse
     {
         $this->authorizePermission($request, 'pengajuan.submit');
 
@@ -63,10 +56,13 @@ class PengajuanController extends Controller
             'status' => 'diajukan',
         ]);
 
-        return response()->json($pengajuan, 201);
+        return redirect()->back()->with('toast', [
+            'type' => 'success',
+            'message' => 'Pengajuan izin pulang berhasil dikirim.',
+        ]);
     }
 
-    public function approveBebas(Request $request, PengajuanBebasAsrama $pengajuan, SuratPdfService $pdf): JsonResponse
+    public function approveBebas(Request $request, PengajuanBebasAsrama $pengajuan, SuratPdfService $pdf): RedirectResponse
     {
         $this->authorizePermission($request, 'pengajuan.approve');
 
@@ -89,10 +85,13 @@ class PengajuanController extends Controller
 
         AuditLogService::log($request->user(), 'approve_pengajuan_bebas', $pengajuan, null, $pengajuan->fresh()->toArray(), $request);
 
-        return response()->json($pengajuan->fresh(['mahasiswa.user']));
+        return redirect()->back()->with('toast', [
+            'type' => 'success',
+            'message' => 'Pengajuan bebas asrama berhasil '.($validated['status'] === 'disetujui' ? 'disetujui' : 'ditolak').'.',
+        ]);
     }
 
-    public function approveIzin(Request $request, PengajuanIzinPulang $pengajuan): JsonResponse
+    public function approveIzin(Request $request, PengajuanIzinPulang $pengajuan): RedirectResponse
     {
         $this->authorizePermission($request, 'pengajuan.approve');
 
@@ -105,7 +104,10 @@ class PengajuanController extends Controller
             'disetujui_oleh' => $request->user()->id,
         ]);
 
-        return response()->json($pengajuan->fresh(['mahasiswa.user']));
+        return redirect()->back()->with('toast', [
+            'type' => 'success',
+            'message' => 'Pengajuan izin pulang berhasil '.($validated['status'] === 'disetujui' ? 'disetujui' : 'ditolak').'.',
+        ]);
     }
 
     public function downloadSuratBebas(Request $request, PengajuanBebasAsrama $pengajuan)

@@ -1,8 +1,8 @@
-import { useMemo, useState } from "react";
-import { toast } from "sonner";
-import { PageHeader, Card, Button, Modal, FormField, inputClass, DataTable, DataColumn, EmptyState } from "../../components/ui";
-import { andalasApi } from "../../lib/api";
-import { useAndalasApi } from "../../hooks/useAndalasApi";
+import { useEffect, useMemo, useState } from "react";
+import { useForm } from "@inertiajs/react";
+import { PageHeader, Card, Button, Modal, FormField, inputClass, DataTable, type DataColumn, EmptyState } from "../../components/ui";
+import { preview as autoPlacementPreview, commit as autoPlacementCommit } from "@/routes/andalas/auto-placement";
+import { manual as penempatanManual } from "@/routes/andalas/penempatan";
 
 type MahasiswaRow = {
   id: string;
@@ -25,6 +25,12 @@ type PreviewItem = {
   nomor_kamar: string;
 };
 
+type AutoPreviewResult = {
+  assigned: number;
+  skipped: string[];
+  preview?: PreviewItem[];
+};
+
 type KamarOption = {
   id: string;
   nomor_kamar: string;
@@ -34,20 +40,21 @@ type KamarOption = {
   penempatan_kamar?: unknown[];
 };
 
-export default function PenempatanKamar() {
-  const { data: mahasiswa, reload: reloadMhs } = useAndalasApi<MahasiswaRow[]>("/api/andalas/mahasiswa");
-  const { data: penempatan, reload: reloadPenempatan } = useAndalasApi<PenempatanRow[]>("/api/andalas/penempatan");
-  const { data: gedung } = useAndalasApi<Array<{ lantai?: Array<{ kamar?: KamarOption[] }> }>>("/api/andalas/gedung");
+type GedungShape = {
+  lantai?: Array<{ kamar?: KamarOption[] }>;
+};
+
+export default function PenempatanKamar({ mahasiswa = [], penempatan = [], gedung = [], auto_preview = null }: { mahasiswa?: MahasiswaRow[]; penempatan?: PenempatanRow[]; gedung?: GedungShape[]; auto_preview?: AutoPreviewResult | null }) {
+  const { data: manualData, setData: setManualData, post: postManual, processing: manualProcessing, errors: manualErrors } = useForm({ mahasiswa_id: "", kamar_id: "" });
+  const previewForm = useForm<Record<string, string>>({});
+  const commitForm = useForm<Record<string, string>>({});
 
   const [showAutoModal, setShowAutoModal] = useState(false);
   const [autoPreview, setAutoPreview] = useState<PreviewItem[]>([]);
-  const [selectedMhs, setSelectedMhs] = useState("");
-  const [selectedKamarId, setSelectedKamarId] = useState("");
-  const [busy, setBusy] = useState(false);
 
-  const placedIds = new Set((penempatan ?? []).map((p) => p.mahasiswa?.id).filter(Boolean));
-  const unplacedStudents = (mahasiswa ?? []).filter((m) => m.status_huni === "calon" || !placedIds.has(m.id));
-  const placedStudents = penempatan ?? [];
+  const placedIds = new Set(penempatan.map((p) => p.mahasiswa?.id).filter(Boolean));
+  const unplacedStudents = mahasiswa.filter((m) => m.status_huni === "calon" || !placedIds.has(m.id));
+  const placedStudents = penempatan;
 
   const availableRooms = useMemo(() => {
     const rooms: KamarOption[] = [];
@@ -62,50 +69,30 @@ export default function PenempatanKamar() {
     return rooms;
   }, [gedung]);
 
-  async function handleAutoAssignClick() {
-    setBusy(true);
-    try {
-      const res = await andalasApi.post<{ preview: PreviewItem[] }>("/api/andalas/auto-placement/preview");
-      setAutoPreview(res.preview ?? []);
+  useEffect(() => {
+    if (auto_preview) {
+      setAutoPreview(auto_preview.preview ?? []);
       setShowAutoModal(true);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Gagal membuat rencana auto-assign");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function handleConfirmAutoAssign() {
-    setBusy(true);
-    try {
-      await andalasApi.post("/api/andalas/auto-placement/commit");
+    } else {
       setShowAutoModal(false);
-      await Promise.all([reloadMhs(), reloadPenempatan()]);
-      toast.success("Auto-assign berhasil diterapkan.");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Gagal menerapkan auto-assign");
-    } finally {
-      setBusy(false);
     }
+  }, [auto_preview]);
+
+  function handleAutoAssignClick() {
+    previewForm.post(autoPlacementPreview.url());
   }
 
-  async function handleManualAssign() {
-    if (!selectedMhs || !selectedKamarId) return;
-    setBusy(true);
-    try {
-      await andalasApi.post("/api/andalas/penempatan/manual", {
-        mahasiswa_id: selectedMhs,
-        kamar_id: selectedKamarId,
-      });
-      setSelectedMhs("");
-      setSelectedKamarId("");
-      await Promise.all([reloadMhs(), reloadPenempatan()]);
-      toast.success("Mahasiswa berhasil ditempatkan ke kamar.");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Gagal menempatkan mahasiswa");
-    } finally {
-      setBusy(false);
-    }
+  function handleConfirmAutoAssign() {
+    commitForm.post(autoPlacementCommit.url());
+  }
+
+  function handleManualAssign() {
+    if (!manualData.mahasiswa_id || !manualData.kamar_id) return;
+    postManual(penempatanManual.url(), {
+      onSuccess: () => {
+        setManualData({ mahasiswa_id: "", kamar_id: "" });
+      },
+    });
   }
 
   type Row = Record<string, unknown>;
@@ -123,13 +110,13 @@ export default function PenempatanKamar() {
   ];
 
   return (
-    <div className="p-6 space-y-8">
+    <div className="space-y-8">
       <PageHeader
         title="Penempatan Kamar"
         subtitle="Kelola penempatan mahasiswa ke kamar asrama"
         actions={
           unplacedStudents.length > 0 ? (
-            <Button onClick={handleAutoAssignClick} disabled={busy}>Auto-Assign Semua</Button>
+            <Button onClick={handleAutoAssignClick} disabled={previewForm.processing}>Auto-Assign Semua</Button>
           ) : undefined
         }
       />
@@ -147,22 +134,24 @@ export default function PenempatanKamar() {
         <h2 className="text-base font-semibold mb-4">Override Manual</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
           <FormField label="Pilih Mahasiswa">
-            <select className={`${inputClass} w-full`} value={selectedMhs} onChange={(e) => setSelectedMhs(e.target.value)}>
+            <select className={`${inputClass} w-full`} value={manualData.mahasiswa_id} onChange={(e) => setManualData("mahasiswa_id", e.target.value)}>
               <option value="">-- Pilih Mahasiswa --</option>
               {unplacedStudents.map((u) => (
                 <option key={u.id} value={u.id}>{u.user?.nama} ({u.user?.nim_nip})</option>
               ))}
             </select>
+            {manualErrors.mahasiswa_id && <p className="mt-1 text-sm text-error">{manualErrors.mahasiswa_id}</p>}
           </FormField>
           <FormField label="Pilih Kamar">
-            <select className={`${inputClass} w-full`} value={selectedKamarId} onChange={(e) => setSelectedKamarId(e.target.value)}>
+            <select className={`${inputClass} w-full`} value={manualData.kamar_id} onChange={(e) => setManualData("kamar_id", e.target.value)}>
               <option value="">-- Pilih Kamar --</option>
               {availableRooms.map((k) => (
                 <option key={k.id} value={k.id}>{k.nomor_kamar} ({k.tipe_kamar})</option>
               ))}
             </select>
+            {manualErrors.kamar_id && <p className="mt-1 text-sm text-error">{manualErrors.kamar_id}</p>}
           </FormField>
-          <Button onClick={handleManualAssign} disabled={!selectedMhs || !selectedKamarId || busy}>Tempatkan</Button>
+          <Button onClick={handleManualAssign} disabled={!manualData.mahasiswa_id || !manualData.kamar_id || manualProcessing}>Tempatkan</Button>
         </div>
       </Card>
 
@@ -180,7 +169,7 @@ export default function PenempatanKamar() {
         </ul>
         <div className="flex gap-3 justify-end">
           <Button variant="secondary" onClick={() => setShowAutoModal(false)}>Batal</Button>
-          <Button onClick={handleConfirmAutoAssign} disabled={busy}>Konfirmasi</Button>
+          <Button onClick={handleConfirmAutoAssign} disabled={commitForm.processing}>Konfirmasi</Button>
         </div>
       </Modal>
     </div>

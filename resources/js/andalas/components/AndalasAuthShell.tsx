@@ -30,7 +30,7 @@ export function AndalasAuthShell({ status, children }: Props) {
 
                 <div className="relative z-10 flex flex-col items-start gap-4">
                     <AndalasLogo size="lg" />
-                    <p className="font-serif text-2xl leading-snug">
+                    <p className="font-sans text-2xl font-bold leading-snug">
                         Asrama mahasiswa Universitas Andalas
                     </p>
                     <p className="max-w-xs text-sm text-primary-content/80">

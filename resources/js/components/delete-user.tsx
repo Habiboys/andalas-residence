@@ -38,7 +38,8 @@ export default function DeleteUser() {
                         Once your account is deleted, all of its resources and data will also be permanently deleted. Please enter your password to confirm you would like to permanently delete your account.
                     </p>
                     <Form
-                        {...ProfileController.destroy.form()}
+                        action={ProfileController.destroy.url()}
+                        method="delete"
                         options={{ preserveScroll: true }}
                         onError={() => passwordInput.current?.focus()}
                         resetOnSuccess

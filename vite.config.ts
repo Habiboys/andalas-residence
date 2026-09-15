@@ -13,20 +13,21 @@ export default defineConfig({
             input: ['resources/css/app.css', 'resources/js/app.tsx'],
             refresh: true,
             fonts: [
-                // The UI face, the display face used for headings, and the fixed-width
+                // The UI face (MyUNAND uses DM Sans), the display face for landing
+                // headlines (profile-akademik uses Manrope), and the fixed-width
                 // face used for identifiers (NIM, barcode, room number).
-                bunny('Inter', {
+                bunny('DM Sans', {
                     weights: [400, 500, 600, 700],
                 }),
-                bunny('DM Serif Display', {
-                    weights: [400],
+                bunny('Manrope', {
+                    weights: [500, 600, 700],
                 }),
                 bunny('JetBrains Mono', {
                     weights: [400, 500],
                 }),
             ],
         }),
-        inertia(),
+        inertia({ ssr: false }),
         react(),
         babel({
             presets: [reactCompilerPreset()],

@@ -2,52 +2,31 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\MasterDataRequest;
 use App\Models\Periode;
 use App\Services\MasterDataService;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
+use Illuminate\Http\RedirectResponse;
 
 class PeriodeController extends Controller
 {
-    public function options(Request $request): JsonResponse
+    public function store(MasterDataRequest $request): RedirectResponse
     {
-        $this->authorizePermission($request, 'master.view');
+        $periode = MasterDataService::createPeriode($request->validated());
 
-        return response()->json(MasterDataService::periodeList());
+        return back()->with('toast', ['type' => 'success', 'message' => "Periode {$periode->nama_periode} berhasil ditambahkan."]);
     }
 
-    public function store(Request $request): JsonResponse
+    public function update(MasterDataRequest $request, Periode $periode): RedirectResponse
     {
-        $this->authorizePermission($request, 'master.manage');
-        $validated = $request->validate([
-            'nama_periode' => 'required|string|max:150',
-            'status' => 'required|in:aktif,nonaktif',
-            'tanggal_mulai' => 'required|date',
-            'tanggal_selesai' => 'required|date|after_or_equal:tanggal_mulai',
-        ]);
+        MasterDataService::updatePeriode($periode, $request->validated());
 
-        return response()->json(MasterDataService::createPeriode($validated), 201);
+        return back()->with('toast', ['type' => 'success', 'message' => "Periode {$periode->nama_periode} diperbarui."]);
     }
 
-    public function update(Request $request, Periode $periode): JsonResponse
+    public function destroy(MasterDataRequest $request, Periode $periode): RedirectResponse
     {
-        $this->authorizePermission($request, 'master.manage');
-        $validated = $request->validate([
-            'nama_periode' => 'sometimes|string|max:150',
-            'status' => 'sometimes|in:aktif,nonaktif',
-            'tanggal_mulai' => 'sometimes|date',
-            'tanggal_selesai' => 'sometimes|date',
-        ]);
-        MasterDataService::updatePeriode($periode, $validated);
-
-        return response()->json($periode);
-    }
-
-    public function destroy(Request $request, Periode $periode): JsonResponse
-    {
-        $this->authorizePermission($request, 'master.manage');
         MasterDataService::deletePeriode($periode);
 
-        return response()->json(['ok' => true]);
+        return back()->with('toast', ['type' => 'success', 'message' => 'Periode dihapus.']);
     }
 }

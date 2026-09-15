@@ -1,37 +1,38 @@
-import { useState } from "react";
-import { toast } from "sonner";
+import { useForm } from "@inertiajs/react";
 import { PageHeader, Card, Button, FormField, inputClass } from "../../components/ui";
-import { andalasApi } from "../../lib/api";
+import { izin as izinRoute } from "@/routes/andalas/pengajuan";
 
 export default function PengajuanIzinPulang() {
-  const [form, setForm] = useState({ tanggal_mulai: "", tanggal_kembali: "", alasan: "", tujuan_alamat: "", kontak_darurat: "" });
-  const [busy, setBusy] = useState(false);
+  const { data, setData, post, processing, errors, reset } = useForm({
+    tanggal_mulai: "",
+    tanggal_kembali: "",
+    alasan: "",
+    tujuan_alamat: "",
+    kontak_darurat: "",
+  });
 
-  async function submit(e: React.FormEvent) {
+  function submit(e: React.FormEvent) {
     e.preventDefault();
-    setBusy(true);
-    try {
-      await andalasApi.post("/api/andalas/pengajuan/izin-pulang", form);
-      toast.success("Pengajuan izin pulang berhasil dikirim.");
-      setForm({ tanggal_mulai: "", tanggal_kembali: "", alasan: "", tujuan_alamat: "", kontak_darurat: "" });
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Gagal mengajukan");
-    } finally {
-      setBusy(false);
-    }
+    post(izinRoute.url(), {
+      onSuccess: () => reset(),
+    });
   }
 
   return (
-    <div className="p-6 max-w-xl">
+    <div className="max-w-xl space-y-4">
       <PageHeader title="Pengajuan Izin Pulang" subtitle="Form izin keluar asrama sementara" />
       <Card className="p-6">
         <form onSubmit={submit} className="space-y-4">
-          <FormField label="Tanggal Mulai"><input type="date" className={inputClass} value={form.tanggal_mulai} onChange={(e) => setForm({ ...form, tanggal_mulai: e.target.value })} required /></FormField>
-          <FormField label="Tanggal Kembali"><input type="date" className={inputClass} value={form.tanggal_kembali} onChange={(e) => setForm({ ...form, tanggal_kembali: e.target.value })} required /></FormField>
-          <FormField label="Alasan"><textarea className={inputClass} rows={3} value={form.alasan} onChange={(e) => setForm({ ...form, alasan: e.target.value })} required /></FormField>
-          <FormField label="Tujuan"><input className={inputClass} value={form.tujuan_alamat} onChange={(e) => setForm({ ...form, tujuan_alamat: e.target.value })} /></FormField>
-          <FormField label="Kontak Darurat"><input className={inputClass} value={form.kontak_darurat} onChange={(e) => setForm({ ...form, kontak_darurat: e.target.value })} /></FormField>
-          <Button type="submit" disabled={busy}>Kirim Pengajuan</Button>
+          <FormField label="Tanggal Mulai"><input type="date" className={inputClass} value={data.tanggal_mulai} onChange={(e) => setData("tanggal_mulai", e.target.value)} required /></FormField>
+          <FormField label="Tanggal Kembali"><input type="date" className={inputClass} value={data.tanggal_kembali} onChange={(e) => setData("tanggal_kembali", e.target.value)} required />
+            {errors.tanggal_kembali && <p className="mt-1 text-sm text-error">{errors.tanggal_kembali}</p>}
+          </FormField>
+          <FormField label="Alasan"><textarea className={inputClass} rows={3} value={data.alasan} onChange={(e) => setData("alasan", e.target.value)} required />
+            {errors.alasan && <p className="mt-1 text-sm text-error">{errors.alasan}</p>}
+          </FormField>
+          <FormField label="Tujuan"><input className={inputClass} value={data.tujuan_alamat} onChange={(e) => setData("tujuan_alamat", e.target.value)} /></FormField>
+          <FormField label="Kontak Darurat"><input className={inputClass} value={data.kontak_darurat} onChange={(e) => setData("kontak_darurat", e.target.value)} /></FormField>
+          <Button type="submit" disabled={processing}>{processing ? "Mengirim..." : "Kirim Pengajuan"}</Button>
         </form>
       </Card>
     </div>

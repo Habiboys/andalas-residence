@@ -2,42 +2,31 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\MasterDataRequest;
 use App\Models\Province;
 use App\Services\MasterDataService;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
+use Illuminate\Http\RedirectResponse;
 
 class ProvinsiController extends Controller
 {
-    public function index(Request $request): JsonResponse
+    public function store(MasterDataRequest $request): RedirectResponse
     {
-        $this->authorizePermission($request, 'master.view');
+        $province = MasterDataService::createProvinsi($request->validated());
 
-        return response()->json(MasterDataService::provinsiList());
+        return back()->with('toast', ['type' => 'success', 'message' => "Provinsi {$province->name} berhasil ditambahkan."]);
     }
 
-    public function store(Request $request): JsonResponse
+    public function update(MasterDataRequest $request, Province $province): RedirectResponse
     {
-        $this->authorizePermission($request, 'master.manage');
-        $validated = $request->validate(['name' => 'required|string|max:150|unique:provinces,name']);
+        MasterDataService::updateProvinsi($province, $request->validated());
 
-        return response()->json(MasterDataService::createProvinsi($validated), 201);
+        return back()->with('toast', ['type' => 'success', 'message' => "Provinsi {$province->name} diperbarui."]);
     }
 
-    public function update(Request $request, Province $province): JsonResponse
+    public function destroy(MasterDataRequest $request, Province $province): RedirectResponse
     {
-        $this->authorizePermission($request, 'master.manage');
-        $validated = $request->validate(['name' => 'sometimes|string|max:150|unique:provinces,name,'.$province->id]);
-        MasterDataService::updateProvinsi($province, $validated);
-
-        return response()->json($province);
-    }
-
-    public function destroy(Request $request, Province $province): JsonResponse
-    {
-        $this->authorizePermission($request, 'master.manage');
         MasterDataService::deleteProvinsi($province);
 
-        return response()->json(['ok' => true]);
+        return back()->with('toast', ['type' => 'success', 'message' => 'Provinsi dihapus.']);
     }
 }

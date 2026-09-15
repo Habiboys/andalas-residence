@@ -14,6 +14,11 @@ type Props = {
     section: string;
     sections: Record<string, string>;
     content: Content;
+    statistik?: {
+        gedung: number;
+        kamar: number;
+        penghuni: number;
+    };
 };
 
 const URL_SLUG: Record<string, string> = {
@@ -33,6 +38,7 @@ function Statistik({ label, value }: { label: string; value: string }) {
 
 export default function ProfilPage(props: Props) {
     const { section, sections, content } = props;
+    const statistik = props.statistik ?? { gedung: 0, kamar: 0, penghuni: 0 };
     const isStruktur = section === "struktur_organisasi";
     const strukturList = (content?.content ?? "").split("\n").map((s) => s.trim()).filter(Boolean);
 
@@ -99,12 +105,11 @@ export default function ProfilPage(props: Props) {
                                 </div>
                             )}
 
-                            {/* Stats strip */}
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-14">
-                                <Statistik label="Gedung" value="10" />
-                                <Statistik label="Tahun Berdiri" value="2005" />
-                                <Statistik label="Kapasitas Kamar" value="480+" />
-                                <Statistik label="Layanan Digital" value="24 Jam" />
+                            {/* Stats strip — angka aktual dari database */}
+                            <div className="grid gap-4 mt-14 sm:grid-cols-3">
+                                <Statistik label="Gedung" value={String(statistik.gedung)} />
+                                <Statistik label="Kamar" value={String(statistik.kamar)} />
+                                <Statistik label="Penghuni Aktif" value={String(statistik.penghuni)} />
                             </div>
                         </div>
                     </div>

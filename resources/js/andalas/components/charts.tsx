@@ -1,22 +1,30 @@
-import type { ReactNode } from "react";
+import { useEffect, useReducer, type ReactNode } from "react";
 import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
+  ArcElement,
+  BarElement,
+  CategoryScale,
+  Chart as ChartJS,
+  Filler,
   Legend,
-  LineChart,
-  Line,
-  AreaChart,
-  Area,
-  PieChart,
-  Pie,
-  Cell,
-} from "recharts";
+  LinearScale,
+  LineElement,
+  PointElement,
+  Tooltip as ChartTooltip,
+} from "chart.js";
+import { Bar, Doughnut, Line } from "react-chartjs-2";
 import { Card } from "./ui";
+
+ChartJS.register(
+  ArcElement,
+  BarElement,
+  CategoryScale,
+  Filler,
+  Legend,
+  LinearScale,
+  LineElement,
+  PointElement,
+  ChartTooltip,
+);
 
 export const CHART_COLORS = [
   "#1A3D2B",
@@ -41,51 +49,85 @@ export function ChartCard({ title, subtitle, children, className = "" }: { title
   );
 }
 
-function useChartColors() {
+/*
+ * Canvas can't use CSS `var()` or `color-mix()` directly, unlike the SVG charts
+ * recharts drew. Resolve the active daisyUI theme's CSS custom properties to
+ * real colors instead, and re-resolve whenever `data-theme` flips so the chart
+ * follows the theme toggle.
+ */
+function cssVar(name: string, fallback: string): string {
+  if (typeof document === "undefined") {
+    return fallback;
+  }
+
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+}
+
+function withAlpha(hex: string, alpha: string): string {
+  return hex.length === 7 ? `${hex}${alpha}` : hex;
+}
+
+function useChartTheme() {
+  const [, rerender] = useReducer((x: number) => x + 1, 0);
+
+  useEffect(() => {
+    const observer = new MutationObserver(() => rerender());
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+    return () => observer.disconnect();
+  }, []);
+
+  const content = cssVar("--color-base-content", "#111827");
+
   return {
-    axis: "color-mix(in oklab, var(--color-base-content) 60%, transparent)",
-    grid: "color-mix(in oklab, var(--color-base-content) 14%, transparent)",
-    tooltipBg: "var(--color-base-100)",
-    tooltipBorder: "color-mix(in oklab, var(--color-base-content) 18%, transparent)",
-    tooltipText: "var(--color-base-content)",
-    label: "var(--color-base-content)",
+    axis: withAlpha(content, "99"),
+    grid: withAlpha(content, "24"),
+    tooltipBg: cssVar("--color-base-100", "#ffffff"),
+    tooltipBorder: withAlpha(content, "2e"),
+    tooltipText: content,
   };
 }
 
-function ChartTooltip({
-  active,
-  payload,
-  label,
-  labelFormatter,
-  valueFormatter,
-  colors,
-}: {
-  active?: boolean;
-  payload?: Array<{ name?: string; value?: number | string; color?: string; dataKey?: string }>;
-  label?: string | number;
-  labelFormatter?: (v: string | number) => string;
-  valueFormatter?: (v: number) => string;
-  colors: ReturnType<typeof useChartColors>;
-}) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div
-      className="rounded-lg border px-3 py-2 text-xs shadow-lg"
-      style={{
-        background: colors.tooltipBg,
-        borderColor: colors.tooltipBorder,
-        color: colors.tooltipText,
-      }}
-    >
-      {label != null && <p className="font-semibold mb-1">{labelFormatter ? labelFormatter(String(label)) : label}</p>}
-      {payload.map((entry, i) => (
-        <p key={i} className="flex items-center gap-2">
-          <span className="inline-block w-2 h-2 rounded-full" style={{ background: entry.color ?? CHART_COLORS[i % CHART_COLORS.length] }} />
-          {entry.name}: <span className="font-medium">{valueFormatter ? valueFormatter(Number(entry.value ?? 0)) : entry.value}</span>
-        </p>
-      ))}
-    </div>
-  );
+function tooltipTheme(theme: ReturnType<typeof useChartTheme>) {
+  return {
+    backgroundColor: theme.tooltipBg,
+    borderColor: theme.tooltipBorder,
+    borderWidth: 1,
+    titleColor: theme.tooltipText,
+    bodyColor: theme.tooltipText,
+    padding: 10,
+    boxPadding: 4,
+    usePointStyle: true,
+  };
+}
+
+interface TrendSeries {
+  key: string;
+  name: string;
+  color: string;
+}
+
+function trendScales(theme: ReturnType<typeof useChartTheme>, labelFormatter?: (v: string) => string, valueFormatter?: (v: number) => string) {
+  return {
+    x: {
+      ticks: {
+        color: theme.axis,
+        font: { size: 11 },
+        callback: labelFormatter ? ((value: string) => labelFormatter(value)) as never : undefined,
+      },
+      grid: { display: false },
+      border: { display: false },
+    },
+    y: {
+      ticks: {
+        color: theme.axis,
+        font: { size: 11 },
+        callback: valueFormatter ? ((value: number) => valueFormatter(Number(value))) as never : undefined,
+      },
+      grid: { color: theme.grid },
+      border: { display: false },
+    },
+  };
 }
 
 export function TrendBarChart({
@@ -97,24 +139,43 @@ export function TrendBarChart({
 }: {
   data: Array<Record<string, unknown>>;
   xKey: string;
-  series: Array<{ key: string; name: string; color: string }>;
+  series: TrendSeries[];
   valueFormatter?: (v: number) => string;
   labelFormatter?: (v: string) => string;
 }) {
-  const colors = useChartColors();
+  const theme = useChartTheme();
+
+  const chartData = {
+    labels: data.map((row) => String(row[xKey] ?? "")),
+    datasets: series.map((s) => ({
+      label: s.name,
+      data: data.map((row) => Number(row[s.key] ?? 0)),
+      backgroundColor: s.color,
+      borderRadius: { topLeft: 4, topRight: 4 },
+      maxBarThickness: 32,
+    })),
+  };
+
+  const options = {
+    responsive: true,
+    maintainAspectRatio: false,
+    scales: trendScales(theme, labelFormatter, valueFormatter),
+    plugins: {
+      legend: { labels: { color: theme.tooltipText, font: { size: 12 } } },
+      tooltip: {
+        ...tooltipTheme(theme),
+        callbacks: {
+          label: (ctx: { dataset?: { label?: string }; parsed?: { y?: number } }) =>
+            `${ctx.dataset?.label ?? ""}: ${valueFormatter ? valueFormatter(Number(ctx.parsed?.y ?? 0)) : ctx.parsed?.y}`,
+        },
+      },
+    },
+  };
+
   return (
-    <ResponsiveContainer width="100%" height="100%">
-      <BarChart data={data as never} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke={colors.grid} vertical={false} />
-        <XAxis dataKey={xKey} tick={{ fontSize: 11, fill: colors.axis }} tickFormatter={labelFormatter} axisLine={false} tickLine={false} />
-        <YAxis tick={{ fontSize: 11, fill: colors.axis }} axisLine={false} tickLine={false} tickFormatter={(v: number) => (valueFormatter ? valueFormatter(v) : String(v))} width={52} />
-        <Tooltip content={<ChartTooltip valueFormatter={valueFormatter} colors={colors} />} cursor={{ fill: colors.grid }} />
-        <Legend wrapperStyle={{ fontSize: 12 }} />
-        {series.map((s) => (
-          <Bar key={s.key} dataKey={s.key} name={s.name} fill={s.color} radius={[4, 4, 0, 0]} maxBarSize={32} />
-        ))}
-      </BarChart>
-    </ResponsiveContainer>
+    <div className="h-full w-full">
+      <Bar data={chartData as never} options={options as never} />
+    </div>
   );
 }
 
@@ -127,24 +188,47 @@ export function TrendLineChart({
 }: {
   data: Array<Record<string, unknown>>;
   xKey: string;
-  series: Array<{ key: string; name: string; color: string }>;
+  series: TrendSeries[];
   valueFormatter?: (v: number) => string;
   labelFormatter?: (v: string) => string;
 }) {
-  const colors = useChartColors();
+  const theme = useChartTheme();
+
+  const chartData = {
+    labels: data.map((row) => String(row[xKey] ?? "")),
+    datasets: series.map((s) => ({
+      label: s.name,
+      data: data.map((row) => Number(row[s.key] ?? 0)),
+      borderColor: s.color,
+      backgroundColor: s.color,
+      borderWidth: 2.5,
+      tension: 0.35,
+      pointRadius: 3,
+      pointHoverRadius: 5,
+      pointBackgroundColor: s.color,
+    })),
+  };
+
+  const options = {
+    responsive: true,
+    maintainAspectRatio: false,
+    scales: trendScales(theme, labelFormatter, valueFormatter),
+    plugins: {
+      legend: { labels: { color: theme.tooltipText, font: { size: 12 } } },
+      tooltip: {
+        ...tooltipTheme(theme),
+        callbacks: {
+          label: (ctx: { dataset?: { label?: string }; parsed?: { y?: number } }) =>
+            `${ctx.dataset?.label ?? ""}: ${valueFormatter ? valueFormatter(Number(ctx.parsed?.y ?? 0)) : ctx.parsed?.y}`,
+        },
+      },
+    },
+  };
+
   return (
-    <ResponsiveContainer width="100%" height="100%">
-      <LineChart data={data as never} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke={colors.grid} vertical={false} />
-        <XAxis dataKey={xKey} tick={{ fontSize: 11, fill: colors.axis }} tickFormatter={labelFormatter} axisLine={false} tickLine={false} />
-        <YAxis tick={{ fontSize: 11, fill: colors.axis }} axisLine={false} tickLine={false} tickFormatter={(v: number) => (valueFormatter ? valueFormatter(v) : String(v))} width={52} />
-        <Tooltip content={<ChartTooltip valueFormatter={valueFormatter} colors={colors} />} />
-        <Legend wrapperStyle={{ fontSize: 12 }} />
-        {series.map((s) => (
-          <Line key={s.key} type="monotone" dataKey={s.key} name={s.name} stroke={s.color} strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} />
-        ))}
-      </LineChart>
-    </ResponsiveContainer>
+    <div className="h-full w-full">
+      <Line data={chartData as never} options={options as never} />
+    </div>
   );
 }
 
@@ -157,32 +241,48 @@ export function TrendAreaChart({
 }: {
   data: Array<Record<string, unknown>>;
   xKey: string;
-  series: Array<{ key: string; name: string; color: string }>;
+  series: TrendSeries[];
   valueFormatter?: (v: number) => string;
   labelFormatter?: (v: string) => string;
 }) {
-  const colors = useChartColors();
+  const theme = useChartTheme();
+
+  const chartData = {
+    labels: data.map((row) => String(row[xKey] ?? "")),
+    datasets: series.map((s) => ({
+      label: s.name,
+      data: data.map((row) => Number(row[s.key] ?? 0)),
+      borderColor: s.color,
+      backgroundColor: withAlpha(s.color, "40"),
+      borderWidth: 2.5,
+      tension: 0.35,
+      fill: true,
+      pointRadius: 2,
+      pointHoverRadius: 5,
+      pointBackgroundColor: s.color,
+    })),
+  };
+
+  const options = {
+    responsive: true,
+    maintainAspectRatio: false,
+    scales: trendScales(theme, labelFormatter, valueFormatter),
+    plugins: {
+      legend: { labels: { color: theme.tooltipText, font: { size: 12 } } },
+      tooltip: {
+        ...tooltipTheme(theme),
+        callbacks: {
+          label: (ctx: { dataset?: { label?: string }; parsed?: { y?: number } }) =>
+            `${ctx.dataset?.label ?? ""}: ${valueFormatter ? valueFormatter(Number(ctx.parsed?.y ?? 0)) : ctx.parsed?.y}`,
+        },
+      },
+    },
+  };
+
   return (
-    <ResponsiveContainer width="100%" height="100%">
-      <AreaChart data={data as never} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
-        <defs>
-          {series.map((s, i) => (
-            <linearGradient key={s.key} id={`grad-${i}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor={s.color} stopOpacity={0.35} />
-              <stop offset="95%" stopColor={s.color} stopOpacity={0.02} />
-            </linearGradient>
-          ))}
-        </defs>
-        <CartesianGrid strokeDasharray="3 3" stroke={colors.grid} vertical={false} />
-        <XAxis dataKey={xKey} tick={{ fontSize: 11, fill: colors.axis }} tickFormatter={labelFormatter} axisLine={false} tickLine={false} />
-        <YAxis tick={{ fontSize: 11, fill: colors.axis }} axisLine={false} tickLine={false} tickFormatter={(v: number) => (valueFormatter ? valueFormatter(v) : String(v))} width={52} />
-        <Tooltip content={<ChartTooltip valueFormatter={valueFormatter} colors={colors} />} />
-        <Legend wrapperStyle={{ fontSize: 12 }} />
-        {series.map((s, i) => (
-          <Area key={s.key} type="monotone" dataKey={s.key} name={s.name} stroke={s.color} fill={`url(#grad-${i})`} strokeWidth={2.5} />
-        ))}
-      </AreaChart>
-    </ResponsiveContainer>
+    <div className="h-full w-full">
+      <Line data={chartData as never} options={options as never} />
+    </div>
   );
 }
 
@@ -197,55 +297,57 @@ export function DonutChart({
   centerLabel?: string;
   centerValue?: string;
 }) {
-  const colors = useChartColors();
-  const total = data.reduce((s, d) => s + d.value, 0);
+  const theme = useChartTheme();
+  const total = data.reduce((sum, d) => sum + d.value, 0);
 
-  const pieTooltip = (props: { active?: boolean; payload?: Array<{ name?: string; value?: number }> }) =>
-    props.active && props.payload?.length ? (
-      <div
-        className="rounded-lg border px-3 py-2 text-xs shadow-lg"
-        style={{ background: colors.tooltipBg, borderColor: colors.tooltipBorder, color: colors.tooltipText }}
-      >
-        <p className="flex items-center gap-2">
-          <span className="inline-block w-2 h-2 rounded-full" style={{ background: colors.label }} />
-          <span className="font-medium">{props.payload[0]?.name}</span>
-        </p>
-        <p className="mt-1">{valueFormatter ? valueFormatter(Number(props.payload[0]?.value ?? 0)) : props.payload[0]?.value}</p>
-      </div>
-    ) : null;
+  const chartData = {
+    labels: data.map((d) => d.name),
+    datasets: [
+      {
+        data: data.map((d) => d.value),
+        backgroundColor: data.map((d) => d.color),
+        borderColor: theme.tooltipBg,
+        borderWidth: 2,
+        spacing: 2,
+      },
+    ],
+  };
+
+  const options = {
+    responsive: true,
+    maintainAspectRatio: false,
+    cutout: "70%",
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        ...tooltipTheme(theme),
+        callbacks: {
+          label: (ctx: { parsed?: number; dataset?: { label?: string } }) =>
+            valueFormatter ? valueFormatter(Number(ctx.parsed ?? 0)) : `${ctx.dataset?.label ?? ""}: ${ctx.parsed}`,
+        },
+      },
+    },
+  };
 
   return (
-    <div className="relative w-full h-full">
-      <ResponsiveContainer width="100%" height="100%">
-        <PieChart>
-          <Pie
-            data={data as never}
-            dataKey="value"
-            nameKey="name"
-            cx="50%"
-            cy="50%"
-            innerRadius={62}
-            outerRadius={88}
-            paddingAngle={3}
-            strokeWidth={2}
-          >
-            {data.map((d, i) => (
-              <Cell key={i} fill={d.color} stroke={colors.tooltipBg} />
-            ))}
-          </Pie>
-          <Tooltip content={pieTooltip as never} />
-        </PieChart>
-      </ResponsiveContainer>
+    <div className="relative h-full w-full">
+      <div className="h-full w-full">
+        <Doughnut data={chartData as never} options={options as never} />
+      </div>
       {(centerLabel || centerValue) && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
           {centerValue && <span className="text-2xl font-bold text-base-content">{centerValue}</span>}
-          {centerLabel && <span className="text-[11px] uppercase tracking-wide text-base-content/60">{centerLabel} · {total}</span>}
+          {centerLabel && (
+            <span className="text-[11px] uppercase tracking-wide text-base-content/60">
+              {centerLabel} · {total}
+            </span>
+          )}
         </div>
       )}
       <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
         {data.map((d, i) => (
           <div key={i} className="flex items-center gap-2">
-            <span className="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: d.color }} />
+            <span className="inline-block h-2.5 w-2.5 flex-shrink-0 rounded-full" style={{ background: d.color }} />
             <span className="truncate text-base-content/70">{d.name}</span>
             <span className="ml-auto font-medium text-base-content">{valueFormatter ? valueFormatter(d.value) : d.value}</span>
           </div>

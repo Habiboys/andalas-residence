@@ -1,8 +1,7 @@
 import { useState } from "react";
-import { toast } from "sonner";
-import { PageHeader, Card, Table, Button, Drawer, FormField, inputClass, Tabs, ConfirmDialog } from "../../components/ui";
-import { useAndalasApi } from "../../hooks/useAndalasApi";
-import { andalasApi } from "../../lib/api";
+import { useForm, router } from "@inertiajs/react";
+import { PageHeader, Card, Table, Button, Drawer, FormField, inputClass, Tabs, ConfirmDialog, RowActions } from "../../components/ui";
+import { store as usersStore, update as usersUpdate, destroy as usersDestroy } from "@/routes/andalas/admin/users";
 import { useAuth } from "../../context/AppContext";
 
 type UserRow = {
@@ -13,27 +12,27 @@ type UserRow = {
   status?: string;
   roles?: string[];
 };
+
 type RoleRow = { name: string; users_count: number };
+
+type Props = { users: UserRow[] | null; roles: RoleRow[] | null };
 
 const ROLES = ["superadmin", "pimpinan", "staff_admin", "fasilitator", "teknisi"];
 const emptyForm = { nim_nip: "", nama: "", email: "", password: "", no_hp: "", role: "staff_admin" };
 
-export default function AkunInternal() {
+export default function AkunInternal({ users, roles }: Props) {
   const { currentUser } = useAuth();
   const isSuperadmin = currentUser?.role === "superadmin" || currentUser?.raw_role === "superadmin";
-  const { data: users, reload: reloadUsers } = useAndalasApi<UserRow[]>(isSuperadmin ? "/api/andalas/admin/users" : null);
-  const { data: roles } = useAndalasApi<RoleRow[]>(isSuperadmin ? "/api/andalas/admin/roles" : null);
   const [tab, setTab] = useState(0);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<UserRow | null>(null);
-  const [form, setForm] = useState(emptyForm);
-  const [busy, setBusy] = useState(false);
   const [deleting, setDeleting] = useState<UserRow | null>(null);
   const [deletingBusy, setDeletingBusy] = useState(false);
+  const { data, setData, post, put, errors, processing, resetAndClearErrors, clearErrors } = useForm(emptyForm);
 
   if (!isSuperadmin) {
     return (
-      <div className="p-6">
+      <div className="space-y-4">
         <PageHeader title="Akun & Role Internal" subtitle="Hanya superadmin yang dapat mengakses halaman ini" />
         <Card className="p-6 text-sm text-muted">Anda tidak memiliki akses ke modul ini.</Card>
       </div>
@@ -42,13 +41,13 @@ export default function AkunInternal() {
 
   function openCreate() {
     setEditing(null);
-    setForm(emptyForm);
+    resetAndClearErrors();
     setOpen(true);
   }
 
   function openEdit(row: UserRow) {
     setEditing(row);
-    setForm({
+    setData({
       nim_nip: row.nim_nip ?? "",
       nama: row.nama ?? "",
       email: row.email ?? "",
@@ -56,54 +55,37 @@ export default function AkunInternal() {
       no_hp: "",
       role: row.roles?.[0] ?? "staff_admin",
     });
+    clearErrors();
     setOpen(true);
   }
 
-  async function save(e: React.FormEvent) {
+  function save(e: React.FormEvent) {
     e.preventDefault();
-    setBusy(true);
-    try {
-      if (editing) {
-        const payload = { ...form };
-        if (!payload.password) delete (payload as { password?: string }).password;
-        await andalasApi.put(`/api/andalas/admin/users/${editing.id}`, payload);
-      } else {
-        await andalasApi.post("/api/andalas/admin/users", form);
-      }
-      setOpen(false);
-      await reloadUsers();
-      toast.success(editing ? "Akun berhasil diperbarui." : "Akun berhasil ditambahkan.");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Gagal menyimpan");
-    } finally {
-      setBusy(false);
+    if (editing) {
+      put(usersUpdate.url({ id: editing.id }), { onSuccess: () => setOpen(false) });
+    } else {
+      post(usersStore.url(), { onSuccess: () => setOpen(false) });
     }
   }
 
-  async function confirmDelete() {
+  function confirmDelete() {
     if (!deleting) return;
     setDeletingBusy(true);
-    try {
-      await andalasApi.delete(`/api/andalas/admin/users/${deleting.id}`);
-      toast.success("Akun berhasil dihapus.");
-      setDeleting(null);
-      await reloadUsers();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Gagal menghapus");
-    } finally {
-      setDeletingBusy(false);
-    }
+    router.delete(usersDestroy.url({ id: deleting.id }), {
+      onSuccess: () => setDeleting(null),
+      onFinish: () => setDeletingBusy(false),
+    });
   }
 
   return (
-    <div className="p-6 space-y-4">
+    <div className="space-y-4">
       <PageHeader
         title="Akun & Role Internal"
         subtitle="Kelola akun staff dan hak akses (superadmin)"
         actions={<Button onClick={openCreate}>Tambah Akun</Button>}
       />
 
-      <Card>
+      <Card className="p-4">
         <Tabs tabs={["Daftar Akun", "Ringkasan Role"]} active={tab} onChange={setTab} />
         {tab === 0 ? (
           <Table
@@ -117,10 +99,7 @@ export default function AkunInternal() {
                 key: "aksi",
                 label: "",
                 render: (r: UserRow) => (
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="secondary" onClick={() => openEdit(r)}>Edit</Button>
-                    <Button size="sm" variant="danger" onClick={() => setDeleting(r)}>Hapus</Button>
-                  </div>
+                  <RowActions onEdit={() => openEdit(r)} onDelete={() => setDeleting(r)} />
                 ),
               },
             ]}
@@ -128,7 +107,7 @@ export default function AkunInternal() {
             emptyMessage="Belum ada akun internal"
           />
         ) : (
-          <div className="p-4 grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {(roles ?? []).map((r) => (
               <div key={r.name} className="rounded-box border border-base-300 bg-base-200 p-4">
                 <p className="font-semibold capitalize">{r.name.replace("_", " ")}</p>
@@ -147,21 +126,32 @@ export default function AkunInternal() {
         footer={
           <div className="flex justify-end gap-2">
             <Button type="button" variant="secondary" onClick={() => setOpen(false)}>Batal</Button>
-            <Button type="submit" form="akun-internal-form" disabled={busy}>Simpan</Button>
+            <Button type="submit" form="akun-internal-form" disabled={processing}>{processing ? "Menyimpan..." : "Simpan"}</Button>
           </div>
         }
       >
         <form id="akun-internal-form" onSubmit={save} className="space-y-3">
-          <FormField label="NIP/NIM"><input className={inputClass} value={form.nim_nip} onChange={(e) => setForm({ ...form, nim_nip: e.target.value })} required /></FormField>
-          <FormField label="Nama"><input className={inputClass} value={form.nama} onChange={(e) => setForm({ ...form, nama: e.target.value })} required /></FormField>
-          <FormField label="Email"><input type="email" className={inputClass} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required /></FormField>
+          <FormField label="NIP/NIM">
+            <input className={inputClass} value={data.nim_nip} onChange={(e) => setData("nim_nip", e.target.value)} required />
+            {errors.nim_nip && <p className="mt-1 text-sm text-error">{errors.nim_nip}</p>}
+          </FormField>
+          <FormField label="Nama">
+            <input className={inputClass} value={data.nama} onChange={(e) => setData("nama", e.target.value)} required />
+            {errors.nama && <p className="mt-1 text-sm text-error">{errors.nama}</p>}
+          </FormField>
+          <FormField label="Email">
+            <input type="email" className={inputClass} value={data.email} onChange={(e) => setData("email", e.target.value)} required />
+            {errors.email && <p className="mt-1 text-sm text-error">{errors.email}</p>}
+          </FormField>
           <FormField label={editing ? "Password (kosongkan jika tidak diubah)" : "Password"}>
-            <input type="password" className={inputClass} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required={!editing} />
+            <input type="password" className={inputClass} value={data.password} onChange={(e) => setData("password", e.target.value)} required={!editing} />
+            {errors.password && <p className="mt-1 text-sm text-error">{errors.password}</p>}
           </FormField>
           <FormField label="Role">
-            <select className={inputClass} value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} required>
+            <select className={inputClass} value={data.role} onChange={(e) => setData("role", e.target.value)} required>
               {ROLES.map((r) => <option key={r} value={r}>{r.replace("_", " ")}</option>)}
             </select>
+            {errors.role && <p className="mt-1 text-sm text-error">{errors.role}</p>}
           </FormField>
         </form>
       </Drawer>

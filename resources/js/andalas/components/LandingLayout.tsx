@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, usePage } from "@inertiajs/react";
 import { ChevronDown, Menu, Moon, Sun, X } from "lucide-react";
+import { login } from "@/routes";
 import { ThemeProvider, useTheme } from "../context/AppContext";
 
 export type LandingSharedProps = {
@@ -20,14 +21,16 @@ const INFORMASI_LABEL: Record<string, string> = {
     pengumuman: "Pengumuman",
 };
 
-function ThemeToggle() {
+function ThemeToggle({ onLight = false }: { onLight?: boolean }) {
     const { darkMode, toggleDarkMode } = useTheme();
 
     return (
         <button
             type="button"
             onClick={toggleDarkMode}
-            className="btn btn-ghost btn-sm"
+            className={`btn btn-ghost btn-sm ${
+                onLight ? "text-white hover:bg-white/10" : ""
+            }`}
             aria-label={darkMode ? "Ganti ke tema terang" : "Ganti ke tema gelap"}
             aria-pressed={darkMode}
         >
@@ -48,7 +51,8 @@ export default function LandingLayout({ active, children }: Props) {
     const [scrolled, setScrolled] = useState(false);
 
     useEffect(() => {
-        const onScroll = () => setScrolled(window.scrollY > 20);
+        const onScroll = () => setScrolled(window.scrollY > 24);
+        onScroll();
         window.addEventListener("scroll", onScroll, { passive: true });
 
         return () => window.removeEventListener("scroll", onScroll);
@@ -72,9 +76,17 @@ export default function LandingLayout({ active, children }: Props) {
         return () => window.removeEventListener("keydown", onKeyDown);
     }, [openDropdown, menuOpen]);
 
+    // Over the hero the bar is transparent with light copy; once scrolled (or on
+    // internal pages) it becomes a solid white bar, like profile-akademik.
+    const solid = scrolled || !active;
+
     const linkClass = (name: string) =>
         `text-sm font-medium transition-colors ${
-            active === name ? "text-primary" : "text-base-content hover:text-primary"
+            active === name
+                ? "text-primary"
+                : solid
+                  ? "text-base-content hover:text-primary"
+                  : "text-white hover:text-white/80"
         }`;
 
     const profilEntries = Object.entries(profilSections ?? {}) as [string, string][];
@@ -82,48 +94,43 @@ export default function LandingLayout({ active, children }: Props) {
 
     return (
         <ThemeProvider>
-            <div className="min-h-screen overflow-x-hidden bg-base-100">
-                {/*
-                 * A solid bar, not a floating blurred pill. Glass over an unknown
-                 * hero is a contrast gamble, and the blur only paid off as
-                 * decoration. The shadow appears on scroll because that is when
-                 * the bar actually needs to separate from the content under it.
-                 */}
-                <nav
-                    className={`fixed inset-x-0 top-0 z-50 border-b border-base-300 bg-base-100 ${
-                        scrolled ? "shadow-sm" : ""
+            <div className="min-h-svh overflow-x-hidden bg-mist font-sans text-base-content">
+                <header
+                    className={`fixed inset-x-0 top-0 z-50 ${
+                        solid ? "bg-surface shadow-sm" : "bg-transparent"
                     }`}
                 >
-                    <div className="navbar mx-auto min-h-16 max-w-6xl gap-2 px-4">
-                        <div className="navbar-start">
-                            <Link href="/" className="flex items-center gap-2.5">
-                                <img
-                                    src="/images/logo-andalas-residence.png"
-                                    alt=""
-                                    className="h-10 w-auto shrink-0"
-                                />
-                                {/* Below sm the wordmark wraps to three lines and crowds
-                                    the controls, so the logo carries the brand on its own. */}
-                                <span className="hidden leading-tight sm:block">
-                                    <span className="block font-serif text-sm whitespace-nowrap text-base-content">
-                                        Andalas Residence
-                                    </span>
-                                    <span className="block text-xs whitespace-nowrap text-muted">
-                                        Universitas Andalas
-                                    </span>
+                    <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between gap-4 px-4 md:h-[4.5rem] md:px-6">
+                        <Link href="/" className="flex min-w-0 items-center gap-3">
+                            <img
+                                src="/images/logo-andalas-residence.png"
+                                alt=""
+                                className="h-10 w-auto shrink-0"
+                            />
+                            {/* Below sm the wordmark wraps to three lines and crowds
+                                the controls, so the logo carries the brand on its own. */}
+                            <span className="hidden min-w-0 leading-tight sm:block">
+                                <span className="block truncate font-display text-sm text-base-content md:text-base">
+                                    Andalas Residence
                                 </span>
-                            </Link>
-                        </div>
+                                <span className="block truncate text-xs font-normal text-base-content/60">
+                                    Universitas Andalas
+                                </span>
+                            </span>
+                        </Link>
 
-                        <div className="navbar-end hidden gap-6 lg:flex">
+                        <nav
+                            className="hidden items-center gap-8 lg:flex"
+                            aria-label="Navigasi utama"
+                        >
                             <Link href="/" className={linkClass("beranda")}>
                                 Beranda
                             </Link>
 
                             <div
-                                className={`dropdown dropdown-hover dropdown-end ${
-                                    openDropdown === "profil" ? "dropdown-open" : ""
-                                }`}
+                                className={
+                                    openDropdown === "profil" ? "dropdown dropdown-open" : "dropdown"
+                                }
                             >
                                 <button
                                     type="button"
@@ -138,7 +145,7 @@ export default function LandingLayout({ active, children }: Props) {
                                     <ChevronDown className="size-3.5" aria-hidden="true" />
                                 </button>
                                 <ul
-                                    className="menu dropdown-content z-50 w-56 rounded-box border border-base-300 bg-base-100 p-2 shadow-sm"
+                                    className="menu dropdown-content z-50 mt-2 w-56 rounded-md border border-base-200 bg-surface p-2 text-base-content shadow-lg"
                                     role="menu"
                                 >
                                     {profilEntries.map(([key, title]) => (
@@ -147,6 +154,7 @@ export default function LandingLayout({ active, children }: Props) {
                                                 href={`/profil/${key}`}
                                                 onClick={() => setOpenDropdown(null)}
                                                 role="menuitem"
+                                                className="text-sm"
                                             >
                                                 {title}
                                             </Link>
@@ -160,9 +168,9 @@ export default function LandingLayout({ active, children }: Props) {
                             </Link>
 
                             <div
-                                className={`dropdown dropdown-hover dropdown-end ${
-                                    openDropdown === "informasi" ? "dropdown-open" : ""
-                                }`}
+                                className={
+                                    openDropdown === "informasi" ? "dropdown dropdown-open" : "dropdown"
+                                }
                             >
                                 <button
                                     type="button"
@@ -179,7 +187,7 @@ export default function LandingLayout({ active, children }: Props) {
                                     <ChevronDown className="size-3.5" aria-hidden="true" />
                                 </button>
                                 <ul
-                                    className="menu dropdown-content z-50 w-56 rounded-box border border-base-300 bg-base-100 p-2 shadow-sm"
+                                    className="menu dropdown-content z-50 mt-2 w-56 rounded-md border border-base-200 bg-surface p-2 text-base-content shadow-lg"
                                     role="menu"
                                 >
                                     {informasiEntries.map((cat) => (
@@ -188,6 +196,7 @@ export default function LandingLayout({ active, children }: Props) {
                                                 href={`/informasi/${cat}`}
                                                 onClick={() => setOpenDropdown(null)}
                                                 role="menuitem"
+                                                className="text-sm"
                                             >
                                                 {INFORMASI_LABEL[cat] ?? cat}
                                             </Link>
@@ -204,19 +213,28 @@ export default function LandingLayout({ active, children }: Props) {
                             </Link>
 
                             <div className="flex items-center gap-2">
-                                <ThemeToggle />
-                                <Link href="/login" className="btn btn-primary btn-sm">
+                                <ThemeToggle onLight={!solid} />
+                                <Link
+                                    href={login()}
+                                    className={
+                                        solid
+                                            ? "btn btn-primary btn-sm"
+                                            : "btn btn-sm border border-white/70 bg-transparent text-white hover:bg-white/10"
+                                    }
+                                >
                                     Masuk
                                 </Link>
                             </div>
-                        </div>
+                        </nav>
 
-                        <div className="navbar-end gap-1 lg:hidden">
-                            <ThemeToggle />
+                        <div className="flex items-center gap-1 lg:hidden">
+                            <ThemeToggle onLight={!solid} />
                             <button
                                 type="button"
                                 onClick={() => setMenuOpen((o) => !o)}
-                                className="btn btn-ghost min-h-11 min-w-11 lg:btn-sm"
+                                className={`btn btn-ghost min-h-11 min-w-11 lg:btn-sm ${
+                                    !solid ? "text-white" : ""
+                                }`}
                                 aria-label={menuOpen ? "Tutup menu" : "Buka menu"}
                                 aria-expanded={menuOpen}
                             >
@@ -230,8 +248,8 @@ export default function LandingLayout({ active, children }: Props) {
                     </div>
 
                     {menuOpen && (
-                        <div className="border-t border-base-300 bg-base-100 lg:hidden">
-                            <ul className="menu w-full gap-0.5 p-3">
+                        <div className="border-t border-base-200 bg-surface lg:hidden">
+                            <ul className="menu w-full gap-0.5 p-3 text-base-content">
                                 <li>
                                     <Link href="/" onClick={() => setMenuOpen(false)}>
                                         Beranda
@@ -276,7 +294,7 @@ export default function LandingLayout({ active, children }: Props) {
                                 </li>
                                 <li className="mt-2">
                                     <Link
-                                        href="/login"
+                                        href={login()}
                                         onClick={() => setMenuOpen(false)}
                                         className="btn btn-primary btn-sm"
                                     >
@@ -286,96 +304,89 @@ export default function LandingLayout({ active, children }: Props) {
                             </ul>
                         </div>
                     )}
-                </nav>
+                </header>
 
-                <div className="pt-16">{children}</div>
+                {children}
 
-                <footer className="border-t border-base-300 bg-base-200">
-                    <div className="mx-auto max-w-6xl px-6 py-14">
-                        <div className="flex flex-col gap-12 md:flex-row md:gap-20">
-                            <div className="shrink-0">
-                                <img
-                                    src="/images/logo-andalas-residence.png"
-                                    alt=""
-                                    className="mb-4 h-12 w-auto"
-                                />
-                                <p className="max-w-52 text-xs leading-relaxed text-muted">
-                                    Asrama mahasiswa Universitas Andalas, hunian untuk mendukung
-                                    aktivitas belajar dan pembinaan karakter.
-                                </p>
-                            </div>
-
-                            {/* Three groups because the site has three groups of links,
-                                not four because a template footer does. */}
-                            <div className="grid flex-1 grid-cols-2 gap-8 md:grid-cols-3">
-                                <div>
-                                    <h2 className="mb-3 text-sm font-semibold">Profil</h2>
-                                    <ul className="flex flex-col gap-2 text-sm text-muted">
-                                        {profilEntries.map(([key, title]) => (
-                                            <li key={key}>
-                                                <Link
-                                                    href={`/profil/${key}`}
-                                                    className="transition-colors hover:text-primary"
-                                                >
-                                                    {title}
-                                                </Link>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                                <div>
-                                    <h2 className="mb-3 text-sm font-semibold">Informasi</h2>
-                                    <ul className="flex flex-col gap-2 text-sm text-muted">
-                                        {informasiEntries.map((cat) => (
-                                            <li key={cat}>
-                                                <Link
-                                                    href={`/informasi/${cat}`}
-                                                    className="transition-colors hover:text-primary"
-                                                >
-                                                    {INFORMASI_LABEL[cat] ?? cat}
-                                                </Link>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                                <div>
-                                    <h2 className="mb-3 text-sm font-semibold">Navigasi</h2>
-                                    <ul className="flex flex-col gap-2 text-sm text-muted">
-                                        <li>
-                                            <Link
-                                                href="/unit"
-                                                className="transition-colors hover:text-primary"
-                                            >
-                                                Unit
-                                            </Link>
-                                        </li>
-                                        <li>
-                                            <Link
-                                                href="/program"
-                                                className="transition-colors hover:text-primary"
-                                            >
-                                                Program
-                                            </Link>
-                                        </li>
-                                        <li>
-                                            <Link
-                                                href="/kontak"
-                                                className="transition-colors hover:text-primary"
-                                            >
-                                                Kontak
-                                            </Link>
-                                        </li>
-                                    </ul>
-                                </div>
-                            </div>
+                <footer className="bg-hero-footer text-white">
+                    <div className="mx-auto grid max-w-7xl grid-cols-1 gap-10 px-4 py-14 sm:grid-cols-2 md:px-6 lg:grid-cols-12 lg:gap-12">
+                        <div className="lg:col-span-4">
+                            <img
+                                src="/images/logo-andalas-residence.png"
+                                alt=""
+                                className="mb-4 h-12 w-auto"
+                            />
+                            <p className="max-w-md text-sm leading-relaxed text-white/75">
+                                Asrama mahasiswa Universitas Andalas, hunian untuk mendukung
+                                aktivitas belajar dan pembinaan karakter.
+                            </p>
                         </div>
 
-                        <div className="mt-12 flex flex-col items-center justify-between gap-2 border-t border-base-300 pt-6 md:flex-row">
-                            <span className="text-xs text-muted">
-                                © {new Date().getFullYear()} Andalas Residence, Universitas Andalas
-                            </span>
-                            <ThemeToggle />
+                        <div className="grid flex-1 grid-cols-2 gap-8 sm:col-span-2 lg:col-span-8 lg:grid-cols-3">
+                            <div>
+                                <h2 className="mb-3 text-sm font-semibold text-white">Profil</h2>
+                                <ul className="flex flex-col gap-2 text-sm text-white/80">
+                                    {profilEntries.map(([key, title]) => (
+                                        <li key={key}>
+                                            <Link
+                                                href={`/profil/${key}`}
+                                                className="transition-colors hover:text-white"
+                                            >
+                                                {title}
+                                            </Link>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                            <div>
+                                <h2 className="mb-3 text-sm font-semibold text-white">Informasi</h2>
+                                <ul className="flex flex-col gap-2 text-sm text-white/80">
+                                    {informasiEntries.map((cat) => (
+                                        <li key={cat}>
+                                            <Link
+                                                href={`/informasi/${cat}`}
+                                                className="transition-colors hover:text-white"
+                                            >
+                                                {INFORMASI_LABEL[cat] ?? cat}
+                                            </Link>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                            <div>
+                                <h2 className="mb-3 text-sm font-semibold text-white">Navigasi</h2>
+                                <ul className="flex flex-col gap-2 text-sm text-white/80">
+                                    <li>
+                                        <Link
+                                            href="/unit"
+                                            className="transition-colors hover:text-white"
+                                        >
+                                            Unit
+                                        </Link>
+                                    </li>
+                                    <li>
+                                        <Link
+                                            href="/program"
+                                            className="transition-colors hover:text-white"
+                                        >
+                                            Program
+                                        </Link>
+                                    </li>
+                                    <li>
+                                        <Link
+                                            href="/kontak"
+                                            className="transition-colors hover:text-white"
+                                        >
+                                            Kontak
+                                        </Link>
+                                    </li>
+                                </ul>
+                            </div>
                         </div>
+                    </div>
+
+                    <div className="border-t border-white/10 py-4 text-center text-xs text-white/60">
+                        © {new Date().getFullYear()} Andalas Residence, Universitas Andalas
                     </div>
                 </footer>
             </div>
