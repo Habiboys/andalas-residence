@@ -1,0 +1,110 @@
+ALUR PROSES BISNIS ANDALAS RESIDENCE
+
+AKTOR
+1. Pimpinan
+2. Fasilitator
+3. Client:
+   - Mahasiswa baru lokal KIPK
+   - Mahasiswa baru lokal non-KIPK
+   - Mahasiswa hunian lokal
+   - Mahasiswa internasional
+   - Non-mahasiswa
+4. Admin Layanan
+5. Admin Aset
+6. Teknisi
+7. Orang tua mahasiswa
+8. GO (Cleaning Service)
+9. Superadmin
+
+PENDAFTARAN ASRAMA
+1. Client membuat akun dan mengisi kategori client serta angkatan mahasiswa.
+2. Client non-KIPK memilih tipe dan nomor kamar yang tersedia.
+3. Mahasiswa KIPK tidak memilih kamar; penempatan dilakukan oleh Admin Layanan.
+4. Sistem membuat invoice:
+   - Client reguler: sesuai tarif kamar/periode.
+   - Mahasiswa internasional dengan fasilitas gratis: total invoice Rp0.
+   - Mahasiswa KIPK: total kewajiban client Rp0 dan pembiayaan ditandai sebagai tanggungan KIPK.
+5. Jika total lebih dari Rp0, client melakukan pembayaran.
+6. Jika client mengajukan cicilan, Admin Layanan menetapkan jumlah cicilan/tagihan yang ditampilkan pada virtual account. Integrasi provider VA belum diaktifkan; sistem saat ini menyiapkan alur tagihan dan verifikasi pembayaran.
+7. Setelah pembayaran lunas atau invoice Rp0, sistem menyelesaikan pendaftaran dan mengaktifkan status penghuni.
+8. Sistem menerbitkan kuitansi berisi jumlah pembayaran, nomor kamar, tipe kamar, gedung, dan masa tinggal.
+
+CHECKOUT
+1. Penghuni aktif mengajukan checkout setelah membaca syarat dan mekanisme.
+2. GO memeriksa kamar, menghitung seluruh aset, dan mencatat kondisi setiap aset.
+3. Selisih jumlah, kerusakan, atau kehilangan otomatis menjadi temuan dan tiket kerusakan.
+4. Fasilitator pada gedung terkait memfinalisasi checkout.
+5. Sistem mengakhiri penempatan, mengubah status penghuni menjadi keluar, dan menghitung ulang status kamar menjadi kosong, terisi sebagian, atau penuh.
+6. Kamar kosong kembali tersedia untuk pendaftaran.
+
+SURAT BEBAS ASRAMA
+A. Mahasiswa angkatan 2025 dan sebelumnya
+1. Mahasiswa membuat akun dan mengajukan surat bebas asrama.
+2. Admin Layanan memverifikasi identitas serta status alumni:
+   - Alumni asrama sudah lunas:
+     a. Mahasiswa mengunggah bukti pembayaran dan rekening koran.
+     b. Admin memvalidasi bukti. Bukti tidak valid dikembalikan dengan pesan.
+     c. Setelah valid, sistem menerbitkan surat ke akun/email dan menonaktifkan akun.
+   - Alumni asrama belum lunas:
+     a. Admin menetapkan tarif berdasarkan angkatan.
+     b. Sistem menerbitkan invoice.
+     c. Setelah tagihan lunas, sistem menerbitkan surat ke akun/email dan menonaktifkan akun.
+   - Bukan alumni asrama:
+     a. Sistem memeriksa riwayat penempatan.
+     b. Jika riwayat hunian ditemukan, pengajuan ditolak.
+     c. Jika tidak ditemukan, sistem menerbitkan surat dan menonaktifkan akun.
+3. Karena data lama belum lengkap, keputusan jalur verifikasi dilakukan Admin Layanan.
+
+B. Mahasiswa angkatan 2026 dan setelahnya
+1. Sistem menggunakan riwayat hunian, checkout, dan tagihan yang tersimpan.
+2. Surat hanya dapat terbit setelah checkout selesai, tidak ada penempatan aktif, dan seluruh tagihan lunas.
+3. Jika semua syarat terpenuhi, sistem menerbitkan surat ke akun/email dan menonaktifkan akun secara otomatis.
+
+PELAPORAN KERUSAKAN FASILITAS
+1. Hanya penghuni aktif yang dapat membuat laporan.
+2. Penghuni memilih aset spesifik dari kamar atau fasilitas umum pada gedungnya.
+3. Penghuni mengisi deskripsi dan mengunggah satu sampai lima foto awal.
+4. Laporan masuk ke akun Teknisi dan dashboard Pimpinan.
+5. Teknisi mengambil laporan, mengubah status pengerjaan, lalu menyelesaikannya dengan catatan dan foto bukti.
+6. Dashboard Pimpinan menampilkan laporan yang menunggu, dikerjakan, dan selesai.
+
+ABSENSI KEGIATAN
+1. Absensi hanya tersedia untuk mahasiswa binaan lokal angkatan 2026 atau setelahnya pada tahun pertama hunian.
+2. Mahasiswa yang pernah checkout atau masuk kembali tidak lagi berstatus mahasiswa binaan.
+3. Fasilitator membuat kegiatan dan membuka sesi QR dengan waktu, titik lokasi, radius, dan batas akurasi.
+4. Lokasi fasilitator harus aktif dan berada dalam jangkauan sesi.
+5. Mahasiswa memindai QR dan mengirim lokasi perangkat.
+6. Absensi valid hanya jika token, waktu, lokasi fasilitator, lokasi mahasiswa, radius, dan akurasi memenuhi syarat.
+7. Fasilitator dapat melihat riwayat dan menutup sesi lebih awal.
+
+MONITORING PERIZINAN MAHASISWA
+1. Penghuni aktif membuka menu Perizinan.
+2. Mahasiswa memilih izin pulang kampung atau kegiatan.
+3. Mahasiswa mengisi periode, alasan, tujuan, kontak darurat opsional, dan dokumen pendukung opsional.
+4. Jika jumlah pengajuan sebelumnya paling banyak enam, status langsung menjadi sedang izin.
+5. Jika jumlah pengajuan sebelumnya lebih dari enam, fasilitator gedung harus menyetujui atau menolak.
+6. Setelah berstatus sedang izin, mahasiswa mengunggah foto bukti sampai di tujuan.
+7. Sistem mencatat waktu server, koordinat, dan akurasi lokasi perangkat lalu mengubah status menjadi sudah sampai.
+8. Setelah kembali, mahasiswa mengunggah foto bukti kembali ke asrama.
+9. Sistem mencatat waktu server, koordinat, dan akurasi lokasi perangkat lalu mengubah status menjadi sudah kembali.
+10. Foto dan lokasi menjadi bukti unggahan; sistem tidak menyatakan validasi isi foto berbasis AI.
+
+LAUNDRY
+Belum ada proses bisnis. Fitur, endpoint, permission, dan tabel operasional tidak diaktifkan.
+
+GALON
+Belum ada proses bisnis. Fitur, endpoint, permission, dan tabel operasional tidak diaktifkan.
+
+PENDATAAN ASET
+A. Stok dan aset keseluruhan
+1. Admin Aset mengelola kode, nama, kategori, satuan, dan jumlah stok keseluruhan.
+2. Jumlah stok keseluruhan tidak boleh lebih kecil dari jumlah yang sudah ditempatkan.
+3. Jenis stok tidak dapat dihapus selama masih dipakai pada kamar atau fasilitas umum.
+
+B. Aset per gedung/kamar
+1. Fasilitator hanya dapat mengelola aset pada gedung penugasannya.
+2. Fasilitator memilih jenis stok, lokasi kamar/fasilitas, jumlah, kode inventaris, kondisi, dan nilai aset opsional.
+3. Jumlah penempatan tidak boleh melampaui stok tersedia.
+4. Data dapat diimpor dari satu sheet Excel/CSV sesuai template.
+5. Impor bersifat atomik: jika satu baris tidak valid, seluruh impor dibatalkan.
+6. Pendataan ini menjadi daftar wajib pemeriksaan aset saat checkout.

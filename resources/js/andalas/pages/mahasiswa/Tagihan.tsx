@@ -1,99 +1,309 @@
-import { useState } from "react";
-import { useForm } from "@inertiajs/react";
-import { PageHeader, Card, StatusBadge, Table, Button, FormField, inputClass } from "../../components/ui";
-import { store as pembayaranStore } from "@/routes/andalas/pembayaran";
-import { formatRupiah, mapPaymentStatus } from "../../lib/format";
-import { useAuth } from "../../context/AppContext";
+import { useState } from 'react';
+import { useForm } from '@inertiajs/react';
+import {
+    PageHeader,
+    Card,
+    StatusBadge,
+    Table,
+    Button,
+    FormField,
+    inputClass,
+} from '../../components/ui';
+import { store as pembayaranStore } from '@/routes/andalas/pembayaran';
+import {
+    document as billingDocument,
+    requestInstallments,
+} from '@/routes/andalas/tagihan';
+import { formatRupiah, mapPaymentStatus } from '../../lib/format';
 
-type PembayaranRow = {
-  id: string;
-  jenis_pembayaran?: string;
-  nominal?: number;
-  metode_pembayaran?: string;
-  status?: string;
-  created_at?: string;
-  termin_ke?: number;
+type Invoice = {
+    id: string;
+    nomor: string;
+    status: string;
+    total: string;
+    total_dibayar: string;
+    cicilan_diminta_at?: string;
+    alasan_cicilan?: string;
+    jadwal_cicilan: Array<{
+        termin_ke: number;
+        jumlah: string;
+        jatuh_tempo: string;
+    }>;
+    dokumen: Array<{ id: string; jenis: string }>;
+};
+type Payment = {
+    id: string;
+    nominal?: number;
+    status?: string;
+    jenis_pembayaran?: string;
+    created_at?: string;
 };
 
-export default function Tagihan({ pembayaran = [] }: { pembayaran?: PembayaranRow[] }) {
-  const { currentUser } = useAuth();
-  const rows = pembayaran;
-  const [showForm, setShowForm] = useState(false);
-  const { data, setData, post, processing, errors, reset } = useForm({
-    jenis_pembayaran: "sewa_asrama",
-    nominal: "1500000",
-    termin_ke: "1",
-    atas_nama_pengirim: "",
-    bukti_transfer: null as File | null,
-  });
+function amountDue(invoice: Invoice): number {
+    let cumulative = 0;
+    for (const term of invoice.jadwal_cicilan
+        .slice()
+        .sort((a, b) => a.termin_ke - b.termin_ke)) {
+        cumulative += Number(term.jumlah);
+        if (cumulative > Number(invoice.total_dibayar))
+            return cumulative - Number(invoice.total_dibayar);
+    }
+    return Math.max(0, Number(invoice.total) - Number(invoice.total_dibayar));
+}
 
-  const totalTagihan = rows.reduce((acc, p) => acc + Number(p.nominal ?? 0), 0);
-  const totalLunas = rows.filter((p) => p.status === "lunas").reduce((acc, p) => acc + Number(p.nominal ?? 0), 0);
-  const totalPending = rows.filter((p) => p.status === "menunggu_verifikasi").reduce((acc, p) => acc + Number(p.nominal ?? 0), 0);
-
-  function submitPayment(e: React.FormEvent) {
-    e.preventDefault();
-    post(pembayaranStore.url(), {
-      onSuccess: () => {
-        setShowForm(false);
-        reset();
-      },
+export default function Tagihan({
+    pembayaran = [],
+    billing = [],
+}: {
+    pembayaran?: Payment[];
+    billing?: Invoice[];
+}) {
+    const [selected, setSelected] = useState<Invoice | null>(null);
+    const form = useForm({
+        tagihan_id: '',
+        jenis_pembayaran: 'sewa_asrama',
+        nominal: 0,
+        atas_nama_pengirim: '',
+        bukti_transfer: null as File | null,
     });
-  }
+    const invoices = billing.filter((invoice) => invoice.status !== 'batal');
+    const total = invoices.reduce(
+        (sum, invoice) => sum + Number(invoice.total),
+        0,
+    );
+    const paid = invoices.reduce(
+        (sum, invoice) => sum + Number(invoice.total_dibayar),
+        0,
+    );
+    function pay(invoice: Invoice) {
+        setSelected(invoice);
+        form.clearErrors();
+        form.setData({
+            tagihan_id: invoice.id,
+            jenis_pembayaran: invoice.jadwal_cicilan.length
+                ? 'cicilan'
+                : 'sewa_asrama',
+            nominal: amountDue(invoice),
+            atas_nama_pengirim: '',
+            bukti_transfer: null,
+        });
+    }
+    return (
+        <div className="space-y-4">
+            <PageHeader
+                title="Tagihan & Pembayaran"
+                subtitle="Invoice dan sisa kewajiban Anda, termasuk jadwal cicilan yang disetujui admin."
+            />
+            <div className="grid gap-4 sm:grid-cols-3">
+                <Card className="p-5">
+                    <p>Total tagihan</p>
+                    <strong>{formatRupiah(total)}</strong>
+                </Card>
+                <Card className="p-5">
+                    <p>Sudah dibayar</p>
+                    <strong>{formatRupiah(paid)}</strong>
+                </Card>
+                <Card className="p-5">
+                    <p>Sisa tagihan</p>
+                    <strong>{formatRupiah(Math.max(0, total - paid))}</strong>
+                </Card>
+            </div>
+            {billing.length === 0 && (
+                <Card className="p-6">
+                    Belum ada invoice. Invoice hunian diterbitkan saat
+                    pendaftaran asrama.
+                </Card>
+            )}
+            {billing.map((invoice) => (
+                <Card className="space-y-3 p-5" key={invoice.id}>
+                    <div className="flex justify-between gap-3">
+                        <strong>{invoice.nomor}</strong>
+                        <StatusBadge status={invoice.status} />
+                    </div>
+                    <p>
+                        Total {formatRupiah(Number(invoice.total))} / Dibayar{' '}
+                        {formatRupiah(Number(invoice.total_dibayar))}
+                    </p>
+                    {invoice.jadwal_cicilan.map((term) => (
+                        <p key={term.termin_ke} className="text-sm">
+                            Termin {term.termin_ke}:{' '}
+                            {formatRupiah(Number(term.jumlah))}, jatuh tempo{' '}
+                            {term.jatuh_tempo.slice(0, 10)}
+                        </p>
+                    ))}
+                    <div className="flex flex-wrap gap-3">
+                        {invoice.dokumen.map((document) => (
+                            <a
+                                className="text-primary underline"
+                                key={document.id}
+                                href={billingDocument.url({
+                                    document: document.id,
+                                })}
+                            >
+                                {document.jenis === 'invoice'
+                                    ? 'Unduh invoice'
+                                    : document.jenis === 'residence_receipt'
+                                      ? 'Kwitansi hunian'
+                                      : 'Kwitansi pembayaran'}
+                            </a>
+                        ))}
+                    </div>
+                    {invoice.status !== 'batal' && amountDue(invoice) > 0 && (
+                        <Button onClick={() => pay(invoice)}>
+                            Bayar {formatRupiah(amountDue(invoice))}
+                        </Button>
+                    )}
+                    {invoice.status !== 'batal' &&
+                        Number(invoice.total) > 0 &&
+                        Number(invoice.total_dibayar) === 0 &&
+                        invoice.jadwal_cicilan.length === 0 && (
+                            <InstallmentRequest invoice={invoice} />
+                        )}
+                </Card>
+            ))}
+            {selected && (
+                <Card className="space-y-4 p-6">
+                    <h2 className="font-semibold">
+                        Konfirmasi pembayaran {selected.nomor}
+                    </h2>
+                    <p className="text-sm">
+                        Lampirkan bukti pembayaran sesuai petunjuk admin
+                        layanan. Untuk cicilan, minta admin menetapkan jadwal
+                        sebelum pembayaran pertama.
+                    </p>
+                    <form
+                        className="space-y-4"
+                        onSubmit={(event) => {
+                            event.preventDefault();
+                            form.post(pembayaranStore.url(), {
+                                onSuccess: () => {
+                                    setSelected(null);
+                                    form.reset();
+                                },
+                            });
+                        }}
+                    >
+                        <p className="font-semibold">
+                            {formatRupiah(form.data.nominal)}
+                        </p>
+                        <FormField label="Atas nama pengirim">
+                            <input
+                                required
+                                className={inputClass}
+                                value={form.data.atas_nama_pengirim}
+                                onChange={(event) =>
+                                    form.setData(
+                                        'atas_nama_pengirim',
+                                        event.target.value,
+                                    )
+                                }
+                            />
+                        </FormField>
+                        <FormField label="Bukti pembayaran">
+                            <input
+                                type="file"
+                                required
+                                accept="image/jpeg,image/png,.pdf"
+                                className="file-input w-full"
+                                onChange={(event) =>
+                                    form.setData(
+                                        'bukti_transfer',
+                                        event.target.files?.[0] ?? null,
+                                    )
+                                }
+                            />
+                        </FormField>
+                        {Object.entries(form.errors).map(([key, error]) => (
+                            <p
+                                key={key}
+                                role="alert"
+                                className="text-error text-sm"
+                            >
+                                {error}
+                            </p>
+                        ))}
+                        <div className="flex gap-3">
+                            <Button disabled={form.processing} type="submit">
+                                Kirim bukti pembayaran
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                onClick={() => setSelected(null)}
+                            >
+                                Batal
+                            </Button>
+                        </div>
+                    </form>
+                </Card>
+            )}
+            <Card>
+                <Table
+                    columns={[
+                        { key: 'jenis_pembayaran', label: 'Jenis' },
+                        {
+                            key: 'nominal',
+                            label: 'Jumlah',
+                            render: (payment: Payment) =>
+                                formatRupiah(Number(payment.nominal ?? 0)),
+                        },
+                        {
+                            key: 'status',
+                            label: 'Status',
+                            render: (payment: Payment) => (
+                                <StatusBadge
+                                    status={mapPaymentStatus(
+                                        payment.status ?? '',
+                                    )}
+                                />
+                            ),
+                        },
+                        {
+                            key: 'created_at',
+                            label: 'Tanggal',
+                            render: (payment: Payment) =>
+                                payment.created_at?.slice(0, 10),
+                        },
+                    ]}
+                    data={pembayaran}
+                    emptyMessage="Belum ada riwayat pembayaran"
+                />
+            </Card>
+        </div>
+    );
+}
 
-  const columns = [
-    { key: "termin", label: "Termin", render: (r: PembayaranRow) => `Termin ${r.termin_ke ?? 1}` },
-    { key: "jenis_pembayaran", label: "Jenis" },
-    { key: "nominal", label: "Jumlah", render: (r: PembayaranRow) => formatRupiah(Number(r.nominal ?? 0)) },
-    { key: "metode_pembayaran", label: "Metode" },
-    { key: "status", label: "Status", render: (r: PembayaranRow) => <StatusBadge status={mapPaymentStatus(r.status ?? "")} /> },
-    { key: "created_at", label: "Tanggal", render: (r: PembayaranRow) => String(r.created_at ?? "").slice(0, 10) },
-  ];
-
-  return (
-    <div className="space-y-4">
-      <PageHeader
-        title="Tagihan & Pembayaran"
-        subtitle="Ajukan pembayaran biaya hunian, diverifikasi admin"
-        actions={<Button onClick={() => setShowForm(!showForm)}>{showForm ? "Tutup Form" : "Ajukan Pembayaran"}</Button>}
-      />
-
-      {showForm && (
-        <Card className="p-6 mb-6">
-          <h3 className="font-semibold mb-4">Form Pengajuan Pembayaran</h3>
-          <p className="mb-4 text-sm text-muted">Integrasi VA akan ditambahkan. Saat ini admin akan memverifikasi pembayaran Anda.</p>
-          <form onSubmit={submitPayment} className="grid md:grid-cols-2 gap-4">
-            <FormField label="Jenis Pembayaran">
-              <select className={inputClass} value={data.jenis_pembayaran} onChange={(e) => setData("jenis_pembayaran", e.target.value)}>
-                <option value="sewa_asrama">Sewa Asrama</option>
-                <option value="cicilan">Cicilan</option>
-                <option value="denda_kerusakan">Denda Kerusakan</option>
-                <option value="lainnya">Lainnya</option>
-              </select>
-            </FormField>
-            <FormField label="Termin"><input type="number" min={1} className={inputClass} value={data.termin_ke} onChange={(e) => setData("termin_ke", e.target.value)} /></FormField>
-            <FormField label="Nominal (Rp)"><input type="number" className={inputClass} value={data.nominal} onChange={(e) => setData("nominal", e.target.value)} required />
-              {errors.nominal && <p className="mt-1 text-sm text-error">{errors.nominal}</p>}
-            </FormField>
-            <FormField label="Atas Nama / Catatan"><input className={inputClass} value={data.atas_nama_pengirim} onChange={(e) => setData("atas_nama_pengirim", e.target.value)} /></FormField>
-            <FormField label="Bukti Transfer (opsional)">
-              <input type="file" accept="image/*,.pdf" onChange={(e) => setData("bukti_transfer", e.target.files?.[0] ?? null)} className="file-input w-full" />
-              {errors.bukti_transfer && <p className="mt-1 text-sm text-error">{errors.bukti_transfer}</p>}
-            </FormField>
-            <div className="md:col-span-2"><Button type="submit" disabled={processing}>{processing ? "Mengirim..." : "Kirim Pengajuan"}</Button></div>
-          </form>
-        </Card>
-      )}
-
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Card className="p-4"><p className="mb-1 text-xs uppercase text-muted">Total Tagihan</p><p className="text-lg font-bold">{formatRupiah(totalTagihan)}</p></Card>
-        <Card className="p-4"><p className="mb-1 text-xs uppercase text-muted">Total Lunas</p><p className="text-lg font-bold text-success">{formatRupiah(totalLunas)}</p></Card>
-        <Card className="p-4"><p className="mb-1 text-xs uppercase text-muted">Menunggu Verifikasi</p><p className="text-lg font-bold text-warning">{formatRupiah(totalPending)}</p></Card>
-      </div>
-      <Card>
-        <div className="border-b border-base-300 px-5 py-4"><h2 className="text-sm font-semibold">Daftar Pembayaran</h2><p className="text-xs text-muted">NIM {currentUser?.nim}</p></div>
-        <Table columns={columns} data={rows} emptyMessage="Belum ada riwayat pembayaran" />
-      </Card>
-    </div>
-  );
+function InstallmentRequest({ invoice }: { invoice: Invoice }) {
+    const form = useForm({ alasan: invoice.alasan_cicilan ?? '' });
+    return (
+        <form
+            className="space-y-2 border-t pt-3"
+            onSubmit={(event) => {
+                event.preventDefault();
+                form.post(requestInstallments.url({ tagihan: invoice.id }));
+            }}
+        >
+            <p>
+                {invoice.cicilan_diminta_at
+                    ? 'Pengajuan cicilan menunggu keputusan admin layanan.'
+                    : 'Perlu mencicil? Ajukan sebelum pembayaran pertama.'}
+            </p>
+            <textarea
+                required
+                className="textarea w-full"
+                aria-label="Alasan pengajuan cicilan"
+                placeholder="Alasan mengajukan cicilan"
+                value={form.data.alasan}
+                onChange={(event) => form.setData('alasan', event.target.value)}
+            />
+            {form.errors.alasan && (
+                <p className="text-error">{form.errors.alasan}</p>
+            )}
+            <Button type="submit" disabled={form.processing}>
+                {invoice.cicilan_diminta_at
+                    ? 'Perbarui pengajuan cicilan'
+                    : 'Ajukan cicilan'}
+            </Button>
+        </form>
+    );
 }

@@ -68,22 +68,10 @@ class MahasiswaProfil extends BaseModel
         return $this->hasMany(Pembayaran::class, 'mahasiswa_id');
     }
 
-    /** @return HasMany<Checkin, $this> */
-    public function checkin(): HasMany
-    {
-        return $this->hasMany(Checkin::class, 'mahasiswa_id');
-    }
-
     /** @return HasMany<CheckoutRequest, $this> */
     public function checkoutRequests(): HasMany
     {
         return $this->hasMany(CheckoutRequest::class, 'mahasiswa_id');
-    }
-
-    /** @return HasMany<AbsensiSholat, $this> */
-    public function absensiSholat(): HasMany
-    {
-        return $this->hasMany(AbsensiSholat::class, 'mahasiswa_id');
     }
 
     /** @return HasMany<ResidenceHistory, $this> */

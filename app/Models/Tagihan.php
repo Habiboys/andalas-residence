@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\TagihanStatus;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * @property TagihanStatus $status
@@ -13,12 +14,13 @@ class Tagihan extends BaseModel
 {
     protected $table = 'tagihan';
 
-    protected $fillable = ['nomor', 'mahasiswa_id', 'status', 'mata_uang', 'tanggal_terbit', 'jatuh_tempo', 'subtotal', 'total_penyesuaian', 'total', 'total_dibayar'];
+    protected $fillable = ['nomor', 'mahasiswa_id', 'status', 'mata_uang', 'tanggal_terbit', 'jatuh_tempo', 'subtotal', 'total_penyesuaian', 'total', 'total_dibayar', 'cicilan_diminta_at', 'alasan_cicilan'];
 
     protected function casts(): array
     {
         return [
             'status' => TagihanStatus::class,
+            'cicilan_diminta_at' => 'datetime',
             'tanggal_terbit' => 'date',
             'jatuh_tempo' => 'date',
             'subtotal' => 'decimal:2',
@@ -26,6 +28,11 @@ class Tagihan extends BaseModel
             'total' => 'decimal:2',
             'total_dibayar' => 'decimal:2',
         ];
+    }
+
+    public function registration(): HasOne
+    {
+        return $this->hasOne(ResidenceRegistration::class);
     }
 
     /** @return BelongsTo<MahasiswaProfil, $this> */

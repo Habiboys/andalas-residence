@@ -25,6 +25,7 @@ class ClaimDamageReport
                 throw ValidationException::withMessages(['status' => 'Laporan tidak tersedia untuk diklaim.']);
             }
 
+            $previousStatus = $locked->status;
             $wasUnassigned = $locked->teknisi_id === null;
             $locked->update(['teknisi_id' => $technician->id, 'status' => LaporanKerusakanStatus::SedangDikerjakan]);
 
@@ -36,7 +37,7 @@ class ClaimDamageReport
                 ]);
             }
             $locked->statusHistories()->create([
-                'from_status' => LaporanKerusakanStatus::Didisposisikan,
+                'from_status' => $previousStatus,
                 'to_status' => LaporanKerusakanStatus::SedangDikerjakan,
                 'changed_by' => $technician->id,
                 'description' => 'Diklaim teknisi.',

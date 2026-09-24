@@ -1,6 +1,19 @@
-type RoleKey = 'mahasiswa' | 'fasilitator' | 'staff_admin' | 'superadmin' | 'teknisi' | 'pimpinan';
+type RoleKey =
+    | 'mahasiswa'
+    | 'fasilitator'
+    | 'staff_admin'
+    | 'admin_layanan'
+    | 'admin_aset'
+    | 'orang_tua'
+    | 'go'
+    | 'superadmin'
+    | 'teknisi'
+    | 'pimpinan';
 
 const ADMIN_PAGES: Record<string, string> = {
+    perizinan: 'Monitoring Perizinan',
+    'stok-aset': 'Stok Aset Keseluruhan',
+    'registration-review': 'Review Pendaftaran',
     dashboard: 'Dashboard',
     'data-mahasiswa': 'Data Mahasiswa',
     'verifikasi-pembayaran': 'Verifikasi Pembayaran',
@@ -8,7 +21,6 @@ const ADMIN_PAGES: Record<string, string> = {
     'kelola-bangunan': 'Kelola Bangunan',
     'kelola-aset': 'Kelola Aset',
     'approval-bebas-asrama': 'Approval Pengajuan',
-    'approval-izin-pulang': 'Approval Pengajuan',
     'pemetaan-kamar': 'Pemetaan Kamar',
     keuangan: 'Keuangan',
     'jadwal-kegiatan': 'Jadwal Kegiatan',
@@ -24,22 +36,27 @@ const ADMIN_PAGES: Record<string, string> = {
 
 const MAHASISWA_PAGES: Record<string, string> = {
     dashboard: 'Dashboard',
+    registration: 'Pendaftaran Asrama',
     tagihan: 'Tagihan & Pembayaran',
-    checkin: 'Proses Check-in',
     'detail-kamar': 'Detail Kamar',
-    absensi: 'Absensi Sholat',
+    absensi: 'Absensi Kegiatan',
     'bebas-asrama': 'Pengajuan Bebas Asrama',
-    'izin-pulang': 'Pengajuan Izin Pulang',
+    'perizinan': 'Perizinan',
     'lapor-kerusakan': 'Laporkan Kerusakan',
     jadwal: 'Jadwal Kegiatan',
     'pemetaan-kamar': 'Pemetaan Kamar',
+    checkout: 'Pengajuan Check-out',
 };
 
 const FASILITATOR_PAGES: Record<string, string> = {
+    perizinan: 'Monitoring Perizinan',
+    'kelola-aset': 'Aset per Kamar',
+    'jadwal-kegiatan': 'Kelola Kegiatan',
     dashboard: 'Dashboard',
-    'scan-barcode': 'Scan Barcode',
+    'scan-barcode': 'QR Absensi',
     'rekap-kehadiran': 'Rekap Kehadiran',
     'monitoring-kamar': 'Monitoring Kamar',
+    'checkout-approval': 'Finalisasi Check-out',
 };
 
 const TEKNISI_PAGES: Record<string, string> = {
@@ -47,6 +64,35 @@ const TEKNISI_PAGES: Record<string, string> = {
     'tiket-masuk': 'Tiket Masuk',
     'update-tiket': 'Update Tiket',
     'riwayat-penilaian': 'Riwayat & Penilaian',
+};
+
+const ADMIN_LAYANAN_PAGES: Record<string, string> = {
+    dashboard: 'Dashboard Layanan',
+    'data-mahasiswa': 'Data Mahasiswa',
+    'verifikasi-pembayaran': 'Verifikasi Pembayaran',
+    'penempatan-kamar': 'Penempatan Kamar',
+    'approval-bebas-asrama': 'Approval Bebas Asrama',
+    keuangan: 'Keuangan',
+    'jadwal-kegiatan': 'Jadwal Kegiatan',
+    'registration-review': 'Review Pendaftaran',
+};
+
+const ADMIN_ASET_PAGES: Record<string, string> = {
+    'stok-aset': 'Stok Aset Keseluruhan',
+    dashboard: 'Dashboard Aset',
+    'pemetaan-kamar': 'Pemetaan Kamar',
+    'kelola-bangunan': 'Kelola Bangunan',
+    'kelola-aset': 'Kelola Aset',
+};
+
+const ORANG_TUA_PAGES: Record<string, string> = {
+    dashboard: 'Dashboard Orang Tua',
+};
+
+const GO_PAGES: Record<string, string> = {
+    dashboard: 'Dashboard GO',
+    'monitoring-kamar': 'Inspeksi Kamar',
+    'checkout-inspection': 'Inspeksi Check-out',
 };
 
 const PIMPINAN_PAGES: Record<string, string> = {
@@ -59,6 +105,10 @@ const ROLE_PAGES: Record<RoleKey, Record<string, string>> = {
     mahasiswa: MAHASISWA_PAGES,
     fasilitator: FASILITATOR_PAGES,
     staff_admin: ADMIN_PAGES,
+    admin_layanan: ADMIN_LAYANAN_PAGES,
+    admin_aset: ADMIN_ASET_PAGES,
+    orang_tua: ORANG_TUA_PAGES,
+    go: GO_PAGES,
     superadmin: ADMIN_PAGES,
     teknisi: TEKNISI_PAGES,
     pimpinan: PIMPINAN_PAGES,

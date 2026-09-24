@@ -48,7 +48,6 @@ class PlaceResidenceRegistration
             'kamar_id' => $room->id,
             'periode_id' => $registration->periode_id,
             'tanggal_mulai' => now()->toDateString(),
-            'metode' => 'manual_override',
             'status' => 'aktif',
             'diproses_oleh' => $officerId,
         ]);

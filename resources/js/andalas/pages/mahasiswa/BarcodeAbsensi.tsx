@@ -1,31 +1,190 @@
-import { PageHeader, Card, Table } from "../../components/ui";
-import { useAuth } from "../../context/AppContext";
+import AttendanceQrScanner from '../../components/AttendanceQrScanner';
+import { parseAttendanceQr } from '../../lib/attendance-qr';
+import { absensi as attendancePage } from '@/routes/mahasiswa';
+import { useState } from 'react';
+import { useForm } from '@inertiajs/react';
+import { recordActivity } from '@/actions/App/Http/Controllers/AbsensiController';
+import { Button, Card, PageHeader, Table } from '../../components/ui';
 
-type AbsensiRow = { tanggal?: string; waktu_sholat?: string; waktu_scan?: string };
+type Attendance = {
+    attended_at: string;
+    session?: { kegiatan?: { judul: string } };
+};
+type Attempt = {
+    rejection_reason?: string | null;
+    distance_meters?: number | null;
+};
+type Props = {
+    absensi?: Attendance[];
+    attendance_attempt?: Attempt | null;
+    initialUser?: { attendance_eligible?: boolean };
+};
+const rejectionMessages: Record<string, string> = {
+    session_not_open: 'Sesi belum dibuka atau sudah ditutup.',
+    token_expired: 'Masa berlaku QR sudah habis.',
+    token_invalid: 'QR tidak valid. Pindai QR terbaru.',
+    ineligible:
+        'Absensi hanya untuk mahasiswa lokal binaan dalam masa hunian tahun pertama.',
+    location_inaccurate: 'Lokasi kurang akurat. Aktifkan GPS dan coba lagi.',
+    outside_radius: 'Anda berada di luar radius kegiatan.',
+    wrong_building:
+        'Kegiatan ini khusus penghuni gedung lain. Gunakan QR kegiatan untuk gedung Anda atau kegiatan umum.',
+    facilitator_unavailable:
+        'Fasilitator berada di luar radius atau lokasinya belum diperbarui.',
+    duplicate: 'Kehadiran Anda sudah tercatat untuk sesi ini.',
+};
 
-export default function BarcodeAbsensi({ absensi = [] }: { absensi?: AbsensiRow[] }) {
-  const { currentUser } = useAuth();
+export default function BarcodeAbsensi({
+    absensi = [],
+    attendance_attempt,
+    initialUser,
+}: Props) {
+    const [locationError, setLocationError] = useState('');
+    const [locationBusy, setLocationBusy] = useState(false);
+    const form = useForm({
+        token: '',
+        latitude: 0,
+        longitude: 0,
+        accuracy_meters: 0,
+    });
+    const [scanned, setScanned] = useState(() =>
+        typeof window === 'undefined'
+            ? null
+            : parseAttendanceQr(
+                  window.location.href,
+                  window.location.origin,
+                  attendancePage.url(),
+              ),
+    );
+    const sessionId = scanned?.sessionId;
+    const token = scanned?.token;
 
-  return (
-    <div className="space-y-4">
-      <PageHeader title="Absensi Sholat" subtitle="Barcode pribadi dan riwayat kehadiran" />
-      <Card className="p-6 mb-6 text-center">
-        <p className="text-xs text-muted uppercase mb-2">Barcode Anda</p>
-        <p className="font-mono text-2xl font-bold text-primary">{currentUser?.barcode_code ?? "-"}</p>
-        <p className="text-sm text-muted mt-2">Tunjukkan ke fasilitator saat absensi sholat</p>
-      </Card>
-      <Card>
-        <div className="border-b border-base-300 px-5 py-4"><h2 className="font-semibold">Riwayat Absensi</h2></div>
-        <Table
-          columns={[
-            { key: "tanggal", label: "Tanggal", render: (r: AbsensiRow) => String(r.tanggal ?? "").slice(0, 10) },
-            { key: "waktu_sholat", label: "Sholat", render: (r: AbsensiRow) => <span className="capitalize">{r.waktu_sholat}</span> },
-            { key: "waktu_scan", label: "Jam", render: (r: AbsensiRow) => String(r.waktu_scan ?? "").slice(11, 16) },
-          ]}
-          data={absensi}
-          emptyMessage="Belum ada riwayat absensi"
-        />
-      </Card>
-    </div>
-  );
+    function submit() {
+        if (!sessionId || !token || !navigator.geolocation) {
+            setLocationError(
+                'Pindai QR fasilitator dan izinkan akses lokasi pada perangkat Anda.',
+            );
+            return;
+        }
+        setLocationBusy(true);
+        setLocationError('');
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                form.transform(() => ({
+                    token,
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude,
+                    accuracy_meters: position.coords.accuracy,
+                }));
+                form.post(recordActivity.url({ session: sessionId }), {
+                    onFinish: () => setLocationBusy(false),
+                });
+            },
+            () => {
+                setLocationBusy(false);
+                setLocationError(
+                    'Lokasi tidak dapat diambil. Izinkan akses lokasi dan aktifkan GPS.',
+                );
+            },
+            { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 },
+        );
+    }
+
+    return (
+        <div className="space-y-4">
+            <PageHeader
+                title="Scan QR / Absensi Kegiatan"
+                subtitle="Kehadiran mahasiswa binaan melalui QR kegiatan."
+            />
+            <Card className="space-y-4 p-6">
+                {!initialUser?.attendance_eligible ? (
+                    <p>
+                        Absensi hanya tersedia bagi mahasiswa lokal binaan
+                        selama tahun pertama hunian. Penghuni yang sudah
+                        checkout dan masuk kembali tidak termasuk binaan.
+                    </p>
+                ) : (
+                    <>
+                        {!scanned && (
+                            <AttendanceQrScanner onRead={setScanned} />
+                        )}
+                        <p>
+                            {sessionId && token
+                                ? 'QR berhasil dibaca. Konfirmasi kehadiran dengan lokasi perangkat Anda.'
+                                : 'Pastikan GPS aktif dan Anda berada di lokasi kegiatan bersama fasilitator.'}
+                        </p>
+                        <Button
+                            disabled={
+                                !sessionId ||
+                                !token ||
+                                locationBusy ||
+                                form.processing
+                            }
+                            onClick={submit}
+                        >
+                            {locationBusy || form.processing
+                                ? 'Memeriksa lokasi...'
+                                : 'Konfirmasi Kehadiran'}
+                        </Button>
+                        {scanned && (
+                            <button
+                                type="button"
+                                className="btn btn-ghost btn-sm ml-2"
+                                disabled={locationBusy || form.processing}
+                                onClick={() => {
+                                    setScanned(null);
+                                    form.clearErrors();
+                                }}
+                            >
+                                Pindai QR lain
+                            </button>
+                        )}
+                    </>
+                )}
+                {locationError && (
+                    <p role="alert" className="text-error">
+                        {locationError}
+                    </p>
+                )}
+                {Object.entries(form.errors).map(([key, error]) => (
+                    <p role="alert" key={key} className="text-error">
+                        {error}
+                    </p>
+                ))}
+            </Card>
+            {attendance_attempt && (
+                <Card className="p-5">
+                    <p>
+                        {attendance_attempt.rejection_reason
+                            ? (rejectionMessages[
+                                  attendance_attempt.rejection_reason
+                              ] ?? 'Absensi tidak dapat diterima.')
+                            : 'Kehadiran berhasil dicatat.'}
+                    </p>
+                </Card>
+            )}
+            <Card>
+                <Table
+                    columns={[
+                        {
+                            key: 'session.kegiatan.judul',
+                            label: 'Kegiatan',
+                            render: (row: Attendance) =>
+                                row.session?.kegiatan?.judul ?? '-',
+                        },
+                        {
+                            key: 'attended_at',
+                            label: 'Waktu hadir',
+                            render: (row: Attendance) =>
+                                new Date(row.attended_at).toLocaleString(
+                                    'id-ID',
+                                ),
+                        },
+                    ]}
+                    data={absensi}
+                    emptyMessage="Belum ada riwayat kehadiran kegiatan."
+                />
+            </Card>
+        </div>
+    );
 }

@@ -63,7 +63,7 @@ class LandingContentSeeder extends Seeder
     private function seedTestimoni(): void
     {
         $this->upsert(['nama' => 'Rizky Pratama', 'prodi' => "Teknik Informatika '22", 'teks' => 'Portal Andalas Residence benar-benar membantu. Bayar sewa asrama, ajukan izin pulang, sampai cek jadwal kegiatan, semua dari satu tempat tanpa harus antri ke kantor.'], Testimoni::class, 'nama');
-        $this->upsert(['nama' => 'Sari Aulia Rahmi', 'prodi' => "Akuntansi '23", 'teks' => 'Fitur Smart Surrau-nya keren banget. Absensi sholat jadi lebih tertib dan aku bisa pantau riwayat kehadiran sendiri. Betul-betul mendukung pembinaan karakter.'], Testimoni::class, 'nama');
+        $this->upsert(['nama' => 'Sari Aulia Rahmi', 'prodi' => "Akuntansi '23", 'teks' => 'Fitur Smart Surrau-nya keren banget. Absensi kegiatan jadi lebih tertib dan aku bisa pantau riwayat kehadiran sendiri. Betul-betul mendukung pembinaan karakter.'], Testimoni::class, 'nama');
         $this->upsert(['nama' => 'Ahmad Fauzan', 'prodi' => "Hukum '21", 'teks' => 'Laporan kerusakan kamar sekarang langsung direspons teknisi. Dulu harus lapor manual ke pak penjaga, sekarang cukup foto dan submit dari HP.'], Testimoni::class, 'nama');
     }
 
@@ -157,14 +157,14 @@ class LandingContentSeeder extends Seeder
     private function upsert(array $attributes, string $model = LandingContent::class, ?string $unique = null): void
     {
         $unique ??= 'key';
-        $model::updateOrCreate([$unique => $attributes[$unique]], $attributes);
+        $model::firstOrCreate([$unique => $attributes[$unique]], $attributes);
     }
 
     private function upsertSub(string $programId, array $items): void
     {
         $urutan = 1;
         foreach ($items as $item) {
-            ProgramSub::updateOrCreate(
+            ProgramSub::firstOrCreate(
                 ['program_id' => $programId, 'judul' => $item['judul']],
                 [...$item, 'urutan' => $urutan++]
             );

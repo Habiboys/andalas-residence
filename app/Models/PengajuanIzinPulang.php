@@ -16,10 +16,12 @@ class PengajuanIzinPulang extends BaseModel
     protected $table = 'pengajuan_izin_pulang';
 
     protected $fillable = [
-        'mahasiswa_id', 'tanggal_mulai', 'tanggal_kembali', 'rencana_berangkat_pada',
-        'rencana_kembali_pada', 'berangkat_pada', 'kembali_pada', 'ditandai_terlambat_pada',
+        'mahasiswa_id', 'tanggal_mulai', 'tanggal_kembali',
+        'rencana_kembali_pada', 'berangkat_pada', 'kembali_pada',
         'alasan', 'tujuan_alamat', 'kontak_darurat', 'status', 'disetujui_oleh',
-        'keberangkatan_dicatat_oleh', 'kepulangan_dicatat_oleh',
+        'jenis', 'gedung_id', 'dokumen_path', 'catatan_verifikasi', 'sampai_pada',
+        'sampai_foto_path', 'sampai_latitude', 'sampai_longitude', 'sampai_accuracy',
+        'kembali_foto_path', 'kembali_latitude', 'kembali_longitude', 'kembali_accuracy',
     ];
 
     protected function casts(): array
@@ -27,12 +29,11 @@ class PengajuanIzinPulang extends BaseModel
         return [
             'tanggal_mulai' => 'date',
             'tanggal_kembali' => 'date',
-            'rencana_berangkat_pada' => 'datetime',
             'rencana_kembali_pada' => 'datetime',
             'berangkat_pada' => 'datetime',
             'kembali_pada' => 'datetime',
-            'ditandai_terlambat_pada' => 'datetime',
             'status' => StatusIzinPulang::class,
+            'sampai_pada' => 'datetime',
         ];
     }
 
@@ -42,22 +43,15 @@ class PengajuanIzinPulang extends BaseModel
         return $this->belongsTo(MahasiswaProfil::class, 'mahasiswa_id');
     }
 
+    public function gedung(): BelongsTo
+    {
+        return $this->belongsTo(Gedung::class);
+    }
+
     /** @return BelongsTo<User, $this> */
     public function penyetuju(): BelongsTo
     {
         return $this->belongsTo(User::class, 'disetujui_oleh');
-    }
-
-    /** @return BelongsTo<User, $this> */
-    public function pencatatKeberangkatan(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'keberangkatan_dicatat_oleh');
-    }
-
-    /** @return BelongsTo<User, $this> */
-    public function pencatatKepulangan(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'kepulangan_dicatat_oleh');
     }
 
     public function isOverdue(): bool

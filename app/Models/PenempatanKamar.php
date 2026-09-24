@@ -11,7 +11,7 @@ class PenempatanKamar extends BaseModel
 
     protected $fillable = [
         'mahasiswa_id', 'kamar_id', 'periode_id', 'tanggal_mulai',
-        'tanggal_selesai', 'metode', 'status', 'diproses_oleh', 'catatan',
+        'tanggal_selesai', 'status', 'diproses_oleh', 'catatan',
     ];
 
     protected function casts(): array
@@ -44,11 +44,5 @@ class PenempatanKamar extends BaseModel
     public function checkoutRequests(): HasMany
     {
         return $this->hasMany(CheckoutRequest::class);
-    }
-
-    /** @return HasMany<Checkin, $this> */
-    public function checkins(): HasMany
-    {
-        return $this->hasMany(Checkin::class);
     }
 }

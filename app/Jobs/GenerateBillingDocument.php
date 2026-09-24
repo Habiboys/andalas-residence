@@ -47,9 +47,13 @@ class GenerateBillingDocument implements ShouldBeUnique, ShouldQueue
             return;
         }
 
-        $invoice = Tagihan::with(['mahasiswa.user'])->findOrFail($this->tagihanId);
+        $invoice = Tagihan::with(['mahasiswa.user', 'registration.periode', 'registration.placement.kamar.lantai.gedung'])->findOrFail($this->tagihanId);
         $payment = $this->pembayaranTagihanId ? PembayaranTagihan::findOrFail($this->pembayaranTagihanId) : null;
-        $number = $this->jenis === 'invoice' ? $invoice->nomor : 'RCPT-'.$payment->referensi;
+        $number = match ($this->jenis) {
+            'invoice' => $invoice->nomor,
+            'residence_receipt' => 'HUNI-'.$invoice->nomor,
+            default => 'RCPT-'.$payment->referensi,
+        };
         $path = 'documents/billing/'.strtolower($number).'.pdf';
         $contents = Pdf::loadView('pdf.billing-document', [
             'title' => $this->jenis === 'invoice' ? 'TAGIHAN' : 'KWITANSI',
@@ -57,6 +61,8 @@ class GenerateBillingDocument implements ShouldBeUnique, ShouldQueue
             'invoice' => $invoice,
             'payment' => $payment,
             'student' => $invoice->mahasiswa,
+            'registration' => $invoice->registration,
+            'placement' => $invoice->registration?->placement,
         ])->setPaper('a4')->output();
 
         Storage::disk('local')->put($path, $contents);

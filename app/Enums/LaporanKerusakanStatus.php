@@ -13,7 +13,7 @@ enum LaporanKerusakanStatus: string
     public function canTransitionTo(self $status): bool
     {
         return in_array($status, match ($this) {
-            self::MenungguTriage => [self::Didisposisikan, self::Dibatalkan],
+            self::MenungguTriage => [self::Didisposisikan, self::SedangDikerjakan, self::Dibatalkan],
             self::Didisposisikan => [self::SedangDikerjakan, self::Dibatalkan],
             self::SedangDikerjakan => [self::Selesai, self::Dibatalkan],
             self::Selesai, self::Dibatalkan => [],

@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Enums\ClientProfileCategory;
 use App\Models\Departemen;
 use App\Models\Faculty;
 use App\Models\Gedung;
@@ -12,50 +13,50 @@ use App\Models\KuesionerOpsi;
 use App\Models\KuesionerPertanyaan;
 use App\Models\Lantai;
 use App\Models\MahasiswaProfil;
+use App\Models\ParentStudentLink;
 use App\Models\Periode;
 use App\Models\Prodi;
 use App\Models\User;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Str;
 use Spatie\Permission\Models\Role;
 
 class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        $roles = ['superadmin', 'pimpinan', 'staff_admin', 'fasilitator', 'teknisi', 'mahasiswa'];
+        if (! app()->environment(['local', 'testing'])) {
+            throw new \LogicException('DatabaseSeeder berisi akun demo; gunakan RolePermissionSeeder untuk data hak akses produksi.');
+        }
+
+        $this->call(RolePermissionSeeder::class);
+
+        $roles = ['superadmin', 'pimpinan', 'staff_admin', 'admin_layanan', 'admin_aset', 'fasilitator', 'teknisi', 'mahasiswa', 'orang_tua', 'go'];
         foreach ($roles as $role) {
             Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
         }
 
-        $faculty = Faculty::create(['name' => 'Fakultas Teknik']);
-        $departemen = Departemen::create(['faculty_id' => $faculty->id, 'name' => 'Teknik Informatika']);
-        $prodi = Prodi::create(['departemen_id' => $departemen->id, 'name' => 'Informatika', 'jenjang' => 'S1']);
+        $faculty = Faculty::firstOrCreate(['name' => 'Fakultas Teknik']);
+        $departemen = Departemen::firstOrCreate(['faculty_id' => $faculty->id, 'name' => 'Teknik Informatika']);
+        $prodi = Prodi::firstOrCreate(['departemen_id' => $departemen->id, 'name' => 'Informatika'], ['jenjang' => 'S1']);
 
-        $periode = Periode::create([
-            'nama_periode' => '2025/2026 Ganjil',
-            'status' => 'aktif',
+        $periode = Periode::firstOrCreate(['nama_periode' => '2025/2026 Ganjil'], [
+            'status' => 'nonaktif',
             'tanggal_mulai' => '2025-08-01',
             'tanggal_selesai' => '2026-01-31',
         ]);
 
-        $gedung = Gedung::create([
-            'kode_gedung' => 'A',
+        $gedung = Gedung::firstOrCreate(['kode_gedung' => 'A'], [
             'nama_gedung' => 'Asrama Putra A',
             'gender_peruntukan' => 'laki_laki',
             'alamat' => 'Kampus Limau Manis',
         ]);
 
-        $lantai = Lantai::create([
-            'gedung_id' => $gedung->id,
-            'nomor_lantai' => 1,
+        $lantai = Lantai::firstOrCreate(['gedung_id' => $gedung->id, 'nomor_lantai' => 1], [
             'nama_lantai' => 'Lantai 1',
         ]);
 
         for ($i = 101; $i <= 110; $i++) {
-            Kamar::create([
-                'lantai_id' => $lantai->id,
-                'nomor_kamar' => (string) $i,
+            Kamar::firstOrCreate(['lantai_id' => $lantai->id, 'nomor_kamar' => (string) $i], [
                 'kapasitas' => 2,
                 'status' => 'kosong',
                 'tipe_kamar' => 'reguler',
@@ -63,48 +64,69 @@ class DatabaseSeeder extends Seeder
             ]);
         }
 
-        KategoriTransaksi::insert([
-            ['id' => (string) Str::uuid7(), 'nama_kategori' => 'Pembayaran Sewa Asrama', 'tipe' => 'pemasukan', 'created_at' => now(), 'updated_at' => now()],
-            ['id' => (string) Str::uuid7(), 'nama_kategori' => 'Operasional Gedung', 'tipe' => 'pengeluaran', 'created_at' => now(), 'updated_at' => now()],
-        ]);
+        KategoriTransaksi::firstOrCreate(['nama_kategori' => 'Pembayaran Sewa Asrama', 'tipe' => 'pemasukan']);
+        KategoriTransaksi::firstOrCreate(['nama_kategori' => 'Operasional Gedung', 'tipe' => 'pengeluaran']);
 
         $users = [
             ['nim_nip' => 'SA001', 'nama' => 'Super Admin', 'email' => 'superadmin@unand.ac.id', 'role' => 'superadmin'],
             ['nim_nip' => 'P001', 'nama' => 'Pimpinan Asrama', 'email' => 'pimpinan@unand.ac.id', 'role' => 'pimpinan'],
             ['nim_nip' => 'ADM001', 'nama' => 'Staff Administrasi', 'email' => 'admin@unand.ac.id', 'role' => 'staff_admin'],
+            ['nim_nip' => 'LAY001', 'nama' => 'Admin Layanan', 'email' => 'admin.layanan@unand.ac.id', 'role' => 'admin_layanan'],
+            ['nim_nip' => 'AST001', 'nama' => 'Admin Aset', 'email' => 'admin.aset@unand.ac.id', 'role' => 'admin_aset'],
             ['nim_nip' => 'FAS001', 'nama' => 'Fasilitator Lantai 1', 'email' => 'fasilitator@unand.ac.id', 'role' => 'fasilitator'],
             ['nim_nip' => 'TEK001', 'nama' => 'Teknisi A', 'email' => 'teknisi@unand.ac.id', 'role' => 'teknisi'],
-            ['nim_nip' => '2211521001', 'nama' => 'Mahasiswa Demo', 'email' => 'mahasiswa@unand.ac.id', 'role' => 'mahasiswa'],
+            ['nim_nip' => 'GO001', 'nama' => 'GO Cleaning Service', 'email' => 'go@unand.ac.id', 'role' => 'go'],
+            ['nim_nip' => 'ORT001', 'nama' => 'Orang Tua Demo', 'email' => 'orang.tua@unand.ac.id', 'role' => 'orang_tua', 'category' => ClientProfileCategory::Parent],
+            ['nim_nip' => '2211521001', 'nama' => 'Client Lokal KIPK', 'email' => 'mahasiswa.kipk@unand.ac.id', 'role' => 'mahasiswa', 'category' => ClientProfileCategory::LocalKipk, 'angkatan' => '2026'],
+            ['nim_nip' => '2211521002', 'nama' => 'Client Lokal Non-KIPK', 'email' => 'mahasiswa.nonkipk@unand.ac.id', 'role' => 'mahasiswa', 'category' => ClientProfileCategory::LocalNonKipk, 'angkatan' => '2026'],
+            ['nim_nip' => '2211521003', 'nama' => 'Mahasiswa Penghuni Lokal', 'email' => 'mahasiswa.penghuni@unand.ac.id', 'role' => 'mahasiswa', 'category' => ClientProfileCategory::LocalResident, 'angkatan' => '2025'],
+            ['nim_nip' => 'INT001', 'nama' => 'Mahasiswa Internasional Gratis', 'email' => 'international@unand.ac.id', 'role' => 'mahasiswa', 'category' => ClientProfileCategory::InternationalFreeFacility, 'angkatan' => '2026'],
+            ['nim_nip' => 'NMS001', 'nama' => 'Client Non Mahasiswa', 'email' => 'nonmahasiswa@unand.ac.id', 'role' => 'mahasiswa', 'category' => ClientProfileCategory::NonStudent],
         ];
 
+        $studentProfiles = [];
         foreach ($users as $data) {
-            $user = User::create([
+            $originalNumber = $data['nim_nip'];
+            if (isset($data['angkatan'])) {
+                $data['nim_nip'] = substr($data['angkatan'], -2).($originalNumber === 'INT001' ? '99001001' : substr($originalNumber, 2));
+            }
+            $user = User::firstOrCreate(['email' => $data['email']], [
                 'nim_nip' => $data['nim_nip'],
                 'nama' => $data['nama'],
-                'email' => $data['email'],
                 'password' => 'password',
                 'no_hp' => '081234567890',
                 'gender' => 'laki_laki',
                 'status' => 'aktif',
+                'client_profile_category' => $data['category'] ?? null,
             ]);
-            $user->assignRole($data['role']);
+            if ($user->wasRecentlyCreated) {
+                $user->assignRole($data['role']);
+            }
 
             if ($data['role'] === 'mahasiswa') {
-                MahasiswaProfil::create([
-                    'user_id' => $user->id,
+                $studentProfiles[$data['email']] = MahasiswaProfil::firstOrCreate(['user_id' => $user->id], [
                     'prodi_id' => $prodi->id,
                     'periode_id' => $periode->id,
-                    'angkatan' => '2022',
+                    'angkatan' => $data['angkatan'] ?? '2026',
                     'barcode_code' => 'BC-'.$data['nim_nip'],
-                    'nik' => '1234567890123456',
+                    'nik' => str_pad($data['nim_nip'], 16, '0', STR_PAD_LEFT),
                     'status_huni' => 'calon',
                 ]);
+                if (isset($data['angkatan']) && $user->nim_nip === $originalNumber) {
+                    $user->update(['nim_nip' => substr($studentProfiles[$data['email']]->angkatan, -2).substr($data['nim_nip'], 2)]);
+                }
             }
         }
 
+        $parent = User::where('email', 'orang.tua@unand.ac.id')->firstOrFail();
+        $student = $studentProfiles['mahasiswa.kipk@unand.ac.id'];
+        ParentStudentLink::firstOrCreate(
+            ['parent_user_id' => $parent->id, 'student_profile_id' => $student->id],
+            ['relationship' => 'guardian', 'is_primary_contact' => true],
+        );
+
         $admin = User::role('staff_admin')->first();
-        $kuesioner = Kuesioner::create([
-            'kode' => 'KT-TEKNISI-V1',
+        $kuesioner = Kuesioner::firstOrCreate(['kode' => 'KT-TEKNISI-V1'], [
             'nama' => 'Kuesioner Penilaian Teknisi v1',
             'jenis' => 'penilaian_teknisi',
             'versi' => 1,
@@ -119,9 +141,7 @@ class DatabaseSeeder extends Seeder
         ];
 
         foreach ($pertanyaanData as $idx => $p) {
-            $pertanyaan = KuesionerPertanyaan::create([
-                'kuesioner_id' => $kuesioner->id,
-                'kode_pertanyaan' => $p['kode'],
+            $pertanyaan = KuesionerPertanyaan::firstOrCreate(['kuesioner_id' => $kuesioner->id, 'kode_pertanyaan' => $p['kode']], [
                 'teks_pertanyaan' => $p['teks'],
                 'tipe_jawaban' => 'skala',
                 'bobot' => $p['bobot'],
@@ -132,15 +152,29 @@ class DatabaseSeeder extends Seeder
             ]);
 
             for ($s = 1; $s <= 5; $s++) {
-                KuesionerOpsi::create([
-                    'pertanyaan_id' => $pertanyaan->id,
-                    'label' => (string) $s,
+                KuesionerOpsi::firstOrCreate(['pertanyaan_id' => $pertanyaan->id, 'label' => (string) $s], [
                     'nilai_skor' => $s,
                     'urutan' => $s,
                 ]);
             }
         }
 
-        $this->call([LandingContentSeeder::class, RolePermissionSeeder::class]);
+        $this->call([LandingContentSeeder::class, ResidenceScenarioSeeder::class, ResidenceOperationsSeeder::class]);
+        $this->command?->table(['Akun demo', 'Kegunaan'], [
+            ['superadmin@example.test', 'Seluruh pengelolaan dan audit'],
+            ['admin_layanan@example.test', 'Pendaftaran, tagihan, pembayaran, surat'],
+            ['admin_aset@example.test', 'Stok, lokasi, dan jumlah aset'],
+            ['fasilitator@example.test', 'QR absensi, izin, checkout gedung DEMO-P/W'],
+            ['go@example.test', 'Pemeriksaan kamar checkout'],
+            ['teknisi@example.test', 'Tiket dan bukti perbaikan'],
+            ['pimpinan@example.test', 'Laporan dan dashboard'],
+            ['orang_tua@example.test', 'Pemantauan anak: binaan-aktif'],
+            ['binaan-aktif@example.test', 'Penghuni tahun pertama dan scan QR'],
+            ['bayar-verifikasi@example.test', 'Pembayaran menunggu verifikasi'],
+            ['cicilan-aktif@example.test', 'Cicilan pertama lunas, termin berikutnya terbuka'],
+            ['checkout-siap@example.test', 'Inspeksi GO selesai, menunggu fasilitator'],
+            ['legacy-belum-lunas@example.test', 'Tagihan alumni sebelum terbit surat'],
+        ]);
+        $this->command?->info('Password awal semua akun demo: password. Daftar 54 skenario tersedia di ResidenceScenarioSeeder::scenarios().');
     }
 }

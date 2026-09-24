@@ -100,9 +100,11 @@ it('generates a free residence letter from its intent and records terminal failu
     Storage::disk('local')->assertExists($intent->path);
     expect($intent->status)->toBe('ready')
         ->and($intent->nomor)->toBe('SBA-BA-DOC-001')
-        ->and($intent->template_version)->toBe('free-residence-v1')
+        ->and($intent->template_version)->toBe('free-residence-dummy-v1')
         ->and($intent->checksum_sha256)->toHaveLength(64);
     Notification::assertSentTo($student->user, DocumentReadyNotification::class);
+    expect(view('pdf.surat-bebas-asrama', ['pengajuan' => $approved, 'mahasiswa' => $student])->render())
+        ->toContain('CONTOH / DUMMY', 'BUKAN SURAT RESMI', $student->user->nim_nip);
 
     $failedIntent = FreeResidenceLetterDocumentIntent::create([
         'pengajuan_id' => PengajuanBebasAsrama::create([
@@ -118,4 +120,13 @@ it('generates a free residence letter from its intent and records terminal failu
 
     expect($failedIntent->fresh()->status)->toBe('failed')
         ->and($failedIntent->fresh()->failure_reason)->toBe('Renderer unavailable');
+});
+
+it('attaches the generated PDF to the document notification email', function () {
+    Storage::fake('local');
+    Storage::disk('local')->put('documents/test-letter.pdf', '%PDF-1.4');
+    $notification = new DocumentReadyNotification('surat_bebas_asrama', 'SBA-TEST', 'documents/test-letter.pdf');
+    $mail = $notification->toMail(User::factory()->make());
+    expect($mail->attachments)->toHaveCount(1)
+        ->and($mail->attachments[0]['options']['as'])->toBe('SBA-TEST.pdf');
 });

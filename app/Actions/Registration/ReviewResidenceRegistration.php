@@ -3,7 +3,7 @@
 namespace App\Actions\Registration;
 
 use App\Enums\ResidenceRegistrationStatus;
-use App\Models\Checkin;
+use App\Enums\TagihanStatus;
 use App\Models\ResidenceRegistration;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -11,7 +11,7 @@ use Illuminate\Validation\ValidationException;
 
 class ReviewResidenceRegistration
 {
-    public function __construct(private PlaceResidenceRegistration $placeRegistration) {}
+    public function __construct(private PlaceResidenceRegistration $placeRegistration, private CreateResidenceBilling $createBilling, private CompleteResidenceRegistration $completeRegistration) {}
 
     public function handle(ResidenceRegistration $registration, User $reviewer, ResidenceRegistrationStatus $status, ?string $notes = null, ?string $roomId = null): ResidenceRegistration
     {
@@ -31,11 +31,9 @@ class ReviewResidenceRegistration
                 if (! $roomId) {
                     throw ValidationException::withMessages(['kamar_id' => 'Kamar wajib dipilih saat menerima pendaftaran.']);
                 }
+                $this->createBilling->handle($locked);
                 $placement = $this->placeRegistration->handle($locked, $roomId, $reviewer->id);
-                Checkin::query()->updateOrCreate(
-                    ['mahasiswa_id' => $locked->student_profile_id, 'periode_id' => $locked->periode_id],
-                    ['penempatan_kamar_id' => $placement->id, 'tanggal_rencana_masuk' => now()->toDateString(), 'status' => 'siap_checkin'],
-                );
+                $locked->update(['penempatan_kamar_id' => $placement->id]);
             }
 
             $fromStatus = $locked->status;
@@ -52,7 +50,16 @@ class ReviewResidenceRegistration
                 'notes' => $notes,
             ]);
 
-            return $locked->fresh(['statusHistories', 'studentProfile.penempatanKamar', 'studentProfile.checkin']);
+            if ($status === ResidenceRegistrationStatus::Rejected && $locked->tagihan_id) {
+                $invoice = $locked->tagihan()->lockForUpdate()->firstOrFail();
+                if ((float) $invoice->total_dibayar > 0) {
+                    throw ValidationException::withMessages(['status' => 'Pendaftaran memiliki pembayaran. Selesaikan pengembalian dana sebelum penolakan.']);
+                }
+                $invoice->update(['status' => TagihanStatus::Batal]);
+            }
+            $this->completeRegistration->handle($locked);
+
+            return $locked->fresh(['statusHistories', 'studentProfile.penempatanKamar', 'placement']);
         });
     }
 }

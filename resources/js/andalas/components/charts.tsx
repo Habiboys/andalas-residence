@@ -1,358 +1,100 @@
-import { useEffect, useReducer, type ReactNode } from "react";
-import {
-  ArcElement,
-  BarElement,
-  CategoryScale,
-  Chart as ChartJS,
-  Filler,
-  Legend,
-  LinearScale,
-  LineElement,
-  PointElement,
-  Tooltip as ChartTooltip,
-} from "chart.js";
-import { Bar, Doughnut, Line } from "react-chartjs-2";
-import { Card } from "./ui";
+import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
+import type { ApexOptions } from 'apexcharts';
+import { Card } from './ui';
 
-ChartJS.register(
-  ArcElement,
-  BarElement,
-  CategoryScale,
-  Filler,
-  Legend,
-  LinearScale,
-  LineElement,
-  PointElement,
-  ChartTooltip,
-);
+const ApexChart = lazy(() => import('react-apexcharts'));
+export const CHART_COLORS = ['#27745a', '#dbad4a', '#578cc8', '#bc6676', '#7e75bd', '#67aaa0'];
 
-export const CHART_COLORS = [
-  "#1A3D2B",
-  "#C9A227",
-  "#499443",
-  "#E8C44A",
-  "#2D5A40",
-  "#B8722D",
-  "#5DB352",
-  "#7A9E9F",
-  "#8A6F2D",
-  "#0F2419",
-];
-
-export function ChartCard({ title, subtitle, children, className = "" }: { title: string; subtitle?: string; children: ReactNode; className?: string }) {
-  return (
-    <Card className={`p-5 ${className}`}>
-      <h3 className="mb-0.5 font-semibold text-base-content">{title}</h3>
-      {subtitle && <p className="mb-4 text-xs text-base-content/60">{subtitle}</p>}
-      <div className="h-64">{children}</div>
-    </Card>
-  );
-}
-
-/*
- * Canvas can't use CSS `var()` or `color-mix()` directly, unlike the SVG charts
- * recharts drew. Resolve the active daisyUI theme's CSS custom properties to
- * real colors instead, and re-resolve whenever `data-theme` flips so the chart
- * follows the theme toggle.
- */
-function cssVar(name: string, fallback: string): string {
-  if (typeof document === "undefined") {
-    return fallback;
-  }
-
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
-}
-
-function withAlpha(hex: string, alpha: string): string {
-  return hex.length === 7 ? `${hex}${alpha}` : hex;
-}
-
-function useChartTheme() {
-  const [, rerender] = useReducer((x: number) => x + 1, 0);
-
-  useEffect(() => {
-    const observer = new MutationObserver(() => rerender());
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
-
-    return () => observer.disconnect();
-  }, []);
-
-  const content = cssVar("--color-base-content", "#111827");
-
-  return {
-    axis: withAlpha(content, "99"),
-    grid: withAlpha(content, "24"),
-    tooltipBg: cssVar("--color-base-100", "#ffffff"),
-    tooltipBorder: withAlpha(content, "2e"),
-    tooltipText: content,
-  };
-}
-
-function tooltipTheme(theme: ReturnType<typeof useChartTheme>) {
-  return {
-    backgroundColor: theme.tooltipBg,
-    borderColor: theme.tooltipBorder,
-    borderWidth: 1,
-    titleColor: theme.tooltipText,
-    bodyColor: theme.tooltipText,
-    padding: 10,
-    boxPadding: 4,
-    usePointStyle: true,
-  };
-}
-
-interface TrendSeries {
-  key: string;
-  name: string;
-  color: string;
-}
-
-function trendScales(theme: ReturnType<typeof useChartTheme>, labelFormatter?: (v: string) => string, valueFormatter?: (v: number) => string) {
-  return {
-    x: {
-      ticks: {
-        color: theme.axis,
-        font: { size: 11 },
-        callback: labelFormatter ? ((value: string) => labelFormatter(value)) as never : undefined,
-      },
-      grid: { display: false },
-      border: { display: false },
-    },
-    y: {
-      ticks: {
-        color: theme.axis,
-        font: { size: 11 },
-        callback: valueFormatter ? ((value: number) => valueFormatter(Number(value))) as never : undefined,
-      },
-      grid: { color: theme.grid },
-      border: { display: false },
-    },
-  };
-}
-
-export function TrendBarChart({
-  data,
-  xKey,
-  series,
-  valueFormatter,
-  labelFormatter,
-}: {
-  data: Array<Record<string, unknown>>;
-  xKey: string;
-  series: TrendSeries[];
-  valueFormatter?: (v: number) => string;
-  labelFormatter?: (v: string) => string;
+export function ChartCard({ title, subtitle, children, className = '' }: {
+    title: string; subtitle?: string; children: ReactNode; className?: string;
 }) {
-  const theme = useChartTheme();
-
-  const chartData = {
-    labels: data.map((row) => String(row[xKey] ?? "")),
-    datasets: series.map((s) => ({
-      label: s.name,
-      data: data.map((row) => Number(row[s.key] ?? 0)),
-      backgroundColor: s.color,
-      borderRadius: { topLeft: 4, topRight: 4 },
-      maxBarThickness: 32,
-    })),
-  };
-
-  const options = {
-    responsive: true,
-    maintainAspectRatio: false,
-    scales: trendScales(theme, labelFormatter, valueFormatter),
-    plugins: {
-      legend: { labels: { color: theme.tooltipText, font: { size: 12 } } },
-      tooltip: {
-        ...tooltipTheme(theme),
-        callbacks: {
-          label: (ctx: { dataset?: { label?: string }; parsed?: { y?: number } }) =>
-            `${ctx.dataset?.label ?? ""}: ${valueFormatter ? valueFormatter(Number(ctx.parsed?.y ?? 0)) : ctx.parsed?.y}`,
-        },
-      },
-    },
-  };
-
-  return (
-    <div className="h-full w-full">
-      <Bar data={chartData as never} options={options as never} />
-    </div>
-  );
+    return <Card className={'min-w-0 border border-base-200 p-5 ' + className}>
+        <h3 className="font-semibold text-base-content">{title}</h3>
+        {subtitle && <p className="mt-1 text-xs text-base-content/60">{subtitle}</p>}
+        <div className="mt-4 min-w-0">{children}</div>
+    </Card>;
 }
 
-export function TrendLineChart({
-  data,
-  xKey,
-  series,
-  valueFormatter,
-  labelFormatter,
-}: {
-  data: Array<Record<string, unknown>>;
-  xKey: string;
-  series: TrendSeries[];
-  valueFormatter?: (v: number) => string;
-  labelFormatter?: (v: string) => string;
-}) {
-  const theme = useChartTheme();
-
-  const chartData = {
-    labels: data.map((row) => String(row[xKey] ?? "")),
-    datasets: series.map((s) => ({
-      label: s.name,
-      data: data.map((row) => Number(row[s.key] ?? 0)),
-      borderColor: s.color,
-      backgroundColor: s.color,
-      borderWidth: 2.5,
-      tension: 0.35,
-      pointRadius: 3,
-      pointHoverRadius: 5,
-      pointBackgroundColor: s.color,
-    })),
-  };
-
-  const options = {
-    responsive: true,
-    maintainAspectRatio: false,
-    scales: trendScales(theme, labelFormatter, valueFormatter),
-    plugins: {
-      legend: { labels: { color: theme.tooltipText, font: { size: 12 } } },
-      tooltip: {
-        ...tooltipTheme(theme),
-        callbacks: {
-          label: (ctx: { dataset?: { label?: string }; parsed?: { y?: number } }) =>
-            `${ctx.dataset?.label ?? ""}: ${valueFormatter ? valueFormatter(Number(ctx.parsed?.y ?? 0)) : ctx.parsed?.y}`,
-        },
-      },
-    },
-  };
-
-  return (
-    <div className="h-full w-full">
-      <Line data={chartData as never} options={options as never} />
-    </div>
-  );
+function useOptions(): ApexOptions {
+    const [dark, setDark] = useState(false);
+    useEffect(() => {
+        const update = () => setDark(document.documentElement.dataset.theme?.includes('dark') ?? false);
+        update();
+        const observer = new MutationObserver(update);
+        observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+        return () => observer.disconnect();
+    }, []);
+    return {
+        chart: { background: 'transparent', foreColor: dark ? '#cbd5e1' : '#64748b', fontFamily: 'DM Sans, sans-serif', toolbar: { show: false }, animations: { enabled: false }, parentHeightOffset: 0 },
+        theme: { mode: dark ? 'dark' : 'light' },
+        colors: CHART_COLORS,
+        dataLabels: { enabled: false },
+        grid: { borderColor: dark ? '#334155' : '#e8edf0', strokeDashArray: 4 },
+        legend: { position: 'bottom', fontSize: '12px', itemMargin: { horizontal: 10, vertical: 6 } },
+        tooltip: { theme: dark ? 'dark' : 'light' },
+        noData: { text: 'Belum ada data' },
+    };
 }
 
-export function TrendAreaChart({
-  data,
-  xKey,
-  series,
-  valueFormatter,
-  labelFormatter,
-}: {
-  data: Array<Record<string, unknown>>;
-  xKey: string;
-  series: TrendSeries[];
-  valueFormatter?: (v: number) => string;
-  labelFormatter?: (v: string) => string;
+function Chart({ options, series, type, label }: {
+    options: ApexOptions; series: ApexOptions['series'];
+    type: 'bar' | 'line' | 'area' | 'donut' | 'radialBar'; label: string;
 }) {
-  const theme = useChartTheme();
-
-  const chartData = {
-    labels: data.map((row) => String(row[xKey] ?? "")),
-    datasets: series.map((s) => ({
-      label: s.name,
-      data: data.map((row) => Number(row[s.key] ?? 0)),
-      borderColor: s.color,
-      backgroundColor: withAlpha(s.color, "40"),
-      borderWidth: 2.5,
-      tension: 0.35,
-      fill: true,
-      pointRadius: 2,
-      pointHoverRadius: 5,
-      pointBackgroundColor: s.color,
-    })),
-  };
-
-  const options = {
-    responsive: true,
-    maintainAspectRatio: false,
-    scales: trendScales(theme, labelFormatter, valueFormatter),
-    plugins: {
-      legend: { labels: { color: theme.tooltipText, font: { size: 12 } } },
-      tooltip: {
-        ...tooltipTheme(theme),
-        callbacks: {
-          label: (ctx: { dataset?: { label?: string }; parsed?: { y?: number } }) =>
-            `${ctx.dataset?.label ?? ""}: ${valueFormatter ? valueFormatter(Number(ctx.parsed?.y ?? 0)) : ctx.parsed?.y}`,
-        },
-      },
-    },
-  };
-
-  return (
-    <div className="h-full w-full">
-      <Line data={chartData as never} options={options as never} />
-    </div>
-  );
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => setMounted(true), []);
+    return <div role="img" aria-label={label} className="min-w-0">
+        {mounted ? <Suspense fallback={<div className="skeleton h-64 w-full" />}>
+            <ApexChart options={options} series={series} type={type} height={280} width="100%" />
+        </Suspense> : <div className="skeleton h-64 w-full" />}
+    </div>;
 }
 
-export function DonutChart({
-  data,
-  valueFormatter,
-  centerLabel,
-  centerValue,
-}: {
-  data: Array<{ name: string; value: number; color: string }>;
-  valueFormatter?: (v: number) => string;
-  centerLabel?: string;
-  centerValue?: string;
+type TrendProps = {
+    data: Array<Record<string, unknown>>; xKey: string;
+    series: Array<{ key: string; name: string; color: string }>;
+    valueFormatter?: (value: number) => string; labelFormatter?: (value: string) => string;
+};
+
+function TrendChart({ data, xKey, series, valueFormatter, labelFormatter, type }: TrendProps & { type: 'bar' | 'line' | 'area' }) {
+    const base = useOptions();
+    const options: ApexOptions = {
+        ...base, colors: series.map((item) => item.color),
+        stroke: { curve: 'smooth', width: type === 'bar' ? 0 : 3 },
+        fill: type === 'area' ? { type: 'gradient', gradient: { opacityFrom: 0.35, opacityTo: 0.03 } } : { opacity: 1 },
+        plotOptions: { bar: { borderRadius: 5, columnWidth: '45%' } },
+        xaxis: { categories: data.map((row) => labelFormatter ? labelFormatter(String(row[xKey] ?? '')) : String(row[xKey] ?? '')), axisBorder: { show: false }, axisTicks: { show: false } },
+        yaxis: { min: 0, labels: { formatter: valueFormatter ?? ((value) => value.toLocaleString('id-ID', { maximumFractionDigits: 0 })) } },
+        tooltip: { ...base.tooltip, y: { formatter: valueFormatter } },
+    };
+    return <Chart type={type} options={options} series={data.length ? series.map((item) => ({ name: item.name, data: data.map((row) => Number(row[item.key] ?? 0)) })) : []} label={series.map((item) => item.name).join(', ')} />;
+}
+
+export function TrendBarChart(props: TrendProps) { return <TrendChart {...props} type="bar" />; }
+export function TrendLineChart(props: TrendProps) { return <TrendChart {...props} type="line" />; }
+export function TrendAreaChart(props: TrendProps) { return <TrendChart {...props} type="area" />; }
+
+export function DonutChart({ data, valueFormatter, centerLabel = 'Total', centerValue }: {
+    data: Array<{ name: string; value: number; color: string }>; valueFormatter?: (value: number) => string;
+    centerLabel?: string; centerValue?: string;
 }) {
-  const theme = useChartTheme();
-  const total = data.reduce((sum, d) => sum + d.value, 0);
+    const base = useOptions();
+    const total = data.reduce((sum, item) => sum + item.value, 0);
+    if (!total) return <div className="flex h-70 items-center justify-center text-sm text-base-content/60">Belum ada data untuk ditampilkan.</div>;
+    return <Chart type="donut" label={data.map((item) => item.name + ': ' + item.value).join(', ')}
+        series={data.map((item) => item.value)}
+        options={{ ...base, labels: data.map((item) => item.name), colors: data.map((item) => item.color),
+            stroke: { width: 3, colors: ['transparent'] },
+            tooltip: { ...base.tooltip, y: { formatter: valueFormatter } },
+            plotOptions: { pie: { donut: { size: '72%', labels: { show: true, total: { show: true, showAlways: true, label: centerLabel, formatter: () => centerValue ?? total.toLocaleString('id-ID') } } } } },
+        }} />;
+}
 
-  const chartData = {
-    labels: data.map((d) => d.name),
-    datasets: [
-      {
-        data: data.map((d) => d.value),
-        backgroundColor: data.map((d) => d.color),
-        borderColor: theme.tooltipBg,
-        borderWidth: 2,
-        spacing: 2,
-      },
-    ],
-  };
-
-  const options = {
-    responsive: true,
-    maintainAspectRatio: false,
-    cutout: "70%",
-    plugins: {
-      legend: { display: false },
-      tooltip: {
-        ...tooltipTheme(theme),
-        callbacks: {
-          label: (ctx: { parsed?: number; dataset?: { label?: string } }) =>
-            valueFormatter ? valueFormatter(Number(ctx.parsed ?? 0)) : `${ctx.dataset?.label ?? ""}: ${ctx.parsed}`,
-        },
-      },
-    },
-  };
-
-  return (
-    <div className="relative h-full w-full">
-      <div className="h-full w-full">
-        <Doughnut data={chartData as never} options={options as never} />
-      </div>
-      {(centerLabel || centerValue) && (
-        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-          {centerValue && <span className="text-2xl font-bold text-base-content">{centerValue}</span>}
-          {centerLabel && (
-            <span className="text-[11px] uppercase tracking-wide text-base-content/60">
-              {centerLabel} · {total}
-            </span>
-          )}
-        </div>
-      )}
-      <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-        {data.map((d, i) => (
-          <div key={i} className="flex items-center gap-2">
-            <span className="inline-block h-2.5 w-2.5 flex-shrink-0 rounded-full" style={{ background: d.color }} />
-            <span className="truncate text-base-content/70">{d.name}</span>
-            <span className="ml-auto font-medium text-base-content">{valueFormatter ? valueFormatter(d.value) : d.value}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+export function OccupancyChart({ total, empty }: { total: number; empty: number }) {
+    const base = useOptions();
+    const occupied = Math.max(0, total - empty);
+    const percentage = total ? Math.round(occupied / total * 100) : 0;
+    return <Chart type="radialBar" series={[percentage]} label={occupied + ' dari ' + total + ' kamar terisi'}
+        options={{ ...base, labels: [occupied + ' / ' + total + ' kamar'], stroke: { lineCap: 'round' },
+            plotOptions: { radialBar: { startAngle: -130, endAngle: 130, hollow: { size: '68%' }, track: { background: '#cbd5e133' },
+                dataLabels: { name: { offsetY: 28, fontSize: '12px' }, value: { offsetY: -12, fontSize: '32px', fontWeight: 700 } } } } }} />;
 }

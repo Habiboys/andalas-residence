@@ -1,177 +1,225 @@
-import { useEffect, useMemo, useState } from "react";
-import { useForm } from "@inertiajs/react";
-import { PageHeader, Card, Button, Modal, FormField, inputClass, DataTable, type DataColumn, EmptyState } from "../../components/ui";
-import { preview as autoPlacementPreview, commit as autoPlacementCommit } from "@/routes/andalas/auto-placement";
-import { manual as penempatanManual } from "@/routes/andalas/penempatan";
+import { useState } from "react";
+import { Link } from "@inertiajs/react";
+import {
+    PageHeader,
+    Card,
+    Table,
+    StatusBadge,
+    Modal,
+    RowActions,
+} from "../../components/ui";
+import {
+    PaymentStatusBadge,
+    type ResidentPayment,
+} from "../../components/atoms/PaymentStatusBadge";
+import { formatDate } from "../../lib/format";
+import { registrationReview as adminReview } from "@/routes/admin";
+import { registrationReview as layananReview } from "@/routes/admin_layanan";
 
-type MahasiswaRow = {
-  id: string;
-  user?: { nim_nip?: string; nama?: string };
-  prodi?: { name?: string };
-  angkatan?: string;
-  status_huni?: string;
+type Placement = {
+    id: string;
+    status: string;
+    tanggal_mulai?: string | null;
+    tanggal_selesai?: string | null;
+    mahasiswa?: {
+        user?: {
+            nama: string;
+            nim_nip: string;
+            email?: string | null;
+            no_hp?: string | null;
+        };
+        prodi?: { name?: string } | null;
+        angkatan?: number | string | null;
+        status_huni: string;
+        tanggal_masuk?: string | null;
+        pembayaran?: ResidentPayment[];
+    };
+    kamar?: {
+        nomor_kamar: string;
+        lantai?: { gedung?: { nama_gedung: string } };
+    };
 };
 
-type PenempatanRow = {
-  id: string;
-  mahasiswa?: MahasiswaRow;
-  kamar?: { nomor_kamar?: string; tipe_kamar?: string };
-};
-
-type PreviewItem = {
-  mahasiswa_id: string;
-  mahasiswa_nama: string;
-  kamar_id: string;
-  nomor_kamar: string;
-};
-
-type AutoPreviewResult = {
-  assigned: number;
-  skipped: string[];
-  preview?: PreviewItem[];
-};
-
-type KamarOption = {
-  id: string;
-  nomor_kamar: string;
-  kapasitas: number;
-  status: string;
-  tipe_kamar?: string;
-  penempatan_kamar?: unknown[];
-};
-
-type GedungShape = {
-  lantai?: Array<{ kamar?: KamarOption[] }>;
-};
-
-export default function PenempatanKamar({ mahasiswa = [], penempatan = [], gedung = [], auto_preview = null }: { mahasiswa?: MahasiswaRow[]; penempatan?: PenempatanRow[]; gedung?: GedungShape[]; auto_preview?: AutoPreviewResult | null }) {
-  const { data: manualData, setData: setManualData, post: postManual, processing: manualProcessing, errors: manualErrors } = useForm({ mahasiswa_id: "", kamar_id: "" });
-  const previewForm = useForm<Record<string, string>>({});
-  const commitForm = useForm<Record<string, string>>({});
-
-  const [showAutoModal, setShowAutoModal] = useState(false);
-  const [autoPreview, setAutoPreview] = useState<PreviewItem[]>([]);
-
-  const placedIds = new Set(penempatan.map((p) => p.mahasiswa?.id).filter(Boolean));
-  const unplacedStudents = mahasiswa.filter((m) => m.status_huni === "calon" || !placedIds.has(m.id));
-  const placedStudents = penempatan;
-
-  const availableRooms = useMemo(() => {
-    const rooms: KamarOption[] = [];
-    for (const g of gedung ?? []) {
-      for (const l of g.lantai ?? []) {
-        for (const k of l.kamar ?? []) {
-          const okupansi = k.penempatan_kamar?.length ?? 0;
-          if (okupansi < k.kapasitas && k.status !== "maintenance") rooms.push(k);
-        }
-      }
-    }
-    return rooms;
-  }, [gedung]);
-
-  useEffect(() => {
-    if (auto_preview) {
-      setAutoPreview(auto_preview.preview ?? []);
-      setShowAutoModal(true);
-    } else {
-      setShowAutoModal(false);
-    }
-  }, [auto_preview]);
-
-  function handleAutoAssignClick() {
-    previewForm.post(autoPlacementPreview.url());
-  }
-
-  function handleConfirmAutoAssign() {
-    commitForm.post(autoPlacementCommit.url());
-  }
-
-  function handleManualAssign() {
-    if (!manualData.mahasiswa_id || !manualData.kamar_id) return;
-    postManual(penempatanManual.url(), {
-      onSuccess: () => {
-        setManualData({ mahasiswa_id: "", kamar_id: "" });
-      },
-    });
-  }
-
-  type Row = Record<string, unknown>;
-  const unplacedColumns: DataColumn<Row>[] = [
-    { key: "nim", label: "NIM", render: (r) => String((r.user as MahasiswaRow["user"])?.nim_nip ?? "-") },
-    { key: "nama", label: "Nama", render: (r) => String((r.user as MahasiswaRow["user"])?.nama ?? "-") },
-    { key: "prodi", label: "Prodi", render: (r) => String((r.prodi as MahasiswaRow["prodi"])?.name ?? "-") },
-    { key: "angkatan", label: "Angkatan" },
-  ];
-
-  const placedColumns: DataColumn<Row>[] = [
-    { key: "nim", label: "NIM", render: (r) => String(r.mahasiswa ? (r.mahasiswa as PenempatanRow["mahasiswa"])?.user?.nim_nip : "-") },
-    { key: "nama", label: "Nama", render: (r) => String((r.mahasiswa as PenempatanRow["mahasiswa"])?.user?.nama ?? "-") },
-    { key: "kamar", label: "Kamar", render: (r) => String((r.kamar as PenempatanRow["kamar"])?.nomor_kamar ?? "-") },
-  ];
-
-  return (
-    <div className="space-y-8">
-      <PageHeader
-        title="Penempatan Kamar"
-        subtitle="Kelola penempatan mahasiswa ke kamar asrama"
-        actions={
-          unplacedStudents.length > 0 ? (
-            <Button onClick={handleAutoAssignClick} disabled={previewForm.processing}>Auto-Assign Semua</Button>
-          ) : undefined
-        }
-      />
-
-      <Card className="p-6">
-        <h2 className="text-base font-semibold mb-4">Mahasiswa Belum Ditempatkan ({unplacedStudents.length})</h2>
-        {unplacedStudents.length === 0 ? (
-          <EmptyState title="Semua mahasiswa sudah ditempatkan" />
-        ) : (
-          <DataTable columns={unplacedColumns} data={unplacedStudents as unknown as Row[]} searchKeys={["angkatan"]} />
-        )}
-      </Card>
-
-      <Card className="p-6">
-        <h2 className="text-base font-semibold mb-4">Override Manual</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
-          <FormField label="Pilih Mahasiswa">
-            <select className={`${inputClass} w-full`} value={manualData.mahasiswa_id} onChange={(e) => setManualData("mahasiswa_id", e.target.value)}>
-              <option value="">-- Pilih Mahasiswa --</option>
-              {unplacedStudents.map((u) => (
-                <option key={u.id} value={u.id}>{u.user?.nama} ({u.user?.nim_nip})</option>
-              ))}
-            </select>
-            {manualErrors.mahasiswa_id && <p className="mt-1 text-sm text-error">{manualErrors.mahasiswa_id}</p>}
-          </FormField>
-          <FormField label="Pilih Kamar">
-            <select className={`${inputClass} w-full`} value={manualData.kamar_id} onChange={(e) => setManualData("kamar_id", e.target.value)}>
-              <option value="">-- Pilih Kamar --</option>
-              {availableRooms.map((k) => (
-                <option key={k.id} value={k.id}>{k.nomor_kamar} ({k.tipe_kamar})</option>
-              ))}
-            </select>
-            {manualErrors.kamar_id && <p className="mt-1 text-sm text-error">{manualErrors.kamar_id}</p>}
-          </FormField>
-          <Button onClick={handleManualAssign} disabled={!manualData.mahasiswa_id || !manualData.kamar_id || manualProcessing}>Tempatkan</Button>
+function DetailRow({
+    label,
+    children,
+}: {
+    label: string;
+    children: React.ReactNode;
+}) {
+    return (
+        <div className="flex flex-wrap items-baseline justify-between gap-x-4 py-1.5">
+            <dt className="shrink-0 text-muted">{label}</dt>
+            <dd className="text-right font-medium">{children}</dd>
         </div>
-      </Card>
+    );
+}
 
-      <Card className="p-6">
-        <h2 className="text-base font-semibold mb-4">Penghuni Terdaftar ({placedStudents.length})</h2>
-        <DataTable columns={placedColumns} data={placedStudents as unknown as Row[]} emptyMessage="Belum ada penempatan" />
-      </Card>
+export default function PenempatanKamar({
+    penempatan = [],
+    role,
+}: {
+    penempatan?: Placement[];
+    role?: string;
+}) {
+    const [selected, setSelected] = useState<Placement | null>(null);
 
-      <Modal open={showAutoModal} onClose={() => setShowAutoModal(false)} title="Konfirmasi Auto-Assign" width="max-w-2xl">
-        <p className="text-sm text-muted mb-4">Rencana penempatan untuk {autoPreview.length} mahasiswa:</p>
-        <ul className="text-sm space-y-1 mb-6">
-          {autoPreview.map((item) => (
-            <li key={item.mahasiswa_id}>{item.mahasiswa_nama} → Kamar {item.nomor_kamar}</li>
-          ))}
-        </ul>
-        <div className="flex gap-3 justify-end">
-          <Button variant="secondary" onClick={() => setShowAutoModal(false)}>Batal</Button>
-          <Button onClick={handleConfirmAutoAssign} disabled={commitForm.processing}>Konfirmasi</Button>
+    return (
+        <div className="space-y-4">
+            <PageHeader
+                title="Penempatan Kamar"
+                subtitle="Riwayat penempatan dari pendaftaran asrama."
+            />
+            <Card className="space-y-2 p-5">
+                <p>
+                    Tempatkan calon penghuni melalui review pendaftaran agar
+                    kamar, tagihan, dan status hunian tetap terhubung.
+                </p>
+                <Link
+                    className="link link-primary"
+                    href={(role === "admin_layanan"
+                        ? layananReview
+                        : adminReview
+                    ).url()}
+                >
+                    Buka review pendaftaran
+                </Link>
+            </Card>
+            <Card>
+                <Table
+                    columns={[
+                        {
+                            key: "student",
+                            label: "Penghuni",
+                            render: (row: Placement) =>
+                                row.mahasiswa?.user?.nama ?? "-",
+                        },
+                        {
+                            key: "identity",
+                            label: "NIM / identitas",
+                            render: (row: Placement) =>
+                                row.mahasiswa?.user?.nim_nip ?? "-",
+                        },
+                        {
+                            key: "room",
+                            label: "Gedung / kamar",
+                            render: (row: Placement) =>
+                                [
+                                    row.kamar?.lantai?.gedung?.nama_gedung,
+                                    row.kamar?.nomor_kamar,
+                                ]
+                                    .filter(Boolean)
+                                    .join(" / "),
+                        },
+                        {
+                            key: "status",
+                            label: "Penempatan",
+                            render: (row: Placement) => (
+                                <StatusBadge status={row.status} />
+                            ),
+                        },
+                        {
+                            key: "occupancy",
+                            label: "Status penghuni",
+                            render: (row: Placement) => (
+                                <StatusBadge
+                                    status={row.mahasiswa?.status_huni ?? ""}
+                                />
+                            ),
+                        },
+                        {
+                            key: "aksi",
+                            label: "Aksi",
+                            render: (row: Placement) => (
+                                <RowActions onDetail={() => setSelected(row)} />
+                            ),
+                        },
+                    ]}
+                    data={penempatan}
+                    emptyMessage="Belum ada penempatan kamar."
+                />
+            </Card>
+
+            <Modal
+                open={!!selected}
+                onClose={() => setSelected(null)}
+                title={
+                    selected?.mahasiswa?.user?.nama
+                        ? `Detail Penempatan ${selected.mahasiswa.user.nama}`
+                        : "Detail Penempatan"
+                }
+            >
+                {selected && (
+                    <div className="space-y-5 text-sm">
+                        <section>
+                            <h3 className="mb-1 font-medium">Penempatan</h3>
+                            <dl>
+                                <DetailRow label="Status">
+                                    <StatusBadge status={selected.status} />
+                                </DetailRow>
+                                <DetailRow label="Gedung / kamar">
+                                    {[
+                                        selected.kamar?.lantai?.gedung
+                                            ?.nama_gedung,
+                                        selected.kamar?.nomor_kamar,
+                                    ]
+                                        .filter(Boolean)
+                                        .join(" / ") || "-"}
+                                </DetailRow>
+                                <DetailRow label="Periode huni">
+                                    {formatDate(selected.tanggal_mulai)}
+                                    {" – "}
+                                    {formatDate(selected.tanggal_selesai)}
+                                </DetailRow>
+                            </dl>
+                        </section>
+
+                        <section>
+                            <h3 className="mb-1 font-medium">Penghuni</h3>
+                            <dl>
+                                <DetailRow label="Nama">
+                                    {selected.mahasiswa?.user?.nama ?? "-"}
+                                </DetailRow>
+                                <DetailRow label="NIM">
+                                    {selected.mahasiswa?.user?.nim_nip ?? "-"}
+                                </DetailRow>
+                                <DetailRow label="Prodi">
+                                    {selected.mahasiswa?.prodi?.name ?? "-"}
+                                </DetailRow>
+                                <DetailRow label="Angkatan">
+                                    {selected.mahasiswa?.angkatan ?? "-"}
+                                </DetailRow>
+                                <DetailRow label="No. HP">
+                                    {selected.mahasiswa?.user?.no_hp || "-"}
+                                </DetailRow>
+                                <DetailRow label="Email">
+                                    {selected.mahasiswa?.user?.email || "-"}
+                                </DetailRow>
+                                <DetailRow label="Masuk asrama">
+                                    {formatDate(
+                                        selected.mahasiswa?.tanggal_masuk,
+                                    )}
+                                </DetailRow>
+                                <DetailRow label="Status huni">
+                                    <StatusBadge
+                                        status={
+                                            selected.mahasiswa?.status_huni ??
+                                            ""
+                                        }
+                                    />
+                                </DetailRow>
+                                <DetailRow label="Pembayaran">
+                                    <PaymentStatusBadge
+                                        pembayaran={
+                                            selected.mahasiswa?.pembayaran
+                                        }
+                                    />
+                                </DetailRow>
+                            </dl>
+                        </section>
+                    </div>
+                )}
+            </Modal>
         </div>
-      </Modal>
-    </div>
-  );
+    );
 }

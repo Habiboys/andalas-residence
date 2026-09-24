@@ -19,6 +19,10 @@ void createInertiaApp({
             case name.startsWith('fasilitator/'):
             case name.startsWith('teknisi/'):
             case name.startsWith('pimpinan/'):
+            case name.startsWith('admin_layanan/'):
+            case name.startsWith('admin_aset/'):
+            case name.startsWith('go/'):
+            case name.startsWith('orang_tua/'):
                 return [AndalasShellLayout];
             case name.startsWith('landing/'):
             case name.startsWith('auth/'):

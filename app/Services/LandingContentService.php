@@ -13,6 +13,17 @@ use Illuminate\Support\Facades\Storage;
 
 class LandingContentService
 {
+    private static function richData(array $data): array
+    {
+        foreach (['content', 'konten', 'deskripsi'] as $field) {
+            if (array_key_exists($field, $data)) {
+                $data[$field] = LandingRichText::html($data[$field]);
+            }
+        }
+
+        return $data;
+    }
+
     // ─── Profil sections (landing_contents) ───────────────────────────────
 
     public static function contents(): Collection
@@ -22,7 +33,7 @@ class LandingContentService
 
     public static function updateContent(LandingContent $content, array $data): LandingContent
     {
-        $content->update($data);
+        $content->update(self::richData($data));
 
         return $content;
     }
@@ -42,15 +53,17 @@ class LandingContentService
 
     public static function storeInformasi(array $data, ?UploadedFile $file = null): Informasi
     {
+        unset($data['file']);
         if ($file) {
             $data['file'] = $file->store('informasi', 'public');
         }
 
-        return Informasi::create($data);
+        return Informasi::create(self::richData($data));
     }
 
     public static function updateInformasi(Informasi $informasi, array $data, ?UploadedFile $file = null): Informasi
     {
+        unset($data['file']);
         if ($file) {
             if ($informasi->file) {
                 Storage::disk('public')->delete($informasi->file);
@@ -58,7 +71,7 @@ class LandingContentService
             $data['file'] = $file->store('informasi', 'public');
         }
 
-        $informasi->update($data);
+        $informasi->update(self::richData($data));
 
         return $informasi;
     }
@@ -80,12 +93,12 @@ class LandingContentService
 
     public static function storeProgram(array $data): Program
     {
-        return Program::create($data);
+        return Program::create(self::richData($data));
     }
 
     public static function updateProgram(Program $program, array $data): Program
     {
-        $program->update($data);
+        $program->update(self::richData($data));
 
         return $program->fresh('sub');
     }
@@ -97,15 +110,17 @@ class LandingContentService
 
     public static function storeProgramSub(array $data, ?UploadedFile $gambar = null): ProgramSub
     {
+        unset($data['gambar']);
         if ($gambar) {
             $data['gambar'] = $gambar->store('program', 'public');
         }
 
-        return ProgramSub::create($data);
+        return ProgramSub::create(self::richData($data));
     }
 
     public static function updateProgramSub(ProgramSub $programSub, array $data, ?UploadedFile $gambar = null): ProgramSub
     {
+        unset($data['gambar']);
         if ($gambar) {
             if ($programSub->gambar) {
                 Storage::disk('public')->delete($programSub->gambar);
@@ -113,7 +128,7 @@ class LandingContentService
             $data['gambar'] = $gambar->store('program', 'public');
         }
 
-        $programSub->update($data);
+        $programSub->update(self::richData($data));
 
         return $programSub;
     }
@@ -135,6 +150,7 @@ class LandingContentService
 
     public static function storeTestimoni(array $data, ?UploadedFile $foto = null): Testimoni
     {
+        unset($data['foto']);
         if ($foto) {
             $data['foto'] = $foto->store('testimoni', 'public');
         }
@@ -144,6 +160,7 @@ class LandingContentService
 
     public static function updateTestimoni(Testimoni $testimoni, array $data, ?UploadedFile $foto = null): Testimoni
     {
+        unset($data['foto']);
         if ($foto) {
             if ($testimoni->foto) {
                 Storage::disk('public')->delete($testimoni->foto);

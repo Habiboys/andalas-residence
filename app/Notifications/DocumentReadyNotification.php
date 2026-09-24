@@ -6,6 +6,7 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
+use Illuminate\Support\Facades\Storage;
 
 class DocumentReadyNotification extends Notification implements ShouldQueue
 {
@@ -30,7 +31,8 @@ class DocumentReadyNotification extends Notification implements ShouldQueue
         return (new MailMessage)
             ->subject('Dokumen '.$this->documentType.' siap')
             ->line('Dokumen '.$this->documentType.' dengan nomor '.$this->documentNumber.' telah siap.')
-            ->line('Dokumen tersimpan secara privat dan dapat diakses melalui aplikasi.');
+            ->line('Dokumen terlampir dan juga dapat diunduh melalui akun Anda.')
+            ->attach(Storage::disk('local')->path($this->path), ['as' => $this->documentNumber.'.pdf', 'mime' => 'application/pdf']);
     }
 
     /** @return array{document_type: string, document_number: string, path: string} */

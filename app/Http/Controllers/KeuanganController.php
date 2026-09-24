@@ -43,6 +43,7 @@ class KeuanganController extends Controller
     public function update(Request $request, TransaksiKeuangan $transaksi): RedirectResponse
     {
         $this->authorizePermission($request, 'keuangan.update');
+        abort_if($transaksi->pembayaran_mahasiswa_id !== null, 403, 'Transaksi pembayaran mahasiswa tidak dapat diubah melalui buku kas.');
 
         $validated = $request->validate([
             'kategori_id' => 'sometimes|uuid|exists:kategori_transaksi,id',
@@ -63,6 +64,7 @@ class KeuanganController extends Controller
     public function destroy(Request $request, TransaksiKeuangan $transaksi): RedirectResponse
     {
         $this->authorizePermission($request, 'keuangan.delete');
+        abort_if($transaksi->pembayaran_mahasiswa_id !== null, 403, 'Transaksi pembayaran mahasiswa tidak dapat dihapus melalui buku kas.');
         $transaksi->delete();
 
         return redirect()->back()->with('toast', [

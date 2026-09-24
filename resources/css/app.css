@@ -124,6 +124,66 @@
     --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', monospace;
 }
 
+.landing-rich-content {
+    color: var(--color-base-content);
+    line-height: 1.8;
+    overflow-wrap: anywhere;
+}
+.landing-rich-content > * + * {
+    margin-top: 1rem;
+}
+.landing-rich-content :is(h1, h2, h3, h4, h5, h6) {
+    font-family: var(--font-display);
+    font-weight: 600;
+    line-height: 1.35;
+    margin-block: 1.5rem 0.75rem;
+}
+.landing-rich-content h1 {
+    font-size: var(--text-3xl);
+}
+.landing-rich-content h2 {
+    font-size: var(--text-2xl);
+}
+.landing-rich-content h3 {
+    font-size: var(--text-xl);
+}
+.landing-rich-content ul {
+    list-style: disc;
+    padding-inline-start: 1.5rem;
+}
+.landing-rich-content ol {
+    list-style: decimal;
+    padding-inline-start: 1.5rem;
+}
+.landing-rich-content li + li {
+    margin-top: 0.375rem;
+}
+.landing-rich-content a {
+    color: var(--color-primary);
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+}
+.landing-rich-content blockquote {
+    border-inline-start: 3px solid var(--color-base-300);
+    padding-inline-start: 1rem;
+}
+.landing-rich-content img {
+    max-width: 100%;
+    height: auto;
+}
+.landing-rich-content img[data-align='center'] {
+    margin-inline: auto;
+}
+.landing-rich-content img[data-align='right'] {
+    margin-inline-start: auto;
+}
+.landing-rich-content pre {
+    max-width: 100%;
+    overflow-x: auto;
+    padding: 1rem;
+    background: var(--color-base-200);
+}
+
 /*
 | Landing/public tokens from profile-akademik. `hero` and `hero-footer` are the
 | fixed deep greens used for the fixed header, hero band, CTA and footer surfaces.
@@ -166,7 +226,7 @@
     }
 
     :focus-visible {
-        @apply outline-2 outline-offset-2 outline-primary;
+        @apply outline-primary outline-2 outline-offset-2;
     }
 
     /* daisyUI marks a field boundary with base-content at 20%, which measures
@@ -239,10 +299,88 @@
     }
 }
 
+.testimonial-window--sliding {
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(
+        to right,
+        transparent,
+        #000 8%,
+        #000 92%,
+        transparent
+    );
+    mask-image: linear-gradient(
+        to right,
+        transparent,
+        #000 8%,
+        #000 92%,
+        transparent
+    );
+}
+
+.testimonial-track {
+    display: flex;
+    width: max-content;
+}
+
+.testimonial-track--sliding {
+    animation: testimonial-drift linear infinite;
+}
+
+.testimonial-group {
+    display: flex;
+    flex-shrink: 0;
+    gap: 1.5rem;
+    padding-right: 1.5rem;
+}
+
+.testimonial-card {
+    width: clamp(17rem, 30vw, 21rem);
+    flex-shrink: 0;
+}
+
+.testimonial-window:hover .testimonial-track,
+.testimonial-window:focus-within .testimonial-track {
+    animation-play-state: paused;
+}
+
+@keyframes testimonial-drift {
+    to {
+        transform: translateX(-50%);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .testimonial-window--sliding {
+        overflow-x: auto;
+    }
+
+    .testimonial-track--sliding {
+        animation: none;
+    }
+
+    .testimonial-group[aria-hidden],
+    .testimonial-copy,
+    .testimonial-control {
+        display: none;
+    }
+}
+
 /* A thin, themed scrollbar instead of hiding scrollbars outright. */
 * {
     scrollbar-width: thin;
     scrollbar-color: var(--color-base-300) transparent;
+}
+
+/* Keep this unlayered so the global scrollbar rule cannot override it. */
+.no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
 }
 
 /*

@@ -27,6 +27,42 @@ class KamarController extends Controller
         ]);
     }
 
+    public function updateLantai(Request $request, Lantai $lantai): RedirectResponse
+    {
+        $this->authorizePermission($request, 'gedung.manage');
+
+        $validated = $request->validate([
+            'nomor_lantai' => 'sometimes|integer|min:0',
+            'nama_lantai' => 'sometimes|string|max:100',
+        ]);
+
+        $lantai->update($validated);
+
+        return redirect()->back()->with('toast', [
+            'type' => 'success',
+            'message' => "Lantai {$lantai->nama_lantai} diperbarui.",
+        ]);
+    }
+
+    public function destroyLantai(Request $request, Lantai $lantai): RedirectResponse
+    {
+        $this->authorizePermission($request, 'gedung.manage');
+
+        if ($lantai->kamar()->whereHas('penempatanKamar')->exists()) {
+            return redirect()->back()->with('toast', [
+                'type' => 'error',
+                'message' => "Lantai {$lantai->nama_lantai} tidak dapat dihapus karena ada kamar yang berisi penghuni.",
+            ]);
+        }
+
+        $lantai->delete();
+
+        return redirect()->back()->with('toast', [
+            'type' => 'success',
+            'message' => 'Lantai dihapus.',
+        ]);
+    }
+
     public function store(Request $request): RedirectResponse
     {
         $this->authorizePermission($request, 'gedung.manage');
@@ -75,6 +111,14 @@ class KamarController extends Controller
     public function destroy(Request $request, Kamar $kamar): RedirectResponse
     {
         $this->authorizePermission($request, 'gedung.manage');
+
+        if ($kamar->penempatanKamar()->exists()) {
+            return redirect()->back()->with('toast', [
+                'type' => 'error',
+                'message' => "Kamar {$kamar->nomor_kamar} tidak dapat dihapus karena berisi penghuni.",
+            ]);
+        }
+
         $kamar->delete();
 
         return redirect()->back()->with('toast', [

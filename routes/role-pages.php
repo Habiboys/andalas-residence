@@ -5,9 +5,13 @@ use App\Http\Controllers\RolePageController;
 use Illuminate\Support\Facades\Route;
 
 $pages = [
-    'mahasiswa' => ['dashboard', 'detail-kamar', 'pemetaan-kamar', 'tagihan', 'checkin', 'bebas-asrama', 'izin-pulang', 'jadwal', 'absensi', 'lapor-kerusakan'],
-    'fasilitator' => ['dashboard', 'scan-barcode', 'rekap-kehadiran', 'monitoring-kamar'],
-    'admin' => ['dashboard', 'mahasiswa', 'verifikasi-pembayaran', 'penempatan-kamar', 'pemetaan-kamar', 'kelola-bangunan', 'kelola-aset', 'approval-bebas-asrama', 'approval-izin-pulang', 'keuangan', 'kelola-profil', 'kelola-informasi', 'kelola-program', 'kelola-testimoni', 'jadwal-kegiatan', 'penilaian-teknisi'],
+    'mahasiswa' => ['dashboard', 'registration', 'detail-kamar', 'pemetaan-kamar', 'tagihan', 'checkout', 'bebas-asrama', 'perizinan', 'jadwal', 'absensi', 'lapor-kerusakan'],
+    'admin' => ['dashboard', 'registration-review', 'mahasiswa', 'verifikasi-pembayaran', 'penempatan-kamar', 'pemetaan-kamar', 'kelola-bangunan', 'kelola-aset', 'approval-bebas-asrama', 'keuangan', 'kelola-profil', 'kelola-informasi', 'kelola-program', 'kelola-testimoni', 'jadwal-kegiatan', 'penilaian-teknisi', 'stok-aset', 'perizinan'],
+    'admin_layanan' => ['dashboard', 'mahasiswa', 'registration-review', 'verifikasi-pembayaran', 'penempatan-kamar', 'approval-bebas-asrama', 'keuangan', 'jadwal-kegiatan'],
+    'fasilitator' => ['dashboard', 'jadwal-kegiatan', 'scan-barcode', 'rekap-kehadiran', 'monitoring-kamar', 'checkout-approval', 'perizinan', 'kelola-aset'],
+    'go' => ['dashboard', 'monitoring-kamar', 'checkout-inspection'],
+    'admin_aset' => ['dashboard', 'pemetaan-kamar', 'kelola-bangunan', 'kelola-aset', 'stok-aset'],
+    'orang_tua' => ['dashboard'],
     'teknisi' => ['dashboard', 'tiket', 'update-tiket', 'riwayat-penilaian'],
     'pimpinan' => ['dashboard', 'laporan-keuangan', 'laporan-aset'],
 ];
@@ -30,7 +34,24 @@ Route::get('admin/master-data', MasterDataPageController::class)
     ->name('admin.master-data');
 
 $componentAliases = [
+    'fasilitator.kelola-aset' => 'admin/kelola-aset',
+    'admin_aset.stok-aset' => 'admin/stok-aset',
+    'admin_layanan.dashboard' => 'admin/dashboard',
+    'admin_layanan.keuangan' => 'admin/keuangan',
+    'admin_layanan.jadwal-kegiatan' => 'admin/jadwal-kegiatan',
+    'fasilitator.jadwal-kegiatan' => 'admin/jadwal-kegiatan',
     'admin.mahasiswa' => 'admin/data-mahasiswa',
+    'admin_layanan.mahasiswa' => 'admin/data-mahasiswa',
+    'admin_layanan.verifikasi-pembayaran' => 'admin/verifikasi-pembayaran',
+    'admin_layanan.penempatan-kamar' => 'admin/penempatan-kamar',
+    'admin_layanan.approval-bebas-asrama' => 'admin/approval-bebas-asrama',
+    'admin_aset.pemetaan-kamar' => 'admin/pemetaan-kamar',
+    'admin_aset.kelola-bangunan' => 'admin/kelola-bangunan',
+    'admin_aset.kelola-aset' => 'admin/kelola-aset',
+    'go.monitoring-kamar' => 'fasilitator/monitoring-kamar',
+    'fasilitator.checkout-approval' => 'fasilitator/checkout-approval',
+    'go.checkout-inspection' => 'go/checkout-inspection',
+    'admin_layanan.registration-review' => 'admin/registration-review',
     'teknisi.tiket' => 'teknisi/tiket-masuk',
 ];
 
@@ -42,7 +63,19 @@ foreach ($pages as $role => $rolePages) {
             $key = $role.'.'.$page;
             $component = $componentAliases[$key] ?? str_replace('.', '/', $key);
             $pageKey = match ($key) {
+                'fasilitator.jadwal-kegiatan' => 'jadwal-kegiatan',
                 'admin.mahasiswa' => 'data-mahasiswa',
+                'admin_layanan.mahasiswa' => 'data-mahasiswa',
+                'admin_layanan.verifikasi-pembayaran' => 'verifikasi-pembayaran',
+                'admin_layanan.penempatan-kamar' => 'penempatan-kamar',
+                'admin_layanan.approval-bebas-asrama' => 'approval-bebas-asrama',
+                'admin_aset.pemetaan-kamar' => 'pemetaan-kamar',
+                'admin_aset.kelola-bangunan' => 'kelola-bangunan',
+                'admin_aset.kelola-aset' => 'kelola-aset',
+                'go.monitoring-kamar' => 'monitoring-kamar',
+                'fasilitator.checkout-approval' => 'checkout-approval',
+                'go.checkout-inspection' => 'checkout-inspection',
+                'admin_layanan.registration-review' => 'registration-review',
                 'teknisi.tiket' => 'tiket-masuk',
                 default => $page,
             };

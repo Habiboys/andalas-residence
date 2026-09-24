@@ -26,6 +26,10 @@ class CompleteDamageReport
         return DB::transaction(function () use ($report, $technician, $description, $evidencePaths) {
             $locked = LaporanKerusakan::query()->lockForUpdate()->findOrFail($report->id);
 
+            if (! $technician->can('complete', $locked)) {
+                throw new AuthorizationException;
+            }
+
             if (! $locked->status->canTransitionTo(LaporanKerusakanStatus::Selesai)) {
                 throw ValidationException::withMessages(['status' => 'Transisi status laporan tidak valid.']);
             }
@@ -43,6 +47,10 @@ class CompleteDamageReport
                 'catatan_penyelesaian' => trim($description),
                 'tanggal_selesai' => now(),
             ]);
+            if ($locked->aset_id && ! LaporanKerusakan::where('aset_id', $locked->aset_id)->whereKeyNot($locked->id)
+                ->whereNotIn('status', [LaporanKerusakanStatus::Selesai, LaporanKerusakanStatus::Dibatalkan])->exists()) {
+                $locked->aset()->update(['kondisi' => 'baik']);
+            }
             $locked->assignments()->whereNull('ended_at')->update(['ended_at' => now()]);
             $locked->statusHistories()->create([
                 'from_status' => LaporanKerusakanStatus::SedangDikerjakan,

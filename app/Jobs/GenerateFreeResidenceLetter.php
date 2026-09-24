@@ -53,10 +53,13 @@ class GenerateFreeResidenceLetter implements ShouldBeUnique, ShouldQueue
             'nomor' => $number,
             'path' => $path,
             'checksum_sha256' => hash('sha256', $contents),
-            'template_version' => 'free-residence-v1',
+            'template_version' => 'free-residence-dummy-v1',
             'generated_at' => now(),
             'failure_reason' => null,
         ]);
+        $application->update(['file_surat_path' => $path]);
+        $application->mahasiswa->update(['status_huni' => 'keluar']);
+        $application->mahasiswa->user->update(['status' => 'nonaktif']);
 
         $application->mahasiswa->user->notify(new DocumentReadyNotification('surat_bebas_asrama', $number, $path));
     }

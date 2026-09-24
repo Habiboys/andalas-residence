@@ -2,15 +2,21 @@
 
 namespace App\Actions\Billing;
 
+use App\Actions\ApproveFreeResidenceLetter;
+use App\Actions\Registration\CompleteResidenceRegistration;
+use App\Enums\FreeResidenceLetterStatus;
 use App\Enums\TagihanStatus;
 use App\Jobs\GenerateBillingDocument;
 use App\Models\PembayaranTagihan;
+use App\Models\PengajuanBebasAsrama;
 use App\Models\Tagihan;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
 class PostPayment
 {
+    public function __construct(private CompleteResidenceRegistration $completeRegistration, private ApproveFreeResidenceLetter $approveLetter) {}
+
     /**
      * @param  list<array{tagihan_id: string, jadwal_cicilan_id?: string|null, jumlah: int|float|string}>  $allocations
      * @param  array<string, mixed>|null  $metadata
@@ -21,6 +27,10 @@ class PostPayment
             $existing = PembayaranTagihan::where('referensi', $referensi)->first();
 
             if ($existing !== null) {
+                if ($existing->mahasiswa_id !== $mahasiswaId) {
+                    throw new InvalidArgumentException('Referensi pembayaran sudah digunakan oleh penghuni lain.');
+                }
+
                 return $existing->load('alokasi');
             }
 
@@ -47,7 +57,7 @@ class PostPayment
                 $amount = (float) $allocation['jumlah'];
                 $remaining = (float) $tagihan->total - (float) $tagihan->total_dibayar;
 
-                if ($amount <= 0 || $amount - $remaining > 0.005) {
+                if ($tagihan->status === TagihanStatus::Batal || $amount <= 0 || $amount - $remaining > 0.005) {
                     throw new InvalidArgumentException('Alokasi pembayaran tidak valid.');
                 }
 
@@ -57,6 +67,22 @@ class PostPayment
                     ? TagihanStatus::Lunas
                     : TagihanStatus::Sebagian;
                 $tagihan->save();
+                if ($tagihan->registration) {
+                    $this->completeRegistration->handle($tagihan->registration);
+                }
+            }
+
+            $hasOutstandingDebt = Tagihan::where('mahasiswa_id', $mahasiswaId)->where('status', '!=', TagihanStatus::Batal)->whereColumn('total', '>', 'total_dibayar')->exists();
+            if (! $hasOutstandingDebt) {
+                $application = PengajuanBebasAsrama::where('mahasiswa_id', $mahasiswaId)
+                    ->where('status', FreeResidenceLetterStatus::Diverifikasi)
+                    ->where('legacy_verification_path', 'alumni_unpaid')
+                    ->whereHas('tagihan', fn ($query) => $query->where('status', TagihanStatus::Lunas))
+                    ->whereDoesntHave('mahasiswa.penempatanKamar', fn ($query) => $query->where('status', 'aktif'))
+                    ->latest()->first();
+                if ($application) {
+                    $this->approveLetter->handle($application, null);
+                }
             }
 
             if ($firstTagihanId !== null) {

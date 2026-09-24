@@ -11,11 +11,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class RoomInspection extends BaseModel
 {
-    protected $fillable = ['checkout_request_id', 'inspector_id', 'status', 'catatan', 'inspected_at'];
+    protected $fillable = ['checkout_request_id', 'inspector_id', 'status', 'catatan', 'asset_checks', 'inspected_at'];
 
     protected function casts(): array
     {
-        return ['status' => RoomInspectionStatus::class, 'inspected_at' => 'datetime'];
+        return ['status' => RoomInspectionStatus::class, 'asset_checks' => 'array', 'inspected_at' => 'datetime'];
     }
 
     /** @return BelongsTo<CheckoutRequest, $this> */
@@ -28,12 +28,6 @@ class RoomInspection extends BaseModel
     public function inspector(): BelongsTo
     {
         return $this->belongsTo(User::class);
-    }
-
-    /** @return HasMany<RoomInspectionChecklistItem, $this> */
-    public function checklistItems(): HasMany
-    {
-        return $this->hasMany(RoomInspectionChecklistItem::class);
     }
 
     /** @return HasMany<RoomInspectionFinding, $this> */

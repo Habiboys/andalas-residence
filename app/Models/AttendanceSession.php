@@ -9,12 +9,17 @@ class AttendanceSession extends BaseModel
 {
     protected $fillable = [
         'kegiatan_id', 'facilitator_id', 'qr_token_hash', 'opens_at', 'expires_at', 'closed_at',
+        'facilitator_latitude', 'facilitator_longitude', 'facilitator_accuracy_meters', 'facilitator_located_at',
         'anchor_latitude', 'anchor_longitude', 'radius_meters', 'maximum_accuracy_meters',
     ];
 
     protected function casts(): array
     {
         return [
+            'facilitator_latitude' => 'float',
+            'facilitator_longitude' => 'float',
+            'facilitator_accuracy_meters' => 'float',
+            'facilitator_located_at' => 'datetime',
             'opens_at' => 'datetime',
             'expires_at' => 'datetime',
             'closed_at' => 'datetime',

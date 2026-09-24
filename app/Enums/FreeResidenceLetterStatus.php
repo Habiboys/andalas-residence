@@ -5,7 +5,7 @@ namespace App\Enums;
 enum FreeResidenceLetterStatus: string
 {
     case Diajukan = 'diajukan';
-    case Diverifikasi = 'verifikasi_aset_dan_keuangan';
+    case Diverifikasi = 'diverifikasi';
     case Disetujui = 'disetujui';
     case Ditolak = 'ditolak';
 }

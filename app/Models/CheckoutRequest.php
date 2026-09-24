@@ -9,8 +9,6 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 /**
  * @property CheckoutRequestStatus $status
  * @property-read RoomInspection|null $inspection
- * @property-read AssetClearance|null $assetClearance
- * @property-read FinanceClearance|null $financeClearance
  */
 class CheckoutRequest extends BaseModel
 {
@@ -51,17 +49,5 @@ class CheckoutRequest extends BaseModel
     public function inspection(): HasOne
     {
         return $this->hasOne(RoomInspection::class);
-    }
-
-    /** @return HasOne<AssetClearance, $this> */
-    public function assetClearance(): HasOne
-    {
-        return $this->hasOne(AssetClearance::class);
-    }
-
-    /** @return HasOne<FinanceClearance, $this> */
-    public function financeClearance(): HasOne
-    {
-        return $this->hasOne(FinanceClearance::class);
     }
 }

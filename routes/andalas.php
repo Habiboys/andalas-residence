@@ -3,7 +3,7 @@
 use App\Http\Controllers\AbsensiController;
 use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AsetController;
-use App\Http\Controllers\CheckinController;
+use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\DepartemenController;
 use App\Http\Controllers\FakultasController;
 use App\Http\Controllers\GedungController;
@@ -18,10 +18,11 @@ use App\Http\Controllers\MahasiswaController;
 use App\Http\Controllers\PembayaranController;
 use App\Http\Controllers\PengajuanController;
 use App\Http\Controllers\PeriodeController;
-use App\Http\Controllers\PlacementController;
+use App\Http\Controllers\PerizinanController;
 use App\Http\Controllers\ProdiController;
 use App\Http\Controllers\ProvinsiController;
 use App\Http\Controllers\ResidenceRegistrationController;
+use App\Http\Controllers\StokAsetController;
 use App\Http\Controllers\TeknisiController;
 use App\Http\Controllers\TiketController;
 use Illuminate\Support\Facades\Route;
@@ -71,6 +72,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::prefix('andalas')->name('andalas.')->group(function () {
         // Landing content management (admin)
+        Route::get('/landing/editor/{section}/create', [LandingContentController::class, 'create'])->name('landing.editor.create');
+        Route::get('/landing/editor/{section}/{id}/edit', [LandingContentController::class, 'edit'])->name('landing.editor.edit');
+        Route::post('/landing/editor/images', [LandingContentController::class, 'uploadImage'])->middleware('throttle:30,1')->name('landing.editor.images');
         Route::put('/landing/contents/{content}', [LandingContentController::class, 'updateContent'])->name('landing.contents.update');
 
         Route::post('/landing/informasi', [LandingContentController::class, 'storeInformasi'])->name('landing.informasi.store');
@@ -103,11 +107,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::put('/gedung/{gedung}', [GedungController::class, 'update'])->name('gedung.update');
         Route::delete('/gedung/{gedung}', [GedungController::class, 'destroy'])->name('gedung.destroy');
         Route::post('/lantai', [KamarController::class, 'storeLantai'])->name('lantai.store');
+        Route::put('/lantai/{lantai}', [KamarController::class, 'updateLantai'])->name('lantai.update');
+        Route::delete('/lantai/{lantai}', [KamarController::class, 'destroyLantai'])->name('lantai.destroy');
         Route::post('/kamar', [KamarController::class, 'store'])->name('kamar.store');
         Route::put('/kamar/{kamar}', [KamarController::class, 'update'])->name('kamar.update');
         Route::delete('/kamar/{kamar}', [KamarController::class, 'destroy'])->name('kamar.destroy');
 
         // Aset
+        Route::post('/stok-aset', [StokAsetController::class, 'store'])->name('stok-aset.store');
+        Route::put('/stok-aset/{stokAset}', [StokAsetController::class, 'update'])->name('stok-aset.update');
+        Route::delete('/stok-aset/{stokAset}', [StokAsetController::class, 'destroy'])->name('stok-aset.destroy');
+        Route::get('/aset/template', [AsetController::class, 'template'])->name('aset.template');
+        Route::post('/aset/import', [AsetController::class, 'import'])->name('aset.import');
         Route::post('/aset', [AsetController::class, 'store'])->name('aset.store');
         Route::put('/aset/{aset}', [AsetController::class, 'update'])->name('aset.update');
         Route::delete('/aset/{aset}', [AsetController::class, 'destroy'])->name('aset.destroy');
@@ -122,24 +133,34 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::put('/admin/users/{user}', [AdminUserController::class, 'update'])->name('admin.users.update');
         Route::delete('/admin/users/{user}', [AdminUserController::class, 'destroy'])->name('admin.users.destroy');
 
-        // Registration, placement, checkin, payment, tiket, absensi, pengajuan
+        // Registration, placement, payment, tiket, absensi, pengajuan
         Route::post('/registrations', [ResidenceRegistrationController::class, 'store'])->name('registrations.store');
         Route::patch('/registrations/{registration}', [ResidenceRegistrationController::class, 'update'])->name('registrations.update');
-        Route::post('/auto-placement/preview', [PlacementController::class, 'autoPreview'])->name('auto-placement.preview');
-        Route::post('/auto-placement/commit', [PlacementController::class, 'autoCommit'])->name('auto-placement.commit');
-        Route::post('/penempatan/manual', [PlacementController::class, 'manual'])->name('penempatan.manual');
-        Route::post('/checkin', [CheckinController::class, 'store'])->name('checkin.store');
+        Route::post('/checkout', [CheckoutController::class, 'store'])->name('checkout.store');
+        Route::put('/checkout/{checkoutRequest}/inspection', [CheckoutController::class, 'inspect'])->name('checkout.inspection.update');
+        Route::post('/checkout/findings/{finding}/damage-report', [CheckoutController::class, 'createDamageReport'])->name('checkout.findings.damage-report');
+        Route::post('/checkout/{checkoutRequest}/complete', [CheckoutController::class, 'complete'])->name('checkout.complete');
+        Route::post('/tagihan/{tagihan}/cicilan', [PembayaranController::class, 'requestInstallments'])->name('tagihan.request-installments');
+        Route::put('/tagihan/{tagihan}/cicilan', [PembayaranController::class, 'installments'])->name('tagihan.installments');
+        Route::get('/dokumen-tagihan/{document}', [PembayaranController::class, 'document'])->name('tagihan.document');
         Route::post('/pembayaran', [PembayaranController::class, 'store'])->name('pembayaran.store');
         Route::post('/pembayaran/{pembayaran}/verify', [PembayaranController::class, 'verify'])->name('pembayaran.verify');
         Route::get('/pembayaran/{pembayaran}/bukti', [PembayaranController::class, 'downloadBukti'])->name('pembayaran.bukti');
         Route::post('/laporan-kerusakan', [TiketController::class, 'store'])->name('laporan.store');
+        Route::get('/tiket/foto/{photo}', [TiketController::class, 'photo'])->name('tiket.photo');
         Route::put('/tiket/{laporan}', [TiketController::class, 'update'])->name('tiket.update');
-        Route::post('/absensi/scan', [AbsensiController::class, 'scan'])->name('absensi.scan');
+        Route::post('/absensi/kegiatan/{kegiatan}/open', [AbsensiController::class, 'openSession'])->name('absensi.kegiatan.open');
+        Route::post('/absensi/sesi/{session}/location', [AbsensiController::class, 'updateLocation'])->name('absensi.sesi.location');
+        Route::post('/absensi/sesi/{session}/close', [AbsensiController::class, 'closeSession'])->name('absensi.sesi.close');
+        Route::post('/absensi/sesi/{session}/record', [AbsensiController::class, 'recordActivity'])->name('absensi.sesi.record');
         Route::post('/penilaian/{laporan}', [TeknisiController::class, 'storePenilaian'])->name('penilaian.store');
         Route::post('/pengajuan/bebas-asrama', [PengajuanController::class, 'storeBebas'])->name('pengajuan.bebas');
-        Route::post('/pengajuan/izin-pulang', [PengajuanController::class, 'storeIzin'])->name('pengajuan.izin');
+        Route::post('/perizinan', [PerizinanController::class, 'store'])->name('perizinan.store');
+        Route::post('/perizinan/{perizinan}/review', [PerizinanController::class, 'review'])->name('perizinan.review');
+        Route::post('/perizinan/{perizinan}/bukti/{kind}', [PerizinanController::class, 'proof'])->name('perizinan.proof');
+        Route::get('/perizinan/{perizinan}/bukti/{kind}', [PerizinanController::class, 'evidence'])->name('perizinan.evidence');
         Route::post('/pengajuan/bebas-asrama/{pengajuan}/approve', [PengajuanController::class, 'approveBebas'])->name('pengajuan.bebas.approve');
-        Route::post('/pengajuan/izin-pulang/{pengajuan}/approve', [PengajuanController::class, 'approveIzin'])->name('pengajuan.izin.approve');
+        Route::get('/pengajuan/bebas-asrama/{pengajuan}/evidence/{kind}', [PengajuanController::class, 'evidence'])->name('pengajuan.bebas.evidence');
         Route::get('/pengajuan/bebas-asrama/{pengajuan}/surat', [PengajuanController::class, 'downloadSuratBebas'])->name('pengajuan.bebas.surat');
     });
 });

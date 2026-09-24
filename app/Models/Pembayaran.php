@@ -9,7 +9,7 @@ class Pembayaran extends BaseModel
     protected $table = 'pembayaran';
 
     protected $fillable = [
-        'kode_transaksi', 'mahasiswa_id', 'checkin_id', 'jenis_pembayaran',
+        'kode_transaksi', 'tagihan_id', 'mahasiswa_id', 'jenis_pembayaran',
         'nominal', 'termin_ke', 'metode_pembayaran', 'nama_bank',
         'nomor_rekening_pengirim', 'atas_nama_pengirim', 'bukti_transfer_path',
         'status', 'diverifikasi_oleh', 'catatan_verifikasi', 'tanggal_bayar',
@@ -28,9 +28,9 @@ class Pembayaran extends BaseModel
         return $this->belongsTo(MahasiswaProfil::class, 'mahasiswa_id');
     }
 
-    public function checkin(): BelongsTo
+    public function tagihan(): BelongsTo
     {
-        return $this->belongsTo(Checkin::class);
+        return $this->belongsTo(Tagihan::class);
     }
 
     public function verifikator(): BelongsTo

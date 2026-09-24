@@ -16,7 +16,7 @@ test('operational roles receive separate permissions', function () {
 
     expect($serviceAdmin->can('billing.manage'))->toBeTrue()
         ->and($serviceAdmin->can('aset.delete'))->toBeFalse()
-        ->and($assetAdmin->can('clearance.asset'))->toBeTrue()
+        ->and($assetAdmin->can('aset.update'))->toBeTrue()
         ->and($assetAdmin->can('billing.manage'))->toBeFalse()
         ->and($roomInspector->can('inspection.manage'))->toBeTrue();
 });

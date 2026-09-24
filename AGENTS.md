@@ -1,4 +1,5 @@
 <laravel-boost-guidelines>
+<!-- Project UI skill: Read .agents/skills/anti-ai-slop-design/SKILL.md before creating, auditing, or refactoring UI, including landing pages and dashboards. Apply its visual, structural, and content audit alongside the relevant framework skills. -->
 === foundation rules ===
 
 # Laravel Boost Guidelines

@@ -16,14 +16,12 @@ class LaporanKerusakan extends BaseModel
 
     protected $fillable = [
         'nomor_tiket', 'aset_id', 'kamar_id', 'dilaporkan_oleh', 'teknisi_id',
-        'deskripsi', 'foto_sebelum', 'foto_sesudah', 'metode_penanganan',
-        'biaya_riil', 'status', 'tanggal_lapor', 'tanggal_selesai', 'catatan_penyelesaian',
+        'deskripsi', 'status', 'tanggal_lapor', 'tanggal_selesai', 'catatan_penyelesaian',
     ];
 
     protected function casts(): array
     {
         return [
-            'biaya_riil' => 'decimal:2',
             'status' => LaporanKerusakanStatus::class,
             'tanggal_lapor' => 'datetime',
             'tanggal_selesai' => 'datetime',

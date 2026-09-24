@@ -53,7 +53,6 @@ class RolePermissionSeeder extends Seeder
 
         // ── Penempatan Kamar ──
         'penempatan.view' => 'Melihat pemetaan/penempatan',
-        'penempatan.manage' => 'Kelola penempatan (otomatis & manual)',
 
         // ── Tiket / Laporan Kerusakan ──
         'tiket.view' => 'Melihat laporan kerusakan',
@@ -66,12 +65,12 @@ class RolePermissionSeeder extends Seeder
         'absensi.scan' => 'Melakukan scan barcode absensi',
 
         // ── Pengajuan ──
-        'pengajuan.submit' => 'Mengajukan bebas asrama / izin pulang',
-        'pengajuan.approve' => 'Menyetujui pengajuan',
+        'pengajuan.submit' => 'Mengajukan bebas asrama dan perizinan mahasiswa',
+        'perizinan.review' => 'Memverifikasi dan memantau perizinan gedung',
+        'stok.manage' => 'Mengelola stok aset keseluruhan',
         'pengajuan.download_surat' => 'Mengunduh surat bebas asrama',
 
         // ── Check-in ──
-        'checkin.create' => 'Melakukan check-in kamar',
 
         // ── Kuesioner ──
         'kuesioner.view' => 'Melihat hasil kuesioner',
@@ -88,11 +87,11 @@ class RolePermissionSeeder extends Seeder
 
         // ── Proses Residence ──
         'registration.review' => 'Memverifikasi pendaftaran dan identitas client',
-        'billing.manage' => 'Mengelola tagihan, cicilan, VA manual, dan pembayaran',
+        'billing.manage' => 'Mengelola tagihan, cicilan, dan pembayaran',
+        'free-residence.review' => 'Verifikasi alumni dan penerbitan surat bebas asrama',
+        'checkout.submit' => 'Mengajukan checkout',
         'checkout.manage' => 'Mengelola pengajuan dan penyelesaian checkout',
         'inspection.manage' => 'Melakukan inspeksi kamar yang ditugaskan',
-        'clearance.asset' => 'Memberikan clearance aset',
-        'clearance.finance' => 'Memberikan clearance keuangan',
         'documents.manage' => 'Menerbitkan dan mengulang dokumen resmi',
         'attendance.session.manage' => 'Membuka dan menutup sesi absensi kegiatan',
         'children.view' => 'Melihat data anak yang tertaut',
@@ -118,6 +117,9 @@ class RolePermissionSeeder extends Seeder
         ],
         'admin_layanan' => [
             'dashboard.view',
+            'registration.review',
+            'billing.manage',
+            'documents.manage',
             'master.view',
             'mahasiswa.view',
             'mahasiswa.create',
@@ -127,17 +129,12 @@ class RolePermissionSeeder extends Seeder
             'pembayaran.download_bukti',
             'keuangan.view',
             'penempatan.view',
-            'penempatan.manage',
-            'pengajuan.approve',
+            'free-residence.review',
             'pengajuan.download_surat',
             'kegiatan.view',
-            'registration.review',
-            'billing.manage',
-            'checkout.manage',
-            'clearance.finance',
-            'documents.manage',
         ],
         'admin_aset' => [
+            'stok.manage',
             'dashboard.view',
             'master.view',
             'gedung.view',
@@ -149,7 +146,6 @@ class RolePermissionSeeder extends Seeder
             'tiket.view',
             'tiket.update',
             'penempatan.view',
-            'clearance.asset',
         ],
         'orang_tua' => [
             'dashboard.view',
@@ -158,8 +154,10 @@ class RolePermissionSeeder extends Seeder
         'go' => [
             'dashboard.view',
             'inspection.manage',
+            'tiket.create',
         ],
         'staff_admin' => [
+            'stok.manage',
             'dashboard.view',
             'master.view',
             'master.manage',
@@ -181,12 +179,12 @@ class RolePermissionSeeder extends Seeder
             'keuangan.update',
             'keuangan.delete',
             'penempatan.view',
-            'penempatan.manage',
             'tiket.view',
             'tiket.update',
             'tiket.rate',
             'absensi.view',
-            'pengajuan.approve',
+            'free-residence.review',
+            'registration.review',
             'pengajuan.download_surat',
             'kuesioner.view',
             'kegiatan.view',
@@ -195,13 +193,20 @@ class RolePermissionSeeder extends Seeder
             'teknisi.performance.view',
         ],
         'fasilitator' => [
+            'perizinan.review',
+            'aset.view',
+            'aset.create',
+            'aset.update',
+            'aset.delete',
             'dashboard.view',
+            'attendance.session.manage',
+            'kegiatan.manage',
             'gedung.view',
             'mahasiswa.view',
             'absensi.view',
             'absensi.scan',
-            'pengajuan.approve',
             'kegiatan.view',
+            'checkout.manage',
         ],
         'teknisi' => [
             'dashboard.view',
@@ -211,13 +216,14 @@ class RolePermissionSeeder extends Seeder
         ],
         'mahasiswa' => [
             'dashboard.view',
+            'checkout.submit',
             'pembayaran.view',
             'pembayaran.create',
-            'checkin.create',
             'tiket.create',
             'pengajuan.submit',
             'pengajuan.download_surat',
             'absensi.view',
+            'absensi.scan',
             'kegiatan.view',
         ],
     ];

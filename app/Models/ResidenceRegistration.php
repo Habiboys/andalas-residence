@@ -24,7 +24,7 @@ class ResidenceRegistration extends BaseModel
         'submitted_at',
         'reviewed_by',
         'reviewed_at',
-        'notes',
+        'notes', 'tagihan_id', 'completed_at', 'penempatan_kamar_id',
     ];
 
     /** @return BelongsTo<MahasiswaProfil, $this> */
@@ -57,6 +57,16 @@ class ResidenceRegistration extends BaseModel
         return $this->hasMany(ResidenceRegistrationStatusHistory::class);
     }
 
+    public function placement(): BelongsTo
+    {
+        return $this->belongsTo(PenempatanKamar::class, 'penempatan_kamar_id');
+    }
+
+    public function tagihan(): BelongsTo
+    {
+        return $this->belongsTo(Tagihan::class);
+    }
+
     protected function casts(): array
     {
         return [
@@ -64,6 +74,7 @@ class ResidenceRegistration extends BaseModel
             'is_kipk' => 'boolean',
             'submitted_at' => 'datetime',
             'reviewed_at' => 'datetime',
+            'completed_at' => 'datetime',
         ];
     }
 }

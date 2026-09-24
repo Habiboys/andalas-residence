@@ -3,6 +3,7 @@
 namespace App\Actions\DamageReports;
 
 use App\Enums\LaporanKerusakanStatus;
+use App\Models\Aset;
 use App\Models\LaporanKerusakan;
 use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -29,10 +30,16 @@ class CreateDamageReport
         }
 
         return DB::transaction(function () use ($resident, $description, $photoPaths, $assetId, $placement) {
+            $asset = $assetId === null ? null : Aset::query()->reportableFor($placement->kamar)->lockForUpdate()->find($assetId);
+
+            if ($assetId !== null && $asset === null) {
+                throw ValidationException::withMessages(['aset_id' => 'Pilih barang di kamar Anda atau fasilitas umum gedung Anda yang masih digunakan.']);
+            }
+
             $report = LaporanKerusakan::create([
                 'nomor_tiket' => 'TKT-'.strtoupper(Str::random(8)),
                 'aset_id' => $assetId,
-                'kamar_id' => $placement->kamar_id,
+                'kamar_id' => $asset === null ? $placement->kamar_id : $asset->kamar_id,
                 'dilaporkan_oleh' => $resident->id,
                 'deskripsi' => trim($description),
                 'status' => LaporanKerusakanStatus::MenungguTriage,

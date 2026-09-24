@@ -1,89 +1,372 @@
-import { useEffect, useState } from "react";
-import { toast } from "sonner";
-import { useForm } from "@inertiajs/react";
-import { PageHeader, Card, FormField, inputClass, Table } from "../../components/ui";
-import { BarcodeScanner } from "../../components/organisms/BarcodeScanner";
-import { scan as absensiScan } from "@/routes/andalas/absensi";
+import { useEffect, useState } from 'react';
+import { router, useForm } from '@inertiajs/react';
+import { toast } from 'sonner';
+import {
+    closeSession,
+    openSession,
+    updateLocation,
+} from '@/actions/App/Http/Controllers/AbsensiController';
+import {
+    Button,
+    Card,
+    FormField,
+    inputClass,
+    PageHeader,
+    Table,
+} from '../../components/ui';
 
-type WaktuSholat = "subuh" | "dzuhur" | "ashar" | "maghrib" | "isya";
-
-type AbsensiRow = {
-  id: string;
-  waktu_sholat: string;
-  waktu_scan?: string;
-  mahasiswa?: { user?: { nim_nip?: string; nama?: string } };
+type KegiatanRow = {
+    id: string;
+    judul?: string;
+    tanggal_mulai?: string;
+    tanggal_selesai?: string;
+    lokasi?: string;
+    gedung?: { nama_gedung: string } | null;
 };
 
-type ScanResult = {
-  mahasiswa?: { user?: { nama?: string; nim_nip?: string } };
-  already_scanned?: boolean;
-  error?: string;
+type AttendanceSessionRow = {
+    id: string;
+    expires_at?: string;
+    closed_at?: string | null;
+    kegiatan?: KegiatanRow;
+};
+
+type GeneratedSession = {
+    id: string;
+    token: string;
+    qr_code: string;
 };
 
 type Props = {
-  absensi: AbsensiRow[];
-  scan_result: ScanResult | null;
+    kegiatan?: KegiatanRow[];
+    attendance_sessions?: AttendanceSessionRow[];
+    attendance_session?: GeneratedSession | null;
 };
 
-export default function ScanBarcode({ absensi = [], scan_result = null }: Props) {
-  const [waktu, setWaktu] = useState<WaktuSholat>("subuh");
-  const { setData, post, reset } = useForm({ barcode_code: "", waktu_sholat: "subuh" });
+function defaultExpiry(): string {
+    const value = new Date(Date.now() + 15 * 60 * 1000);
+    value.setMinutes(value.getMinutes() - value.getTimezoneOffset());
 
-  useEffect(() => {
-    if (!scan_result) return;
-    if (scan_result.error) {
-      toast.error(scan_result.error);
-      return;
-    }
-    const nama = scan_result.mahasiswa?.user?.nama ?? "";
-    const nim = scan_result.mahasiswa?.user?.nim_nip ?? "";
-    if (scan_result.already_scanned) {
-      toast.info(`${nama} sudah tercatat hari ini`);
-    } else {
-      toast.success(`Absensi tercatat: ${nama}${nim ? ` (${nim})` : ""}`);
-    }
-  }, [scan_result]);
+    return value.toISOString().slice(0, 16);
+}
 
-  function handleScan(code: string) {
-    setData("barcode_code", code);
-    setData("waktu_sholat", waktu);
-    post(absensiScan.url(), {
-      onSuccess: () => reset(),
+export default function ScanBarcode({
+    kegiatan = [],
+    attendance_sessions = [],
+    attendance_session = null,
+}: Props) {
+    const [activeQr, setActiveQr] = useState<GeneratedSession | null>(
+        attendance_session,
+    );
+    const [locationBusy, setLocationBusy] = useState(false);
+    const { data, setData, post, processing, errors } = useForm({
+        expires_at: defaultExpiry(),
+        accuracy_meters: 0,
+        latitude: '',
+        longitude: '',
+        radius_meters: 100,
+        maximum_accuracy_meters: 30,
     });
-  }
+    const [selectedActivity, setSelectedActivity] = useState(
+        kegiatan[0]?.id ?? '',
+    );
 
-  const columns = [
-    { key: "nim", label: "NIM", render: (row: AbsensiRow) => row.mahasiswa?.user?.nim_nip ?? "-" },
-    { key: "nama", label: "Nama", render: (row: AbsensiRow) => row.mahasiswa?.user?.nama ?? "-" },
-    { key: "waktu_sholat", label: "Waktu Sholat", render: (row: AbsensiRow) => <span className="capitalize">{row.waktu_sholat}</span> },
-    { key: "waktu_scan", label: "Jam Scan", render: (row: AbsensiRow) => row.waktu_scan ? String(row.waktu_scan).slice(11, 16) : "-" },
-  ];
+    useEffect(() => {
+        if (attendance_session) {
+            setActiveQr(attendance_session);
+            toast.success('QR absensi siap dipindai mahasiswa.');
+        }
+    }, [attendance_session]);
 
-  return (
-    <div className="space-y-4">
-      <PageHeader title="Scan Barcode Absensi" subtitle="Rekam kehadiran sholat mahasiswa via barcode" />
+    useEffect(() => {
+        if (!activeQr) return;
+        const session = attendance_sessions.find(
+            (item) => item.id === activeQr.id,
+        );
+        if (session?.closed_at) {
+            setActiveQr(null);
+            return;
+        }
+        const remaining = session?.expires_at
+            ? new Date(session.expires_at).getTime() - Date.now()
+            : null;
+        if (remaining !== null && remaining <= 0) {
+            setActiveQr(null);
+            return;
+        }
+        function refreshLocation() {
+            navigator.geolocation?.getCurrentPosition(
+                (position) => {
+                    router.post(
+                        updateLocation.url({ session: activeQr!.id }),
+                        {
+                            latitude: position.coords.latitude,
+                            longitude: position.coords.longitude,
+                            accuracy_meters: position.coords.accuracy,
+                        },
+                        { preserveScroll: true, preserveState: true },
+                    );
+                },
+                () =>
+                    toast.error(
+                        'Lokasi fasilitator tidak tersedia. Absensi akan ditolak sampai lokasi diperbarui.',
+                    ),
+                { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 },
+            );
+        }
+        const timer = window.setInterval(refreshLocation, 20000);
+        const expiryTimer =
+            remaining === null
+                ? null
+                : window.setTimeout(() => setActiveQr(null), remaining);
+        return () => {
+            window.clearInterval(timer);
+            if (expiryTimer !== null) window.clearTimeout(expiryTimer);
+        };
+    }, [activeQr, attendance_sessions]);
 
-      <Card className="p-6 mb-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <FormField label="Waktu Sholat">
-            <select value={waktu} onChange={(e) => setWaktu(e.target.value as WaktuSholat)} className={inputClass + " w-full"}>
-              {(["subuh", "dzuhur", "ashar", "maghrib", "isya"] as const).map((w) => (
-                <option key={w} value={w}>{w.charAt(0).toUpperCase() + w.slice(1)}</option>
-              ))}
-            </select>
-          </FormField>
-          <FormField label="Barcode / NIM">
-            <BarcodeScanner onScan={handleScan} />
-          </FormField>
+    function useCurrentLocation() {
+        if (!navigator.geolocation) {
+            toast.error('Perangkat ini tidak mendukung geolokasi.');
+            return;
+        }
+
+        setLocationBusy(true);
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                setData('latitude', String(position.coords.latitude));
+                setData('longitude', String(position.coords.longitude));
+                setData('accuracy_meters', position.coords.accuracy);
+                setLocationBusy(false);
+                toast.success('Lokasi fasilitator berhasil diambil.');
+            },
+            () => {
+                setLocationBusy(false);
+                toast.error(
+                    'Lokasi tidak dapat diambil. Izinkan akses lokasi browser.',
+                );
+            },
+            { enableHighAccuracy: true, timeout: 15000 },
+        );
+    }
+
+    function createQr(event: React.FormEvent) {
+        event.preventDefault();
+        if (!selectedActivity) {
+            toast.error('Pilih kegiatan terlebih dahulu.');
+            return;
+        }
+
+        post(openSession.url({ kegiatan: selectedActivity }));
+    }
+
+    function closeQr(sessionId: string) {
+        router.post(
+            closeSession.url({ session: sessionId }),
+            {},
+            { onSuccess: () => setActiveQr(null) },
+        );
+    }
+
+    return (
+        <div className="space-y-4">
+            <PageHeader
+                title="QR Absensi Kegiatan"
+                subtitle="Buat QR sementara dengan batas waktu dan geofencing"
+            />
+
+            <Card className="p-6">
+                <form
+                    onSubmit={createQr}
+                    className="grid grid-cols-1 gap-4 lg:grid-cols-2"
+                >
+                    <FormField label="Kegiatan">
+                        <select
+                            className={`${inputClass} w-full`}
+                            value={selectedActivity}
+                            onChange={(event) =>
+                                setSelectedActivity(event.target.value)
+                            }
+                            required
+                        >
+                            <option value="">Pilih kegiatan</option>
+                            {kegiatan.map((activity) => (
+                                <option key={activity.id} value={activity.id}>
+                                    {activity.judul ?? activity.id}
+                                    {' — '}
+                                    {activity.gedung?.nama_gedung ??
+                                        'Umum - seluruh asrama'}
+                                </option>
+                            ))}
+                        </select>
+                    </FormField>
+                    <FormField label="QR berlaku sampai">
+                        <input
+                            type="datetime-local"
+                            className={inputClass}
+                            value={data.expires_at}
+                            onChange={(event) =>
+                                setData('expires_at', event.target.value)
+                            }
+                            required
+                        />
+                        {errors.expires_at && (
+                            <p className="text-error text-sm">
+                                {errors.expires_at}
+                            </p>
+                        )}
+                    </FormField>
+                    <FormField label="Latitude fasilitator">
+                        <input
+                            className={inputClass}
+                            value={data.latitude}
+                            readOnly
+                            required
+                        />
+                        {errors.latitude && (
+                            <p className="text-error text-sm">
+                                {errors.latitude}
+                            </p>
+                        )}
+                    </FormField>
+                    <FormField label="Longitude fasilitator">
+                        <input
+                            className={inputClass}
+                            value={data.longitude}
+                            readOnly
+                            required
+                        />
+                        {errors.longitude && (
+                            <p className="text-error text-sm">
+                                {errors.longitude}
+                            </p>
+                        )}
+                    </FormField>
+                    <FormField label="Radius absensi (meter)">
+                        <input
+                            type="number"
+                            min={1}
+                            className={inputClass}
+                            value={data.radius_meters}
+                            onChange={(event) =>
+                                setData(
+                                    'radius_meters',
+                                    Number(event.target.value),
+                                )
+                            }
+                            required
+                        />
+                    </FormField>
+                    <FormField label="Akurasi maksimum (meter)">
+                        <input
+                            type="number"
+                            min={1}
+                            className={inputClass}
+                            value={data.maximum_accuracy_meters}
+                            onChange={(event) =>
+                                setData(
+                                    'maximum_accuracy_meters',
+                                    Number(event.target.value),
+                                )
+                            }
+                            required
+                        />
+                    </FormField>
+                    <div className="flex flex-wrap gap-2 lg:col-span-2">
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={useCurrentLocation}
+                            disabled={locationBusy}
+                        >
+                            {locationBusy
+                                ? 'Mengambil lokasi...'
+                                : 'Ambil Lokasi Saya'}
+                        </Button>
+                        {Object.entries(errors).map(([key, error]) => (
+                            <p key={key} className="text-error">
+                                {error}
+                            </p>
+                        ))}
+                        <Button
+                            type="submit"
+                            disabled={
+                                processing || !data.latitude || !data.longitude
+                            }
+                        >
+                            {processing ? 'Membuat QR...' : 'Buat QR Absensi'}
+                        </Button>
+                    </div>
+                </form>
+            </Card>
+
+            {activeQr && (
+                <Card className="p-6 text-center">
+                    <h2 className="text-lg font-semibold">QR Aktif</h2>
+                    <p className="text-muted mt-1 text-sm">
+                        Mahasiswa memindai QR ini dari menu Absensi Kegiatan.
+                    </p>
+                    <img
+                        src={activeQr.qr_code}
+                        alt="QR absensi kegiatan"
+                        className="mx-auto mt-4 size-72 max-w-full rounded-xl bg-white p-3"
+                    />
+                    <Button
+                        className="mt-4"
+                        variant="secondary"
+                        onClick={() => closeQr(activeQr.id)}
+                    >
+                        Tutup Sesi Sekarang
+                    </Button>
+                </Card>
+            )}
+
+            <Card>
+                <div className="border-base-300 border-b px-5 py-4">
+                    <h2 className="font-semibold">Riwayat Sesi QR</h2>
+                </div>
+                <Table
+                    columns={[
+                        {
+                            key: 'kegiatan',
+                            label: 'Kegiatan',
+                            render: (row: AttendanceSessionRow) =>
+                                row.kegiatan?.judul ?? '-',
+                        },
+                        {
+                            key: 'expires_at',
+                            label: 'Berlaku Sampai',
+                            render: (row: AttendanceSessionRow) =>
+                                String(row.expires_at ?? '')
+                                    .slice(0, 16)
+                                    .replace('T', ' '),
+                        },
+                        {
+                            key: 'status',
+                            label: 'Status',
+                            render: (row: AttendanceSessionRow) =>
+                                row.closed_at
+                                    ? 'Ditutup'
+                                    : 'Aktif / kedaluwarsa otomatis',
+                        },
+                        {
+                            key: 'aksi',
+                            label: '',
+                            render: (row: AttendanceSessionRow) =>
+                                !row.closed_at ? (
+                                    <Button
+                                        variant="secondary"
+                                        onClick={() => closeQr(row.id)}
+                                    >
+                                        Tutup
+                                    </Button>
+                                ) : null,
+                        },
+                    ]}
+                    data={attendance_sessions}
+                    emptyMessage="Belum ada sesi QR"
+                />
+            </Card>
         </div>
-      </Card>
-
-      <Card>
-        <div className="border-b border-base-300 px-6 py-4">
-          <h2 className="font-semibold">Scan Hari Ini ({absensi.length})</h2>
-        </div>
-        <Table columns={columns} data={absensi} emptyMessage="Belum ada scan hari ini" />
-      </Card>
-    </div>
-  );
+    );
 }

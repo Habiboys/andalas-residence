@@ -21,7 +21,7 @@ class PengajuanBebasAsrama extends BaseModel
         'nomor_pengajuan', 'nomor_surat_resmi', 'mahasiswa_id', 'alasan',
         'status', 'catatan_penolakan', 'disetujui_oleh', 'file_surat_path',
         'lifecycle_year', 'legacy_verification_path', 'checkout_request_id',
-        'graduation_evidence_path', 'payment_evidence_path', 'verified_at', 'approved_at',
+        'payment_evidence_path', 'bank_statement_path', 'tagihan_id', 'verified_at', 'approved_at',
     ];
 
     protected function casts(): array
@@ -32,6 +32,11 @@ class PengajuanBebasAsrama extends BaseModel
             'verified_at' => 'datetime',
             'approved_at' => 'datetime',
         ];
+    }
+
+    public function tagihan(): BelongsTo
+    {
+        return $this->belongsTo(Tagihan::class);
     }
 
     /** @return BelongsTo<MahasiswaProfil, $this> */

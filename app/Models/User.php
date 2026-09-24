@@ -57,6 +57,11 @@ class User extends Authenticatable
         return $this->hasOne(MahasiswaProfil::class);
     }
 
+    public function canCreateAttendanceSession(): bool
+    {
+        return $this->hasPermissionTo('attendance.session.manage');
+    }
+
     /** @return HasMany<FasilitatorWilayah, $this> */
     public function fasilitatorWilayah(): HasMany
     {

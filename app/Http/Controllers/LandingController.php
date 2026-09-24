@@ -8,7 +8,9 @@ use App\Models\Kamar;
 use App\Models\LandingContent;
 use App\Models\PenempatanKamar;
 use App\Models\Program;
+use App\Models\ProgramSub;
 use App\Models\Testimoni;
+use App\Services\LandingRichText;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -28,6 +30,11 @@ class LandingController extends Controller
             ...$this->shared(),
             'testimoni' => Testimoni::where('published', true)->orderBy('urutan')->get(),
             'statistik' => $this->statistik(),
+            'pengumuman' => Informasi::where('published', true)->where('kategori', 'pengumuman')->orderByDesc('tanggal')->limit(3)->get(['id', 'judul', 'tanggal']),
+            'galeri' => Gedung::whereNotNull('foto')->where('foto', '!=', '')->orderBy('kode_gedung')->limit(4)->get()
+                ->map(fn (Gedung $gedung): array => ['id' => $gedung->id, 'judul' => $gedung->nama_gedung, 'foto' => '/storage/'.$gedung->foto, 'kategori' => 'Hunian'])
+                ->concat(ProgramSub::whereHas('program', fn ($query) => $query->where('published', true))->whereNotNull('gambar')->where('gambar', '!=', '')->orderBy('urutan')->limit(4)->get()
+                    ->map(fn (ProgramSub $sub): array => ['id' => $sub->id, 'judul' => $sub->judul, 'foto' => '/storage/'.$sub->gambar, 'kategori' => 'Program']))->values(),
         ]);
     }
 
@@ -35,10 +42,11 @@ class LandingController extends Controller
     {
         $key = self::PROFIL_KEY_MAP[$section] ?? abort(404);
 
-        $content = LandingContent::where('key', $key)->firstOrFail();
+        $content = LandingContent::where('key', $key)->where('published', true)->firstOrFail();
 
         $sections = LandingContent::whereIn('key', array_values(self::PROFIL_KEY_MAP))
-            ->pluck('title', 'key');
+            ->where('published', true)->pluck('title', 'key');
+        $content->content = LandingRichText::html($content->content);
 
         return Inertia::render('landing/profil', [
             ...$this->shared(),
@@ -71,7 +79,11 @@ class LandingController extends Controller
         return Inertia::render('landing/informasi', [
             ...$this->shared(),
             'kategori' => $kategori,
-            'items' => $items,
+            'items' => $items->map(function (Informasi $item): Informasi {
+                $item->konten = LandingRichText::html($item->konten);
+
+                return $item;
+            }),
         ]);
     }
 
@@ -81,27 +93,36 @@ class LandingController extends Controller
 
         return Inertia::render('landing/program', [
             ...$this->shared(),
-            'programs' => $programs,
+            'programs' => $programs->map(fn (Program $item): Program => $this->richProgram($item)),
         ]);
     }
 
     public function programDetail(string $program): Response
     {
         $program = Program::with('sub')->where('published', true)
-            ->where('id', $program)
-            ->orWhere('nama', $program)
+            ->where(fn ($query) => $query->where('id', $program)->orWhere('nama', $program))
             ->firstOrFail();
 
         return Inertia::render('landing/program-detail', [
             ...$this->shared(),
             'programs' => Program::with('sub')->where('published', true)->orderBy('urutan')->get(),
-            'program' => $program,
+            'program' => $this->richProgram($program),
         ]);
     }
 
     public function kontak(): Response
     {
         return Inertia::render('landing/kontak', $this->shared());
+    }
+
+    private function richProgram(Program $program): Program
+    {
+        $program->deskripsi = LandingRichText::html($program->deskripsi);
+        foreach ($program->sub as $sub) {
+            $sub->deskripsi = LandingRichText::html($sub->deskripsi);
+        }
+
+        return $program;
     }
 
     private function statistik(): array
@@ -115,13 +136,17 @@ class LandingController extends Controller
 
     private function shared(): array
     {
+        $profiles = LandingContent::whereIn('key', array_values(self::PROFIL_KEY_MAP))->where('published', true)->pluck('title', 'key');
+        $sections = [];
+        foreach (self::PROFIL_KEY_MAP as $slug => $key) {
+            if (isset($profiles[$key])) {
+                $sections[$slug] = $profiles[$key];
+            }
+        }
+
         return [
             'informasiMenu' => self::INFORMASI_KATEGORI,
-            'profilSections' => [
-                'sejarah' => LandingContent::where('key', 'sejarah')->value('title') ?? 'Sejarah',
-                'visi-misi' => LandingContent::where('key', 'visi_misi')->value('title') ?? 'Visi Misi',
-                'struktur-organisasi' => LandingContent::where('key', 'struktur_organisasi')->value('title') ?? 'Struktur Organisasi',
-            ],
+            'profilSections' => $sections,
         ];
     }
 }

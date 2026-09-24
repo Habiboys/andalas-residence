@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Gedung;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class GedungController extends Controller
 {
@@ -18,7 +19,10 @@ class GedungController extends Controller
             'gender_peruntukan' => 'required|in:laki_laki,perempuan,campuran',
             'alamat' => 'nullable|string',
             'deskripsi' => 'nullable|string',
-            'foto' => 'nullable|string',
+            'foto' => [
+                'nullable',
+                Rule::when($request->hasFile('foto'), ['image', 'mimes:jpeg,jpg,png,webp', 'max:2048'], ['string']),
+            ],
         ]);
 
         if ($request->hasFile('foto')) {
@@ -43,7 +47,10 @@ class GedungController extends Controller
             'gender_peruntukan' => 'sometimes|in:laki_laki,perempuan,campuran',
             'alamat' => 'nullable|string',
             'deskripsi' => 'nullable|string',
-            'foto' => 'nullable|string',
+            'foto' => [
+                'nullable',
+                Rule::when($request->hasFile('foto'), ['image', 'mimes:jpeg,jpg,png,webp', 'max:2048'], ['string']),
+            ],
         ]);
 
         if ($request->hasFile('foto')) {
@@ -61,6 +68,14 @@ class GedungController extends Controller
     public function destroy(Request $request, Gedung $gedung): RedirectResponse
     {
         $this->authorizePermission($request, 'gedung.manage');
+
+        if ($gedung->lantai()->whereHas('kamar.penempatanKamar')->exists()) {
+            return redirect()->back()->with('toast', [
+                'type' => 'error',
+                'message' => "Gedung {$gedung->nama_gedung} tidak dapat dihapus karena ada kamar yang berisi penghuni.",
+            ]);
+        }
+
         $gedung->delete();
 
         return redirect()->back()->with('toast', [

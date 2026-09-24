@@ -2,7 +2,7 @@ import { Form, Head, Link } from '@inertiajs/react';
 import { useState } from 'react';
 import { KeyRound } from 'lucide-react';
 import { AndalasLogo } from '@/andalas/components/AndalasLogo';
-import { login } from '@/routes';
+import { register } from '@/routes';
 import { store as loginStore } from '@/routes/login';
 import { request as passwordRequest } from '@/routes/password';
 import {
@@ -32,11 +32,11 @@ export default function Login({ status, canResetPassword, ssoUrl }: Props) {
                 </div>
 
                 <div className="mb-6 text-center">
-                    <h1 className="mb-1 font-sans text-2xl font-bold text-base-content md:text-3xl">
+                    <h1 className="text-base-content mb-1 font-sans text-2xl font-bold md:text-3xl">
                         Masuk ke Portal
                     </h1>
-                    <p className="text-sm text-muted">
-                        Gunakan akun SSO Unand atau kredensial staff.
+                    <p className="text-muted text-sm">
+                        Masuk menggunakan akun Andalas Residence.
                     </p>
                 </div>
 
@@ -44,12 +44,16 @@ export default function Login({ status, canResetPassword, ssoUrl }: Props) {
                  * The accent colour is spent here, on the one action this page
                  * actually exists for.
                  */}
-                <a href={ssoUrl || login.url()} className="btn btn-accent mb-6 w-full">
-                    <KeyRound className="size-4" aria-hidden="true" />
-                    Login dengan SSO Unand
-                </a>
+                {ssoUrl && (
+                    <a href={ssoUrl} className="btn btn-accent mb-6 w-full">
+                        <KeyRound className="size-4" aria-hidden="true" />
+                        Login dengan SSO Unand
+                    </a>
+                )}
 
-                <div className="divider mb-6 text-xs text-muted">atau login staff</div>
+                <div className="divider text-muted mb-6 text-xs">
+                    Login akun
+                </div>
 
                 <Form
                     {...loginStore.form()}
@@ -59,8 +63,13 @@ export default function Login({ status, canResetPassword, ssoUrl }: Props) {
                     {({ processing, errors }) => (
                         <>
                             {(errors.email || errors.password) && (
-                                <div role="alert" className="alert alert-error text-sm">
-                                    {errors.email || errors.password || 'NIM/email atau password salah.'}
+                                <div
+                                    role="alert"
+                                    className="alert alert-error text-sm"
+                                >
+                                    {errors.email ||
+                                        errors.password ||
+                                        'NIM/email atau password salah.'}
                                 </div>
                             )}
 
@@ -85,15 +94,24 @@ export default function Login({ status, canResetPassword, ssoUrl }: Props) {
                             />
 
                             <label className="flex items-center gap-2 text-sm">
-                                <input type="checkbox" name="remember" className="checkbox checkbox-sm" />
+                                <input
+                                    type="checkbox"
+                                    name="remember"
+                                    className="checkbox checkbox-sm"
+                                />
                                 Ingat saya
                             </label>
 
-                            <AuthSubmitButton processing={processing}>Masuk</AuthSubmitButton>
+                            <AuthSubmitButton processing={processing}>
+                                Masuk
+                            </AuthSubmitButton>
 
                             {canResetPassword && (
                                 <p className="text-center text-xs">
-                                    <Link href={passwordRequest()} className="link link-primary font-medium">
+                                    <Link
+                                        href={passwordRequest()}
+                                        className="link link-primary font-medium"
+                                    >
                                         Lupa password?
                                     </Link>
                                 </p>
@@ -101,6 +119,12 @@ export default function Login({ status, canResetPassword, ssoUrl }: Props) {
                         </>
                     )}
                 </Form>
+                <p className="mt-5 text-center text-sm">
+                    Belum punya akun?{' '}
+                    <Link href={register.url()} className="link link-primary">
+                        Daftar akun
+                    </Link>
+                </p>
             </AndalasAuthShell>
         </>
     );

@@ -6,20 +6,24 @@ use App\Actions\Attendance\RecordAttendanceAttempt;
 use App\Enums\AttendanceRejectionReason;
 use App\Enums\ResidenceEvent;
 use App\Models\ActivityAttendance;
+use App\Models\AttendanceSession;
 use App\Models\Kegiatan;
 use App\Models\MahasiswaProfil;
 use App\Models\ResidenceHistory;
 use App\Models\User;
+use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
+use Spatie\Permission\Models\Permission;
 
 function attendanceStudent(array $overrides = []): MahasiswaProfil
 {
-    $user = User::factory()->create();
+    $user = User::factory()->student()->create();
 
     return MahasiswaProfil::create(array_merge([
         'user_id' => $user->id,
         'barcode_code' => Str::random(32),
+        'angkatan' => '2026',
         'status_huni' => 'aktif',
         'tanggal_masuk' => now()->subMonths(3)->toDateString(),
     ], $overrides));
@@ -80,6 +84,37 @@ it('rejects a location outside the radius', function () {
     expect($attempt->rejection_reason)->toBe(AttendanceRejectionReason::OutsideRadius)
         ->and($attempt->distance_meters)->toBeGreaterThan(1000.0);
     expect(ActivityAttendance::count())->toBe(0);
+});
+
+it('accepts later cohorts during their first residence year', function () {
+    $this->travelTo(Carbon::parse('2027-09-15 09:00:00'));
+    $student = attendanceStudent(['angkatan' => '2027', 'tanggal_masuk' => '2027-08-01']);
+
+    expect(recordAttendance(attendanceSession(), $student)->rejection_reason)->toBeNull();
+    $this->assertDatabaseHas('activity_attendances', ['mahasiswa_id' => $student->id]);
+});
+
+it('enforces the facilitators live geofence through student scan requests', function () {
+    $this->freezeTime();
+    $data = attendanceSession();
+    $owner = $data['session']->facilitator;
+    $owner->givePermissionTo(Permission::findOrCreate('attendance.session.manage'));
+    $student = attendanceStudent();
+    $student->user->givePermissionTo(Permission::findOrCreate('absensi.scan'));
+    $scan = ['token' => $data['token'], 'latitude' => -0.9145, 'longitude' => 100.46, 'accuracy_meters' => 5];
+
+    $this->actingAs($owner)->post(route('andalas.absensi.sesi.location', $data['session']), [
+        'latitude' => -0.9045, 'longitude' => 100.46, 'accuracy_meters' => 5,
+    ])->assertSessionHasNoErrors();
+    $this->actingAs($student->user)->post(route('andalas.absensi.sesi.record', $data['session']), $scan)->assertSessionHasNoErrors();
+    $this->assertDatabaseCount('activity_attendances', 0);
+    $this->assertDatabaseHas('attendance_attempts', ['mahasiswa_id' => $student->id, 'rejection_reason' => 'facilitator_unavailable']);
+
+    $this->actingAs($owner)->post(route('andalas.absensi.sesi.location', $data['session']), [
+        'latitude' => -0.9145, 'longitude' => 100.46, 'accuracy_meters' => 5,
+    ])->assertSessionHasNoErrors();
+    $this->actingAs($student->user)->post(route('andalas.absensi.sesi.record', $data['session']), $scan)->assertSessionHasNoErrors();
+    $this->assertDatabaseHas('activity_attendances', ['mahasiswa_id' => $student->id, 'attendance_session_id' => $data['session']->id]);
 });
 
 it('rejects an expired QR token', function () {
@@ -168,4 +203,85 @@ it('rejects a currently checked-out first-year resident', function () {
     $attempt = recordAttendance($sessionData, $student);
 
     expect($attempt->rejection_reason)->toBe(AttendanceRejectionReason::Ineligible);
+});
+
+it('rejects attendance when the facilitator leaves the radius or location expires', function (string $case) {
+    $this->freezeTime();
+    $student = attendanceStudent();
+    $data = attendanceSession();
+    if ($case === 'outside') {
+        $data['session']->update(['facilitator_latitude' => -0.9045]);
+    } else {
+        $this->travel(61)->seconds();
+    }
+
+    $attempt = recordAttendance($data, $student);
+
+    expect($attempt->rejection_reason)->toBe(AttendanceRejectionReason::FacilitatorUnavailable);
+    $this->assertDatabaseCount('activity_attendances', 0);
+})->with(['outside', 'stale']);
+
+it('rejects a returning resident even within the first year', function () {
+    $student = attendanceStudent();
+    ResidenceHistory::create(['mahasiswa_id' => $student->id, 'event' => ResidenceEvent::CheckedOut, 'occurred_at' => now()->subDay()]);
+    ResidenceHistory::create(['mahasiswa_id' => $student->id, 'event' => ResidenceEvent::Reentered, 'occurred_at' => now()->subHour()]);
+
+    $attempt = recordAttendance(attendanceSession(), $student);
+
+    expect($attempt->rejection_reason)->toBe(AttendanceRejectionReason::Ineligible);
+});
+
+it('rejects missing cohorts and clients who are not local first-year students', function (string $category, ?string $cohort) {
+    $student = attendanceStudent(['angkatan' => $cohort]);
+    $student->user->update(['client_profile_category' => $category]);
+
+    $attempt = recordAttendance(attendanceSession(), $student);
+
+    expect($attempt->rejection_reason)->toBe(AttendanceRejectionReason::Ineligible);
+})->with([
+    ['student', null], ['local_non_kipk', '2025'], ['non_student', '2026'], ['international_free_facility', '2026'], ['local_resident', '2026'],
+]);
+
+it('allows only the sessions facilitator to refresh its location', function () {
+    $data = attendanceSession();
+    $owner = $data['session']->facilitator;
+    $other = User::factory()->create();
+    $permission = Permission::findOrCreate('attendance.session.manage');
+    $owner->givePermissionTo($permission);
+    $other->givePermissionTo($permission);
+    $payload = ['latitude' => -0.915, 'longitude' => 100.46, 'accuracy_meters' => 8];
+
+    $this->actingAs($other)->post(route('andalas.absensi.sesi.location', $data['session']), $payload)->assertForbidden();
+    $this->actingAs($owner)->post(route('andalas.absensi.sesi.location', $data['session']), $payload)->assertSessionHasNoErrors();
+
+    expect($data['session']->fresh()->facilitator_latitude)->toBe(-0.915);
+});
+
+it('rejects attendance at the exact expiry time and after a concurrently closed session', function () {
+    $this->freezeTime();
+    $student = attendanceStudent();
+    $data = attendanceSession(['expires_at' => now()->addMinute()]);
+    $this->travel(1)->minutes();
+
+    expect(recordAttendance($data, $student)->rejection_reason)->toBe(AttendanceRejectionReason::TokenExpired);
+
+    $data = attendanceSession();
+    AttendanceSession::whereKey($data['session']->id)->update(['closed_at' => now()]);
+    expect(recordAttendance($data, $student)->rejection_reason)->toBe(AttendanceRejectionReason::SessionNotOpen);
+});
+
+it('allows a facilitator to manage only their activities and preserves attendance history', function () {
+    $this->seed(RolePermissionSeeder::class);
+    $session = attendanceSession();
+    $owner = $session['session']->facilitator->assignRole('fasilitator');
+    $other = User::factory()->create()->assignRole('fasilitator');
+    $activity = $session['session']->kegiatan;
+    $this->actingAs($other)->put(route('andalas.kegiatan.update', $activity), [
+        'judul' => 'Changed', 'tanggal_selesai' => now()->addHours(2)->toDateTimeString(),
+    ])->assertForbidden();
+    $this->actingAs($owner)->delete(route('andalas.kegiatan.destroy', $activity))->assertSessionHasErrors('kegiatan');
+    $this->assertDatabaseHas('attendance_sessions', ['id' => $session['session']->id]);
+    $this->post(route('andalas.kegiatan.store'), [
+        'judul' => 'Invalid schedule', 'tanggal_mulai' => now()->toDateTimeString(),
+    ])->assertSessionHasErrors('tanggal_selesai');
 });

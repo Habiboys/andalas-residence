@@ -9,7 +9,6 @@ use App\Models\AttendanceSession;
 use App\Models\MahasiswaProfil;
 use App\Services\AttendanceEligibility;
 use App\Services\HaversineDistance;
-use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 
 class RecordAttendanceAttempt
@@ -27,23 +26,31 @@ class RecordAttendanceAttempt
         float $longitude,
         float $accuracyMeters,
     ): AttendanceAttempt {
-        $now = now();
-        $distanceMeters = $this->validCoordinates($latitude, $longitude)
-            ? $this->distance->meters($session->anchor_latitude, $session->anchor_longitude, $latitude, $longitude)
-            : null;
+        return DB::transaction(function () use ($session, $student, $token, $latitude, $longitude, $accuracyMeters): AttendanceAttempt {
+            $session = AttendanceSession::query()->lockForUpdate()->findOrFail($session->id);
+            $now = now();
+            $distanceMeters = $this->validCoordinates($latitude, $longitude)
+                ? $this->distance->meters($session->anchor_latitude, $session->anchor_longitude, $latitude, $longitude)
+                : null;
 
-        $reason = match (true) {
-            $session->closed_at !== null || $now->lt($session->opens_at) => AttendanceRejectionReason::SessionNotOpen,
-            $now->gt($session->expires_at) => AttendanceRejectionReason::TokenExpired,
-            ! hash_equals($session->qr_token_hash, hash('sha256', $token)) => AttendanceRejectionReason::TokenInvalid,
-            ! $this->eligibility->isEligible($student, $now) => AttendanceRejectionReason::Ineligible,
-            ! $this->validCoordinates($latitude, $longitude) || ! is_finite($accuracyMeters) || $accuracyMeters < 0 || $accuracyMeters > $session->maximum_accuracy_meters => AttendanceRejectionReason::LocationInaccurate,
-            $distanceMeters > $session->radius_meters => AttendanceRejectionReason::OutsideRadius,
-            $session->attendances()->where('mahasiswa_id', $student->id)->exists() => AttendanceRejectionReason::Duplicate,
-            default => null,
-        };
+            $reason = match (true) {
+                $session->closed_at !== null || $now->lt($session->opens_at) => AttendanceRejectionReason::SessionNotOpen,
+                $now->gte($session->expires_at) => AttendanceRejectionReason::TokenExpired,
+                ! hash_equals($session->qr_token_hash, hash('sha256', $token)) => AttendanceRejectionReason::TokenInvalid,
+                ! $this->eligibility->isEligible($student, $now) => AttendanceRejectionReason::Ineligible,
+                ! $session->kegiatan->allowsStudent($student) => AttendanceRejectionReason::WrongBuilding,
+                ! $this->validCoordinates($latitude, $longitude) || ! is_finite($accuracyMeters) || $accuracyMeters < 0 || $accuracyMeters > $session->maximum_accuracy_meters => AttendanceRejectionReason::LocationInaccurate,
+                $session->facilitator_located_at === null
+                    || $session->facilitator_located_at->lt($now->copy()->subSeconds(60))
+                    || $session->facilitator_accuracy_meters === null
+                    || $session->facilitator_accuracy_meters > $session->maximum_accuracy_meters
+                    || $session->facilitator_latitude === null || $session->facilitator_longitude === null
+                    || $this->distance->meters($session->anchor_latitude, $session->anchor_longitude, $session->facilitator_latitude, $session->facilitator_longitude) > $session->radius_meters => AttendanceRejectionReason::FacilitatorUnavailable,
+                $distanceMeters > $session->radius_meters => AttendanceRejectionReason::OutsideRadius,
+                $session->attendances()->where('mahasiswa_id', $student->id)->exists() => AttendanceRejectionReason::Duplicate,
+                default => null,
+            };
 
-        return DB::transaction(function () use ($session, $student, $now, $latitude, $longitude, $accuracyMeters, $distanceMeters, $reason): AttendanceAttempt {
             $attempt = AttendanceAttempt::create([
                 'attendance_session_id' => $session->id,
                 'mahasiswa_id' => $student->id,
@@ -56,16 +63,13 @@ class RecordAttendanceAttempt
             ]);
 
             if ($reason === null) {
-                try {
-                    ActivityAttendance::create([
-                        'attendance_session_id' => $session->id,
-                        'mahasiswa_id' => $student->id,
-                        'attendance_attempt_id' => $attempt->id,
-                        'attended_at' => $now,
-                    ]);
-                } catch (QueryException) {
-                    $attempt->update(['rejection_reason' => AttendanceRejectionReason::Duplicate]);
-                }
+                ActivityAttendance::create([
+                    'attendance_session_id' => $session->id,
+                    'mahasiswa_id' => $student->id,
+                    'attendance_attempt_id' => $attempt->id,
+                    'attended_at' => $now,
+                ]);
+
             }
 
             return $attempt->refresh();
