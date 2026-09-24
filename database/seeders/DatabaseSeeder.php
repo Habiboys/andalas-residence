@@ -38,13 +38,7 @@ class DatabaseSeeder extends Seeder
         $this->call(UnandAcademicSeeder::class);
         $prodi = Prodi::where('code', '15-03-01')->firstOrFail();
 
-        foreach (['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'Nakes', 'ASN'] as $code) {
-            Gedung::firstOrCreate(['kode_gedung' => $code], [
-                'nama_gedung' => 'Asrama '.$code,
-                'gender_peruntukan' => 'campur',
-                'alamat' => 'Kampus Limau Manis',
-            ]);
-        }
+        $this->call(ResidenceBuildingSeeder::class);
 
         $periode = Periode::firstOrCreate(['nama_periode' => '2025/2026 Ganjil'], [
             'status' => 'nonaktif',

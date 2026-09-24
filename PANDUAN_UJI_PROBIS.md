@@ -31,6 +31,20 @@ docker compose exec andalas-app php artisan db:seed --no-interaction
 
 Docker proyek menggunakan MySQL di host; MySQL tetap harus menyala. Compose mengatur `DB_HOST=host.docker.internal` di container meskipun `.env` lokal menggunakan `127.0.0.1`. Worker antrean sudah dijalankan oleh konfigurasi container.
 
+Untuk pembaruan referensi pendaftaran pada database yang sudah ada, tanpa menambahkan akun demo:
+
+```powershell
+docker compose exec andalas-app php artisan migrate --no-interaction
+docker compose exec andalas-app php artisan db:seed --class=UnandAcademicSeeder --no-interaction
+docker compose exec andalas-app php artisan db:seed --class=ResidenceBuildingSeeder --no-interaction
+```
+
+Katalog lampiran berisi **16 fakultas, 67 departemen dan 153 prodi**. Angka 76 departemen pada ringkasan lampiran tidak sesuai jumlah rincian; seeder mengikuti rincian. Kode departemen/prodi adalah kode internal katalog. Seeder akademik mempertahankan relasi profil ketika memindahkan contoh Informatika lama ke Fakultas Teknologi Informasi. Seeder gedung menambahkan nama gedung yang belum ada; lantai, nomor kamar, kapasitas dan tarif tetap dikelola admin.
+
+Docker hanya menjalankan aplikasi, dengan `storage` di bind volume dan `bootstrap/cache` di named volume. Untuk MySQL pada alamat khusus, isi `DOCKER_DB_HOST` sesuai alamatnya. `APP_URL` harus memuat alamat publik lengkap, termasuk port, contohnya `http://10.250.30.14:8003`. URL tautan dan aset dihasilkan dari nilai tersebut oleh `AppServiceProvider`. Jika memakai HTTPS di reverse proxy, set `APP_URL=https://domain-aplikasi` dan `TRUSTED_PROXIES` dengan IP/CIDR proxy yang benar.
+
+Sesudah kode terbaru disalin ke server, jalankan `docker compose up -d --build --force-recreate`, kemudian migrasi/seeder referensi di atas. Entrypoint membangun ulang cache konfigurasi saat container dimulai. Cek log dengan `docker compose logs -f --tail=100 andalas-app`; jika URL CSS masih kehilangan port, periksa `docker compose exec andalas-app php artisan config:show app` dan pastikan nilai `url` memiliki `:8003`, lalu refresh browser.
+
 **Tanpa Docker**, dengan PHP dan MySQL lokal:
 
 ```powershell
@@ -101,9 +115,9 @@ Urutan perjalanan lengkap:
 
 | Langkah | Akun dan tindakan | Hasil yang diperiksa |
 | --- | --- | --- |
-| 1 | Jika menguji dari nol, buka Daftar tanpa login; isi identitas, email, password, kategori lokal non-KIPK, angkatan, dan data wajib lainnya | Akun dibuat sebagai calon penghuni; belum langsung aktif |
-| 2 | Login client, buka Pendaftaran Asrama | Form periode, tipe dan nomor kamar tersedia bagi non-KIPK |
-| 3 | Pilih periode aktif dan kamar tersedia di DEMO-P/W yang sesuai; kirim pendaftaran | Pengajuan masuk untuk direview dan invoice tersedia |
+| 1 | Jika menguji dari nol, buka Daftar tanpa login; isi identitas, email, password, kategori lokal non-KIPK, NIM, fakultas/departemen/prodi, dan data wajib lainnya | Akun dibuat sebagai calon penghuni; belum langsung aktif |
+| 2 | Login client, buka Pendaftaran Asrama | Pilihan gedung, tipe, nomor kamar dan periode tinggal tersedia bagi non-KIPK |
+| 3 | Pilih gedung DEMO-P/W sesuai jenis kelamin, tipe dan nomor kamar serta periode aktif; periksa modal konfirmasi lalu kirim | Pengajuan masuk untuk direview dan invoice tersedia |
 | 4 | Login admin layanan → Review Pendaftaran → cari nama/NIM → ikon detail | Identitas, kategori, periode, preferensi kamar dan data tagihan sesuai client |
 | 5 | Verifikasi pengajuan, kemudian terima dengan kamar sesuai preferensi | Status pendaftaran diterima dan penempatan tercatat; client berbayar belum aktif sebelum pembayaran yang memenuhi syarat |
 | 6 | Login client → Tagihan → buka invoice; unggah bukti pembayaran sejumlah tagihan | Bukti masuk sebagai pembayaran menunggu verifikasi, bukan langsung lunas |
@@ -112,7 +126,13 @@ Urutan perjalanan lengkap:
 
 Tidak ada langkah check-in terpisah yang harus dilakukan penghuni setelah proses ini.
 
-Angkatan berasal dari field profil, bukan dihitung otomatis dari NIM. Untuk data uji mahasiswa, buat dua digit awal NIM konsisten dengan angkatan, misalnya awalan `26` untuk 2026; gunakan nomor unik. Jangan menyalin NIM akun demo yang sudah terdaftar.
+Angkatan kini dihitung otomatis dari dua digit awal NIM, misalnya `26` untuk 2026 dan `25` untuk 2025. Tidak ada input angkatan manual. Gunakan NIM numerik yang unik; jangan menyalin NIM akun demo. Mahasiswa baru/lama ditentukan dari angkatan dibandingkan tahun berjalan; kategori lokal hanya KIPK dan non-KIPK. Nonmahasiswa memakai nomor identitas dan tidak memiliki angkatan/prodi.
+
+Saat membuat akun mahasiswa, pilih **fakultas → departemen → program studi/jenjang**. Mengubah fakultas mengosongkan departemen dan prodi; mengubah departemen mengosongkan prodi. Coba mengirim prodi dari departemen lain: server harus menolak. Tombol mata tersedia pada kedua input password.
+
+Setelah login, calon penghuni mendapat popup pilihan **Pilih kamar / daftar asrama** atau **Layanan bebas asrama**. Tombol layanan tetap tersedia di dashboard setelah popup ditutup. Pada pendaftaran non-KIPK, pilih **gedung → tipe kamar → nomor kamar**, pilih periode tinggal lalu periksa modal konfirmasi sebelum mengirim. A–E untuk perempuan, F–H untuk laki-laki, Nakes dan ASN untuk keduanya. Tipe Medium tersedia setelah admin membuat kamar dengan tipe tersebut. Peserta KIPK melewati pemilihan kamar dan ditempatkan admin.
+
+**Periode tinggal berbeda dengan angkatan.** Mahasiswa angkatan lama yang ingin tinggal sekarang memilih periode hunian yang sedang dibuka, bukan tahun masuk kuliahnya. Stepper menunjukkan tahapan akun, pilihan kamar, pembayaran, dan penghuni aktif.
 
 **Jalur cepat dan penolakan:**
 

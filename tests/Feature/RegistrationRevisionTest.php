@@ -56,6 +56,33 @@ it('retires the distinct local resident registration category', function () {
     $this->assertDatabaseCount('users', 0);
 });
 
+it('derives the cohort on admin create and update while preserving academic relationships', function () {
+    $this->seed(RolePermissionSeeder::class);
+    $admin = User::factory()->create()->assignRole('admin_layanan');
+    $input = revisionAccountInput();
+    $this->actingAs($admin)->post(route('andalas.mahasiswa.store'), [...$input, 'angkatan' => 2000])
+        ->assertSessionHasNoErrors();
+    $student = User::where('email', $input['email'])->sole()->mahasiswaProfil;
+    expect($student->angkatan)->toBe('2025');
+    $this->put(route('andalas.mahasiswa.update', $student), [...$input, 'nim_nip' => '2499001111', 'angkatan' => 2000])
+        ->assertSessionHasNoErrors();
+    expect($student->fresh()->angkatan)->toBe('2024');
+    $this->put(route('andalas.mahasiswa.update', $student), [
+        'client_profile_category' => 'non_student', 'nim_nip' => 'PASPOR123',
+    ])->assertSessionHasNoErrors();
+    expect($student->fresh()->angkatan)->toBeNull()->and($student->fresh()->prodi_id)->toBeNull();
+});
+
+it('seeds fixed building allocations without replacing existing building details', function () {
+    Gedung::create(['kode_gedung' => 'A', 'nama_gedung' => 'Nama dipertahankan', 'gender_peruntukan' => 'laki_laki']);
+    $this->seed(\Database\Seeders\ResidenceBuildingSeeder::class);
+    $this->seed(\Database\Seeders\ResidenceBuildingSeeder::class);
+    $this->assertDatabaseCount('gedung', 10);
+    $this->assertDatabaseHas('gedung', ['kode_gedung' => 'A', 'nama_gedung' => 'Nama dipertahankan', 'gender_peruntukan' => 'perempuan']);
+    $this->assertDatabaseHas('gedung', ['kode_gedung' => 'H', 'gender_peruntukan' => 'laki_laki']);
+    $this->assertDatabaseHas('gedung', ['kode_gedung' => 'Nakes', 'gender_peruntukan' => 'campur']);
+});
+
 it('loads the supplied academic catalog idempotently and repairs the former Informatika placeholder', function () {
     $faculty = Faculty::create(['name' => 'Fakultas Teknik']);
     $department = Departemen::create(['name' => 'Teknik Informatika', 'faculty_id' => $faculty->id]);
