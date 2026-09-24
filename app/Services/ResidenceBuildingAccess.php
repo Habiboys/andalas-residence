@@ -10,9 +10,7 @@ class ResidenceBuildingAccess
     /** @return array<int, string> */
     public static function ids(User $user): array
     {
-        return FasilitatorWilayah::with('lantai')->where('user_id', $user->id)->get()
-            ->map(fn (FasilitatorWilayah $area): ?string => $area->gedung_id ?? $area->lantai?->gedung_id)
-            ->filter()->unique()->values()->all();
+        return FasilitatorWilayah::where('user_id', $user->id)->pluck('gedung_id')->filter()->values()->all();
     }
 
     public static function allows(User $user, ?string $buildingId): bool

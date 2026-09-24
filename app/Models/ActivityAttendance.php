@@ -6,11 +6,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ActivityAttendance extends BaseModel
 {
-    protected $fillable = ['attendance_session_id', 'mahasiswa_id', 'attendance_attempt_id', 'attended_at'];
+    protected $fillable = ['attendance_session_id', 'mahasiswa_id', 'attendance_attempt_id', 'attended_at', 'is_present', 'correction_reason', 'corrected_by', 'corrected_at'];
 
     protected function casts(): array
     {
-        return ['attended_at' => 'datetime'];
+        return ['attended_at' => 'datetime', 'is_present' => 'boolean', 'corrected_at' => 'datetime'];
     }
 
     /** @return BelongsTo<AttendanceSession, $this> */

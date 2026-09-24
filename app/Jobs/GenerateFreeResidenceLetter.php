@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Models\FreeResidenceLetterDocumentIntent;
 use App\Notifications\DocumentReadyNotification;
+use App\Services\FreeResidenceLetterFormat;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -53,7 +54,7 @@ class GenerateFreeResidenceLetter implements ShouldBeUnique, ShouldQueue
             'nomor' => $number,
             'path' => $path,
             'checksum_sha256' => hash('sha256', $contents),
-            'template_version' => 'free-residence-dummy-v1',
+            'template_version' => FreeResidenceLetterFormat::VERSION,
             'generated_at' => now(),
             'failure_reason' => null,
         ]);

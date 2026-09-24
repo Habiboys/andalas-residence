@@ -12,6 +12,8 @@ use App\Models\MahasiswaProfil;
 use App\Models\PengajuanBebasAsrama;
 use App\Models\User;
 use App\Notifications\DocumentReadyNotification;
+use App\Services\FreeResidenceLetterFormat;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
@@ -100,11 +102,12 @@ it('generates a free residence letter from its intent and records terminal failu
     Storage::disk('local')->assertExists($intent->path);
     expect($intent->status)->toBe('ready')
         ->and($intent->nomor)->toBe('SBA-BA-DOC-001')
-        ->and($intent->template_version)->toBe('free-residence-dummy-v1')
+        ->and($intent->template_version)->toBe(FreeResidenceLetterFormat::VERSION)
         ->and($intent->checksum_sha256)->toHaveLength(64);
     Notification::assertSentTo($student->user, DocumentReadyNotification::class);
     expect(view('pdf.surat-bebas-asrama', ['pengajuan' => $approved, 'mahasiswa' => $student])->render())
-        ->toContain('CONTOH / DUMMY', 'BUKAN SURAT RESMI', $student->user->nim_nip);
+        ->toContain('SURAT KETERANGAN TIDAK TINGGAL DI ASRAMA', 'images/unand.png', $student->user->nim_nip)
+        ->not->toContain('CONTOH / DUMMY', 'telah melunasi uang asrama');
 
     $failedIntent = FreeResidenceLetterDocumentIntent::create([
         'pengajuan_id' => PengajuanBebasAsrama::create([
@@ -130,3 +133,28 @@ it('attaches the generated PDF to the document notification email', function () 
     expect($mail->attachments)->toHaveCount(1)
         ->and($mail->attachments[0]['options']['as'])->toBe('SBA-TEST.pdf');
 });
+
+it('selects the letter wording from verified residence status and funding category', function (string $category, ?string $path, string $title) {
+    $student = documentStudent();
+    $student->user->update(['client_profile_category' => $category]);
+    $application = PengajuanBebasAsrama::create([
+        'nomor_pengajuan' => 'FORMAT-TEST', 'mahasiswa_id' => $student->id,
+        'alasan' => 'Selesai', 'status' => FreeResidenceLetterStatus::Disetujui,
+        'legacy_verification_path' => $path, 'approved_at' => '2026-09-24 07:17:33',
+    ]);
+    $html = view('pdf.surat-bebas-asrama', ['pengajuan' => $application, 'mahasiswa' => $student, 'documentNumber' => '674/B/Asrama-XIV/UA/2026'])->render();
+    expect($html)->toContain($title, '674/B/Asrama-XIV/UA/2026', '24 September 2026', '14:17:33', 'Fatmasari, Amd.Kep');
+    if ($category === 'local_kipk' || $category === 'international_free_facility') {
+        expect($html)->not->toContain('telah melunasi uang asrama');
+    }
+    $pdf = Pdf::loadHTML($html)->setPaper('a4');
+    expect($pdf->output())->toStartWith('%PDF-');
+    expect($pdf->getDomPDF()->getCanvas()->get_page_count())->toBe(1);
+})->with([
+    ['local_kipk', 'not_alumni', 'SURAT KETERANGAN TIDAK TINGGAL DI ASRAMA'],
+    ['local_non_kipk', 'alumni_paid', 'SURAT KETERANGAN TELAH MEMBAYAR UANG ASRAMA'],
+    ['local_non_kipk', 'alumni_unpaid', 'SURAT KETERANGAN TELAH MEMBAYAR UANG ASRAMA'],
+    ['local_non_kipk', null, 'SURAT KETERANGAN TELAH MEMBAYAR UANG ASRAMA'],
+    ['local_kipk', null, 'SURAT KETERANGAN BEBAS ASRAMA'],
+    ['international_free_facility', null, 'SURAT KETERANGAN BEBAS ASRAMA'],
+]);

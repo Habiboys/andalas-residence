@@ -8,6 +8,9 @@ import { Button, Card, PageHeader, Table } from '../../components/ui';
 
 type Attendance = {
     attended_at: string;
+    is_present: boolean;
+    corrected_at?: string | null;
+    correction_reason?: string | null;
     session?: { kegiatan?: { judul: string } };
 };
 type Attempt = {
@@ -28,10 +31,11 @@ const rejectionMessages: Record<string, string> = {
     location_inaccurate: 'Lokasi kurang akurat. Aktifkan GPS dan coba lagi.',
     outside_radius: 'Anda berada di luar radius kegiatan.',
     wrong_building:
-        'Kegiatan ini khusus penghuni gedung lain. Gunakan QR kegiatan untuk gedung Anda atau kegiatan umum.',
+        'Kegiatan ini khusus penghuni gedung lain. Gunakan QR kegiatan untuk gedung Anda.',
     facilitator_unavailable:
         'Fasilitator berada di luar radius atau lokasinya belum diperbarui.',
-    duplicate: 'Kehadiran Anda sudah tercatat untuk sesi ini.',
+    duplicate:
+        'Absensi Anda sudah memiliki catatan. Hubungi fasilitator jika perlu koreksi.',
 };
 
 export default function BarcodeAbsensi({
@@ -174,11 +178,29 @@ export default function BarcodeAbsensi({
                         },
                         {
                             key: 'attended_at',
-                            label: 'Waktu hadir',
+                            label: 'Waktu pencatatan',
                             render: (row: Attendance) =>
                                 new Date(row.attended_at).toLocaleString(
                                     'id-ID',
                                 ),
+                        },
+                        {
+                            key: 'is_present',
+                            label: 'Kehadiran',
+                            render: (row: Attendance) =>
+                                row.is_present ? 'Hadir' : 'Tidak hadir',
+                        },
+                        {
+                            key: 'corrected_at',
+                            label: 'Pencatatan',
+                            render: (row: Attendance) =>
+                                row.corrected_at ? 'Koreksi manual' : 'Scan QR',
+                        },
+                        {
+                            key: 'correction_reason',
+                            label: 'Alasan koreksi',
+                            render: (row: Attendance) =>
+                                row.correction_reason ?? '—',
                         },
                     ]}
                     data={absensi}

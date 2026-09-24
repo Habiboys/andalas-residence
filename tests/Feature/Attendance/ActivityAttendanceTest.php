@@ -7,6 +7,8 @@ use App\Enums\AttendanceRejectionReason;
 use App\Enums\ResidenceEvent;
 use App\Models\ActivityAttendance;
 use App\Models\AttendanceSession;
+use App\Models\FasilitatorWilayah;
+use App\Models\Gedung;
 use App\Models\Kegiatan;
 use App\Models\MahasiswaProfil;
 use App\Models\ResidenceHistory;
@@ -239,7 +241,7 @@ it('rejects missing cohorts and clients who are not local first-year students', 
 
     expect($attempt->rejection_reason)->toBe(AttendanceRejectionReason::Ineligible);
 })->with([
-    ['student', null], ['local_non_kipk', '2025'], ['non_student', '2026'], ['international_free_facility', '2026'], ['local_resident', '2026'],
+    ['student', null], ['local_non_kipk', '2025'], ['non_student', '2026'], ['international_free_facility', '2026'], ['international_student', '2026'],
 ]);
 
 it('allows only the sessions facilitator to refresh its location', function () {
@@ -276,6 +278,9 @@ it('allows a facilitator to manage only their activities and preserves attendanc
     $owner = $session['session']->facilitator->assignRole('fasilitator');
     $other = User::factory()->create()->assignRole('fasilitator');
     $activity = $session['session']->kegiatan;
+    $building = Gedung::create(['kode_gedung' => 'OWNER', 'nama_gedung' => 'Asrama Owner']);
+    FasilitatorWilayah::create(['user_id' => $owner->id, 'gedung_id' => $building->id]);
+    $activity->update(['gedung_id' => $building->id]);
     $this->actingAs($other)->put(route('andalas.kegiatan.update', $activity), [
         'judul' => 'Changed', 'tanggal_selesai' => now()->addHours(2)->toDateTimeString(),
     ])->assertForbidden();
@@ -283,5 +288,5 @@ it('allows a facilitator to manage only their activities and preserves attendanc
     $this->assertDatabaseHas('attendance_sessions', ['id' => $session['session']->id]);
     $this->post(route('andalas.kegiatan.store'), [
         'judul' => 'Invalid schedule', 'tanggal_mulai' => now()->toDateTimeString(),
-    ])->assertSessionHasErrors('tanggal_selesai');
+    ])->assertSessionHasErrors(['jenis_kegiatan_id', 'duration_minutes']);
 });

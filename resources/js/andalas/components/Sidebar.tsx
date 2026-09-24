@@ -6,6 +6,7 @@ import {
     Building2,
     Calendar,
     CreditCard,
+    Database,
     Eye,
     FileText,
     Home,
@@ -187,15 +188,9 @@ const FASILITATOR_NAV: NavGroup[] = [
         group: 'Absensi',
         items: [
             {
-                label: 'Kelola Kegiatan',
+                label: 'Kegiatan & Absensi',
                 page: 'jadwal-kegiatan',
                 icon: Calendar,
-            },
-            { label: 'QR Absensi', page: 'scan-barcode', icon: QrCode },
-            {
-                label: 'Rekap Kehadiran',
-                page: 'rekap-kehadiran',
-                icon: BarChart3,
             },
         ],
     },
@@ -215,6 +210,7 @@ const FASILITATOR_NAV: NavGroup[] = [
 
 const ADMIN_NAV: NavGroup[] = [
     { items: [{ label: 'Dashboard', page: 'dashboard', icon: Home }] },
+    { items: [{ label: 'Data Master', page: 'master-data', icon: Database }] },
     {
         group: 'Operasional',
         items: [

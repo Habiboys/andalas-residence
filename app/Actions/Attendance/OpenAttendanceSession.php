@@ -5,6 +5,7 @@ namespace App\Actions\Attendance;
 use App\Models\AttendanceSession;
 use App\Models\Kegiatan;
 use App\Models\User;
+use App\Services\AttendanceRoster;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -23,6 +24,9 @@ class OpenAttendanceSession
         float $accuracyMeters = 0,
     ): array {
         $now = now();
+        if ($activity->attendanceSession()->exists()) {
+            throw ValidationException::withMessages(['kegiatan' => 'Satu kegiatan hanya memiliki satu QR. Buat kegiatan baru.']);
+        }
 
         if ($expiresAt->lte($now)) {
             throw ValidationException::withMessages(['expires_at' => 'Batas waktu QR harus setelah waktu sekarang.']);
@@ -49,6 +53,7 @@ class OpenAttendanceSession
             'kegiatan_id' => $activity->id,
             'facilitator_id' => $facilitator->id,
             'qr_token_hash' => hash('sha256', $token),
+            'qr_token' => $token,
             'opens_at' => $now,
             'expires_at' => $expiresAt,
             'facilitator_latitude' => $latitude,
@@ -60,6 +65,8 @@ class OpenAttendanceSession
             'radius_meters' => $radiusMeters,
             'maximum_accuracy_meters' => $maximumAccuracyMeters,
         ]);
+
+        app(AttendanceRoster::class)->capture($session);
 
         return ['session' => $session, 'token' => $token];
     }

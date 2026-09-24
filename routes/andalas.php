@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AbsensiController;
+use App\Http\Controllers\ActivityMasterController;
 use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AsetController;
 use App\Http\Controllers\CheckoutController;
@@ -47,6 +48,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     })->name('dashboard.redirect');
 
     Route::prefix('admin/master-data')->name('admin.master-data.')->middleware('role:staff_admin|superadmin')->group(function () {
+        Route::post('/jenis-kegiatan', [ActivityMasterController::class, 'storeType'])->name('jenis-kegiatan.store');
+        Route::put('/jenis-kegiatan/{type}', [ActivityMasterController::class, 'updateType'])->name('jenis-kegiatan.update');
+        Route::delete('/jenis-kegiatan/{type}', [ActivityMasterController::class, 'destroyType'])->name('jenis-kegiatan.destroy');
+        Route::post('/penugasan', [ActivityMasterController::class, 'storeAssignment'])->name('penugasan.store');
+        Route::put('/penugasan/{assignment}', [ActivityMasterController::class, 'updateAssignment'])->name('penugasan.update');
+        Route::delete('/penugasan/{assignment}', [ActivityMasterController::class, 'destroyAssignment'])->name('penugasan.destroy');
         Route::post('/fakultas', [FakultasController::class, 'store'])->name('fakultas.store');
         Route::put('/fakultas/{faculty}', [FakultasController::class, 'update'])->name('fakultas.update');
         Route::delete('/fakultas/{faculty}', [FakultasController::class, 'destroy'])->name('fakultas.destroy');
@@ -149,7 +156,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/laporan-kerusakan', [TiketController::class, 'store'])->name('laporan.store');
         Route::get('/tiket/foto/{photo}', [TiketController::class, 'photo'])->name('tiket.photo');
         Route::put('/tiket/{laporan}', [TiketController::class, 'update'])->name('tiket.update');
-        Route::post('/absensi/kegiatan/{kegiatan}/open', [AbsensiController::class, 'openSession'])->name('absensi.kegiatan.open');
+        Route::get('/absensi/sesi/{session}', [AbsensiController::class, 'show'])->name('absensi.sesi.show');
+        Route::put('/absensi/sesi/{session}/participants/{student}', [AbsensiController::class, 'correct'])->name('absensi.sesi.correct');
         Route::post('/absensi/sesi/{session}/location', [AbsensiController::class, 'updateLocation'])->name('absensi.sesi.location');
         Route::post('/absensi/sesi/{session}/close', [AbsensiController::class, 'closeSession'])->name('absensi.sesi.close');
         Route::post('/absensi/sesi/{session}/record', [AbsensiController::class, 'recordActivity'])->name('absensi.sesi.record');

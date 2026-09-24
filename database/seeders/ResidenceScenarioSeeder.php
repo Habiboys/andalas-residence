@@ -44,17 +44,17 @@ class ResidenceScenarioSeeder extends Seeder
             ['internasional-gratis', 'international_free_facility', 'active'],
             ['internasional-bayar', 'international_student', 'active'],
             ['nonmahasiswa-aktif', 'non_student', 'active'],
-            ['penghuni-lama', 'local_resident', 'returning'],
+            ['penghuni-lama', 'local_non_kipk', 'returning'],
             ['checkout-pengajuan', 'local_non_kipk', 'active'],
             ['checkout-siap', 'local_non_kipk', 'active'],
             ['checkout-rusak', 'local_non_kipk', 'active'],
             ['checkout-selesai', 'local_non_kipk', 'departed'],
             ['surat-modern', 'local_non_kipk', 'departed'],
-            ['legacy-lunas', 'local_resident', 'legacy'],
-            ['legacy-belum-lunas', 'local_resident', 'legacy'],
+            ['legacy-lunas', 'local_non_kipk', 'legacy'],
+            ['legacy-belum-lunas', 'local_non_kipk', 'legacy'],
             ['legacy-bukan-alumni', 'student', 'legacy'],
-            ['legacy-ditolak', 'local_resident', 'legacy'],
-            ['legacy-surat-terbit', 'local_resident', 'legacy'],
+            ['legacy-ditolak', 'local_non_kipk', 'legacy'],
+            ['legacy-surat-terbit', 'local_non_kipk', 'legacy'],
             ['izin-otomatis', 'local_non_kipk', 'active'],
             ['izin-review', 'local_non_kipk', 'active'],
             ['izin-sampai', 'local_non_kipk', 'active'],
@@ -104,11 +104,6 @@ class ResidenceScenarioSeeder extends Seeder
         foreach (['Indonesia', 'Malaysia', 'Jepang'] as $country) {
             Models\Country::firstOrCreate(['name' => $country]);
         }
-        foreach (['Fakultas Ekonomi' => 'Akuntansi', 'Fakultas Hukum' => 'Ilmu Hukum'] as $facultyName => $programName) {
-            $faculty = Models\Faculty::firstOrCreate(['name' => $facultyName]);
-            $department = Models\Departemen::firstOrCreate(['faculty_id' => $faculty->id, 'name' => $programName]);
-            Models\Prodi::firstOrCreate(['departemen_id' => $department->id, 'name' => $programName], ['jenjang' => 'S1']);
-        }
         $province = Models\Province::firstOrCreate(['name' => 'Sumatera Barat']);
         foreach (['Padang', 'Bukittinggi', 'Payakumbuh'] as $city) {
             Models\City::firstOrCreate(['province_id' => $province->id, 'name' => $city]);
@@ -155,8 +150,11 @@ class ResidenceScenarioSeeder extends Seeder
                     'jumlah' => 4, 'fasilitas_umum_id' => $facility->id, 'nama_aset' => 'Lampu ruang belajar', 'kategori' => 'elektronik', 'kondisi' => 'baik', 'nilai_aset' => 100000,
                 ]);
             }
-            if ($code !== 'T') {
-                Models\FasilitatorWilayah::firstOrCreate(['user_id' => self::staff('fasilitator')->id, 'gedung_id' => $building->id], ['lantai_id' => null]);
+            if ($code === 'W') {
+                Models\FasilitatorWilayah::firstOrCreate(['user_id' => self::staff('fasilitator')->id], ['gedung_id' => $building->id]);
+            } elseif ($code === 'P') {
+                $facilitator = Models\User::where('email', 'fasilitator@unand.ac.id')->firstOrFail();
+                Models\FasilitatorWilayah::firstOrCreate(['user_id' => $facilitator->id], ['gedung_id' => $building->id]);
             }
         }
         foreach ([2023 => 1200000, 2024 => 1350000, 2025 => 1500000] as $year => $amount) {

@@ -1,5 +1,7 @@
 # Rekap akun uji coba Andalas Residence
 
+Panduan langkah demi langkah: [Uji setiap proses bisnis dari awal](PANDUAN_UJI_PROBIS.md).
+
 Disusun pada 24 September 2026 berdasarkan definisi seeder proyek. Daftar ini menjelaskan kondisi awal saat akun dibuat, bukan pembacaan ulang kondisi database setelah pengujian.
 
 ## Login dan password
@@ -22,12 +24,12 @@ Disusun pada 24 September 2026 berdasarkan definisi seeder proyek. Daftar ini me
 | 3 | `staff_admin@example.test` | `DEMO-STAFF-2` | Staff administrasi | Data master, mahasiswa, keuangan, dan konten landing |
 | 4 | `admin_layanan@example.test` | `DEMO-STAFF-3` | Admin layanan | Review pendaftaran, penempatan, pembayaran, cicilan, dan surat bebas asrama |
 | 5 | `admin_aset@example.test` | `DEMO-STAFF-4` | Admin aset | Gedung, kamar, stok, lokasi, dan jumlah aset |
-| 6 | `fasilitator@example.test` | `DEMO-STAFF-5` | Fasilitator | Kegiatan, QR absensi, perizinan, dan penyelesaian checkout untuk DEMO-P/DEMO-W |
+| 6 | `fasilitator@example.test` | `DEMO-STAFF-5` | Fasilitator | Kegiatan, QR absensi, perizinan, dan penyelesaian checkout untuk DEMO-W |
 | 7 | `teknisi@example.test` | `DEMO-STAFF-6` | Teknisi | Tiket kerusakan, pengerjaan, bukti penyelesaian, dan riwayat penilaian |
 | 8 | `go@example.test` | `DEMO-STAFF-7` | GO / Cleaning Service | Pemeriksaan kamar dan jumlah/kondisi aset sebelum checkout |
 | 9 | `orang_tua@example.test` | `DEMO-STAFF-8` | Orang tua | Pemantauan anak yang terhubung: binaan-aktif@example.test |
 
-Fasilitator demo hanya ditugaskan ke gedung **DEMO-P** dan **DEMO-W**. Gedung **DEMO-T** disediakan untuk menguji pembatasan akses lintas gedung.
+`fasilitator@example.test` ditugaskan ke **DEMO-W**, sedangkan `fasilitator@unand.ac.id` ke **DEMO-P**. Satu fasilitator hanya menangani satu gedung; beberapa fasilitator boleh menangani gedung yang sama. Gedung **DEMO-T** disediakan untuk menguji pembatasan akses lintas gedung.
 
 ## Akun client per skenario
 
@@ -101,7 +103,7 @@ Akun berikut berasal dari seeder dasar. Akun-akun ini tidak memiliki rangkaian s
 | 3 | `admin@unand.ac.id` | `ADM001` | Staff administrasi |
 | 4 | `admin.layanan@unand.ac.id` | `LAY001` | Admin layanan |
 | 5 | `admin.aset@unand.ac.id` | `AST001` | Admin aset |
-| 6 | `fasilitator@unand.ac.id` | `FAS001` | Fasilitator |
+| 6 | `fasilitator@unand.ac.id` | `FAS001` | Fasilitator DEMO-P |
 | 7 | `teknisi@unand.ac.id` | `TEK001` | Teknisi |
 | 8 | `go@unand.ac.id` | `GO001` | GO / Cleaning Service |
 | 9 | `orang.tua@unand.ac.id` | `ORT001` | Orang tua, terhubung ke mahasiswa.kipk@unand.ac.id |
@@ -120,30 +122,29 @@ Akun berikut berasal dari seeder dasar. Akun-akun ini tidak memiliki rangkaian s
 | Subsidi KIPK | `kipk-penempatan@example.test` | `admin_layanan@example.test` | Terima dan tempatkan penghuni; periksa tagihan nol dan aktivasi hunian |
 | Cicilan | `cicilan-pengajuan@example.test` / `cicilan-aktif@example.test` | `admin_layanan@example.test` | Tetapkan jadwal atau lanjutkan pembayaran termin yang belum lunas |
 | Kerusakan | `binaan-aktif@example.test` / `penghuni-01@example.test` | `teknisi@example.test` | Laporkan aset tertentu, mulai pengerjaan, unggah foto sesudah dan catatan penyelesaian |
-| Checkout | `checkout-pengajuan@example.test` | `go@example.test`, lalu `fasilitator@example.test` | GO memeriksa seluruh aset kamar; fasilitator menyelesaikan checkout |
+| Checkout | `checkout-pengajuan@example.test` | `go@example.test`, lalu `fasilitator@unand.ac.id` (DEMO-P) | GO memeriksa seluruh aset kamar; fasilitator menyelesaikan checkout |
 | Surat modern | `checkout-selesai@example.test` | Otomatis berdasarkan data sistem | Ajukan surat setelah checkout selesai dan tagihan lunas |
 | Surat alumni | `legacy-lunas@example.test` / `legacy-belum-lunas@example.test` | `admin_layanan@example.test` | Verifikasi bukti atau selesaikan tagihan sesuai klasifikasi |
 | Izin manual | `izin-review@example.test` | `fasilitator@example.test` | Setujui/tolak, lalu uji bukti sampai dan bukti kembali dari akun penghuni |
-| Absensi QR | `binaan-aktif@example.test` / `kipk-aktif@example.test` | `fasilitator@example.test` | Buka sesi kegiatan, pindai QR, periksa waktu, lokasi, dan riwayat kehadiran |
+| Absensi QR | `binaan-aktif@example.test` (W) / `kipk-aktif@example.test` (P) | `fasilitator@example.test` (W) / `fasilitator@unand.ac.id` (P) | Buat kegiatan sekaligus QR, scan, periksa geofencing, peserta per lantai, dan koreksi manual |
 | Orang tua | `binaan-aktif@example.test` | `orang_tua@example.test` | Periksa data anak yang terhubung pada dashboard orang tua |
 
 ### Catatan pengujian absensi
 
-1. Login sebagai `fasilitator@example.test` dan buka pengelolaan kegiatan.
-2. Pilih **DEMO: Buka QR untuk pengujian langsung**.
-3. Kegiatan tersebut dibuat untuk hari saat seed pertama dijalankan. **Jika pengujian dilakukan pada hari berikutnya, ubah jadwal kegiatan agar mencakup waktu pengujian**, atau buat kegiatan baru.
-4. Buka QR menggunakan lokasi fasilitator sebenarnya.
-5. Login sebagai `binaan-aktif@example.test` pada browser/perangkat lain, lalu buka menu **Absensi** untuk scan QR.
-6. Fasilitator dan mahasiswa harus berada dalam radius sesi; waktu sesi dan akurasi lokasi harus valid.
-7. Gunakan `penghuni-lama@example.test` untuk memeriksa bahwa penghuni yang masuk kembali tidak dianggap mahasiswa binaan.
-8. Kegiatan umum **DEMO: Buka QR untuk pengujian langsung** dapat diikuti binaan dari seluruh gedung. Kegiatan **DEMO: Pembinaan khusus gedung P/W/T** hanya menerima penghuni aktif gedung terkait. `binaan-aktif@example.test` berada di DEMO-W; `kipk-aktif@example.test` berada di DEMO-P.
-9. Fasilitator demo dapat mengelola gedung P/W dan membuka QR kegiatan umum, termasuk kegiatan umum yang dibuat pengelola lain. Kegiatan gedung T tidak tersedia bagi fasilitator demo.
-10. Uji keluar radius oleh mahasiswa atau fasilitator, GPS tidak akurat, lokasi fasilitator lebih dari 60 detik tanpa pembaruan, QR kedaluwarsa, sesi ditutup lebih awal, dan scan ulang. Seluruh kondisi tersebut harus ditolak tanpa menambah kehadiran.
+1. Login fasilitator W atau P sesuai pasangan akun di atas. Periksa nama gedung pada dashboard.
+2. Buka **Kegiatan & Absensi → Buat kegiatan & QR**.
+3. Pilih **Sholat Subuh** atau **Lainnya**; hanya Lainnya meminta nama kegiatan.
+4. Isi durasi dan radius, izinkan GPS, periksa peta lalu simpan. Waktu mulai otomatis sekarang; selesai dari durasi. Satu kegiatan memiliki satu QR.
+5. Biarkan preview fasilitator pembuat terbuka. Login mahasiswa binaan di gedung yang sama melalui perangkat/profil lain → **Scan QR / Absensi**.
+6. Periksa tab Hadir/Belum hadir dan filter Lantai. Gunakan ikon edit untuk koreksi dengan alasan; pencatatan manual dibedakan dari scan.
+7. Uji penolakan jika keluar radius, GPS tidak akurat, lokasi fasilitator tidak diperbarui lebih dari 60 detik, durasi habis, sesi ditutup, scan ulang, atau gedung berbeda.
+8. Gunakan `penghuni-lama@example.test` untuk penolakan kelayakan binaan.
+9. Admin mengelola jenis kegiatan dan penugasan di **Data Master**. Kegiatan umum lintas gedung dan menu membuka QR terpisah sudah digantikan alur terpadu ini.
 
 ### Catatan data
 
 - Foto dan PDF berlabel demo disediakan untuk pengujian unggah, tampil, dan unduh dokumen.
-- Surat bebas asrama memakai template **CONTOH / DUMMY — BUKAN SURAT RESMI** sampai contoh resmi tersedia. Admin membuka tabel Verifikasi Bebas Asrama, memilih tab status, lalu ikon detail untuk memeriksa bukti, tagihan, atau mengunduh surat.
+- Surat mengikuti contoh pengelola dengan logo UNAND: tidak tinggal di asrama untuk klasifikasi bukan alumni; telah membayar untuk alumni berbayar; format umum sementara untuk kategori subsidi. Nama penandatangan dapat diatur melalui `RESIDENCE_LETTER_SIGNER`. Surat yang sudah terbit tidak ditulis ulang, kecuali dua dokumen demo bawaan ketika seeder memperbarui formatnya.
 - Virtual account **DEMO-NONAKTIF** hanya data simulasi; tidak terhubung ke provider pembayaran.
 - Tanggal jatuh tempo, keterlambatan izin, dan kelayakan tahun pertama mengikuti waktu. Kondisinya dapat berubah setelah waktu berlalu.
 - Seeding ulang mempertahankan perkembangan skenario; bukan perintah reset pengujian.

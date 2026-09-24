@@ -7,6 +7,8 @@ use App\Actions\Fortify\ResetUserPassword;
 use App\Http\Responses\LoginResponse;
 use App\Http\Responses\RegisterResponse;
 use App\Models\Prodi;
+use App\Models\Faculty;
+use App\Models\Departemen;
 use App\Models\User;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -75,7 +77,9 @@ class FortifyServiceProvider extends ServiceProvider
     private function configureViews(): void
     {
         Fortify::registerView(fn () => Inertia::render('auth/register', [
-            'prodi' => Prodi::orderBy('name')->get(['id', 'name']),
+            'fakultas' => Faculty::orderBy('name')->get(['id', 'name']),
+            'departemen' => Departemen::orderBy('name')->get(['id', 'name', 'faculty_id']),
+            'prodi' => Prodi::orderBy('name')->get(['id', 'name', 'jenjang', 'departemen_id']),
         ]));
 
         Fortify::loginView(fn (Request $request) => Inertia::render('auth/login', [

@@ -39,19 +39,30 @@ class MahasiswaController extends Controller
     {
         $this->authorizePermission($request, 'mahasiswa.update');
 
+        $isNonStudent = $request->input('client_profile_category', $mahasiswa->user->client_profile_category?->value) === 'non_student';
+        $academicChanged = $request->hasAny(['prodi_id', 'faculty_id', 'departemen_id']);
+
         $validated = $request->validate([
             'nim_nip' => 'sometimes|string|max:50|unique:users,nim_nip,'.$mahasiswa->user_id,
             'nama' => 'sometimes|string|max:150',
             'email' => 'sometimes|email|unique:users,email,'.$mahasiswa->user_id,
             'password' => 'nullable|string|min:8',
             'no_hp' => 'nullable|string|max:20',
-            'prodi_id' => 'nullable|uuid|exists:prodi,id',
+            'faculty_id' => [Rule::excludeIf($isNonStudent), Rule::requiredIf($academicChanged && ! $isNonStudent), 'uuid', 'exists:faculty,id'],
+            'departemen_id' => [Rule::excludeIf($isNonStudent), Rule::requiredIf($academicChanged && ! $isNonStudent), 'uuid', Rule::exists('departemen', 'id')->where('faculty_id', $request->input('faculty_id'))],
+            'prodi_id' => [Rule::excludeIf($isNonStudent), Rule::requiredIf($academicChanged && ! $isNonStudent), 'uuid', Rule::exists('prodi', 'id')->where('departemen_id', $request->input('departemen_id'))],
             'periode_id' => 'prohibited',
-            'client_profile_category' => ['sometimes', Rule::in(['student', 'local_kipk', 'local_non_kipk', 'local_resident', 'international_student', 'international_free_facility', 'non_student'])],
+            'client_profile_category' => ['sometimes', Rule::in(['student', 'local_kipk', 'local_non_kipk', 'international_student', 'international_free_facility', 'non_student'])],
             'gender' => 'sometimes|in:laki_laki,perempuan',
-            'angkatan' => 'nullable|integer|between:1900,'.now()->year,
+            
             'status_huni' => 'prohibited',
         ]);
+
+        $category = $validated['client_profile_category'] ?? $mahasiswa->user->client_profile_category?->value;
+        $validated['angkatan'] = $category === 'non_student' ? null : \App\Services\StudentCohort::fromNim($validated['nim_nip'] ?? $mahasiswa->user->nim_nip);
+        if ($isNonStudent) {
+            $validated['prodi_id'] = null;
+        }
 
         DB::transaction(function () use ($validated, $mahasiswa) {
             $mahasiswa = MahasiswaProfil::query()->lockForUpdate()->findOrFail($mahasiswa->id);
@@ -67,7 +78,7 @@ class MahasiswaController extends Controller
                 $mahasiswa->user->update($userData);
             }
 
-            $profilData = collect($validated)->only(['prodi_id', 'angkatan'])->filter()->all();
+            $profilData = collect($validated)->only(['prodi_id', 'angkatan'])->all();
             if ($profilData) {
                 $mahasiswa->update($profilData);
             }

@@ -1,5 +1,7 @@
 # Ringkasan 54 skenario data uji Andalas Residence
 
+Untuk urutan tindakan, perpindahan akun dan hasil yang harus diperiksa, ikuti [Panduan uji proses bisnis dari awal](PANDUAN_UJI_PROBIS.md).
+
 ## Arti angka 54
 
 Seeder menyediakan **54 akun client dengan kondisi awal pengujian**. Angka ini bukan jumlah 54 proses bisnis berbeda atau 54 pengujian E2E otomatis:
@@ -126,13 +128,13 @@ Password awal semua akun adalah **`password`**. Akun petugas dan daftar kredensi
 ## Hal yang perlu diperhatikan
 
 - Kondisi di atas adalah kondisi **saat seed pertama dijalankan**. Perubahan selama pengujian dipertahankan ketika seeder dijalankan ulang.
-- Fasilitator demo ditugaskan ke **DEMO-P** dan **DEMO-W**. Data **DEMO-T** membantu menguji penolakan akses lintas gedung.
-- Untuk scan QR gunakan `binaan-aktif@example.test` atau `kipk-aktif@example.test`, lalu buka sesi melalui `fasilitator@example.test`.
-- Kegiatan **DEMO: Buka QR untuk pengujian langsung** memakai tanggal saat seed pertama dibuat. Sesuaikan tanggal kegiatan jika pengujian dilakukan pada hari lain.
-- Cakupan **Umum - seluruh asrama** menerima mahasiswa binaan dari semua gedung. Cakupan gedung hanya menerima penghuni aktif gedung tersebut, meskipun mahasiswa dari gedung lain berada dalam radius QR.
-- Tersedia kegiatan **DEMO: Pembinaan khusus gedung P**, **W**, dan **T**. Fasilitator demo hanya ditugaskan ke P/W. Gunakan `binaan-aktif@example.test` (W) dan `kipk-aktif@example.test` (P) untuk menguji penerimaan serta penolakan lintas gedung. Tanggal kegiatan tambahan mengikuti saat pertama kali dibuat.
+- `fasilitator@example.test` bertugas di **DEMO-W**, sedangkan `fasilitator@unand.ac.id` di **DEMO-P**. **DEMO-T** untuk menguji penolakan lintas gedung.
+- QR baru dibuat melalui **Kegiatan & Absensi → Buat kegiatan & QR**, sekaligus dengan kegiatan. Seeder menyediakan riwayat; pengujian GPS langsung memerlukan kegiatan baru di lokasi sebenarnya.
+- Pasangkan `binaan-aktif@example.test` (W) dengan fasilitator W; `kipk-aktif@example.test` (P) dengan fasilitator P. Tidak ada kegiatan umum lintas gedung.
+- Uji master Sholat Subuh/Lainnya, nama bebas pada Lainnya, mulai otomatis, durasi, GPS/peta, peserta per lantai, status hadir/belum, koreksi manual beralasan, dan audit.
+- Dashboard fasilitator menunjukkan gedung penugasan dan statistik hanya gedung tersebut. Admin dapat menugaskan beberapa fasilitator ke satu gedung; setiap fasilitator tetap hanya satu gedung.
 - Pembatasan absensi tetap **angkatan 2026 ke atas**, lokal, tahun pertama hunian, dan belum checkout/masuk kembali. Angkatan berasal dari profil; dua digit awal NIM seeder dibuat konsisten dengannya.
-- Pada tabel Verifikasi Bebas Asrama, uji tab Semua, Menunggu verifikasi, Diverifikasi, Disetujui, dan Ditolak; buka detail untuk meninjau bukti atau mengunduh PDF dummy. Diverifikasi belum berarti surat terbit.
+- Pada tabel Verifikasi Bebas Asrama, uji tab Semua, Menunggu verifikasi, Diverifikasi, Disetujui, dan Ditolak; buka detail untuk meninjau bukti atau mengunduh PDF sesuai kategori. Diverifikasi belum berarti surat terbit.
 - Batas izin mengikuti implementasi/acuan: paling banyak enam pengajuan sebelumnya masih otomatis; lebih dari enam pengajuan sebelumnya memerlukan verifikasi.
 - Surat yang sudah terbit membuat akun `surat-modern@example.test` dan `legacy-surat-terbit@example.test` nonaktif.
 - VA demo bukan integrasi bank. Pengujian pembayaran menggunakan alur pencatatan dan verifikasi yang tersedia.

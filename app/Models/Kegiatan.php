@@ -4,15 +4,15 @@ namespace App\Models;
 
 use App\Services\ResidenceBuildingAccess;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Kegiatan extends BaseModel
 {
     protected $table = 'kegiatan';
 
     protected $fillable = [
-        'judul', 'deskripsi', 'lokasi', 'tanggal_mulai', 'tanggal_selesai',
-        'dibuat_oleh', 'gedung_id',
+        'judul', 'deskripsi', 'tanggal_mulai', 'tanggal_selesai',
+        'dibuat_oleh', 'gedung_id', 'jenis_kegiatan_id',
     ];
 
     protected function casts(): array
@@ -23,9 +23,9 @@ class Kegiatan extends BaseModel
         ];
     }
 
-    public function attendanceSessions(): HasMany
+    public function attendanceSession(): HasOne
     {
-        return $this->hasMany(AttendanceSession::class, 'kegiatan_id');
+        return $this->hasOne(AttendanceSession::class, 'kegiatan_id');
     }
 
     public function gedung(): BelongsTo
@@ -35,7 +35,7 @@ class Kegiatan extends BaseModel
 
     public function allowsFacilitator(User $user): bool
     {
-        return $this->gedung_id === null || ResidenceBuildingAccess::allows($user, $this->gedung_id);
+        return ResidenceBuildingAccess::allows($user, $this->gedung_id);
     }
 
     public function allowsStudent(MahasiswaProfil $student): bool

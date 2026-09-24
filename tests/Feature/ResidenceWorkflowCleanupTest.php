@@ -102,7 +102,7 @@ it('archives old checkins and preserves completed stays when upgrading the datab
 
         expect(Schema::hasTable('checkin'))->toBeFalse();
         expect(DB::table('residence_histories')->where('mahasiswa_id', $student->id)->value('event'))->toBe('entered');
-        $files = array_values(array_filter(Storage::disk('local')->files('backups'), fn (string $path): bool => ! str_contains($path, 'retired-activity-confirmation')));
+        $files = array_values(array_filter(Storage::disk('local')->files('backups'), fn (string $path): bool => ! str_contains($path, 'retired-activity-confirmation') && ! str_contains($path, 'activity-unification')));
         expect($files)->toHaveCount(1);
         $archived = json_decode(Storage::disk('local')->get($files[0]), true);
         expect($archived['checkin'][0]['mahasiswa_id'])->toBe($student->id);

@@ -4,6 +4,8 @@ namespace Database\Seeders;
 
 use App\Enums\AttendanceRejectionReason;
 use App\Models;
+use App\Services\AttendanceRoster;
+use App\Services\FreeResidenceLetterFormat;
 use App\Services\QuestionnaireScoringService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\CarbonInterface;
@@ -20,7 +22,6 @@ class ResidenceOperationsSeeder extends Seeder
         }
         if (Models\AuditLog::where('event', 'demo.operations.seeded.v1')->exists()) {
             $this->refreshDemoLetters();
-            $this->buildingActivities();
 
             return;
         }
@@ -30,7 +31,6 @@ class ResidenceOperationsSeeder extends Seeder
             $this->letters();
             $this->permits();
             $this->attendance();
-            $this->buildingActivities();
             $this->financeAndContent();
             Models\ParentStudentLink::create(['parent_user_id' => ResidenceScenarioSeeder::staff('orang_tua')->id, 'student_profile_id' => ResidenceScenarioSeeder::student('binaan-aktif')->id, 'relationship' => 'guardian', 'is_primary_contact' => true]);
             $admin = ResidenceScenarioSeeder::staff('superadmin');
@@ -140,7 +140,7 @@ class ResidenceOperationsSeeder extends Seeder
             $invoice = null;
             if ($path === 'alumni_unpaid') {
                 $amount = (int) Models\LegacyResidenceRate::where('angkatan', $student->angkatan)->firstOrFail()->jumlah;
-                $invoice = (new ResidenceScenarioSeeder)->billing($student, $name, 'unpaid', 'local_resident', $amount);
+                $invoice = (new ResidenceScenarioSeeder)->billing($student, $name, 'unpaid', 'local_non_kipk', $amount);
                 ResidenceScenarioSeeder::billingDocument($invoice, 'invoice');
             }
             $request = Models\PengajuanBebasAsrama::create([
@@ -165,7 +165,7 @@ class ResidenceOperationsSeeder extends Seeder
                 $student->user->update(['status' => 'nonaktif']);
                 $student->update(['status_huni' => 'keluar']);
                 Models\FreeResidenceLetterDocumentIntent::create(['pengajuan_id' => $request->id, 'status' => 'ready', 'nomor' => $request->nomor_surat_resmi,
-                    'path' => $file, 'checksum_sha256' => hash('sha256', $contents), 'template_version' => 'free-residence-dummy-v1', 'requested_at' => now()->subDay(), 'generated_at' => now()->subDay()]);
+                    'path' => $file, 'checksum_sha256' => hash('sha256', $contents), 'template_version' => FreeResidenceLetterFormat::VERSION, 'requested_at' => now()->subDay(), 'generated_at' => now()->subDay()]);
             }
         }
     }
@@ -175,7 +175,7 @@ class ResidenceOperationsSeeder extends Seeder
         foreach (['legacy-surat-terbit', 'surat-modern'] as $name) {
             $path = 'demo/documents/surat-bebas-'.$name.'.pdf';
             $intent = Models\FreeResidenceLetterDocumentIntent::with('pengajuan.mahasiswa.user', 'pengajuan.mahasiswa.prodi')
-                ->where('path', $path)->where('template_version', 'free-residence-v1')->where('status', 'ready')->first();
+                ->where('path', $path)->whereIn('template_version', ['free-residence-v1', 'free-residence-dummy-v1'])->where('status', 'ready')->first();
             if (! $intent || $intent->pengajuan->file_surat_path !== $path) {
                 continue;
             }
@@ -183,7 +183,7 @@ class ResidenceOperationsSeeder extends Seeder
                 'pengajuan' => $intent->pengajuan, 'mahasiswa' => $intent->pengajuan->mahasiswa, 'documentNumber' => $intent->nomor,
             ])->setPaper('a4')->output();
             Storage::disk('local')->put($path, $contents);
-            $intent->update(['template_version' => 'free-residence-dummy-v1', 'checksum_sha256' => hash('sha256', $contents)]);
+            $intent->update(['template_version' => FreeResidenceLetterFormat::VERSION, 'checksum_sha256' => hash('sha256', $contents)]);
         }
     }
 
@@ -225,20 +225,18 @@ class ResidenceOperationsSeeder extends Seeder
     private function attendance(): void
     {
         $facilitator = ResidenceScenarioSeeder::staff('fasilitator');
-        foreach ([1, 2, 3] as $index) {
-            $start = $index === 3 ? now()->startOfDay() : now()->subDays(5 - $index)->startOfDay()->addHours(17);
-            $activity = Models\Kegiatan::create(['judul' => 'DEMO: '.($index === 3 ? 'Buka QR untuk pengujian langsung' : 'Pembinaan pekan '.$index),
-                'deskripsi' => $index === 3 ? 'Fasilitator membuka sesi dari lokasi sebenarnya; mahasiswa binaan memindai QR di lokasi yang sama.' : 'Riwayat pembinaan dan geofencing demonstrasi.',
-                'lokasi' => 'Ruang pembinaan asrama', 'tanggal_mulai' => $start, 'tanggal_selesai' => $index === 3 ? now()->endOfDay() : $start->copy()->addHour(),
+        foreach ([1, 2] as $index) {
+            $start = now()->subDays(5 - $index)->startOfDay()->addHours(17);
+            $activity = Models\Kegiatan::create(['judul' => 'DEMO: Pembinaan pekan '.$index,
+                'deskripsi' => 'Riwayat pembinaan dan geofencing demonstrasi.',
+                'gedung_id' => Models\Gedung::where('kode_gedung', 'DEMO-W')->value('id'), 'jenis_kegiatan_id' => Models\JenisKegiatan::where('is_other', true)->value('id'), 'tanggal_mulai' => $start, 'tanggal_selesai' => $start->copy()->addMinutes(30),
                 'dibuat_oleh' => $facilitator->id]);
-            if ($index === 3) {
-                continue;
-            }
             $session = Models\AttendanceSession::create(['kegiatan_id' => $activity->id, 'facilitator_id' => $facilitator->id,
                 'qr_token_hash' => hash('sha256', 'DEMO-EXPIRED-'.$index), 'opens_at' => $start, 'expires_at' => $start->copy()->addMinutes(30),
                 'closed_at' => $start->copy()->addMinutes($index === 1 ? 30 : 15), 'facilitator_latitude' => -0.914, 'facilitator_longitude' => 100.46,
                 'facilitator_accuracy_meters' => 10, 'facilitator_located_at' => $start->copy()->addMinutes(5), 'anchor_latitude' => -0.914, 'anchor_longitude' => 100.46, 'radius_meters' => 100, 'maximum_accuracy_meters' => 50]);
-            foreach (['binaan-aktif', 'kipk-aktif'] as $name) {
+            app(AttendanceRoster::class)->capture($session);
+            foreach (['binaan-aktif'] as $name) {
                 $student = ResidenceScenarioSeeder::student($name);
                 $attempt = Models\AttendanceAttempt::create(['attendance_session_id' => $session->id, 'mahasiswa_id' => $student->id, 'attempted_at' => $start->copy()->addMinutes(5), 'latitude' => -0.914, 'longitude' => 100.46, 'accuracy_meters' => 10, 'distance_meters' => 0]);
                 Models\ActivityAttendance::create(['attendance_session_id' => $session->id, 'mahasiswa_id' => $student->id, 'attendance_attempt_id' => $attempt->id, 'attended_at' => $attempt->attempted_at]);
@@ -253,18 +251,6 @@ class ResidenceOperationsSeeder extends Seeder
                     'accuracy_meters' => $reason->value === 'location_inaccurate' ? 200 : 10,
                     'distance_meters' => $reason->value === 'outside_radius' ? 1112 : 0, 'rejection_reason' => $reason]);
             }
-        }
-    }
-
-    private function buildingActivities(): void
-    {
-        foreach (['P', 'W', 'T'] as $code) {
-            $building = Models\Gedung::where('kode_gedung', 'DEMO-'.$code)->firstOrFail();
-            Models\Kegiatan::firstOrCreate(['judul' => 'DEMO: Pembinaan khusus gedung '.$code], [
-                'gedung_id' => $building->id, 'deskripsi' => 'Uji QR khusus gedung; penghuni gedung lain ditolak meskipun berada dalam radius.',
-                'lokasi' => $building->nama_gedung, 'tanggal_mulai' => now()->startOfDay(), 'tanggal_selesai' => now()->endOfDay(),
-                'dibuat_oleh' => ResidenceScenarioSeeder::staff($code === 'T' ? 'admin_layanan' : 'fasilitator')->id,
-            ]);
         }
     }
 

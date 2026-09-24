@@ -9,7 +9,7 @@ class Departemen extends BaseModel
 {
     protected $table = 'departemen';
 
-    protected $fillable = ['faculty_id', 'name'];
+    protected $fillable = ['faculty_id', 'name', 'code'];
 
     public function faculty(): BelongsTo
     {

@@ -4,11 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\ActivityAttendance;
 use App\Models\Aset;
-use App\Models\AttendanceSession;
 use App\Models\AuditLog;
 use App\Models\CheckoutRequest;
 use App\Models\FasilitasUmum;
 use App\Models\Gedung;
+use App\Models\JenisKegiatan;
 use App\Models\Kamar;
 use App\Models\KategoriTransaksi;
 use App\Models\Kegiatan;
@@ -30,8 +30,6 @@ use App\Services\AttendanceEligibility;
 use App\Services\LandingContentService;
 use App\Services\MasterDataService;
 use App\Services\ResidenceBuildingAccess;
-use Endroid\QrCode\Builder\Builder;
-use Endroid\QrCode\Writer\SvgWriter;
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -49,6 +47,7 @@ class RolePageController extends Controller
         return Inertia::render($component, [
             'initialUser' => $this->userPayload($request),
             'role' => $role,
+            'assigned_building' => $request->user()->hasRole('fasilitator') ? Gedung::whereIn('id', ResidenceBuildingAccess::ids($request->user()))->first(['id', 'kode_gedung', 'nama_gedung']) : null,
             'page' => $page,
             ...$this->pagePayload($request, $page),
         ]);
@@ -58,12 +57,12 @@ class RolePageController extends Controller
     {
         return match ($page) {
             'dashboard' => [
-                'stats' => $this->dashboardStats(),
+                'stats' => $this->dashboardStats($request),
                 'billing' => $request->user()->hasRole('mahasiswa')
                     ? Tagihan::where('mahasiswa_id', $request->user()->mahasiswaProfil?->id)->where('status', '!=', 'batal')->get()
                     : [],
                 'absensi' => $request->user()->hasRole('fasilitator')
-                    ? ActivityAttendance::whereHas('session', fn ($query) => $query->where('facilitator_id', $request->user()->id))->whereDate('attended_at', today())->get()
+                    ? ActivityAttendance::where('is_present', true)->whereHas('session.kegiatan', fn ($query) => $query->whereIn('gedung_id', ResidenceBuildingAccess::ids($request->user())))->whereDate('attended_at', today())->get()
                     : [],
                 'inspection_pending' => $request->user()->hasRole('go')
                     ? CheckoutRequest::whereNotIn('status', ['selesai', 'ditolak'])->whereHas('inspection', fn ($query) => $query->where('status', '!=', 'selesai'))->count()
@@ -77,13 +76,13 @@ class RolePageController extends Controller
             'registration' => [
                 'periode' => MasterDataService::periodeList(),
                 'billing' => Tagihan::with(['items', 'jadwalCicilan', 'dokumen'])->where('mahasiswa_id', $request->user()->mahasiswaProfil?->id)->latest()->get(),
-                'rooms' => Kamar::query()->whereIn('status', ['kosong', 'terisi_sebagian'])->with('lantai.gedung')->get(),
-                'gedung' => $this->buildingManagementTree(),
+                'rooms' => \App\Services\RoomEligibility::available()->get()->filter(fn ($room) => \App\Services\RoomEligibility::allows($room->lantai->gedung, $request->user()))->values(),
+                'gedung' => Gedung::orderBy('kode_gedung')->get()->filter(fn ($building) => \App\Services\RoomEligibility::allows($building, $request->user()))->values(),
                 'registration' => ResidenceRegistration::with(['roomPreferences.kamar', 'periode', 'tagihan'])->where('student_profile_id', $request->user()->mahasiswaProfil?->id)->latest()->get(),
             ],
             'registration-review' => [
                 'registrations' => ResidenceRegistration::with(['studentProfile.user', 'studentProfile.prodi', 'roomPreferences.kamar.lantai.gedung', 'periode', 'tagihan'])->latest()->get(),
-                'rooms' => Kamar::whereIn('status', ['kosong', 'terisi_sebagian'])->with('lantai.gedung')->get(),
+                'rooms' => \App\Services\RoomEligibility::available()->get(),
             ],
             'checkout-approval', 'checkout-inspection' => [
                 'checkout' => CheckoutRequest::with(['inspection.findings.aset', 'placement.kamar.lantai.gedung', 'placement.kamar.aset', 'mahasiswa.user'])
@@ -96,7 +95,9 @@ class RolePageController extends Controller
             ],
             'data-mahasiswa' => [
                 'mahasiswa' => MahasiswaProfil::with(['user', 'prodi', 'periode', 'penempatanKamar.kamar.lantai.gedung'])->get(),
-                'prodi' => MasterDataService::prodiList(),
+                'fakultas' => \App\Models\Faculty::orderBy('name')->get(['id', 'name']),
+                'departemen' => \App\Models\Departemen::orderBy('name')->get(['id', 'name', 'faculty_id']),
+                'prodi' => \App\Models\Prodi::orderBy('name')->get(['id', 'name', 'jenjang', 'departemen_id']),
                 'periode' => MasterDataService::periodeList(),
             ],
             'tagihan', 'verifikasi-pembayaran' => [
@@ -110,18 +111,13 @@ class RolePageController extends Controller
             'bebas-asrama' => ['bebas_asrama' => PengajuanBebasAsrama::with(['mahasiswa.user', 'tagihan'])->where('mahasiswa_id', $request->user()->mahasiswaProfil?->id)->latest()->get()],
             'lapor-kerusakan' => $this->damageReportPayload($request),
             'tiket-masuk', 'update-tiket' => ['tiket' => $this->tickets($request)],
-            'scan-barcode', 'rekap-kehadiran', 'absensi' => [
+            'jadwal-kegiatan' => $this->activitiesPayload($request),
+            'absensi' => [
                 'absensi' => ActivityAttendance::with(['mahasiswa.user', 'session.kegiatan'])
                     ->when($request->user()->hasRole('mahasiswa'), fn ($query) => $query->where('mahasiswa_id', $request->user()->mahasiswaProfil?->id))
                     ->when($request->user()->hasRole('fasilitator'), fn ($query) => $query->whereHas('session', fn ($sessions) => $sessions->where('facilitator_id', $request->user()->id)))
                     ->latest('attended_at')->get(),
-                'attendance_sessions' => AttendanceSession::with(['kegiatan.gedung', 'facilitator'])
-                    ->when($request->user()->hasRole('fasilitator'), fn ($query) => $query->where('facilitator_id', $request->user()->id))
-                    ->whereIn('kegiatan_id', $this->activityQuery($request)->select('id'))
-                    ->latest()->limit(50)->get(),
-                'kegiatan' => $this->activityQuery($request)->with('gedung')->latest('tanggal_mulai')->get(),
                 'attendance_attempt' => $request->session()->get('attendance_attempt'),
-                'attendance_session' => $this->attendanceSessionPayload($request),
             ],
             'monitoring-kamar' => ['gedung' => $this->gedungTree($request->user())],
             'penempatan-kamar' => [
@@ -142,14 +138,7 @@ class RolePageController extends Controller
             'kelola-informasi' => ['informasi' => LandingContentService::informasi()],
             'kelola-program' => ['program' => LandingContentService::programs()],
             'kelola-testimoni' => ['testimoni' => LandingContentService::testimonials()],
-            'jadwal', 'jadwal-kegiatan' => [
-                'kegiatan' => $this->activityQuery($request)->with('gedung')->withCount('attendanceSessions')->latest('tanggal_mulai')->get()
-                    ->map(fn (Kegiatan $activity) => [...$activity->toArray(), 'can_manage' => $request->user()->can('kegiatan.manage')
-                        && (! $request->user()->hasRole('fasilitator') || $activity->dibuat_oleh === $request->user()->id)]),
-                'gedung' => $request->user()->can('kegiatan.manage') ? Gedung::query()
-                    ->when($request->user()->hasRole('fasilitator'), fn ($query) => $query->whereIn('id', ResidenceBuildingAccess::ids($request->user())))
-                    ->orderBy('nama_gedung')->get(['id', 'nama_gedung']) : [],
-            ],
+            'jadwal' => ['kegiatan' => $this->activityQuery($request)->with('gedung')->latest('tanggal_mulai')->get()],
             'laporan-keuangan', 'keuangan' => [
                 'transaksi' => TransaksiKeuangan::with(['kategori', 'pencatat'])->latest('tanggal_transaksi')->get(),
                 'kategori' => KategoriTransaksi::all(),
@@ -179,45 +168,39 @@ class RolePageController extends Controller
         $user = $request->user();
         $query = Kegiatan::query();
         if ($user->hasRole('fasilitator')) {
-            $query->where(fn ($activities) => $activities->whereNull('gedung_id')->orWhereIn('gedung_id', ResidenceBuildingAccess::ids($user)));
+            $query->whereIn('gedung_id', ResidenceBuildingAccess::ids($user));
         } elseif ($user->hasRole('mahasiswa')) {
             $buildingIds = Gedung::whereHas('lantai.kamar.penempatanKamar', fn ($placements) => $placements
                 ->where('mahasiswa_id', $user->mahasiswaProfil?->id)->where('status', 'aktif'))->pluck('id');
-            $query->where(fn ($activities) => $activities->whereNull('gedung_id')->orWhereIn('gedung_id', $buildingIds));
+            $query->whereIn('gedung_id', $buildingIds);
         }
 
         return $query;
     }
 
-    /** @return array{id: string, token: string, qr_code: string}|null */
-    private function attendanceSessionPayload(Request $request): ?array
+    private function activitiesPayload(Request $request): array
     {
-        $session = $request->session()->get('attendance_session');
-
-        if (! is_array($session) || ! isset($session['id'], $session['token'])) {
-            return null;
-        }
-
-        $payload = route('mahasiswa.absensi', [
-            'session_id' => $session['id'],
-            'token' => $session['token'],
-        ]);
-        $qrCode = (new Builder(
-            writer: new SvgWriter,
-            data: $payload,
-            size: 320,
-            margin: 12,
-        ))->build();
-
         return [
-            'id' => (string) $session['id'],
-            'token' => (string) $session['token'],
-            'qr_code' => $qrCode->getDataUri(),
+            'kegiatan' => $this->activityQuery($request)->with(['gedung', 'attendanceSession'])->latest('tanggal_mulai')->get(),
+            'jenis_kegiatan' => JenisKegiatan::orderBy('is_other')->orderBy('nama')->get(),
+            'gedung' => Gedung::query()->when($request->user()->hasRole('fasilitator'), fn ($query) => $query->whereIn('id', ResidenceBuildingAccess::ids($request->user())))->orderBy('nama_gedung')->get(['id', 'nama_gedung']),
+            'activity_session_id' => $request->session()->get('activity_session_id'),
+            'can_manage' => $request->user()->can('kegiatan.manage'),
         ];
     }
 
-    private function dashboardStats(): array
+    private function dashboardStats(Request $request): array
     {
+        if ($request->user()->hasRole('fasilitator')) {
+            $ids = ResidenceBuildingAccess::ids($request->user());
+            $rooms = Kamar::whereHas('lantai', fn ($query) => $query->whereIn('gedung_id', $ids));
+
+            return [
+                'okupansi' => ['total_kamar' => (clone $rooms)->count(), 'penuh' => (clone $rooms)->where('status', 'penuh')->count(), 'kosong' => (clone $rooms)->where('status', 'kosong')->count()],
+                'penghuni_aktif' => MahasiswaProfil::where('status_huni', 'aktif')->whereHas('penempatanKamar', fn ($query) => $query->where('status', 'aktif')->whereHas('kamar.lantai', fn ($floors) => $floors->whereIn('gedung_id', $ids)))->count(),
+            ];
+        }
+
         return [
             'okupansi' => [
                 'total_kamar' => Kamar::count(),
@@ -438,6 +421,8 @@ class RolePageController extends Controller
             'no_hp' => $user->no_hp,
             'prodi' => $user->mahasiswaProfil?->prodi?->name,
             'angkatan' => $user->mahasiswaProfil?->angkatan,
+            'student_stage' => $user->mahasiswaProfil?->angkatan ? ((int) $user->mahasiswaProfil->angkatan === now()->year ? 'Mahasiswa baru' : 'Mahasiswa angkatan lama') : null,
+            'needs_service_selection' => $user->status === 'aktif' && $user->mahasiswaProfil?->status_huni === 'calon',
             'barcode_code' => $user->mahasiswaProfil?->barcode_code,
             'status_huni' => $user->mahasiswaProfil?->status_huni,
             'client_profile_category' => $user->client_profile_category?->value,

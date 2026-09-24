@@ -5,6 +5,7 @@ use App\Jobs\GenerateBillingDocument;
 use App\Jobs\GenerateFreeResidenceLetter;
 use App\Models;
 use App\Services\AttendanceEligibility;
+use App\Services\FreeResidenceLetterFormat;
 use Database\Seeders\DatabaseSeeder;
 use Database\Seeders\ResidenceScenarioSeeder;
 use Illuminate\Support\Facades\File;
@@ -88,29 +89,31 @@ test('seeded accounts can continue payment checkout permit and attendance journe
 
     $checkoutStudent = ResidenceScenarioSeeder::student('checkout-siap');
     $checkout = $checkoutStudent->checkoutRequests()->firstOrFail();
-    $this->actingAs($facilitator)->post(route('andalas.checkout.complete', $checkout))->assertSessionHasNoErrors();
+    $checkoutFacilitator = Models\FasilitatorWilayah::where('gedung_id', $checkout->placement->kamar->lantai->gedung_id)->firstOrFail()->user;
+    $this->actingAs($checkoutFacilitator)->post(route('andalas.checkout.complete', $checkout))->assertRedirect()->assertSessionHasNoErrors();
     expect($checkoutStudent->fresh()->status_huni)->toBe('keluar');
     $this->actingAs($checkoutStudent->user)->post(route('andalas.pengajuan.bebas'), ['alasan' => 'Pengujian surat setelah checkout'])->assertSessionHasNoErrors();
     expect($checkoutStudent->user->fresh()->status)->toBe('nonaktif');
     Queue::assertPushed(GenerateFreeResidenceLetter::class);
 
     $permit = Models\PengajuanIzinPulang::where('mahasiswa_id', ResidenceScenarioSeeder::student('izin-review')->id)->where('status', 'diajukan')->firstOrFail();
-    $this->actingAs($facilitator)->post(route('andalas.perizinan.review', $permit), ['status' => 'disetujui'])->assertSessionHasNoErrors();
+    $permitFacilitator = Models\FasilitatorWilayah::where('gedung_id', $permit->gedung_id)->firstOrFail()->user;
+    $this->actingAs($permitFacilitator)->post(route('andalas.perizinan.review', $permit), ['status' => 'disetujui'])->assertRedirect()->assertSessionHasNoErrors();
     expect($permit->fresh()->status->value)->toBe('sedang_izin');
     $overdue = Models\PengajuanIzinPulang::where('mahasiswa_id', ResidenceScenarioSeeder::student('izin-terlambat')->id)->where('status', 'sudah_sampai')->firstOrFail();
     expect($overdue->isOverdue())->toBeTrue();
 
-    $activity = Models\Kegiatan::where('judul', 'DEMO: Buka QR untuk pengujian langsung')->firstOrFail();
-    $this->actingAs($facilitator)->post(route('andalas.absensi.kegiatan.open', $activity), [
-        'expires_at' => now()->addMinutes(10)->toDateTimeString(), 'latitude' => -0.914, 'longitude' => 100.46,
-        'accuracy_meters' => 10, 'radius_meters' => 100, 'maximum_accuracy_meters' => 50,
+    $this->actingAs($facilitator)->post(route('andalas.kegiatan.store'), [
+        'jenis_kegiatan_id' => Models\JenisKegiatan::where('nama', 'Sholat Subuh')->value('id'),
+        'duration_minutes' => 10, 'latitude' => -0.914, 'longitude' => 100.46,
+        'accuracy_meters' => 10, 'radius_meters' => 100,
     ])->assertSessionHasNoErrors();
-    $session = session('attendance_session');
+    $session = Models\AttendanceSession::findOrFail(session('activity_session_id'));
     $binaan = ResidenceScenarioSeeder::student('binaan-aktif');
-    $this->actingAs($binaan->user)->post(route('andalas.absensi.sesi.record', $session['id']), [
-        'token' => $session['token'], 'latitude' => -0.914, 'longitude' => 100.46, 'accuracy_meters' => 10,
+    $this->actingAs($binaan->user)->post(route('andalas.absensi.sesi.record', $session), [
+        'token' => $session->qr_token, 'latitude' => -0.914, 'longitude' => 100.46, 'accuracy_meters' => 10,
     ])->assertSessionHasNoErrors();
-    $this->assertDatabaseHas('activity_attendances', ['attendance_session_id' => $session['id'], 'mahasiswa_id' => $binaan->id]);
+    $this->assertDatabaseHas('activity_attendances', ['attendance_session_id' => $session->id, 'mahasiswa_id' => $binaan->id]);
 
     $document = $binaan->residenceRegistrations()->firstOrFail()->tagihan->dokumen()->where('jenis', 'residence_receipt')->firstOrFail();
     $this->get(route('andalas.tagihan.document', $document))->assertDownload();
@@ -180,7 +183,7 @@ test('reseeding preserves user changes and does not duplicate demo relationships
     expect($student->user->fresh()->nim_nip)->toBe('2699000009');
     expect($custom->fresh()->nim_nip)->toBe('2699999999');
     expect($international->fresh()->nim_nip)->toBe('2699001001');
-    expect($letter->fresh()->template_version)->toBe('free-residence-dummy-v1');
+    expect($letter->fresh()->template_version)->toBe(FreeResidenceLetterFormat::VERSION);
     expect($letter->fresh()->checksum_sha256)->toBe(hash('sha256', Storage::disk('local')->get($letter->path)));
     expect(Models\Kamar::where('nomor_kamar', '101')->firstOrFail()->status)->toBe('maintenance');
     Notification::assertNothingSent();

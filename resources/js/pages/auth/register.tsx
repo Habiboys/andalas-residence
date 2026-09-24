@@ -1,4 +1,10 @@
 import { Head, Link, useForm } from '@inertiajs/react';
+import RegistrationSteps from '@/andalas/components/RegistrationSteps';
+import AcademicFields, {
+    cohortFromNim,
+    type AcademicOptions,
+} from '@/andalas/components/AcademicFields';
+import PasswordInput from '@/components/password-input';
 import { login } from '@/routes';
 import { store } from '@/routes/register';
 import {
@@ -8,11 +14,7 @@ import {
     authInputClass,
 } from '@/andalas/components/AndalasAuthShell';
 
-export default function Register({
-    prodi = [],
-}: {
-    prodi?: Array<{ id: string; name: string }>;
-}) {
+export default function Register(options: AcademicOptions) {
     const form = useForm({
         nama: '',
         nim_nip: '',
@@ -20,16 +22,16 @@ export default function Register({
         password: '',
         password_confirmation: '',
         client_profile_category: 'local_non_kipk',
-        angkatan: '',
+        faculty_id: '',
+        departemen_id: '',
         prodi_id: '',
         gender: 'laki_laki',
         no_hp: '',
     });
     const nonStudent = form.data.client_profile_category === 'non_student';
     const categories = [
-        ['local_non_kipk', 'Mahasiswa baru lokal non-KIPK'],
-        ['local_kipk', 'Mahasiswa baru lokal KIPK'],
-        ['local_resident', 'Mahasiswa hunian lokal / alumni'],
+        ['local_non_kipk', 'Mahasiswa lokal non-KIPK'],
+        ['local_kipk', 'Mahasiswa lokal KIPK'],
         ['international_student', 'Mahasiswa internasional'],
         [
             'international_free_facility',
@@ -38,11 +40,14 @@ export default function Register({
         ['non_student', 'Non-mahasiswa'],
     ];
     return (
-        <AndalasAuthShell>
+        <AndalasAuthShell wide>
             <Head title="Daftar Akun Andalas Residence" />
             <h1 className="mb-5 text-2xl font-bold">Daftar akun</h1>
+            <div className="mb-6">
+                <RegistrationSteps current={0} />
+            </div>
             <form
-                className="space-y-4"
+                className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 md:grid-cols-1 lg:grid-cols-2 [&>fieldset]:min-w-0"
                 onSubmit={(event) => {
                     event.preventDefault();
                     form.post(store.url());
@@ -96,41 +101,24 @@ export default function Register({
                 </AuthField>
                 {!nonStudent && (
                     <>
-                        <AuthField
-                            label="Tahun masuk / angkatan"
-                            error={form.errors.angkatan}
-                        >
-                            <input
-                                required
-                                type="number"
-                                min="1900"
-                                max={new Date().getFullYear()}
-                                className={authInputClass}
-                                value={form.data.angkatan}
-                                onChange={(e) =>
-                                    form.setData('angkatan', e.target.value)
-                                }
-                            />
+                        <AuthField label="Angkatan dari NIM">
+                            <output className="block py-2 font-medium">
+                                {cohortFromNim(form.data.nim_nip) ||
+                                    'Isi NIM yang valid terlebih dahulu'}
+                            </output>
+                            <p className="text-muted text-xs">
+                                Dua digit awal NIM menentukan tahun masuk
+                                kuliah.
+                            </p>
                         </AuthField>
-                        <AuthField
-                            label="Program studi (jika tersedia)"
-                            error={form.errors.prodi_id}
-                        >
-                            <select
-                                className={authInputClass}
-                                value={form.data.prodi_id}
-                                onChange={(e) =>
-                                    form.setData('prodi_id', e.target.value)
-                                }
-                            >
-                                <option value="">Pilih program studi</option>
-                                {prodi.map((item) => (
-                                    <option key={item.id} value={item.id}>
-                                        {item.name}
-                                    </option>
-                                ))}
-                            </select>
-                        </AuthField>
+                        <AcademicFields
+                            {...options}
+                            value={form.data}
+                            errors={form.errors}
+                            onChange={(selection) =>
+                                form.setData({ ...form.data, ...selection })
+                            }
+                        />
                     </>
                 )}
                 <AuthField label="Jenis kelamin" error={form.errors.gender}>
@@ -161,9 +149,9 @@ export default function Register({
                     />
                 </AuthField>
                 <AuthField label="Password" error={form.errors.password}>
-                    <input
+                    <PasswordInput
                         required
-                        type="password"
+
                         minLength={8}
                         autoComplete="new-password"
                         className={authInputClass}
@@ -177,9 +165,9 @@ export default function Register({
                     label="Ulangi password"
                     error={form.errors.password_confirmation}
                 >
-                    <input
+                    <PasswordInput
                         required
-                        type="password"
+
                         minLength={8}
                         autoComplete="new-password"
                         className={authInputClass}
@@ -192,14 +180,16 @@ export default function Register({
                         }
                     />
                 </AuthField>
-                <p className="text-muted text-sm">
+                <p className="text-muted col-span-full text-sm">
                     Kategori dan fasilitas gratis diperiksa admin saat
-                    pendaftaran hunian. Untuk surat bebas asrama, isi angkatan
-                    sesuai tahun masuk kuliah.
+                    pendaftaran hunian. Angkatan ditentukan dari dua digit awal
+                    NIM.
                 </p>
-                <AuthSubmitButton processing={form.processing}>
-                    Buat akun
-                </AuthSubmitButton>
+                <div className="col-span-full">
+                    <AuthSubmitButton processing={form.processing}>
+                        Buat akun
+                    </AuthSubmitButton>
+                </div>
             </form>
             <p className="mt-4 text-center text-sm">
                 <Link className="link link-primary" href={login.url()}>

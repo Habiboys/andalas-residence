@@ -3,7 +3,7 @@ import { PageHeader, Card, Table } from '../../components/ui';
 type KegiatanRow = {
     judul?: string;
     tanggal_mulai?: string;
-    lokasi?: string;
+    tanggal_selesai?: string;
     gedung?: { nama_gedung: string } | null;
 };
 
@@ -28,10 +28,19 @@ export default function JadwalKegiatan({
                             render: (r: KegiatanRow) =>
                                 String(r.tanggal_mulai ?? '').slice(0, 10),
                         },
-                        { key: 'lokasi', label: 'Lokasi' },
+                        {
+                            key: 'tanggal_selesai',
+                            label: 'Batas waktu',
+                            render: (r: KegiatanRow) =>
+                                r.tanggal_selesai
+                                    ? new Date(
+                                          r.tanggal_selesai,
+                                      ).toLocaleString('id-ID')
+                                    : '—',
+                        },
                         {
                             key: 'cakupan',
-                            label: 'Cakupan',
+                            label: 'Gedung',
                             filter: {
                                 type: 'select',
                                 options: [
@@ -39,7 +48,7 @@ export default function JadwalKegiatan({
                                         kegiatan.map(
                                             (item) =>
                                                 item.gedung?.nama_gedung ??
-                                                'Umum - seluruh asrama',
+                                                'Arsip lama',
                                         ),
                                     ),
                                 ],
@@ -48,8 +57,7 @@ export default function JadwalKegiatan({
                     ]}
                     data={kegiatan.map((item) => ({
                         ...item,
-                        cakupan:
-                            item.gedung?.nama_gedung ?? 'Umum - seluruh asrama',
+                        cakupan: item.gedung?.nama_gedung ?? 'Arsip lama',
                     }))}
                     emptyMessage="Belum ada kegiatan"
                 />

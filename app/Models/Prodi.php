@@ -9,7 +9,7 @@ class Prodi extends BaseModel
 {
     protected $table = 'prodi';
 
-    protected $fillable = ['departemen_id', 'name', 'jenjang'];
+    protected $fillable = ['departemen_id', 'name', 'jenjang', 'code'];
 
     public function departemen(): BelongsTo
     {

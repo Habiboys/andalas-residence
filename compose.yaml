@@ -12,10 +12,11 @@ services:
       - "${APP_PORT:-8003}:80"
     environment:
       APP_URL: ${APP_URL:?Isi APP_URL di .env}
-      # MySQL berada di host, seperti pola TPBU. Ganti untuk server MySQL terpisah.
+      # Container aplikasi saja; MySQL dijalankan di host/server terpisah.
       DB_HOST: ${DOCKER_DB_HOST:-host.docker.internal}
     volumes:
       - ./storage:/var/www/html/storage
+      - andalas_bootstrap_cache:/var/www/html/bootstrap/cache
       - type: bind
         source: ./.env
         target: /var/www/html/.env
@@ -42,3 +43,6 @@ services:
 networks:
   andalas_network:
     driver: bridge
+
+volumes:
+  andalas_bootstrap_cache:

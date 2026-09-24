@@ -1,3 +1,8 @@
+import AcademicFields, {
+    cohortFromNim,
+    type AcademicOptions,
+} from '../../components/AcademicFields';
+import PasswordInput from '@/components/password-input';
 import { useState } from 'react';
 import { useForm, router } from '@inertiajs/react';
 import {
@@ -33,10 +38,9 @@ type MhsRow = {
     periode?: { id?: string; nama_periode?: string };
 };
 
-type ProdiRow = { id: string; name?: string };
 type PeriodeRow = { id: string; nama_periode?: string };
 
-type Props = { mahasiswa: MhsRow[]; prodi: ProdiRow[]; periode: PeriodeRow[] };
+type Props = AcademicOptions & { mahasiswa: MhsRow[]; periode: PeriodeRow[] };
 
 const emptyForm = {
     nim_nip: '',
@@ -45,12 +49,18 @@ const emptyForm = {
     password: '',
     no_hp: '',
     prodi_id: '',
-    angkatan: '',
+    faculty_id: '',
+    departemen_id: '',
     client_profile_category: 'local_non_kipk',
     gender: 'laki_laki',
 };
 
-export default function DataMahasiswa({ mahasiswa, prodi }: Props) {
+export default function DataMahasiswa({
+    mahasiswa,
+    prodi = [],
+    fakultas = [],
+    departemen = [],
+}: Props) {
     const [open, setOpen] = useState(false);
     const [editing, setEditing] = useState<MhsRow | null>(null);
     const [deleting, setDeleting] = useState<MhsRow | null>(null);
@@ -74,6 +84,10 @@ export default function DataMahasiswa({ mahasiswa, prodi }: Props) {
 
     function openEdit(row: MhsRow) {
         setEditing(row);
+        const selectedProdi = prodi.find((item) => item.id === row.prodi?.id);
+        const selectedDept = departemen.find(
+            (item) => item.id === selectedProdi?.departemen_id,
+        );
         setData({
             nim_nip: row.user?.nim_nip ?? '',
             nama: row.user?.nama ?? '',
@@ -81,7 +95,8 @@ export default function DataMahasiswa({ mahasiswa, prodi }: Props) {
             password: '',
             no_hp: '',
             prodi_id: row.prodi?.id ?? '',
-            angkatan: row.angkatan ?? '',
+            faculty_id: selectedDept?.faculty_id ?? '',
+            departemen_id: selectedProdi?.departemen_id ?? '',
             client_profile_category:
                 row.user?.client_profile_category ?? 'local_non_kipk',
             gender: row.user?.gender ?? 'laki_laki',
@@ -272,8 +287,7 @@ export default function DataMahasiswa({ mahasiswa, prodi }: Props) {
                                 : 'Password'
                         }
                     >
-                        <input
-                            type="password"
+                        <PasswordInput
                             className={inputClass}
                             value={data.password}
                             onChange={(e) =>
@@ -287,44 +301,27 @@ export default function DataMahasiswa({ mahasiswa, prodi }: Props) {
                             </p>
                         )}
                     </FormField>
-                    <FormField label="Prodi">
-                        <select
-                            className={inputClass}
-                            value={data.prodi_id}
-                            onChange={(e) =>
-                                setData('prodi_id', e.target.value)
-                            }
-                        >
-                            <option value="">Pilih prodi</option>
-                            {(prodi ?? []).map((p) => (
-                                <option key={p.id} value={p.id}>
-                                    {p.name}
-                                </option>
-                            ))}
-                        </select>
-                        {errors.prodi_id && (
-                            <p className="text-error mt-1 text-sm">
-                                {errors.prodi_id}
+                    {data.client_profile_category !== 'non_student' && (
+                        <>
+                            <p className="text-sm">
+                                Angkatan dari NIM:{' '}
+                                <strong>
+                                    {cohortFromNim(data.nim_nip) ||
+                                        'NIM belum valid'}
+                                </strong>
                             </p>
-                        )}
-                    </FormField>
-                    <FormField label="Angkatan">
-                        <input
-                            className={inputClass}
-                            value={data.angkatan}
-                            onChange={(e) =>
-                                setData('angkatan', e.target.value)
-                            }
-                            required={
-                                data.client_profile_category !== 'non_student'
-                            }
-                        />
-                        {errors.angkatan && (
-                            <p className="text-error mt-1 text-sm">
-                                {errors.angkatan}
-                            </p>
-                        )}
-                    </FormField>
+                            <AcademicFields
+                                fakultas={fakultas}
+                                departemen={departemen}
+                                prodi={prodi}
+                                value={data}
+                                errors={errors}
+                                onChange={(selection) =>
+                                    setData({ ...data, ...selection })
+                                }
+                            />
+                        </>
+                    )}
                     <FormField label="Kategori client">
                         <select
                             className={inputClass}
@@ -341,9 +338,6 @@ export default function DataMahasiswa({ mahasiswa, prodi }: Props) {
                             </option>
                             <option value="local_kipk">
                                 Mahasiswa lokal KIPK
-                            </option>
-                            <option value="local_resident">
-                                Mahasiswa hunian lokal / alumni
                             </option>
                             <option value="international_student">
                                 Mahasiswa internasional

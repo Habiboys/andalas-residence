@@ -24,7 +24,16 @@ test('staff admin receives master data as inertia props', function () {
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('admin/master-data')
+            ->has('fasilitator', 0)
             ->hasAll(['fakultas', 'departemen', 'prodi', 'periode', 'provinsi', 'kota', 'kategori_transaksi']));
+});
+
+test('assignment options list facilitators only when the role exists', function () {
+    $facilitator = masterDataUser('fasilitator', false);
+    masterDataUser('mahasiswa', false);
+    $this->actingAs(masterDataUser('staff_admin'))
+        ->get(route('admin.master-data'))->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->has('fasilitator', 1)->where('fasilitator.0.id', $facilitator->id));
 });
 
 test('non admin cannot open or mutate master data', function () {

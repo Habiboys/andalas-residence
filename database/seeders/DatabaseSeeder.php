@@ -35,9 +35,16 @@ class DatabaseSeeder extends Seeder
             Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
         }
 
-        $faculty = Faculty::firstOrCreate(['name' => 'Fakultas Teknik']);
-        $departemen = Departemen::firstOrCreate(['faculty_id' => $faculty->id, 'name' => 'Teknik Informatika']);
-        $prodi = Prodi::firstOrCreate(['departemen_id' => $departemen->id, 'name' => 'Informatika'], ['jenjang' => 'S1']);
+        $this->call(UnandAcademicSeeder::class);
+        $prodi = Prodi::where('code', '15-03-01')->firstOrFail();
+
+        foreach (['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'Nakes', 'ASN'] as $code) {
+            Gedung::firstOrCreate(['kode_gedung' => $code], [
+                'nama_gedung' => 'Asrama '.$code,
+                'gender_peruntukan' => 'campur',
+                'alamat' => 'Kampus Limau Manis',
+            ]);
+        }
 
         $periode = Periode::firstOrCreate(['nama_periode' => '2025/2026 Ganjil'], [
             'status' => 'nonaktif',
@@ -46,8 +53,8 @@ class DatabaseSeeder extends Seeder
         ]);
 
         $gedung = Gedung::firstOrCreate(['kode_gedung' => 'A'], [
-            'nama_gedung' => 'Asrama Putra A',
-            'gender_peruntukan' => 'laki_laki',
+            'nama_gedung' => 'Asrama Putri A',
+            'gender_peruntukan' => 'perempuan',
             'alamat' => 'Kampus Limau Manis',
         ]);
 
@@ -79,7 +86,7 @@ class DatabaseSeeder extends Seeder
             ['nim_nip' => 'ORT001', 'nama' => 'Orang Tua Demo', 'email' => 'orang.tua@unand.ac.id', 'role' => 'orang_tua', 'category' => ClientProfileCategory::Parent],
             ['nim_nip' => '2211521001', 'nama' => 'Client Lokal KIPK', 'email' => 'mahasiswa.kipk@unand.ac.id', 'role' => 'mahasiswa', 'category' => ClientProfileCategory::LocalKipk, 'angkatan' => '2026'],
             ['nim_nip' => '2211521002', 'nama' => 'Client Lokal Non-KIPK', 'email' => 'mahasiswa.nonkipk@unand.ac.id', 'role' => 'mahasiswa', 'category' => ClientProfileCategory::LocalNonKipk, 'angkatan' => '2026'],
-            ['nim_nip' => '2211521003', 'nama' => 'Mahasiswa Penghuni Lokal', 'email' => 'mahasiswa.penghuni@unand.ac.id', 'role' => 'mahasiswa', 'category' => ClientProfileCategory::LocalResident, 'angkatan' => '2025'],
+            ['nim_nip' => '2211521003', 'nama' => 'Mahasiswa Penghuni Lokal', 'email' => 'mahasiswa.penghuni@unand.ac.id', 'role' => 'mahasiswa', 'category' => ClientProfileCategory::LocalNonKipk, 'angkatan' => '2025'],
             ['nim_nip' => 'INT001', 'nama' => 'Mahasiswa Internasional Gratis', 'email' => 'international@unand.ac.id', 'role' => 'mahasiswa', 'category' => ClientProfileCategory::InternationalFreeFacility, 'angkatan' => '2026'],
             ['nim_nip' => 'NMS001', 'nama' => 'Client Non Mahasiswa', 'email' => 'nonmahasiswa@unand.ac.id', 'role' => 'mahasiswa', 'category' => ClientProfileCategory::NonStudent],
         ];
@@ -105,9 +112,9 @@ class DatabaseSeeder extends Seeder
 
             if ($data['role'] === 'mahasiswa') {
                 $studentProfiles[$data['email']] = MahasiswaProfil::firstOrCreate(['user_id' => $user->id], [
-                    'prodi_id' => $prodi->id,
+                    'prodi_id' => isset($data['angkatan']) ? $prodi->id : null,
                     'periode_id' => $periode->id,
-                    'angkatan' => $data['angkatan'] ?? '2026',
+                    'angkatan' => $data['angkatan'] ?? null,
                     'barcode_code' => 'BC-'.$data['nim_nip'],
                     'nik' => str_pad($data['nim_nip'], 16, '0', STR_PAD_LEFT),
                     'status_huni' => 'calon',

@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
-import { useForm, router } from "@inertiajs/react";
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { useForm, router } from '@inertiajs/react';
 import {
     PageHeader,
     DataTable,
@@ -16,24 +16,24 @@ import {
     IconButton,
     EmptyState,
     type DataColumn,
-} from "../../components/ui";
+} from '../../components/ui';
 import {
     store as gedungStore,
     update as gedungUpdate,
     destroy as gedungDestroy,
-} from "@/routes/andalas/gedung";
+} from '@/routes/andalas/gedung';
 import {
     store as lantaiStore,
     update as lantaiUpdate,
     destroy as lantaiDestroy,
-} from "@/routes/andalas/lantai";
+} from '@/routes/andalas/lantai';
 import {
     store as kamarStore,
     update as kamarUpdate,
     destroy as kamarDestroy,
-} from "@/routes/andalas/kamar";
-import { formatRupiah } from "../../lib/format";
-import { Building2, ChevronDown, Pencil, Trash2 } from "lucide-react";
+} from '@/routes/andalas/kamar';
+import { formatRupiah } from '../../lib/format';
+import { Building2, ChevronDown, Pencil, Trash2 } from 'lucide-react';
 
 type Kamar = {
     id: string;
@@ -66,9 +66,9 @@ type Gedung = {
 type GedungRow = Gedung & { jumlah_lantai: number; jumlah_kamar: number };
 
 type DeleteTarget =
-    | { kind: "gedung"; gedung: Gedung }
-    | { kind: "lantai"; lantai: Lantai }
-    | { kind: "kamar"; kamar: Kamar };
+    | { kind: 'gedung'; gedung: Gedung }
+    | { kind: 'lantai'; lantai: Lantai }
+    | { kind: 'kamar'; kamar: Kamar };
 
 type LantaiTarget = { gedung_id: string; lantai: Lantai | null };
 type KamarTarget = { lantai_id: string; kamar: Kamar | null };
@@ -76,31 +76,31 @@ type KamarTarget = { lantai_id: string; kamar: Kamar | null };
 type Props = { gedung: Gedung[] };
 
 const gedungDefaults = {
-    kode_gedung: "",
-    nama_gedung: "",
-    gender_peruntukan: "laki_laki",
-    alamat: "",
-    deskripsi: "",
+    kode_gedung: '',
+    nama_gedung: '',
+    gender_peruntukan: 'laki_laki',
+    alamat: '',
+    deskripsi: '',
     foto: null as File | null,
 };
-const lantaiDefaults = { nomor_lantai: "1", nama_lantai: "" };
+const lantaiDefaults = { nomor_lantai: '1', nama_lantai: '' };
 const kamarDefaults = {
-    nomor_kamar: "",
-    kapasitas: "2",
-    tipe_kamar: "reguler",
-    status: "kosong",
-    tarif_per_periode: "",
+    nomor_kamar: '',
+    kapasitas: '2',
+    tipe_kamar: 'reguler',
+    status: 'kosong',
+    tarif_per_periode: '',
 };
 
 function peruntukanLabel(value: string | undefined): string {
     return (
         {
-            laki_laki: "Laki-laki",
-            perempuan: "Perempuan",
-            campuran: "Campuran",
-        }[value ?? ""] ??
+            laki_laki: 'Laki-laki',
+            perempuan: 'Perempuan',
+            campur: 'Campuran',
+        }[value ?? ''] ??
         value ??
-        "—"
+        '—'
     );
 }
 
@@ -154,19 +154,19 @@ function RowMenu({
         }
 
         function onKey(event: KeyboardEvent) {
-            if (event.key === "Escape") {
+            if (event.key === 'Escape') {
                 setOpen(false);
             }
         }
 
-        document.addEventListener("click", onOutsideClick);
-        document.addEventListener("scroll", onScroll, true);
-        document.addEventListener("keydown", onKey);
+        document.addEventListener('click', onOutsideClick);
+        document.addEventListener('scroll', onScroll, true);
+        document.addEventListener('keydown', onKey);
 
         return () => {
-            document.removeEventListener("click", onOutsideClick);
-            document.removeEventListener("scroll", onScroll, true);
-            document.removeEventListener("keydown", onKey);
+            document.removeEventListener('click', onOutsideClick);
+            document.removeEventListener('scroll', onScroll, true);
+            document.removeEventListener('keydown', onKey);
         };
     }, [open]);
 
@@ -182,7 +182,7 @@ function RowMenu({
             >
                 Kelola
                 <ChevronDown
-                    className={`size-3.5 transition-transform ${open ? "rotate-180" : ""}`}
+                    className={`size-3.5 transition-transform ${open ? 'rotate-180' : ''}`}
                     aria-hidden="true"
                 />
             </button>
@@ -193,7 +193,7 @@ function RowMenu({
                         role="menu"
                         aria-label={`Aksi untuk ${gedung.nama_gedung}`}
                         style={{ top: position.top, right: position.right }}
-                        className="menu menu-sm fixed z-[100] w-52 rounded-box border border-base-300 bg-base-100 p-2 shadow-lg"
+                        className="menu menu-sm rounded-box border-base-300 bg-base-100 fixed z-[100] w-52 border p-2 shadow-lg"
                     >
                         <li>
                             <button
@@ -263,11 +263,11 @@ export default function KelolaBangunan({ gedung }: Props) {
         setEditingGedung(gedung ?? null);
         gedungForm.resetAndClearErrors();
         gedungForm.setData({
-            kode_gedung: gedung?.kode_gedung ?? "",
-            nama_gedung: gedung?.nama_gedung ?? "",
-            gender_peruntukan: gedung?.gender_peruntukan ?? "laki_laki",
-            alamat: gedung?.alamat ?? "",
-            deskripsi: gedung?.deskripsi ?? "",
+            kode_gedung: gedung?.kode_gedung ?? '',
+            nama_gedung: gedung?.nama_gedung ?? '',
+            gender_peruntukan: gedung?.gender_peruntukan ?? 'laki_laki',
+            alamat: gedung?.alamat ?? '',
+            deskripsi: gedung?.deskripsi ?? '',
             foto: null,
         });
         setGedungPreview(gedung?.foto ? `/storage/${gedung.foto}` : null);
@@ -300,8 +300,8 @@ export default function KelolaBangunan({ gedung }: Props) {
         lantaiForm.resetAndClearErrors();
         if (lantai) {
             lantaiForm.setData({
-                nomor_lantai: String(lantai.nomor_lantai ?? ""),
-                nama_lantai: lantai.nama_lantai ?? "",
+                nomor_lantai: String(lantai.nomor_lantai ?? ''),
+                nama_lantai: lantai.nama_lantai ?? '',
             });
         }
         setLantaiTarget({ gedung_id: gedungId, lantai: lantai ?? null });
@@ -335,14 +335,14 @@ export default function KelolaBangunan({ gedung }: Props) {
         kamarForm.resetAndClearErrors();
         if (kamar) {
             kamarForm.setData({
-                nomor_kamar: kamar.nomor_kamar ?? "",
-                kapasitas: String(kamar.kapasitas ?? "2"),
-                tipe_kamar: kamar.tipe_kamar ?? "reguler",
-                status: kamar.status ?? "kosong",
+                nomor_kamar: kamar.nomor_kamar ?? '',
+                kapasitas: String(kamar.kapasitas ?? '2'),
+                tipe_kamar: kamar.tipe_kamar ?? 'reguler',
+                status: kamar.status ?? 'kosong',
                 tarif_per_periode:
                     kamar.tarif_per_periode != null
                         ? String(kamar.tarif_per_periode)
-                        : "",
+                        : '',
             });
         }
         setKamarTarget({ lantai_id: lantaiId, kamar: kamar ?? null });
@@ -360,7 +360,7 @@ export default function KelolaBangunan({ gedung }: Props) {
                 tipe_kamar: form.tipe_kamar,
                 status: form.status,
                 tarif_per_periode:
-                    form.tarif_per_periode === ""
+                    form.tarif_per_periode === ''
                         ? null
                         : Number(form.tarif_per_periode),
             };
@@ -384,9 +384,9 @@ export default function KelolaBangunan({ gedung }: Props) {
         }
         setDeletingBusy(true);
         const url =
-            deleteTarget.kind === "gedung"
+            deleteTarget.kind === 'gedung'
                 ? gedungDestroy.url({ id: deleteTarget.gedung.id })
-                : deleteTarget.kind === "lantai"
+                : deleteTarget.kind === 'lantai'
                   ? lantaiDestroy.url({ id: deleteTarget.lantai.id })
                   : kamarDestroy.url({ id: deleteTarget.kamar.id });
         router.delete(url, {
@@ -406,37 +406,37 @@ export default function KelolaBangunan({ gedung }: Props) {
 
     const columns: DataColumn<GedungRow>[] = [
         {
-            key: "kode_gedung",
-            label: "Kode",
-            width: "w-28",
+            key: 'kode_gedung',
+            label: 'Kode',
+            width: 'w-28',
             render: (row) => (
                 <span className="text-identifier">
-                    {row.kode_gedung ?? "—"}
+                    {row.kode_gedung ?? '—'}
                 </span>
             ),
         },
-        { key: "nama_gedung", label: "Nama Gedung" },
+        { key: 'nama_gedung', label: 'Nama Gedung' },
         {
-            key: "gender_peruntukan",
-            label: "Peruntukan",
-            width: "w-40",
+            key: 'gender_peruntukan',
+            label: 'Peruntukan',
+            width: 'w-40',
             render: (row) => (
                 <Badge>{peruntukanLabel(row.gender_peruntukan)}</Badge>
             ),
             filter: {
-                type: "select",
+                type: 'select',
                 options: [
-                    { value: "laki_laki", label: "Laki-laki" },
-                    { value: "perempuan", label: "Perempuan" },
-                    { value: "campuran", label: "Campuran" },
+                    { value: 'laki_laki', label: 'Laki-laki' },
+                    { value: 'perempuan', label: 'Perempuan' },
+                    { value: 'campur', label: 'Campuran' },
                 ],
             },
         },
-        { key: "jumlah_lantai", label: "Lantai", width: "w-24" },
-        { key: "jumlah_kamar", label: "Kamar", width: "w-24" },
+        { key: 'jumlah_lantai', label: 'Lantai', width: 'w-24' },
+        { key: 'jumlah_kamar', label: 'Kamar', width: 'w-24' },
         {
-            key: "aksi",
-            label: "Aksi",
+            key: 'aksi',
+            label: 'Aksi',
             action: true,
             render: (row) => (
                 <div className="flex justify-end">
@@ -445,7 +445,7 @@ export default function KelolaBangunan({ gedung }: Props) {
                         onManage={setManageGedung}
                         onEdit={openGedungForm}
                         onDelete={(gedung) =>
-                            setDeleteTarget({ kind: "gedung", gedung })
+                            setDeleteTarget({ kind: 'gedung', gedung })
                         }
                     />
                 </div>
@@ -455,17 +455,17 @@ export default function KelolaBangunan({ gedung }: Props) {
 
     const manage = manageGedung;
 
-    let deleteTitle = "Hapus Data";
+    let deleteTitle = 'Hapus Data';
     let deleteMessage =
-        "Data ini akan dihapus. Tindakan ini tidak dapat dibatalkan.";
-    if (deleteTarget?.kind === "gedung") {
-        deleteTitle = "Hapus Gedung";
+        'Data ini akan dihapus. Tindakan ini tidak dapat dibatalkan.';
+    if (deleteTarget?.kind === 'gedung') {
+        deleteTitle = 'Hapus Gedung';
         deleteMessage = `Hapus gedung "${deleteTarget.gedung.nama_gedung}" beserta seluruh lantai dan kamarnya? Tindakan ini tidak dapat dibatalkan.`;
-    } else if (deleteTarget?.kind === "lantai") {
-        deleteTitle = "Hapus Lantai";
+    } else if (deleteTarget?.kind === 'lantai') {
+        deleteTitle = 'Hapus Lantai';
         deleteMessage = `Hapus lantai "${lantaiLabel(deleteTarget.lantai)}" beserta semua kamar di dalamnya? Tindakan ini tidak dapat dibatalkan.`;
-    } else if (deleteTarget?.kind === "kamar") {
-        deleteTitle = "Hapus Kamar";
+    } else if (deleteTarget?.kind === 'kamar') {
+        deleteTitle = 'Hapus Kamar';
         deleteMessage = `Hapus kamar "${deleteTarget.kamar.nomor_kamar}"? Tindakan ini tidak dapat dibatalkan.`;
     }
 
@@ -484,7 +484,7 @@ export default function KelolaBangunan({ gedung }: Props) {
             <DataTable<GedungRow>
                 columns={columns}
                 data={rows}
-                searchKeys={["kode_gedung", "nama_gedung", "alamat"]}
+                searchKeys={['kode_gedung', 'nama_gedung', 'alamat']}
                 searchPlaceholder="Cari gedung…"
                 defaultPerPage={10}
                 emptyMessage="Belum ada gedung. Tambahkan gedung pertama untuk mulai mengatur lantai dan kamar."
@@ -493,7 +493,7 @@ export default function KelolaBangunan({ gedung }: Props) {
             <Drawer
                 open={gedungOpen}
                 onClose={closeGedungForm}
-                title={editingGedung ? "Edit Gedung" : "Tambah Gedung"}
+                title={editingGedung ? 'Edit Gedung' : 'Tambah Gedung'}
                 width="w-full max-w-xl"
                 footer={
                     <div className="flex justify-end gap-2">
@@ -509,7 +509,7 @@ export default function KelolaBangunan({ gedung }: Props) {
                             form="gedung-form"
                             disabled={gedungForm.processing}
                         >
-                            {gedungForm.processing ? "Menyimpan…" : "Simpan"}
+                            {gedungForm.processing ? 'Menyimpan…' : 'Simpan'}
                         </Button>
                     </div>
                 }
@@ -525,7 +525,7 @@ export default function KelolaBangunan({ gedung }: Props) {
                             value={gedungForm.data.kode_gedung}
                             onChange={(event) =>
                                 gedungForm.setData(
-                                    "kode_gedung",
+                                    'kode_gedung',
                                     event.target.value,
                                 )
                             }
@@ -544,7 +544,7 @@ export default function KelolaBangunan({ gedung }: Props) {
                             value={gedungForm.data.nama_gedung}
                             onChange={(event) =>
                                 gedungForm.setData(
-                                    "nama_gedung",
+                                    'nama_gedung',
                                     event.target.value,
                                 )
                             }
@@ -562,14 +562,14 @@ export default function KelolaBangunan({ gedung }: Props) {
                             value={gedungForm.data.gender_peruntukan}
                             onChange={(event) =>
                                 gedungForm.setData(
-                                    "gender_peruntukan",
+                                    'gender_peruntukan',
                                     event.target.value,
                                 )
                             }
                         >
                             <option value="laki_laki">Laki-laki</option>
                             <option value="perempuan">Perempuan</option>
-                            <option value="campuran">Campuran</option>
+                            <option value="campur">Campuran</option>
                         </select>
                         {gedungForm.errors.gender_peruntukan && (
                             <p className="text-error text-sm">
@@ -582,7 +582,7 @@ export default function KelolaBangunan({ gedung }: Props) {
                             className={inputClass}
                             value={gedungForm.data.alamat}
                             onChange={(event) =>
-                                gedungForm.setData("alamat", event.target.value)
+                                gedungForm.setData('alamat', event.target.value)
                             }
                             placeholder="Alamat gedung / lokasi"
                         />
@@ -594,7 +594,7 @@ export default function KelolaBangunan({ gedung }: Props) {
                             value={gedungForm.data.deskripsi}
                             onChange={(event) =>
                                 gedungForm.setData(
-                                    "deskripsi",
+                                    'deskripsi',
                                     event.target.value,
                                 )
                             }
@@ -605,7 +605,7 @@ export default function KelolaBangunan({ gedung }: Props) {
                         label="Foto Gedung"
                         hint={
                             editingGedung?.foto
-                                ? "Kosongkan bila ingin mempertahankan foto yang ada."
+                                ? 'Kosongkan bila ingin mempertahankan foto yang ada.'
                                 : undefined
                         }
                     >
@@ -617,7 +617,7 @@ export default function KelolaBangunan({ gedung }: Props) {
                                 onChange={(event) => {
                                     const file =
                                         event.target.files?.[0] ?? null;
-                                    gedungForm.setData("foto", file);
+                                    gedungForm.setData('foto', file);
                                     setGedungPreview(
                                         file
                                             ? URL.createObjectURL(file)
@@ -650,7 +650,7 @@ export default function KelolaBangunan({ gedung }: Props) {
                 title="Kelola Lantai & Kamar"
                 subtitle={
                     manage
-                        ? `${manage.kode_gedung ?? ""} · ${peruntukanLabel(manage.gender_peruntukan)}`
+                        ? `${manage.kode_gedung ?? ''} · ${peruntukanLabel(manage.gender_peruntukan)}`
                         : undefined
                 }
                 width="w-full max-w-2xl"
@@ -659,12 +659,12 @@ export default function KelolaBangunan({ gedung }: Props) {
                     <div className="space-y-4">
                         <div className="flex flex-wrap items-center justify-between gap-2">
                             <p className="text-muted text-sm">
-                                {(manage.lantai ?? []).length} lantai ·{" "}
+                                {(manage.lantai ?? []).length} lantai ·{' '}
                                 {(manage.lantai ?? []).reduce(
                                     (total, lantai) =>
                                         total + (lantai.kamar?.length ?? 0),
                                     0,
-                                )}{" "}
+                                )}{' '}
                                 kamar
                             </p>
                             <Button
@@ -695,9 +695,9 @@ export default function KelolaBangunan({ gedung }: Props) {
                             (manage.lantai ?? []).map((lantai) => (
                                 <section
                                     key={lantai.id}
-                                    className="rounded-box border border-base-300 bg-base-100"
+                                    className="rounded-box border-base-300 bg-base-100 border"
                                 >
-                                    <header className="flex items-center justify-between gap-2 border-b border-base-200 px-4 py-2.5">
+                                    <header className="border-base-200 flex items-center justify-between gap-2 border-b px-4 py-2.5">
                                         <h3 className="min-w-0 truncate text-sm font-medium">
                                             {lantaiLabel(lantai)}
                                         </h3>
@@ -710,7 +710,7 @@ export default function KelolaBangunan({ gedung }: Props) {
                                             }
                                             onDelete={() =>
                                                 setDeleteTarget({
-                                                    kind: "lantai",
+                                                    kind: 'lantai',
                                                     lantai,
                                                 })
                                             }
@@ -722,7 +722,7 @@ export default function KelolaBangunan({ gedung }: Props) {
                                                 Belum ada kamar di lantai ini.
                                             </p>
                                         ) : (
-                                            <ul className="divide-y divide-base-200">
+                                            <ul className="divide-base-200 divide-y">
                                                 {(lantai.kamar ?? []).map(
                                                     (kamar) => (
                                                         <li
@@ -737,25 +737,33 @@ export default function KelolaBangunan({ gedung }: Props) {
                                                             <Badge
                                                                 color={
                                                                     kamar.tipe_kamar ===
-                                                                    "vip"
-                                                                        ? "yellow"
-                                                                        : "gray"
+                                                                    'vip'
+                                                                        ? 'yellow'
+                                                                        : 'gray'
                                                                 }
                                                             >
-                                                                {kamar.tipe_kamar ===
-                                                                "vip"
-                                                                    ? "VIP"
-                                                                    : "Reguler"}
+                                                                {{
+                                                                    reguler:
+                                                                        'Reguler',
+                                                                    medium: 'Medium',
+                                                                    vip: 'VIP',
+                                                                    premium:
+                                                                        'Premium',
+                                                                }[
+                                                                    kamar.tipe_kamar ??
+                                                                        'reguler'
+                                                                ] ??
+                                                                    kamar.tipe_kamar}
                                                             </Badge>
                                                             <StatusBadge
                                                                 status={
                                                                     kamar.status ??
-                                                                    ""
+                                                                    ''
                                                                 }
                                                             />
                                                             <span className="text-muted text-sm">
                                                                 {kamar.kapasitas ??
-                                                                    "—"}{" "}
+                                                                    '—'}{' '}
                                                                 org
                                                             </span>
                                                             {kamar.tarif_per_periode !=
@@ -791,7 +799,7 @@ export default function KelolaBangunan({ gedung }: Props) {
                                                                     onClick={() =>
                                                                         setDeleteTarget(
                                                                             {
-                                                                                kind: "kamar",
+                                                                                kind: 'kamar',
                                                                                 kamar,
                                                                             },
                                                                         )
@@ -803,7 +811,7 @@ export default function KelolaBangunan({ gedung }: Props) {
                                                 )}
                                             </ul>
                                         )}
-                                        <div className="mt-1 border-t border-base-200 px-2 pt-2">
+                                        <div className="border-base-200 mt-1 border-t px-2 pt-2">
                                             <Button
                                                 size="sm"
                                                 variant="secondary"
@@ -825,7 +833,7 @@ export default function KelolaBangunan({ gedung }: Props) {
             <Drawer
                 open={!!lantaiTarget}
                 onClose={() => setLantaiTarget(null)}
-                title={lantaiTarget?.lantai ? "Edit Lantai" : "Tambah Lantai"}
+                title={lantaiTarget?.lantai ? 'Edit Lantai' : 'Tambah Lantai'}
                 width="w-full max-w-xl"
                 footer={
                     <div className="flex justify-end gap-2">
@@ -841,7 +849,7 @@ export default function KelolaBangunan({ gedung }: Props) {
                             form="lantai-form"
                             disabled={lantaiForm.processing}
                         >
-                            {lantaiForm.processing ? "Menyimpan…" : "Simpan"}
+                            {lantaiForm.processing ? 'Menyimpan…' : 'Simpan'}
                         </Button>
                     </div>
                 }
@@ -858,7 +866,7 @@ export default function KelolaBangunan({ gedung }: Props) {
                             value={lantaiForm.data.nomor_lantai}
                             onChange={(event) =>
                                 lantaiForm.setData(
-                                    "nomor_lantai",
+                                    'nomor_lantai',
                                     event.target.value,
                                 )
                             }
@@ -876,7 +884,7 @@ export default function KelolaBangunan({ gedung }: Props) {
                             value={lantaiForm.data.nama_lantai}
                             onChange={(event) =>
                                 lantaiForm.setData(
-                                    "nama_lantai",
+                                    'nama_lantai',
                                     event.target.value,
                                 )
                             }
@@ -895,7 +903,7 @@ export default function KelolaBangunan({ gedung }: Props) {
             <Drawer
                 open={!!kamarTarget}
                 onClose={() => setKamarTarget(null)}
-                title={kamarTarget?.kamar ? "Edit Kamar" : "Tambah Kamar"}
+                title={kamarTarget?.kamar ? 'Edit Kamar' : 'Tambah Kamar'}
                 width="w-full max-w-xl"
                 footer={
                     <div className="flex justify-end gap-2">
@@ -911,7 +919,7 @@ export default function KelolaBangunan({ gedung }: Props) {
                             form="kamar-form"
                             disabled={kamarForm.processing}
                         >
-                            {kamarForm.processing ? "Menyimpan…" : "Simpan"}
+                            {kamarForm.processing ? 'Menyimpan…' : 'Simpan'}
                         </Button>
                     </div>
                 }
@@ -927,7 +935,7 @@ export default function KelolaBangunan({ gedung }: Props) {
                             value={kamarForm.data.nomor_kamar}
                             onChange={(event) =>
                                 kamarForm.setData(
-                                    "nomor_kamar",
+                                    'nomor_kamar',
                                     event.target.value,
                                 )
                             }
@@ -947,7 +955,7 @@ export default function KelolaBangunan({ gedung }: Props) {
                             value={kamarForm.data.kapasitas}
                             onChange={(event) =>
                                 kamarForm.setData(
-                                    "kapasitas",
+                                    'kapasitas',
                                     event.target.value,
                                 )
                             }
@@ -967,13 +975,15 @@ export default function KelolaBangunan({ gedung }: Props) {
                             value={kamarForm.data.tipe_kamar}
                             onChange={(event) =>
                                 kamarForm.setData(
-                                    "tipe_kamar",
+                                    'tipe_kamar',
                                     event.target.value,
                                 )
                             }
                         >
                             <option value="reguler">Reguler</option>
+                            <option value="medium">Medium</option>
                             <option value="vip">VIP</option>
+                            <option value="premium">Premium</option>
                         </select>
                         {kamarForm.errors.tipe_kamar && (
                             <p className="text-error text-sm">
@@ -986,7 +996,7 @@ export default function KelolaBangunan({ gedung }: Props) {
                             className={selectClass}
                             value={kamarForm.data.status}
                             onChange={(event) =>
-                                kamarForm.setData("status", event.target.value)
+                                kamarForm.setData('status', event.target.value)
                             }
                         >
                             <option value="kosong">Kosong</option>
@@ -1012,7 +1022,7 @@ export default function KelolaBangunan({ gedung }: Props) {
                             value={kamarForm.data.tarif_per_periode}
                             onChange={(event) =>
                                 kamarForm.setData(
-                                    "tarif_per_periode",
+                                    'tarif_per_periode',
                                     event.target.value,
                                 )
                             }

@@ -2,9 +2,11 @@ import { useEffect, useState } from 'react';
 import { Link, usePage } from '@inertiajs/react';
 import { ChevronDown, Menu, Moon, Sun, X } from 'lucide-react';
 import { login } from '@/routes';
+import { redirect as dashboardRedirect } from '@/routes/dashboard';
 import { ThemeProvider, useTheme } from '../context/AppContext';
 
 export type LandingSharedProps = {
+    auth?: { user: { id: number | string } | null };
     profilSections: Record<string, string>;
     informasiMenu: string[];
 };
@@ -47,8 +49,10 @@ function ThemeToggle({ onLight = false }: { onLight?: boolean }) {
 
 export default function LandingLayout({ active, children }: Props) {
     const { props } = usePage();
-    const { profilSections, informasiMenu } =
+    const { profilSections, informasiMenu, auth } =
         props as unknown as LandingSharedProps;
+    const accountHref = auth?.user ? dashboardRedirect() : login();
+    const accountLabel = auth?.user ? 'Dashboard' : 'Masuk';
     const [openDropdown, setOpenDropdown] = useState<string | null>(null);
     const [menuOpen, setMenuOpen] = useState(false);
     const [scrolled, setScrolled] = useState(false);
@@ -254,14 +258,14 @@ export default function LandingLayout({ active, children }: Props) {
                             <div className="flex items-center gap-2">
                                 <ThemeToggle onLight={!solid} />
                                 <Link
-                                    href={login()}
+                                    href={accountHref}
                                     className={
                                         solid
                                             ? 'btn btn-primary btn-sm'
                                             : 'btn btn-sm border border-white/70 bg-transparent text-white hover:bg-white/10'
                                     }
                                 >
-                                    Masuk
+                                    {accountLabel}
                                 </Link>
                             </div>
                         </nav>
@@ -350,11 +354,11 @@ export default function LandingLayout({ active, children }: Props) {
                                 </li>
                                 <li className="mt-2">
                                     <Link
-                                        href={login()}
+                                        href={accountHref}
                                         onClick={() => setMenuOpen(false)}
                                         className="btn btn-primary btn-sm"
                                     >
-                                        Masuk
+                                        {accountLabel}
                                     </Link>
                                 </li>
                             </ul>

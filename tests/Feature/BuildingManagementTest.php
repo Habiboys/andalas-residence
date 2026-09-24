@@ -44,6 +44,19 @@ function occupyRoom(Kamar $kamar): void
     ]);
 }
 
+test('kamar medium dapat dibuat dan diperbarui tanpa kehilangan tarif', function () {
+    ['lantai' => $lantai] = buildingFixture();
+    $this->actingAs($this->admin)->post(route('andalas.kamar.store'), [
+        'lantai_id' => $lantai->id, 'nomor_kamar' => 'MEDIUM-01', 'kapasitas' => 2,
+        'tipe_kamar' => 'medium', 'tarif_per_periode' => 1800000,
+    ])->assertSessionHasNoErrors();
+    $room = Kamar::where('nomor_kamar', 'MEDIUM-01')->sole();
+    expect($room->tipe_kamar)->toBe('medium')->and((int) $room->tarif_per_periode)->toBe(1800000);
+    $this->put(route('andalas.kamar.update', $room), ['tipe_kamar' => 'medium', 'tarif_per_periode' => 1900000])
+        ->assertSessionHasNoErrors();
+    expect((int) $room->fresh()->tarif_per_periode)->toBe(1900000);
+});
+
 test('lantai dapat diubah melalui endpoint update', function () {
     ['lantai' => $lantai] = buildingFixture();
 

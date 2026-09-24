@@ -51,10 +51,8 @@ const MAHASISWA_PAGES: Record<string, string> = {
 const FASILITATOR_PAGES: Record<string, string> = {
     perizinan: 'Monitoring Perizinan',
     'kelola-aset': 'Aset per Kamar',
-    'jadwal-kegiatan': 'Kelola Kegiatan',
+    'jadwal-kegiatan': 'Kegiatan & Absensi',
     dashboard: 'Dashboard',
-    'scan-barcode': 'QR Absensi',
-    'rekap-kehadiran': 'Rekap Kehadiran',
     'monitoring-kamar': 'Monitoring Kamar',
     'checkout-approval': 'Finalisasi Check-out',
 };

@@ -43,6 +43,8 @@ export interface User {
     no_hp?: string;
     prodi?: string;
     angkatan?: string;
+    student_stage?: string;
+    needs_service_selection?: boolean;
     barcode_code?: string;
     status_huni?: string;
     attendance_eligible?: boolean;

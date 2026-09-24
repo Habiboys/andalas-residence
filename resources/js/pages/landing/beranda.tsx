@@ -1,11 +1,11 @@
-import { Head, Link } from '@inertiajs/react';
-import { ChevronDown } from 'lucide-react';
-import LandingLayout from '@/andalas/components/LandingLayout';
+import { Head, Link } from "@inertiajs/react";
+import { ChevronDown } from "lucide-react";
+import LandingLayout from "@/andalas/components/LandingLayout";
 import TestimonialSlider, {
     type Testimoni,
-} from '@/andalas/components/TestimonialSlider';
-import { login, register } from '@/routes';
-import '@/andalas/index.css';
+} from "@/andalas/components/TestimonialSlider";
+import { login, register } from "@/routes";
+import "@/andalas/index.css";
 
 type Notice = { id: string; judul: string; tanggal: string | null };
 type GalleryPhoto = {
@@ -23,74 +23,74 @@ type Props = {
 
 const steps = [
     {
-        title: 'Buat akun dan lengkapi identitas',
-        text: 'Pilih kategori penghuni. Mahasiswa juga mencantumkan tahun masuk kuliah.',
+        title: "Buat akun dan lengkapi identitas",
+        text: "Pilih kategori penghuni. Mahasiswa juga mencantumkan tahun masuk kuliah.",
     },
     {
-        title: 'Tentukan kamar dan masa tinggal',
-        text: 'Pilih tipe serta nomor kamar yang tersedia. Khusus KIPK, pengelola yang menentukan penempatan.',
+        title: "Tentukan kamar dan masa tinggal",
+        text: "Pilih tipe serta nomor kamar yang tersedia. Khusus KIPK, pengelola yang menentukan penempatan.",
     },
     {
-        title: 'Periksa dan selesaikan tagihan',
-        text: 'Ikuti invoice di akun. Pengajuan cicilan ditinjau admin layanan; kategori bebas biaya mengikuti hasil verifikasi.',
+        title: "Periksa dan selesaikan tagihan",
+        text: "Ikuti invoice di akun. Pengajuan cicilan ditinjau admin layanan; kategori bebas biaya mengikuti hasil verifikasi.",
     },
     {
-        title: 'Terima kwitansi dan informasi hunian',
-        text: 'Kwitansi memuat pembayaran, gedung, tipe serta nomor kamar, dan lama masa tinggal.',
+        title: "Terima kwitansi dan informasi hunian",
+        text: "Kwitansi memuat pembayaran, gedung, tipe serta nomor kamar, dan lama masa tinggal.",
     },
 ];
 const categories = [
     {
-        title: 'Mahasiswa lokal',
-        text: 'Mahasiswa baru KIPK dan non-KIPK, serta mahasiswa yang melanjutkan masa hunian.',
+        title: "Mahasiswa lokal",
+        text: "Mahasiswa baru KIPK dan non-KIPK, serta mahasiswa yang melanjutkan masa hunian.",
     },
     {
-        title: 'Mahasiswa internasional',
-        text: 'Kategori reguler atau fasilitas gratis asrama, sesuai verifikasi pengelola.',
+        title: "Mahasiswa internasional",
+        text: "Kategori reguler atau fasilitas gratis asrama, sesuai verifikasi pengelola.",
     },
     {
-        title: 'Non-mahasiswa',
-        text: 'Pendaftaran mengikuti ketersediaan kamar dan ketentuan pengelola asrama.',
+        title: "Non-mahasiswa",
+        text: "Pendaftaran mengikuti ketersediaan kamar dan ketentuan pengelola asrama.",
     },
 ];
 const services = [
     {
-        title: 'Tagihan dan kwitansi',
-        text: 'Lihat rincian tagihan, ajukan cicilan, dan unduh kwitansi pembayaran.',
+        title: "Tagihan dan kwitansi",
+        text: "Lihat rincian tagihan, ajukan cicilan, dan unduh kwitansi pembayaran.",
     },
     {
-        title: 'Pelaporan kerusakan',
-        text: 'Tentukan barang dan lokasi kamar, lampirkan foto, lalu pantau penanganan teknisi.',
+        title: "Pelaporan kerusakan",
+        text: "Tentukan barang dan lokasi kamar, lampirkan foto, lalu pantau penanganan teknisi.",
     },
     {
-        title: 'Kegiatan mahasiswa binaan',
-        text: 'Lihat jadwal dan pindai QR kehadiran di lokasi kegiatan selama tahun pertama pembinaan.',
+        title: "Kegiatan mahasiswa binaan",
+        text: "Lihat jadwal dan pindai QR kehadiran di lokasi kegiatan selama tahun pertama pembinaan.",
     },
     {
-        title: 'Checkout dan bebas asrama',
-        text: 'Ajukan akhir masa tinggal dan urus surat sesuai pemeriksaan kamar serta status tagihan.',
+        title: "Checkout dan bebas asrama",
+        text: "Ajukan akhir masa tinggal dan urus surat sesuai pemeriksaan kamar serta status tagihan.",
     },
 ];
 const faqs = [
     {
-        q: 'Bagaimana cara mulai mendaftar?',
-        a: 'Buat akun melalui tombol Daftar hunian, pilih kategori penghuni, dan lengkapi profil. Setelah masuk, buka menu Pendaftaran Hunian untuk memilih periode dan kamar yang tersedia.',
+        q: "Bagaimana cara mulai mendaftar?",
+        a: "Buat akun melalui tombol Daftar hunian, pilih kategori penghuni, dan lengkapi profil. Setelah masuk, buka menu Pendaftaran Hunian untuk memilih periode dan kamar yang tersedia.",
     },
     {
-        q: 'Apakah semua calon penghuni memilih kamar sendiri?',
-        a: 'Calon penghuni dapat memilih tipe dan nomor kamar yang tersedia. Untuk mahasiswa KIPK, pilihan kamar dilewati dan penempatan dilakukan oleh pengelola.',
+        q: "Apakah semua calon penghuni memilih kamar sendiri?",
+        a: "Calon penghuni dapat memilih tipe dan nomor kamar yang tersedia. Untuk mahasiswa KIPK, pilihan kamar dilewati dan penempatan dilakukan oleh pengelola.",
     },
     {
-        q: 'Bagaimana pembayaran dan pengajuan cicilan dilakukan?',
-        a: 'Tagihan muncul di akun setelah pendaftaran diproses. Ikuti petunjuk pembayaran pada invoice dan unggah bukti bila diminta. Cicilan dapat diajukan melalui menu Tagihan dan jadwalnya ditetapkan admin. Pembayaran saat ini melalui verifikasi pengelola.',
+        q: "Bagaimana pembayaran dan pengajuan cicilan dilakukan?",
+        a: "Tagihan muncul di akun setelah pendaftaran diproses. Ikuti petunjuk pembayaran pada invoice dan unggah bukti bila diminta. Cicilan dapat diajukan melalui menu Tagihan dan jadwalnya ditetapkan admin. Pembayaran saat ini melalui verifikasi pengelola.",
     },
     {
-        q: 'Mengapa tidak semua penghuni dapat melakukan absensi?',
-        a: 'Absensi kegiatan ditujukan untuk mahasiswa lokal binaan pada tahun pertama, mulai angkatan 2026. Penghuni yang sudah checkout dan masuk kembali tidak termasuk binaan. QR harus masih berlaku dan mahasiswa serta fasilitator berada dalam radius kegiatan.',
+        q: "Mengapa tidak semua penghuni dapat melakukan absensi?",
+        a: "Absensi kegiatan ditujukan untuk mahasiswa lokal binaan pada tahun pertama, mulai angkatan 2026. Penghuni yang sudah checkout dan masuk kembali tidak termasuk binaan. QR harus masih berlaku dan mahasiswa serta fasilitator berada dalam radius kegiatan.",
     },
     {
-        q: 'Bagaimana mengurus surat bebas asrama untuk angkatan lama?',
-        a: 'Buat akun dan buka layanan Bebas Asrama. Untuk angkatan 2025 ke bawah, admin memverifikasi status alumni dan pelunasannya karena riwayatnya belum tercatat dalam sistem. Angkatan 2026 ke atas mengikuti riwayat hunian, checkout, dan tagihan yang tercatat.',
+        q: "Bagaimana mengurus surat bebas asrama untuk angkatan lama?",
+        a: "Buat akun dan buka layanan Bebas Asrama. Untuk angkatan 2025 ke bawah, admin memverifikasi status alumni dan pelunasannya karena riwayatnya belum tercatat dalam sistem. Angkatan 2026 ke atas mengikuti riwayat hunian, checkout, dan tagihan yang tercatat.",
     },
 ];
 
@@ -101,9 +101,9 @@ export default function Beranda({
     statistik = { gedung: 0, kamar: 0, penghuni: 0 },
 }: Props) {
     const stats = [
-        { val: String(statistik.gedung), label: 'Gedung' },
-        { val: String(statistik.kamar), label: 'Kamar' },
-        { val: String(statistik.penghuni), label: 'Penghuni aktif' },
+        { val: String(statistik.gedung), label: "Gedung" },
+        { val: String(statistik.kamar), label: "Kamar" },
+        { val: String(statistik.penghuni), label: "Penghuni aktif" },
     ];
     return (
         <>
@@ -354,14 +354,14 @@ export default function Beranda({
                                                         ? new Date(
                                                               item.tanggal,
                                                           ).toLocaleDateString(
-                                                              'id-ID',
+                                                              "id-ID",
                                                               {
-                                                                  day: 'numeric',
-                                                                  month: 'long',
-                                                                  year: 'numeric',
+                                                                  day: "numeric",
+                                                                  month: "long",
+                                                                  year: "numeric",
                                                               },
                                                           )
-                                                        : 'Pengumuman pengelola'}
+                                                        : "Pengumuman pengelola"}
                                                 </time>
                                                 <h3 className="mt-2 text-lg font-medium">
                                                     {item.judul}
@@ -421,6 +421,48 @@ export default function Beranda({
                     </div>
                 </section>
 
+                <TestimonialSlider items={testimoni} />
+
+                <section className="bg-base-100 py-16 md:py-24">
+                    <div className="mx-auto grid max-w-7xl gap-8 px-4 md:px-6 lg:grid-cols-3 lg:gap-16">
+                        <div>
+                            <h2 className="font-display text-2xl md:text-3xl">
+                                Pertanyaan umum
+                            </h2>
+                            <p className="text-muted mt-4 text-sm leading-7">
+                                Tentang pendaftaran, pembayaran, dan layanan
+                                administrasi.
+                            </p>
+                            <Link
+                                href="/kontak"
+                                className="text-primary mt-5 inline-block text-sm font-medium underline underline-offset-4"
+                            >
+                                Hubungi pengelola
+                            </Link>
+                        </div>
+                        <div className="divide-base-300 divide-y lg:col-span-2">
+                            {faqs.map((item) => (
+                                <details
+                                    key={item.q}
+                                    name="residence-faq"
+                                    className="group py-5 first:pt-0"
+                                >
+                                    <summary className="flex cursor-pointer list-none items-center justify-between gap-5 text-sm font-medium [&::-webkit-details-marker]:hidden">
+                                        {item.q}
+                                        <ChevronDown
+                                            className="text-muted size-4 shrink-0 group-open:rotate-180"
+                                            aria-hidden="true"
+                                        />
+                                    </summary>
+                                    <p className="text-muted mt-4 text-sm leading-7">
+                                        {item.a}
+                                    </p>
+                                </details>
+                            ))}
+                        </div>
+                    </div>
+                </section>
+
                 <section className="bg-mist py-12 md:py-16">
                     <div className="mx-auto grid max-w-7xl gap-8 px-4 md:px-6 lg:grid-cols-3 lg:items-center lg:gap-16">
                         <div>
@@ -462,48 +504,6 @@ export default function Beranda({
                                 Peta tidak tampil? Gunakan tautan petunjuk
                                 lokasi.
                             </p>
-                        </div>
-                    </div>
-                </section>
-
-                <TestimonialSlider items={testimoni} />
-
-                <section className="bg-base-100 py-16 md:py-24">
-                    <div className="mx-auto grid max-w-7xl gap-8 px-4 md:px-6 lg:grid-cols-3 lg:gap-16">
-                        <div>
-                            <h2 className="font-display text-2xl md:text-3xl">
-                                Pertanyaan umum
-                            </h2>
-                            <p className="text-muted mt-4 text-sm leading-7">
-                                Tentang pendaftaran, pembayaran, dan layanan
-                                administrasi.
-                            </p>
-                            <Link
-                                href="/kontak"
-                                className="text-primary mt-5 inline-block text-sm font-medium underline underline-offset-4"
-                            >
-                                Hubungi pengelola
-                            </Link>
-                        </div>
-                        <div className="divide-base-300 divide-y lg:col-span-2">
-                            {faqs.map((item) => (
-                                <details
-                                    key={item.q}
-                                    name="residence-faq"
-                                    className="group py-5 first:pt-0"
-                                >
-                                    <summary className="flex cursor-pointer list-none items-center justify-between gap-5 text-sm font-medium [&::-webkit-details-marker]:hidden">
-                                        {item.q}
-                                        <ChevronDown
-                                            className="text-muted size-4 shrink-0 group-open:rotate-180"
-                                            aria-hidden="true"
-                                        />
-                                    </summary>
-                                    <p className="text-muted mt-4 text-sm leading-7">
-                                        {item.a}
-                                    </p>
-                                </details>
-                            ))}
                         </div>
                     </div>
                 </section>

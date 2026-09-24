@@ -21,7 +21,7 @@ import { formatRupiah } from '../../lib/format';
 type Room = {
     id: string;
     nomor_kamar: string;
-    lantai?: { gedung?: { nama_gedung: string } };
+    lantai?: { gedung?: { nama_gedung: string; gender_peruntukan?: string } };
 };
 type Row = {
     id: string;
@@ -37,6 +37,7 @@ type Row = {
             nama: string;
             nim_nip: string;
             client_profile_category?: string;
+            gender?: string;
         };
     };
     room_preferences?: Array<{ kamar_id: string; kamar?: Room }>;
@@ -57,9 +58,15 @@ function RegistrationRow({
         kamar_id: row.room_preferences?.[0]?.kamar_id ?? '',
         notes: row.notes ?? '',
     });
+    const eligibleRooms = rooms.filter(
+        (room) =>
+            room.lantai?.gedung?.gender_peruntukan === 'campur' ||
+            room.lantai?.gedung?.gender_peruntukan ===
+                row.student_profile?.user?.gender,
+    );
     const choices = row.is_kipk
-        ? rooms
-        : rooms.filter((room) =>
+        ? eligibleRooms
+        : eligibleRooms.filter((room) =>
               row.room_preferences?.some(
                   (preference) => preference.kamar_id === room.id,
               ),

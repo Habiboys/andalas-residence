@@ -8,7 +8,7 @@ class Faculty extends BaseModel
 {
     protected $table = 'faculty';
 
-    protected $fillable = ['name'];
+    protected $fillable = ['name', 'code'];
 
     public function departemen(): HasMany
     {

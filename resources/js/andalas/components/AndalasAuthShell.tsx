@@ -5,6 +5,7 @@ import { AndalasLogo } from '@/andalas/components/AndalasLogo';
 
 type Props = {
     status?: string;
+    wide?: boolean;
     children: ReactNode;
 };
 
@@ -14,7 +15,7 @@ type Props = {
  * panel is now the brand itself: the logo and the institution on the deep
  * primary surface. When an official campus photograph exists, it belongs here.
  */
-export function AndalasAuthShell({ status, children }: Props) {
+export function AndalasAuthShell({ status, children, wide = false }: Props) {
     return (
         <div className="flex min-h-svh flex-col bg-base-100 md:flex-row">
             <div className="relative hidden flex-col justify-between overflow-hidden bg-primary p-10 text-primary-content md:flex md:w-5/12 lg:w-2/5 lg:p-12">
@@ -56,7 +57,7 @@ export function AndalasAuthShell({ status, children }: Props) {
                     <AndalasLogo size="sm" variant="icon" />
                 </div>
 
-                <div className="w-full max-w-md">
+                <div className={wide ? 'w-full max-w-3xl' : 'w-full max-w-md'}>
                     {status && (
                         <div role="status" className="alert alert-success mb-4 text-sm">
                             {status}

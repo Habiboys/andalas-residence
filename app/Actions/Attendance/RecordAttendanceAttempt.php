@@ -39,6 +39,7 @@ class RecordAttendanceAttempt
                 ! hash_equals($session->qr_token_hash, hash('sha256', $token)) => AttendanceRejectionReason::TokenInvalid,
                 ! $this->eligibility->isEligible($student, $now) => AttendanceRejectionReason::Ineligible,
                 ! $session->kegiatan->allowsStudent($student) => AttendanceRejectionReason::WrongBuilding,
+                $session->kegiatan->gedung_id !== null && ! $session->participants()->where('mahasiswa_id', $student->id)->exists() => AttendanceRejectionReason::Ineligible,
                 ! $this->validCoordinates($latitude, $longitude) || ! is_finite($accuracyMeters) || $accuracyMeters < 0 || $accuracyMeters > $session->maximum_accuracy_meters => AttendanceRejectionReason::LocationInaccurate,
                 $session->facilitator_located_at === null
                     || $session->facilitator_located_at->lt($now->copy()->subSeconds(60))

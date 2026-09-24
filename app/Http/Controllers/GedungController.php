@@ -16,7 +16,7 @@ class GedungController extends Controller
         $validated = $request->validate([
             'kode_gedung' => 'required|string|max:10|unique:gedung,kode_gedung',
             'nama_gedung' => 'required|string|max:150',
-            'gender_peruntukan' => 'required|in:laki_laki,perempuan,campuran',
+            'gender_peruntukan' => 'required|in:laki_laki,perempuan,campur',
             'alamat' => 'nullable|string',
             'deskripsi' => 'nullable|string',
             'foto' => [
@@ -44,7 +44,7 @@ class GedungController extends Controller
         $validated = $request->validate([
             'kode_gedung' => 'sometimes|string|max:10|unique:gedung,kode_gedung,'.$gedung->id,
             'nama_gedung' => 'sometimes|string|max:150',
-            'gender_peruntukan' => 'sometimes|in:laki_laki,perempuan,campuran',
+            'gender_peruntukan' => 'sometimes|in:laki_laki,perempuan,campur',
             'alamat' => 'nullable|string',
             'deskripsi' => 'nullable|string',
             'foto' => [

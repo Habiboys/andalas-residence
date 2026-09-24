@@ -8,7 +8,7 @@ class FasilitatorWilayah extends BaseModel
 {
     protected $table = 'fasilitator_wilayah';
 
-    protected $fillable = ['user_id', 'gedung_id', 'lantai_id'];
+    protected $fillable = ['user_id', 'gedung_id'];
 
     public function user(): BelongsTo
     {
@@ -18,10 +18,5 @@ class FasilitatorWilayah extends BaseModel
     public function gedung(): BelongsTo
     {
         return $this->belongsTo(Gedung::class);
-    }
-
-    public function lantai(): BelongsTo
-    {
-        return $this->belongsTo(Lantai::class);
     }
 }

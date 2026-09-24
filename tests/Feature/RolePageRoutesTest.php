@@ -138,7 +138,7 @@ function mappedBuilding(): Gedung
     return $building;
 }
 
-function occupyRoom(Gedung $building, User $student): void
+function occupyMappedRoom(Gedung $building, User $student): void
 {
     $room = Kamar::firstWhere('nomor_kamar', '101');
     PenempatanKamar::create([
@@ -164,7 +164,7 @@ function occupyRoom(Gedung $building, User $student): void
 
 test('staff room map carries room assets, prodi and the resident billing status', function () {
     $admin = userWithRole('staff_admin');
-    occupyRoom(mappedBuilding(), mahasiswaUser());
+    occupyMappedRoom(mappedBuilding(), mahasiswaUser());
 
     $this->actingAs($admin)->get('/admin/pemetaan-kamar')
         ->assertOk()
@@ -178,7 +178,7 @@ test('staff room map carries room assets, prodi and the resident billing status'
 
 test('mahasiswa room map never exposes assets or billing of other residents', function () {
     $student = mahasiswaUser();
-    occupyRoom(mappedBuilding(), $student);
+    occupyMappedRoom(mappedBuilding(), $student);
 
     $this->actingAs($student)->get('/mahasiswa/pemetaan-kamar')
         ->assertOk()
@@ -190,7 +190,7 @@ test('mahasiswa room map never exposes assets or billing of other residents', fu
 
 test('placement log feeds its resident detail with complete billing context', function () {
     $admin = userWithRole('staff_admin');
-    occupyRoom(mappedBuilding(), mahasiswaUser());
+    occupyMappedRoom(mappedBuilding(), mahasiswaUser());
 
     $this->actingAs($admin)->get('/admin/penempatan-kamar')
         ->assertOk()

@@ -5,6 +5,8 @@ namespace App\Actions\Registration;
 use App\Enums\ResidenceRegistrationStatus;
 use App\Models\MahasiswaProfil;
 use App\Models\ResidenceRegistration;
+use App\Models\Kamar;
+use App\Services\RoomEligibility;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -29,6 +31,12 @@ class SubmitResidenceRegistration
             }
             if ($student->penempatanKamar()->where('status', 'aktif')->exists()) {
                 throw ValidationException::withMessages(['periode_id' => 'Selesaikan masa hunian aktif sebelum mendaftar kembali.']);
+            }
+            if (! $data['is_kipk']) {
+                foreach ($data['preferences'] as $preference) {
+                    $room = Kamar::lockForUpdate()->findOrFail($preference['kamar_id']);
+                    RoomEligibility::validate($room, $student->user, 'preferences');
+                }
             }
             $registration = ResidenceRegistration::query()
                 ->where('student_profile_id', $student->id)
