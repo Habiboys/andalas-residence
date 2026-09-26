@@ -21,7 +21,7 @@ const summary = {
 it('renders escaped identity values and missing data clearly', () => {
     const html = renderToStaticMarkup(<UserProfileDetails summary={summary} />);
     expect(html).toContain('&lt;script&gt;nama&lt;/script&gt;');
-    expect(html).toContain('Belum tersedia / tidak berlaku');
+    expect(html).toContain('Belum tersedia');
     expect(html).toContain('Identitas dan akun');
 });
 

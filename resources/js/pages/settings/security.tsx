@@ -18,7 +18,7 @@ export default function Security(props: Props) {
     const currentPasswordInput = useRef<HTMLInputElement>(null);
 
     return (
-        <div className="mx-auto w-full max-w-3xl">
+        <div className="w-full max-w-2xl">
             <Head title="Keamanan & Password" />
 
             <h1 className="sr-only">Keamanan & Password</h1>

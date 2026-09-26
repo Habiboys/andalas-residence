@@ -6,7 +6,7 @@ import { Card } from '@/andalas/components/ui';
 
 export default function Appearance() {
     return (
-        <div className="mx-auto w-full max-w-3xl">
+        <div className="w-full max-w-2xl">
             <Head title="Tampilan" />
 
             <h1 className="sr-only">Tampilan</h1>

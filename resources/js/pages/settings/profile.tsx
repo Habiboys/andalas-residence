@@ -1,5 +1,4 @@
-import { Form, Head, usePage } from '@inertiajs/react';
-import { Link } from '@inertiajs/react';
+import { Form, Head, Link, usePage } from '@inertiajs/react';
 import ProfileController from '@/actions/App/Http/Controllers/Settings/ProfileController';
 import DeleteUser from '@/components/delete-user';
 import Heading from '@/components/heading';
@@ -28,14 +27,14 @@ export default function Profile({
     const { auth } = usePage<PageProps>().props;
 
     return (
-        <div className="mx-auto w-full max-w-3xl">
+        <div className="w-full">
             <Head title="Profil Saya" />
             <h1 className="sr-only">Profil Saya</h1>
 
             <SettingsNav />
 
-            <div className="space-y-4">
-                <Card className="space-y-4 p-5">
+            <div className="grid items-start gap-4 xl:grid-cols-3">
+                <Card className="space-y-4 p-4 md:p-5 xl:col-span-2">
                     <Heading
                         variant="small"
                         title="Ringkasan akun"
@@ -44,108 +43,106 @@ export default function Profile({
                     <UserProfileDetails summary={profileSummary} />
                 </Card>
 
-                <Card className="space-y-6 p-5">
-                    <Heading
-                        variant="small"
-                        title="Ubah nama dan email"
-                        description="Untuk koreksi identitas, data akademik, atau kategori akun, hubungi admin layanan."
-                    />
+                <div className="space-y-4">
+                    <Card className="space-y-4 p-4 md:p-5">
+                        <Heading
+                            variant="small"
+                            title="Ubah nama dan email"
+                            description="Untuk koreksi identitas, data akademik, atau kategori akun, hubungi admin layanan."
+                        />
 
-                    <Form
-                        action={ProfileController.update.url()}
-                        method="patch"
-                        options={{
-                            preserveScroll: true,
-                        }}
-                        className="space-y-6"
-                    >
-                        {({ processing, errors }) => (
-                            <>
-                                <div className="grid gap-2">
-                                    <label className="label" htmlFor="name">
-                                        Nama lengkap
-                                    </label>
+                        <Form
+                            action={ProfileController.update.url()}
+                            method="patch"
+                            options={{
+                                preserveScroll: true,
+                            }}
+                            className="space-y-4"
+                        >
+                            {({ processing, errors }) => (
+                                <>
+                                    <div className="grid gap-1.5">
+                                        <label className="label" htmlFor="name">
+                                            Nama lengkap
+                                        </label>
 
-                                    <input
-                                        id="name"
-                                        className="input input-bordered mt-1 w-full"
-                                        defaultValue={auth.user.name}
-                                        name="name"
-                                        required
-                                        autoComplete="name"
-                                        placeholder="Nama lengkap"
-                                    />
+                                        <input
+                                            id="name"
+                                            className="input input-bordered w-full"
+                                            defaultValue={auth.user.name}
+                                            name="name"
+                                            required
+                                            autoComplete="name"
+                                            placeholder="Nama lengkap"
+                                        />
 
-                                    <InputError
-                                        className="mt-2"
-                                        message={errors.name}
-                                    />
-                                </div>
+                                        <InputError
+                                            message={errors.name}
+                                        />
+                                    </div>
 
-                                <div className="grid gap-2">
-                                    <label className="label" htmlFor="email">
-                                        Email
-                                    </label>
+                                    <div className="grid gap-1.5">
+                                        <label className="label" htmlFor="email">
+                                            Email
+                                        </label>
 
-                                    <input
-                                        id="email"
-                                        type="email"
-                                        className="input input-bordered mt-1 w-full"
-                                        defaultValue={auth.user.email}
-                                        name="email"
-                                        required
-                                        autoComplete="username"
-                                        placeholder="Email"
-                                    />
+                                        <input
+                                            id="email"
+                                            type="email"
+                                            className="input input-bordered w-full"
+                                            defaultValue={auth.user.email}
+                                            name="email"
+                                            required
+                                            autoComplete="username"
+                                            placeholder="Email"
+                                        />
 
-                                    <InputError
-                                        className="mt-2"
-                                        message={errors.email}
-                                    />
-                                </div>
+                                        <InputError
+                                            message={errors.email}
+                                        />
+                                    </div>
 
-                                {mustVerifyEmail &&
-                                    auth.user.email_verified_at === null && (
-                                        <div>
-                                            <p className="text-muted-foreground -mt-4 text-sm">
-                                                Email Anda belum diverifikasi.{' '}
+                                    {mustVerifyEmail &&
+                                        auth.user.email_verified_at ===
+                                            null && (
+                                            <p className="text-base-content/60 text-sm">
+                                                Email Anda belum
+                                                diverifikasi.{' '}
                                                 <Link
                                                     href={send()}
                                                     as="button"
-                                                    className="text-foreground underline decoration-neutral-300 underline-offset-4 transition-colors duration-300 ease-out hover:decoration-current! dark:decoration-neutral-500"
+                                                    className="link"
                                                 >
                                                     Kirim ulang email
                                                     verifikasi.
                                                 </Link>
                                             </p>
+                                        )}
 
-                                            {status ===
-                                                'verification-link-sent' && (
-                                                <div className="text-success mt-2 text-sm font-medium">
-                                                    Tautan verifikasi baru telah
-                                                    dikirim ke email Anda.
-                                                </div>
-                                            )}
-                                        </div>
+                                    {status ===
+                                        'verification-link-sent' && (
+                                        <p className="text-success text-sm font-medium">
+                                            Tautan verifikasi baru telah
+                                            dikirim ke email Anda.
+                                        </p>
                                     )}
 
-                                <div className="flex items-center gap-4">
                                     <button
-                                        className="btn btn-primary"
+                                        className="btn btn-primary btn-sm self-start"
                                         disabled={processing}
                                         data-test="update-profile-button"
                                     >
                                         Simpan perubahan
                                     </button>
-                                </div>
-                            </>
-                        )}
-                    </Form>
-                </Card>
+                                </>
+                            )}
+                        </Form>
+                    </Card>
 
-                <Card className="p-5">
-                    <DeleteUser />
-                </Card>
+                    <Card className="p-4 md:p-5">
+                        <DeleteUser />
+                    </Card>
+                </div>
             </div>
         </div>
     );
