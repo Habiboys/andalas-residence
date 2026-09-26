@@ -31,7 +31,10 @@ class ApproveFreeResidenceLetter
                 return $application;
             }
 
-            if ($application->status !== FreeResidenceLetterStatus::Diverifikasi) {
+            $settledRejection = $application->status === FreeResidenceLetterStatus::Ditolak
+                && $application->legacy_verification_path === LegacyFreeResidenceVerificationPath::AlumniUnpaid
+                && $application->tagihan?->status === TagihanStatus::Lunas;
+            if ($application->status !== FreeResidenceLetterStatus::Diverifikasi && ! $settledRejection) {
                 throw ValidationException::withMessages(['status' => 'Pengajuan harus diverifikasi sebelum disetujui.']);
             }
 

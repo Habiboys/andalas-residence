@@ -99,6 +99,7 @@ export default function AdminJadwalKegiatan({
         gedung_id: '',
         duration_minutes: 15,
         radius_meters: 100,
+        maximum_accuracy_meters: 100,
         latitude: 0,
         longitude: 0,
         accuracy_meters: 0,
@@ -422,6 +423,22 @@ export default function AdminJadwalKegiatan({
                                 onChange={(e) =>
                                     form.setData(
                                         'radius_meters',
+                                        Number(e.target.value),
+                                    )
+                                }
+                            />
+                        </FormField>
+                        <FormField label="Batas akurasi GPS (meter)">
+                            <input
+                                type="number"
+                                required
+                                min={1}
+                                max={1000}
+                                className={inputClass}
+                                value={form.data.maximum_accuracy_meters}
+                                onChange={(e) =>
+                                    form.setData(
+                                        'maximum_accuracy_meters',
                                         Number(e.target.value),
                                     )
                                 }

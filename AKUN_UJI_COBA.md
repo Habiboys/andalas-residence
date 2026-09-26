@@ -2,7 +2,7 @@
 
 Panduan langkah demi langkah: [Uji setiap proses bisnis dari awal](PANDUAN_UJI_PROBIS.md).
 
-Disusun pada 24 September 2026 berdasarkan definisi seeder proyek. Daftar ini menjelaskan kondisi awal saat akun dibuat, bukan pembacaan ulang kondisi database setelah pengujian.
+Diperiksa ulang pada 26 September 2026 berdasarkan definisi seeder proyek. Daftar ini menjelaskan kondisi awal saat akun dibuat, bukan pembacaan ulang database operasional. NIM berawalan `26` mengasumsikan seed pertama pada 2026; akun skenario baru mengikuti `max(2026, tahun saat seed)`, kecuali skenario legacy/returning yang memakai 2025. Seeder dasar memiliki angkatan tetap. Lihat [hasil audit dan keterbatasan](AUDIT_KESESUAIAN_PROBIS.md).
 
 ## Login dan password
 
@@ -11,7 +11,7 @@ Disusun pada 24 September 2026 berdasarkan definisi seeder proyek. Daftar ini me
 - Seeding ulang memperbaiki NIM bawaan lama (`DEMO-xxxx`, NIM awal `22...`, dan `INT001`) tanpa mengganti NIM yang sudah disunting penguji. Akun nonmahasiswa dan petugas tidak mengikuti format NIM mahasiswa.
 - **Password awal seluruh akun seeder: `password`**.
 - Gunakan akun **`@example.test`** untuk skenario lengkap yang saling terhubung.
-- Seeder menyediakan **63 akun skenario**: 9 akun petugas/orang tua dan 54 akun client. Terdapat juga **14 akun awal** dari seeder dasar, sehingga total definisi akun adalah **77 akun**.
+- Seeder menyediakan **73 akun skenario**: 19 akun petugas/orang tua dan 54 akun client. Terdapat juga **14 akun awal** dari seeder dasar, sehingga total definisi akun adalah **87 akun**.
 - Jika password, nama, atau status sudah diubah saat pengujian, seeding ulang tidak mengembalikannya ke nilai awal.
 - Akun `surat-modern@example.test` dan `legacy-surat-terbit@example.test` sengaja berstatus **nonaktif** setelah penerbitan surat. Keduanya bukan akun penghuni aktif untuk memulai transaksi baru.
 
@@ -22,26 +22,36 @@ Disusun pada 24 September 2026 berdasarkan definisi seeder proyek. Daftar ini me
 | 1   | `superadmin@example.test`    | `DEMO-STAFF-0` | Superadmin            | Seluruh pengelolaan, akun internal, dan audit log                           |
 | 2   | `pimpinan@example.test`      | `DEMO-STAFF-1` | Pimpinan              | Dashboard, laporan keuangan/aset, dan pemantauan kerusakan                  |
 | 3   | `staff_admin@example.test`   | `DEMO-STAFF-2` | Staff administrasi    | Data master, mahasiswa, keuangan, dan konten landing                        |
-| 4   | `admin_layanan@example.test` | `DEMO-STAFF-3` | Admin layanan         | Review pendaftaran, penempatan, pembayaran, cicilan, dan surat bebas asrama |
+| 4   | `admin_layanan@example.test` | `DEMO-STAFF-3` | Admin layanan         | Penempatan KIP-K/sponsor, verifikasi pembayaran, nominal cicilan, dan surat |
 | 5   | `admin_aset@example.test`    | `DEMO-STAFF-4` | Admin aset            | Gedung, kamar, stok, lokasi, dan jumlah aset                                |
 | 6   | `fasilitator@example.test`   | `DEMO-STAFF-5` | Fasilitator           | Kegiatan, QR absensi, perizinan, dan penyelesaian checkout untuk DEMO-W     |
 | 7   | `teknisi@example.test`       | `DEMO-STAFF-6` | Teknisi               | Tiket kerusakan, pengerjaan, bukti penyelesaian, dan riwayat penilaian      |
 | 8   | `go@example.test`            | `DEMO-STAFF-7` | GO / Cleaning Service | Pemeriksaan kamar dan jumlah/kondisi aset sebelum checkout                  |
 | 9   | `orang_tua@example.test`     | `DEMO-STAFF-8` | Orang tua             | Pemantauan anak yang terhubung: binaan-aktif@example.test                   |
+| 10  | `fasilitator-rpx@example.test`    | `DEMO-FAS-A` | Fasilitator | Akses hanya gedung RPX (A)  |
+| 11  | `fasilitator-rusunawa@example.test` | `DEMO-FAS-B` | Fasilitator | Akses hanya gedung Rusunawa (B) |
+| 12  | `fasilitator-pupera-puteri@example.test` | `DEMO-FAS-C` | Fasilitator | Akses hanya gedung Pupera Puteri (C) |
+| 13  | `fasilitator-menpera@example.test` | `DEMO-FAS-D` | Fasilitator | Akses hanya gedung Menpera (D) |
+| 14  | `fasilitator-rms@example.test` | `DEMO-FAS-E` | Fasilitator | Akses hanya gedung RMS (E) |
+| 15  | `fasilitator-oren@example.test` | `DEMO-FAS-F` | Fasilitator | Akses hanya gedung Oren (F) |
+| 16  | `fasilitator-hijau@example.test` | `DEMO-FAS-G` | Fasilitator | Akses hanya gedung Hijau (G) |
+| 17  | `fasilitator-pupera-putera@example.test` | `DEMO-FAS-H` | Fasilitator | Akses hanya gedung Pupera Putera (H) |
+| 18  | `fasilitator-asn@example.test` | `DEMO-FAS-ASN` | Fasilitator | Akses hanya gedung ASN |
+| 19  | `fasilitator-nakes@example.test` | `DEMO-FAS-Nakes` | Fasilitator | Akses hanya gedung Nakes |
 
-`fasilitator@example.test` ditugaskan ke **DEMO-W**, sedangkan `fasilitator@unand.ac.id` ke **DEMO-P**. Satu fasilitator hanya menangani satu gedung; beberapa fasilitator boleh menangani gedung yang sama. Gedung **DEMO-T** disediakan untuk menguji pembatasan akses lintas gedung.
+`fasilitator@example.test` ditugaskan ke **DEMO-W**, sedangkan `fasilitator@unand.ac.id` ke **DEMO-P**. Satu fasilitator hanya menangani satu gedung; beberapa fasilitator boleh menangani gedung yang sama. Gedung **DEMO-T** disediakan untuk menguji pembatasan akses lintas gedung. Sepuluh akun `fasilitator-<gedung>@example.test` masing-masing ditugaskan ke satu gedung riil (A sampai H, ASN, Nakes) untuk menguji hak akses lintas gedung sesuai lampiran probis.
 
 ## Akun client per skenario
 
-Seluruh akun pada tabel ini memakai role sistem `mahasiswa`, termasuk client internasional dan nonmahasiswa. Kategori client tetap dibedakan sesuai kolom kategori.
+Seluruh akun client pada tabel seeder ini memakai role sistem `mahasiswa`, termasuk internasional dan akun demo nonmahasiswa lama. Ini **bukan** role semua penghuni yang dibuat lewat fitur sekarang: identitas baru dari Hunian Sementara memakai `tamu`, tanpa akses halaman role. Gunakan petugas untuk menguji Summer Course/nonmahasiswa dari awal. Akun lama yang dipakai ulang oleh fitur hunian sementara dapat tetap mempertahankan role sebelumnya.
 
 | No. | Email                               | NIM/NIP      | Kategori                       | Kondisi awal dan pengujian                                                                |
 | --- | ----------------------------------- | ------------ | ------------------------------ | ----------------------------------------------------------------------------------------- |
 | 1   | `daftar-draft@example.test`         | `2699000001` | Lokal non-KIPK                 | Draft pendaftaran; lanjutkan pengajuan                                                    |
-| 2   | `daftar-review@example.test`        | `2699000002` | Lokal non-KIPK                 | Pendaftaran submitted; review oleh admin layanan                                          |
+| 2   | `daftar-review@example.test`        | `2699000002` | Lokal non-KIPK                 | Submitted; lanjut pembayaran, bukan persetujuan pendaftaran pribadi                                          |
 | 3   | `daftar-ditolak@example.test`       | `2699000003` | Lokal non-KIPK                 | Pendaftaran ditolak; tagihan dibatalkan; perbaiki dan ajukan ulang                        |
 | 4   | `tagihan-belum-bayar@example.test`  | `2699000004` | Lokal non-KIPK                 | Tagihan belum dibayar dan sudah melewati jatuh tempo saat seed                            |
-| 5   | `bayar-verifikasi@example.test`     | `2699000005` | Lokal non-KIPK                 | Bukti pembayaran menunggu verifikasi admin; pendaftaran masih verified                    |
+| 5   | `bayar-verifikasi@example.test`     | `2699000005` | Lokal non-KIPK                 | Bukti menunggu verifikasi; status verified berasal dari fixture lama                    |
 | 6   | `bayar-ditolak@example.test`        | `2699000006` | Lokal non-KIPK                 | Pembayaran ditolak; baca alasan dan unggah pembayaran yang sesuai                         |
 | 7   | `cicilan-pengajuan@example.test`    | `2699000007` | Lokal non-KIPK                 | Tagihan terbit menunggu penetapan nominal berikutnya oleh admin                           |
 | 8   | `cicilan-aktif@example.test`        | `2699000008` | Lokal non-KIPK                 | Penghuni aktif; termin pertama lunas, termin kedua belum dibayar                          |
@@ -59,7 +69,7 @@ Seluruh akun pada tabel ini memakai role sistem `mahasiswa`, termasuk client int
 | 20  | `surat-modern@example.test`         | `2699000020` | Lokal non-KIPK                 | Checkout selesai dan surat modern sudah terbit; akun NONAKTIF                             |
 | 21  | `legacy-lunas@example.test`         | `2599000021` | Alumni lokal angkatan 2025     | Pengajuan alumni lunas dengan bukti pembayaran dan rekening koran; menunggu persetujuan   |
 | 22  | `legacy-belum-lunas@example.test`   | `2599000022` | Alumni lokal angkatan 2025     | Klasifikasi alumni belum lunas sudah diverifikasi; invoice tersedia untuk dibayar         |
-| 23  | `legacy-bukan-alumni@example.test`  | `2599000023` | Mahasiswa angkatan 2025        | Mengajukan surat tanpa riwayat hunian; admin perlu memverifikasi klasifikasi bukan alumni |
+| 23  | `legacy-bukan-alumni@example.test`  | `2599000023` | Mahasiswa angkatan 2025        | Fixture pengajuan lama tanpa riwayat; kirim ulang dari client untuk menguji terbit otomatis |
 | 24  | `legacy-ditolak@example.test`       | `2599000024` | Alumni lokal angkatan 2025     | Pengajuan surat ditolak karena bukti belum sesuai; uji perbaikan dokumen                  |
 | 25  | `legacy-surat-terbit@example.test`  | `2599000025` | Client legacy angkatan 2025    | Sudah diverifikasi sebagai bukan alumni dan surat terbit; akun NONAKTIF                   |
 | 26  | `izin-otomatis@example.test`        | `2699000026` | Lokal non-KIPK                 | Enam izin sebelumnya selesai; izin ketujuh otomatis sedang_izin; unggah bukti sampai      |
@@ -124,6 +134,7 @@ Akun berikut berasal dari seeder dasar. Akun-akun ini tidak memiliki rangkaian s
 | Kerusakan             | `binaan-aktif@example.test` / `penghuni-01@example.test`        | `teknisi@example.test`                                         | Laporkan aset tertentu, mulai pengerjaan, unggah foto sesudah dan catatan penyelesaian                                      |
 | Checkout              | `checkout-pengajuan@example.test`                               | `go@example.test`, lalu `fasilitator@unand.ac.id` (DEMO-P)     | GO memeriksa seluruh aset kamar; fasilitator menyelesaikan checkout                                                         |
 | Surat modern          | `checkout-selesai@example.test`                                 | Otomatis berdasarkan data sistem                               | Ajukan surat setelah checkout selesai dan tagihan lunas                                                                     |
+| Penandatangan & QR    | Surat terbit dari langkah sebelumnya                            | `staff_admin@example.test` atau `admin_layanan@example.test`   | Kelola satu penandatangan aktif, terbitkan surat bernomor urut, lalu buka halaman verifikasi QR tanpa login                 |
 | Surat alumni          | `legacy-lunas@example.test` / `legacy-belum-lunas@example.test` | `admin_layanan@example.test`                                   | Verifikasi bukti atau selesaikan tagihan sesuai klasifikasi                                                                 |
 | Izin manual           | `izin-review@example.test`                                      | `fasilitator@example.test`                                     | Setujui/tolak, lalu uji bukti sampai dan bukti kembali dari akun penghuni                                                   |
 | Absensi QR            | `binaan-aktif@example.test` (W) / `kipk-aktif@example.test` (P) | `fasilitator@example.test` (W) / `fasilitator@unand.ac.id` (P) | Buat kegiatan sekaligus QR, scan, periksa geofencing, peserta per lantai, dan koreksi manual                                |
@@ -144,7 +155,7 @@ Akun berikut berasal dari seeder dasar. Akun-akun ini tidak memiliki rangkaian s
 ### Catatan data
 
 - Foto dan PDF berlabel demo disediakan untuk pengujian unggah, tampil, dan unduh dokumen.
-- Surat mengikuti contoh pengelola dengan logo UNAND: tidak tinggal di asrama untuk klasifikasi bukan alumni; telah membayar untuk alumni berbayar; format umum sementara untuk kategori subsidi. Nama penandatangan dapat diatur melalui `RESIDENCE_LETTER_SIGNER`. Surat yang sudah terbit tidak ditulis ulang, kecuali dua dokumen demo bawaan ketika seeder memperbarui formatnya.
+- Surat mengikuti contoh pengelola dengan logo UNAND: tidak tinggal di asrama untuk klasifikasi bukan alumni; telah membayar untuk alumni berbayar; format umum sementara untuk kategori subsidi. Penandatangan dikelola lewat menu **Penandatangan Surat** (satu aktif, lengkap dengan NIP); bila belum ada penandatangan aktif, sistem jatuh ke `RESIDENCE_LETTER_SIGNER`. Nomor surat dibuat berurutan per tahun (mis. `SBA/UNAND/2026/0001`) kecuali admin mengisi nomor resmi, dan QR verifikasi publik tercetak pada surat baru. Surat yang sudah terbit tidak ditulis ulang, kecuali dua dokumen demo bawaan ketika seeder memperbarui formatnya; surat lama tanpa token belum dapat diverifikasi publik. Rincian pada [audit](AUDIT_KESESUAIAN_PROBIS.md).
 - Virtual account **DEMO-NONAKTIF** hanya data simulasi; tidak terhubung ke provider pembayaran.
 - Tanggal jatuh tempo, keterlambatan izin, dan kelayakan tahun pertama mengikuti waktu. Kondisinya dapat berubah setelah waktu berlalu.
 - Seeding ulang mempertahankan perkembangan skenario; bukan perintah reset pengujian.
@@ -166,8 +177,10 @@ php artisan test --compact --filter=ComprehensiveSeederTest
 
 ## Sumber definisi
 
+- [Audit kesesuaian implementasi dengan lampiran probis](AUDIT_KESESUAIAN_PROBIS.md)
 - [Ringkasan dan pengelompokan 54 skenario data uji](SKENARIO_UJI_COBA.md)
 - [Seeder dasar dan akun awal](database/seeders/DatabaseSeeder.php)
 - [Akun skenario, kamar, aset, pendaftaran, dan tagihan](database/seeders/ResidenceScenarioSeeder.php)
 - [Kerusakan, checkout, surat, izin, absensi, dan konten](database/seeders/ResidenceOperationsSeeder.php)
+- [Penandatangan aktif dan urutan nomor surat](database/seeders/DocumentSystemSeeder.php)
 - [Pengujian konsistensi seeder dan kelanjutan alur](tests/Feature/ComprehensiveSeederTest.php)

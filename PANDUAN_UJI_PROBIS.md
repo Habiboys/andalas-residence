@@ -1,6 +1,6 @@
 # Panduan uji proses bisnis Andalas Residence dari awal
 
-Panduan pengujian manual, disusun 24 September 2026 berdasarkan implementasi dan seeder proyek. Kondisi akun di sini adalah kondisi awal seeder; tindakan yang sudah dilakukan penguji dapat mengubahnya.
+Panduan pengujian manual, diperiksa ulang 26 September 2026 berdasarkan implementasi dan seeder proyek. Kondisi akun di sini adalah kondisi awal seeder; tindakan penguji dapat mengubahnya. Langkah berikut menjelaskan **perilaku aplikasi saat ini**, bukan pernyataan bahwa seluruh lampiran probis sudah terpenuhi. Perbedaan dan bukti tersedia di [Audit kesesuaian probis](AUDIT_KESESUAIAN_PROBIS.md).
 
 ## 1. Mulai dari mana?
 
@@ -124,9 +124,9 @@ Urutan perjalanan lengkap:
 | 7       | Login admin → Verifikasi Pembayaran → tab menunggu → detail pembayaran → setujui                                                                                        | Invoice lunas/cicilan pertama terpenuhi; pendaftaran selesai otomatis: penempatan tercatat, status hunian aktif, kwitansi diproses                                                |
 | 8       | Login client; periksa hunian, menu layanan dan unduh kwitansi setelah worker selesai                                                                                    | Kwitansi berisi nama, jumlah benar-benar dibayar, gedung, nomor/tipe kamar dan masa tinggal                                                                                       |
 
-Tidak ada langkah check-in terpisah yang harus dilakukan penghuni setelah proses ini.
+Tidak ada langkah check-in terpisah yang harus dilakukan penghuni setelah proses ini. Status `verified` pada beberapa akun seeder adalah fixture lama; jangan menambahkan persetujuan pendaftaran pribadi ke perjalanan baru.
 
-Angkatan kini dihitung otomatis dari dua digit awal NIM, misalnya `26` untuk 2026 dan `25` untuk 2025. Tidak ada input angkatan manual. Gunakan NIM numerik yang unik; jangan menyalin NIM akun demo. Mahasiswa baru/lama ditentukan dari angkatan dibandingkan tahun berjalan; kategori lokal hanya KIPK dan non-KIPK. Nonmahasiswa memakai nomor identitas dan tidak memiliki angkatan/prodi.
+Angkatan kini dihitung otomatis dari dua digit awal NIM, misalnya `26` untuk 2026 dan `25` untuk 2025. Tidak ada input angkatan manual. Gunakan NIM numerik yang unik; jangan menyalin NIM akun demo. Mahasiswa baru/lama untuk layanan binaan ditentukan dari angkatan dibandingkan angkatan maba periode aktif dan riwayat hunian; kategori lokal hanya KIPK dan non-KIPK. Nonmahasiswa memakai nomor identitas dan tidak memiliki angkatan/prodi.
 
 Saat membuat akun mahasiswa, pilih **fakultas → departemen → program studi/jenjang**. Mengubah fakultas mengosongkan departemen dan prodi; mengubah departemen mengosongkan prodi. Coba mengirim prodi dari departemen lain: server harus menolak. Tombol mata tersedia pada kedua input password.
 
@@ -167,7 +167,7 @@ Halaman ini menjadi sumber kebenaran kategori, tarif, dan arsip. Uji setiap blok
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Periode         | Aktifkan satu periode penerimaan; isi tahun angkatan maba (mis. 2026/2027 → 2026) dan jam reservasi (default 24). Mengaktifkan periode lain otomatis menonaktifkan sebelumnya; hanya satu periode aktif |
 | Daftar KIP-K    | Tambah NIM, nama; angkatan diambil otomatis dari NIM. Pendaftar lokal hanya diperlakukan KIPK bila NIM+angkatannya tercatat di sini dan sesuai angkatan maba periode aktif                              |
-| Tarif hunian    | Tetapkan nominal per gedung–tipe kamar–satuan (`period` atau `day`). Pendaftaran tanpa tarif untuk kombinasi terpilih ditolak, bukan ditagih nol                                                        |
+| Tarif hunian    | Tetapkan nominal per gedung–tipe kamar–satuan (`period` atau `day`). Tipe kamar memakai kosakata `standar/medium/premium`; kamar lama bertipe `reguler/vip` dimigrasi otomatis oleh migrasi terbaru. Tarif harian wajib tersedia; tarif periodik dapat memakai tarif kamar sebagai fallback, dan nominal nol ditolak |
 | Kategori gedung | Batasi kategori penghuni yang boleh masuk tiap gedung (lokal KIPK/non-KIPK, internasional, non-mahasiswa)                                                                                               |
 | Arsip alumni    | Tambah manual NIM (angkatan ≤2025), nama, gedung terakhir, keterangan, tanggal checkout opsional; dapat dibuat sebelum akun ada dan terhubung otomatis lewat NIM                                        |
 | Impor arsip     | Template lima kolom `nim,nama,kode_gedung,checked_out_at,notes`, satu sheet, maksimal 500 baris; duplikat NIM dan baris bermasalah dibatalkan seluruhnya                                                |
@@ -281,7 +281,7 @@ Untuk contoh import DEMO-P, gunakan `fasilitator@unand.ac.id`. Buat stok `UJI-KU
 2. Buka Perizinan, pilih pulang kampung atau kegiatan, isi alasan, tujuan dan tanggal; dokumen pendukung opsional.
 3. Kirim. Jika jumlah pengajuan sebelumnya paling banyak 6, status langsung **sedang izin**.
 4. Saat sudah berangkat/sampai, unggah foto bukti sampai dan izinkan lokasi; gunakan tanggal berangkat yang tidak masih di masa depan.
-5. Periksa status **sudah sampai**, foto, waktu dan koordinat pada monitoring fasilitator.
+5. Muat ulang halaman monitoring fasilitator, lalu periksa status **sudah sampai**, foto, waktu dan koordinat. Halaman monitoring saat ini belum melakukan polling/push otomatis.
 6. Setelah kembali, unggah foto bukti kembali dengan lokasi. Status menjadi **selesai kembali** dan riwayat tetap tersedia.
 
 ### Izin yang perlu verifikasi
@@ -305,7 +305,7 @@ Batas dihitung dari pengajuan **sebelumnya**: izin ketujuh masih otomatis bila s
 
 **Akun:** `fasilitator@example.test` untuk **DEMO-W** dengan peserta `binaan-aktif@example.test`. Untuk **DEMO-P**, gunakan `fasilitator@unand.ac.id` dengan peserta `kipk-aktif@example.test`. Password awal tetap `password`.
 
-Kelayakan peserta: mahasiswa lokal angkatan **2026 ke atas**, masih tahun pertama hunian, aktif, dan belum checkout/masuk kembali. Angkatan saja tidak cukup. Data demo dapat kehilangan kelayakan ketika tanggal pengujian melewati tahun pertama.
+Kelayakan peserta saat ini: mahasiswa lokal non-S2/S3 dengan angkatan **sama dengan `angkatan_maba` periode aktif**, akun dan hunian aktif, mempunyai penempatan aktif, serta belum mempunyai riwayat akhir hunian/arsip alumni. Peserta hunian sementara tidak memenuhi binaan. Tidak ada batas otomatis 365 hari dalam pemeriksaan ini; mengganti periode aktif dapat mengubah kelayakan. Selisih dengan frasa “tahun pertama” pada lampiran dicatat pada audit.
 
 ### Penugasan dan master jenis kegiatan
 
@@ -320,8 +320,8 @@ Kelayakan peserta: mahasiswa lokal angkatan **2026 ke atas**, masih tahun pertam
 1. Fasilitator → **Kegiatan & Absensi → Buat kegiatan & QR**.
 2. Gedung otomatis mengikuti penugasan. Tidak ada pilihan kegiatan umum lintas gedung.
 3. Pilih **Sholat Subuh**: nama mengikuti master. Pilih **Lainnya** untuk mengisi nama kegiatan sendiri.
-4. Isi **durasi QR dalam menit** dan **radius dalam meter**. Tidak ada input tanggal mulai, selesai, atau alamat lokasi manual.
-5. Izinkan GPS. Peta Leaflet menampilkan titik perangkat, lingkaran radius absensi, dan perkiraan akurasi GPS. Akurasi harus berada dalam batas radius yang dipilih (misalnya ±80 m diterima untuk radius 100 m). Tombol Perbarui GPS menunggu pembacaan lebih baik sampai 12 detik. Jika lokasi masih terlalu kasar, aktifkan lokasi presisi atau gunakan perangkat dengan GPS; sesuaikan radius hanya jika sesuai area kegiatan.
+4. Isi **durasi QR dalam menit**, **radius dalam meter**, dan **batas akurasi GPS dalam meter** (bila dikosongkan, batas akurasi mengikuti radius). Tidak ada input tanggal mulai, selesai, atau alamat lokasi manual.
+5. Izinkan GPS. Peta Leaflet menampilkan titik perangkat, lingkaran radius absensi, dan perkiraan akurasi GPS. Akurasi harus berada dalam batas akurasi sesi yang dipilih dan titik Anda dalam radius. Tombol Perbarui GPS menunggu pembacaan lebih baik sampai 12 detik. Jika lokasi masih terlalu kasar, aktifkan lokasi presisi atau gunakan perangkat dengan GPS; sesuaikan radius hanya jika sesuai area kegiatan.
 6. Klik **Buat kegiatan & QR**. Sistem mengambil GPS baru, mencatat waktu mulai server saat penyimpanan, menghitung selesai dari durasi, dan membuat **satu QR untuk satu kegiatan**.
 7. Preview terbuka. Biarkan preview fasilitator pembuat QR tetap terbuka agar GPS diperbarui setiap 20 detik. Fasilitator harus tetap dalam radius.
 8. Di browser/perangkat lain, login mahasiswa → **Scan QR / Absensi**, izinkan kamera dan GPS, lalu pindai QR.
@@ -347,7 +347,7 @@ Kelayakan peserta: mahasiswa lokal angkatan **2026 ke atas**, masih tahun pertam
 | Mahasiswa berada di luar radius                            | Tidak mencatat kehadiran                               |
 | Fasilitator keluar radius, pembaruan lokasi sudah diterima | Scan ditolak meskipun mahasiswa berada di dalam radius |
 | GPS fasilitator tidak diperbarui lebih dari 60 detik       | Scan ditolak                                           |
-| GPS ditolak atau akurasi melebihi batas radius sesi        | Tidak boleh berhasil                                   |
+| GPS ditolak atau akurasi melebihi batas akurasi sesi        | Tidak boleh berhasil                                   |
 | Durasi habis atau sesi ditutup lebih awal                  | QR ditolak                                             |
 | Penghuni P memindai QR W                                   | Ditolak karena gedung berbeda                          |
 | Penghuni lama, internasional, atau nonmahasiswa            | Tidak memenuhi binaan                                  |
@@ -374,7 +374,7 @@ Pengujian endpoint otomatis tidak menggantikan percobaan kamera/GPS perangkat ny
 
 Kamar tidak selalu menjadi kosong jika masih ada penghuni lain. Kamar berstatus maintenance tetap maintenance. Pengajuan saja tidak boleh melepaskan kamar sebelum inspeksi dan penyelesaian fasilitator.
 
-Gunakan `checkout-siap@example.test` untuk langsung menyelesaikan checkout, atau `checkout-rusak@example.test` untuk memeriksa temuan kerusakan dan tiketnya. Coba menyelesaikan sebelum inspeksi lengkap: harus ditolak. Setelah checkout, layanan penghuni aktif dan absensi tidak lagi boleh dipakai.
+Gunakan `checkout-siap@example.test` untuk langsung menyelesaikan checkout, atau `checkout-rusak@example.test` untuk memeriksa temuan kerusakan dan tiketnya. Coba menyelesaikan sebelum inspeksi lengkap atau saat masih ada tagihan pribadi: harus ditolak. Uji fasilitator gedung lain (termasuk akun `fasilitator-<gedung>@example.test`): akses ditolak. Setelah checkout, layanan penghuni aktif dan absensi tidak lagi boleh dipakai.
 
 ## 13. Surat bebas asrama angkatan 2026 ke atas
 
@@ -384,7 +384,7 @@ Gunakan `checkout-siap@example.test` untuk langsung menyelesaikan checkout, atau
 2. Login client → Pengajuan Bebas Asrama → isi form dan ajukan.
 3. Sistem memeriksa riwayat hunian/checkout dan tagihan, lalu menyetujui bila syarat terpenuhi. Jalur modern tidak memerlukan verifikasi manual ulang oleh admin.
 4. Tunggu worker menyelesaikan PDF; periksa notifikasi dan unduh surat dari akun.
-5. Periksa identitas, nomor, logo UNAND dan judul surat. Format mengikuti contoh pengelola: surat telah membayar untuk alumni berbayar; surat tidak tinggal untuk klasifikasi bukan alumni; format bebas asrama umum sementara bagi kategori subsidi. Penandatangan mengikuti `RESIDENCE_LETTER_SIGNER`; tanda tangan tidak dibuat otomatis. Nomor resmi mengikuti input admin bila tersedia, bukan menyalin nomor contoh PDF.
+5. Periksa identitas, nomor, logo UNAND dan judul surat. Format mengikuti contoh pengelola: surat telah membayar untuk alumni berbayar; surat tidak tinggal untuk klasifikasi bukan alumni; format bebas asrama umum sementara bagi kategori subsidi. Penandatangan mengikuti data penandatangan aktif, dengan fallback `RESIDENCE_LETTER_SIGNER`; identitas dan QR verifikasi tercetak, bukan gambar tanda tangan otomatis. Nomor resmi mengikuti input admin bila tersedia, bukan menyalin nomor contoh PDF.
 6. Periksa status akun nonaktif setelah persetujuan: transaksi penghuni ditutup, tetapi akun masih dapat login, membaca arsip surat, dan memulai pendaftaran hunian kembali secara mandiri. Surat lama tetap terunduh dan pengiriman ulang tidak menonaktifkan kembali akun yang sudah daftar ulang.
 
 `surat-modern@example.test` sudah memiliki surat terbit; gunakan untuk melihat hasil, bukan mengulang perjalanan penghuni aktif. Coba mengajukan dari penghuni yang belum checkout atau masih berutang: tidak boleh menerbitkan surat.
@@ -408,7 +408,7 @@ Gunakan `checkout-siap@example.test` untuk langsung menyelesaikan checkout, atau
 1. Alumni mengajukan tanpa bukti pelunasan lama; sistem membuat invoice dari tarif gedung–angkatan arsipnya. Jika arsip atau tarif belum lengkap, pengajuan ditolak dengan pesan melengkapi arsip/tarif — lengkapi di Pengaturan Layanan, jangan menagih nol.
 2. Invoice menyimpan salinan tarif saat terbit; perubahan tarif berikutnya hanya berlaku untuk tagihan baru.
 3. Jalur cepat: login `legacy-belum-lunas@example.test`, yang sudah mempunyai invoice historis.
-4. Client membuka Tagihan dan mengunggah bukti pembayaran; pembayaran sebagian diizinkan.
+4. Admin menetapkan nominal bayar sekarang dan VA bila ingin cicilan; client membuka Tagihan dan mengunggah bukti sesuai nominal tersebut. Tanpa penetapan admin, form meminta sisa tagihan.
 5. Admin membuka Verifikasi Pembayaran dan menyetujui bukti yang sesuai. Status surat tetap diverifikasi sampai sisa tagihan nol.
 6. Setelah seluruh kewajiban lunas dan tidak ada hunian aktif, surat diproses otomatis; client mengunduh PDF dan akun nonaktif.
 
@@ -417,6 +417,7 @@ Gunakan `checkout-siap@example.test` untuk langsung menyelesaikan checkout, atau
 1. Gunakan client yang tidak punya riwayat hunian maupun arsip, atau `legacy-bukan-alumni@example.test`.
 2. Client mengajukan surat; sistem memeriksa riwayat dan arsip alumni. Bila benar tidak ada dan tidak ada tunggakan, **Surat Keterangan Tidak Tinggal di Asrama** terbit otomatis tanpa verifikasi admin dan akun nonaktif.
 3. Bila ditemukan dalam arsip/riwayat, sistem mengikuti jalur alumni dan kewajiban terkait; tidak menerbitkan surat tidak tinggal. Pengiriman klasifikasi palsu dari browser tidak boleh mengubah hasil klasifikasi server. `legacy-surat-terbit@example.test` adalah contoh kondisi akhir.
+4. Khusus pemohon yang **terdata di arsip alumni** dan mengajukan tanpa bukti: pengajuan berstatus **ditolak** dengan pesan "terdata sebagai alumni asrama", invoice historis tetap ditampilkan, dan surat terbit otomatis setelah tagihan lunas.
 
 ### Pemeriksaan halaman admin dan dokumen
 
@@ -443,7 +444,7 @@ Pengiriman email pada konfigurasi sekarang memakai `MAIL_MAILER=log`: periksa lo
 2. Buka detail. Transaksi otomatis pembayaran hanya bisa dilihat; tidak boleh diedit/dihapus lewat buku kas.
 3. Tambah transaksi manual melalui modal, isi kategori, tipe, tanggal, nominal dan deskripsi; simpan.
 4. Cari transaksi manual tersebut, buka detail, edit lalu hapus untuk menguji CRUD transaksi manual.
-5. Login pimpinan untuk memeriksa ringkasan keuangan, aset dan progres kerusakan berdasarkan data yang baru diuji.
+5. Login pimpinan untuk memeriksa ringkasan keuangan, progres kerusakan (donut + tabel), **laporan per gedung** (penghuni aktif, kamar terisi/total, aset rusak), dan **kinerja teknisi** berdasarkan data yang baru diuji.
 
 ## 16. Orang tua, superadmin dan konten landing
 
@@ -467,11 +468,11 @@ Admin layanan membuka **Hunian Sementara** untuk Summer Course; fasilitator mema
 
 1. Isi identitas, email, jenis kelamin, kamar, tanggal masuk dan tanggal keluar. Tanggal keluar harus setelah tanggal masuk; tanggal keluar tidak dihitung sebagai malam menginap.
 2. Simpan: kamar langsung dialokasikan dan invoice pribadi dibuat. Akun yang sudah ada harus memakai identitas yang sesuai dan tidak sedang memiliki hunian aktif. Peserta Summer Course tidak memperoleh layanan binaan.
-3. Peserta Summer Course maupun nonmahasiswa **tidak masuk role mahasiswa**. Identitas tetap tersimpan sebagai pengguna dengan role non-login `tamu` (tanpa permission) agar relasi penempatan kamar dan tagihan tetap utuh, tetapi mereka tidak muncul di Data Mahasiswa, dashboard, maupun rekap penghuni aktif, dan tidak bisa membuka halaman role mana pun.
+3. Identitas baru peserta Summer Course maupun nonmahasiswa dari fitur ini **memakai role tamu**. Akun lama yang dipakai ulang dapat mempertahankan role sebelumnya. Identitas tetap tersimpan sebagai pengguna dengan role non-login `tamu` (tanpa permission) agar relasi penempatan kamar dan tagihan tetap utuh, tetapi mereka tidak muncul di Data Mahasiswa, dashboard, maupun rekap penghuni aktif, dan tidak bisa membuka halaman role mana pun.
 4. Pada tanggal keluar, scheduler mengakhiri hunian dan mengirim notifikasi dalam aplikasi kepada fasilitator gedung. Kamar masih terisi bila ada penghuni lain; maintenance tetap maintenance. Sisa utang tidak dihapus.
 5. Uji tarif belum tersedia, kamar penuh/maintenance, dan fasilitator lintas gedung: penyimpanan ditolak tanpa meninggalkan invoice atau akun baru sebagian.
 
-Docker menjalankan scheduler. Untuk pengujian lokal, jalankan `php artisan schedule:work` di terminal tersendiri. Akun yang dibuat petugas memakai password acak; pengaturan password dilakukan melalui Lupa password, dengan email mengikuti konfigurasi mailer aplikasi.
+Docker menjalankan scheduler. Untuk pengujian lokal, jalankan `php artisan schedule:work` di terminal tersendiri. Identitas `tamu` baru memakai password acak dan tidak memiliki akses halaman role; jangan menggunakan Lupa password sebagai langkah aktivasi aplikasi untuk tamu. Pengujian dilakukan melalui akun petugas.
 
 ### Laundry dan galon
 

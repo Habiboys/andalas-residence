@@ -80,8 +80,16 @@ class PengajuanController extends Controller
                 $approval->handle($application->fresh(), null);
             } elseif ($legacy && $verificationPath === LegacyFreeResidenceVerificationPath::AlumniUnpaid) {
                 app(CreateLegacyInvoice::class)->handle($application);
-                $application->update(['status' => FreeResidenceLetterStatus::Diverifikasi, 'verified_at' => now()]);
-                if (! $life->hasDebt($student)) {
+                if ($life->hasDebt($student)) {
+                    // Klaim bukan alumni ditolak: terdata sebagai alumni asrama.
+                    // Tagihan tetap ditampilkan; surat terbit otomatis setelah lunas.
+                    $application->update([
+                        'status' => FreeResidenceLetterStatus::Ditolak,
+                        'catatan_penolakan' => 'Pengajuan ditolak, Anda terdata sebagai alumni asrama. Selesaikan tagihan yang ditampilkan untuk penerbitan surat bebas asrama.',
+                    ]);
+                    $application->statusHistories()->create(['status' => 'ditolak', 'changed_by' => $request->user()->id]);
+                } else {
+                    $application->update(['status' => FreeResidenceLetterStatus::Diverifikasi, 'verified_at' => now()]);
                     $approval->handle($application->fresh(), null);
                 }
             }

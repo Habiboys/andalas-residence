@@ -10,6 +10,7 @@ use App\Models\PengajuanBebasAsrama;
 use App\Models\User;
 use App\Services\DocumentNumber;
 use Database\Seeders\RolePermissionSeeder;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 
 function signerPayload(array $overrides = []): array
@@ -174,4 +175,29 @@ it('verifies a published letter publicly and rejects unknown or unpublished toke
     $pending = documentIntentFor(User::factory()->create(), ['status' => 'pending', 'nomor' => null, 'generated_at' => null]);
     $this->get(route('dokumen.verifikasi', $pending->verification_token))
         ->assertInertia(fn (Assert $page) => $page->where('valid', false)->where('document', null));
+});
+
+it('backfills tokens, sequential numbers, signers, and QR for legacy letters', function () {
+    Storage::fake('local');
+    $this->seed(RolePermissionSeeder::class);
+    DocumentSigner::create(signerPayload());
+    $intent = documentIntentFor(User::factory()->create(), [
+        'nomor' => 'SBA-BA-LEGACY-1',
+        'verification_token' => null,
+        'signer_name' => null,
+        'signer_nip' => null,
+        'path' => 'documents/free-residence/legacy.pdf',
+    ]);
+    Storage::disk('local')->put('documents/free-residence/legacy.pdf', 'old');
+
+    $this->artisan('documents:backfill-verification')->assertSuccessful();
+
+    $intent->refresh();
+    expect($intent->nomor)->toBe('SBA/UNAND/'.now()->year.'/0001')
+        ->and($intent->verification_token)->not->toBeNull()
+        ->and($intent->signer_name)->toBe('Dr. Ir. Budi Santoso, M.T.')
+        ->and($intent->signer_nip)->toBe('197505121994031002')
+        ->and(Storage::disk('local')->exists($intent->path))->toBeTrue()
+        ->and(strlen($intent->checksum_sha256))->toBe(64);
+    expect(app('App\Http\Controllers\DocumentVerificationController')->show(request(), $intent->verification_token))->toBeTruthy();
 });

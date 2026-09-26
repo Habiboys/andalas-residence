@@ -28,14 +28,36 @@ type Report = {
 
 type TransaksiRow = { tipe?: string; nominal?: number };
 
+type TeknisiRow = {
+    teknisi_id: string;
+    nama: string;
+    nim_nip: string;
+    rata_skor: number | null;
+    total_tiket: number;
+    total_penilaian: number;
+};
+
+type GedungReportRow = {
+    kode_gedung: string;
+    nama_gedung: string;
+    penghuni_aktif: number;
+    kamar_total: number;
+    kamar_terisi: number;
+    aset_rusak: number;
+};
+
 export default function DashboardEksekutif({
     stats,
     keuangan = [],
     tiket = [],
+    performance = [],
+    gedungReport = [],
 }: {
     stats?: DashboardStats;
     keuangan?: TransaksiRow[];
     tiket?: Report[];
+    performance?: TeknisiRow[];
+    gedungReport?: GedungReportRow[];
 }) {
     const pemasukan = (keuangan ?? [])
         .filter((t) => t.tipe === 'pemasukan')
@@ -102,7 +124,8 @@ export default function DashboardEksekutif({
                             {
                                 name: 'Dikerjakan',
                                 value: tiket.filter(
-                                    (item) => item.status === 'diproses',
+                                    (item) =>
+                                        item.status === 'sedang_dikerjakan',
                                 ).length,
                                 color: '#dbad4a',
                             },
@@ -110,7 +133,7 @@ export default function DashboardEksekutif({
                                 name: 'Laporan lain',
                                 value: tiket.filter(
                                     (item) =>
-                                        !['selesai', 'diproses'].includes(
+                                        !['selesai', 'sedang_dikerjakan'].includes(
                                             item.status,
                                         ),
                                 ).length,
@@ -195,6 +218,70 @@ export default function DashboardEksekutif({
                     ]}
                     data={tiket}
                     emptyMessage="Belum ada laporan kerusakan."
+                />
+            </Card>
+            <Card>
+                <div className="p-5">
+                    <h2 className="font-semibold">Laporan per gedung</h2>
+                </div>
+                <Table
+                    columns={[
+                        { key: 'kode_gedung', label: 'Kode' },
+                        { key: 'nama_gedung', label: 'Gedung' },
+                        {
+                            key: 'penghuni_aktif',
+                            label: 'Penghuni aktif',
+                            render: (row: GedungReportRow) =>
+                                String(row.penghuni_aktif),
+                        },
+                        {
+                            key: 'kamar_terisi',
+                            label: 'Kamar terisi',
+                            render: (row: GedungReportRow) =>
+                                `${row.kamar_terisi}/${row.kamar_total}`,
+                        },
+                        {
+                            key: 'aset_rusak',
+                            label: 'Aset rusak/hilang',
+                            render: (row: GedungReportRow) =>
+                                String(row.aset_rusak),
+                        },
+                    ]}
+                    data={gedungReport}
+                    emptyMessage="Belum ada data gedung."
+                />
+            </Card>
+            <Card>
+                <div className="p-5">
+                    <h2 className="font-semibold">Kinerja teknisi</h2>
+                </div>
+                <Table
+                    columns={[
+                        { key: 'nama', label: 'Teknisi' },
+                        { key: 'nim_nip', label: 'NIP' },
+                        {
+                            key: 'rata_skor',
+                            label: 'Rata-rata skor',
+                            render: (row: TeknisiRow) =>
+                                row.rata_skor === null
+                                    ? '-'
+                                    : Number(row.rata_skor).toFixed(2),
+                        },
+                        {
+                            key: 'total_tiket',
+                            label: 'Tiket selesai',
+                            render: (row: TeknisiRow) =>
+                                String(row.total_tiket),
+                        },
+                        {
+                            key: 'total_penilaian',
+                            label: 'Penilaian final',
+                            render: (row: TeknisiRow) =>
+                                String(row.total_penilaian),
+                        },
+                    ]}
+                    data={performance}
+                    emptyMessage="Belum ada data teknisi."
                 />
             </Card>
             <div className="grid gap-4 md:grid-cols-2">

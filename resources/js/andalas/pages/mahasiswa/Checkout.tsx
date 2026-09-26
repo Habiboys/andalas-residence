@@ -45,6 +45,10 @@ export default function Checkout({ checkout = [] }: Props) {
                     </li>
                     <li>GO memeriksa kamar dan mencatat barang yang rusak.</li>
                     <li>
+                        Sisa tagihan pribadi harus nol sebelum checkout
+                        diselesaikan.
+                    </li>
+                    <li>
                         Fasilitator menyelesaikan checkout; kapasitas kamar
                         diperbarui otomatis.
                     </li>

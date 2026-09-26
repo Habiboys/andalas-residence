@@ -17,7 +17,7 @@ Seeder menyediakan **54 akun client dengan kondisi awal pengujian**. Angka ini b
 | Penghuni tambahan untuk pencarian, filter, pagination, dan layanan |     18 |
 | **Total akun/skenario data**                                       | **54** |
 
-Dengan demikian, ada **30 skenario utama**, **6 variasi operasional tambahan**, dan **18 akun tambahan** yang memakai kondisi dasar penghuni aktif.
+Dengan demikian, ada **30 skenario utama**, **6 variasi operasional tambahan**, dan **18 akun tambahan** yang memakai kondisi dasar penghuni aktif. Di luar 54 client tersebut, seeder juga menyediakan **19 akun petugas/orang tua** (termasuk sepuluh fasilitator gedung riil A–H, ASN, Nakes) — total **73 akun skenario**.
 
 Password awal semua akun adalah **`password`**. Akun petugas dan daftar kredensial lengkap tersedia di [AKUN_UJI_COBA.md](AKUN_UJI_COBA.md).
 
@@ -26,10 +26,10 @@ Password awal semua akun adalah **`password`**. Akun petugas dan daftar kredensi
 | No. | Akun                               | Kondisi awal / tujuan pengujian                                        |
 | --- | ---------------------------------- | ---------------------------------------------------------------------- |
 | 1   | `daftar-draft@example.test`        | Draft pendaftaran; lanjutkan pengajuan                                 |
-| 2   | `daftar-review@example.test`       | Pendaftaran submitted; review oleh admin layanan                       |
+| 2   | `daftar-review@example.test`       | Submitted; lanjut pembayaran, bukan persetujuan pendaftaran pribadi                       |
 | 3   | `daftar-ditolak@example.test`      | Pendaftaran ditolak; tagihan dibatalkan; perbaiki dan ajukan ulang     |
 | 4   | `tagihan-belum-bayar@example.test` | Tagihan belum dibayar dan sudah melewati jatuh tempo saat seed         |
-| 5   | `bayar-verifikasi@example.test`    | Bukti pembayaran menunggu verifikasi admin; pendaftaran masih verified |
+| 5   | `bayar-verifikasi@example.test`    | Bukti menunggu verifikasi; status verified berasal dari fixture lama |
 | 6   | `bayar-ditolak@example.test`       | Pembayaran ditolak; baca alasan dan unggah pembayaran yang sesuai      |
 | 7   | `cicilan-pengajuan@example.test`   | Tagihan terbit menunggu penetapan nominal berikutnya oleh admin        |
 | 8   | `cicilan-aktif@example.test`       | Penghuni aktif; termin pertama lunas, termin kedua belum dibayar       |
@@ -62,7 +62,7 @@ Password awal semua akun adalah **`password`**. Akun petugas dan daftar kredensi
 | --- | ---------------------------------- | ----------------------------------------------------------------------------------------- |
 | 21  | `legacy-lunas@example.test`        | Pengajuan alumni lunas dengan bukti pembayaran dan rekening koran; menunggu persetujuan   |
 | 22  | `legacy-belum-lunas@example.test`  | Klasifikasi alumni belum lunas sudah diverifikasi; invoice tersedia untuk dibayar         |
-| 23  | `legacy-bukan-alumni@example.test` | Mengajukan surat tanpa riwayat hunian; admin perlu memverifikasi klasifikasi bukan alumni |
+| 23  | `legacy-bukan-alumni@example.test` | Fixture pengajuan lama tanpa riwayat; kirim ulang dari client untuk menguji terbit otomatis |
 | 24  | `legacy-ditolak@example.test`      | Pengajuan surat ditolak karena bukti belum sesuai; uji perbaikan dokumen                  |
 | 25  | `legacy-surat-terbit@example.test` | Sudah diverifikasi sebagai bukan alumni dan surat terbit; akun NONAKTIF                   |
 
@@ -110,6 +110,19 @@ Password awal semua akun adalah **`password`**. Akun petugas dan daftar kredensi
 | 53  | `penghuni-23@example.test` | Penghuni aktif untuk uji daftar, pencarian, filter, pagination, dan layanan penghuni |
 | 54  | `penghuni-24@example.test` | Penghuni aktif untuk uji daftar, pencarian, filter, pagination, dan layanan penghuni |
 
+## Dokumen digital: penandatangan dan verifikasi QR
+
+Tidak ada akun demo khusus; pakai akun surat yang sudah ada dan petugas berikut.
+
+| No. | Aktor | Kondisi awal / tujuan pengujian |
+| --- | --- | --- |
+| 1 | Admin Layanan/Staff | Menu **Penandatangan Surat**: tambah penandatangan (nama, NIP, jabatan, unit) lalu aktifkan satu; pastikan hanya satu yang aktif |
+| 2 | Sistem | Terbitkan surat tanpa nomor resmi → nomor berurutan `SBA/UNAND/<tahun>/0001`; terbitkan lagi → `0002` |
+| 3 | Sistem | PDF surat: kop center penuh, blok TTD jabatan → QR logo Unand → nama → NIP |
+| 4 | Publik (tanpa login) | Buka URL QR/verifikasi → data nomor, nama, NIM, fakultas, program, tanggal, penandatangan tampil |
+| 5 | Publik | Token asing/surat belum terbit → halaman menyatakan dokumen tidak dapat diverifikasi |
+| 6 | Sistem | Ganti penandatangan aktif → surat lama tetap memakai nama/NIP saat terbit (snapshot) |
+
 ## Cara menjalankan pengujian lintas peran
 
 | Alur                        | Urutan peran                                        | Hasil yang diperiksa                                                                                       |
@@ -121,6 +134,7 @@ Password awal semua akun adalah **`password`**. Akun petugas dan daftar kredensi
 | Checkout                    | Penghuni → GO → Fasilitator                         | Pemeriksaan seluruh aset, temuan kerusakan, akhir penempatan, dan kapasitas kamar                          |
 | Surat bebas asrama modern   | Penghuni setelah checkout → Sistem                  | Tidak ada kewajiban tersisa, surat dapat diunduh, dan akun nonaktif                                        |
 | Surat bebas asrama legacy   | Client → Admin Layanan → Client jika perlu membayar | Klasifikasi alumni, bukti pembayaran atau tagihan, surat, dan akun nonaktif                                |
+| Penandatangan & verifikasi  | Admin Layanan → Publik (tanpa login)                | Satu penandatangan aktif, nomor berurutan, QR logo Unand, dan halaman verifikasi publik                    |
 | Perizinan                   | Penghuni → Fasilitator bila perlu → Penghuni        | Keputusan izin, foto/lokasi sampai, keterlambatan, dan foto/lokasi kembali                                 |
 | Absensi QR                  | Fasilitator → Mahasiswa binaan                      | Kelayakan penghuni, waktu sesi, radius lokasi kedua pihak, dan riwayat absensi                             |
 | Pemantauan orang tua        | Orang Tua                                           | Data anak yang terhubung, bukan seluruh penghuni                                                           |
@@ -132,11 +146,13 @@ Password awal semua akun adalah **`password`**. Akun petugas dan daftar kredensi
 - QR baru dibuat melalui **Kegiatan & Absensi → Buat kegiatan & QR**, sekaligus dengan kegiatan. Seeder menyediakan riwayat; pengujian GPS langsung memerlukan kegiatan baru di lokasi sebenarnya.
 - Pasangkan `binaan-aktif@example.test` (W) dengan fasilitator W; `kipk-aktif@example.test` (P) dengan fasilitator P. Tidak ada kegiatan umum lintas gedung.
 - Uji master Sholat Subuh/Lainnya, nama bebas pada Lainnya, mulai otomatis, durasi, GPS/peta, peserta per lantai, status hadir/belum, koreksi manual beralasan, dan audit.
-- Dashboard fasilitator menunjukkan gedung penugasan dan statistik hanya gedung tersebut. Admin dapat menugaskan beberapa fasilitator ke satu gedung; setiap fasilitator tetap hanya satu gedung.
-- Pembatasan absensi tetap **angkatan 2026 ke atas**, lokal, tahun pertama hunian, dan belum checkout/masuk kembali. Angkatan berasal dari profil; dua digit awal NIM seeder dibuat konsisten dengannya.
+- Dashboard fasilitator menunjukkan gedung penugasan dan statistik hanya gedung tersebut. Admin dapat menugaskan beberapa fasilitator ke satu gedung; setiap fasilitator tetap hanya satu gedung. Sepuluh akun `fasilitator-<gedung>@example.test` meng-cover 10 gedung riil untuk uji akses lintas gedung.
+- Absensi mengikuti angkatan maba periode aktif, lokal non-S2/S3, hunian aktif dan tanpa riwayat akhir hunian; bukan semua angkatan 2026 ke atas. Tidak ada pemeriksaan 365 hari. Dua digit awal NIM seeder konsisten dengan angkatan profil saat dibuat.
 - Pada tabel Verifikasi Bebas Asrama, uji tab Semua, Menunggu verifikasi, Diverifikasi, Disetujui, dan Ditolak; buka detail untuk meninjau bukti atau mengunduh PDF sesuai kategori. Diverifikasi belum berarti surat terbit.
 - Batas izin mengikuti implementasi/acuan: paling banyak enam pengajuan sebelumnya masih otomatis; lebih dari enam pengajuan sebelumnya memerlukan verifikasi.
 - Surat yang sudah terbit membuat akun `surat-modern@example.test` dan `legacy-surat-terbit@example.test` nonaktif.
+- Penandatangan surat aktif disiapkan seeder; nomor surat berurutan per tahun kecuali nomor resmi diisi admin. Surat lama yang belum memiliki token tidak dapat diverifikasi lewat QR.
+- Beberapa ketentuan lampiran belum sesuai dan dicatat di [audit](AUDIT_KESESUAIAN_PROBIS.md): laporan kinerja teknisi/pergedung pimpinan, penolakan "terdata alumni", nama tipe kamar, dan hitungan status grafik kerusakan pimpinan. Jangan menganggapnya fitur yang hilang tanpa membaca audit.
 - VA demo bukan integrasi bank. Pengujian pembayaran menggunakan alur pencatatan dan verifikasi yang tersedia.
 - Laundry dan galon belum disediakan karena proses bisnisnya belum ditentukan.
 - Seeder membantu pengujian manual. Pengujian otomatis konsistensi data dan beberapa kelanjutan alur ada di [ComprehensiveSeederTest.php](tests/Feature/ComprehensiveSeederTest.php); daftar ini bukan klaim bahwa seluruh interaksi browser sudah diuji.

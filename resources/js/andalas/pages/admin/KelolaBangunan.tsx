@@ -87,7 +87,7 @@ const lantaiDefaults = { nomor_lantai: '1', nama_lantai: '' };
 const kamarDefaults = {
     nomor_kamar: '',
     kapasitas: '2',
-    tipe_kamar: 'reguler',
+    tipe_kamar: 'standar',
     status: 'kosong',
     tarif_per_periode: '',
 };
@@ -337,7 +337,7 @@ export default function KelolaBangunan({ gedung }: Props) {
             kamarForm.setData({
                 nomor_kamar: kamar.nomor_kamar ?? '',
                 kapasitas: String(kamar.kapasitas ?? '2'),
-                tipe_kamar: kamar.tipe_kamar ?? 'reguler',
+                tipe_kamar: kamar.tipe_kamar ?? 'standar',
                 status: kamar.status ?? 'kosong',
                 tarif_per_periode:
                     kamar.tarif_per_periode != null
@@ -737,21 +737,20 @@ export default function KelolaBangunan({ gedung }: Props) {
                                                             <Badge
                                                                 color={
                                                                     kamar.tipe_kamar ===
-                                                                    'vip'
+                                                                    'premium'
                                                                         ? 'yellow'
                                                                         : 'gray'
                                                                 }
                                                             >
                                                                 {{
-                                                                    reguler:
-                                                                        'Reguler',
+                                                                    standar:
+                                                                        'Standar',
                                                                     medium: 'Medium',
-                                                                    vip: 'VIP',
                                                                     premium:
                                                                         'Premium',
                                                                 }[
                                                                     kamar.tipe_kamar ??
-                                                                        'reguler'
+                                                                        'standar'
                                                                 ] ??
                                                                     kamar.tipe_kamar}
                                                             </Badge>
@@ -980,9 +979,8 @@ export default function KelolaBangunan({ gedung }: Props) {
                                 )
                             }
                         >
-                            <option value="reguler">Reguler</option>
+                            <option value="standar">Standar</option>
                             <option value="medium">Medium</option>
-                            <option value="vip">VIP</option>
                             <option value="premium">Premium</option>
                         </select>
                         {kamarForm.errors.tipe_kamar && (

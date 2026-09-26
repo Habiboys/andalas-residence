@@ -29,9 +29,13 @@ class DocumentSignerController extends Controller
     {
         $this->authorizePermission($request, self::PERMISSION);
 
-        DocumentSigner::create($this->validated($request));
+        $data = $this->validated($request);
+        DB::transaction(function () use ($data): void {
+            DocumentSigner::query()->update(['aktif' => false]);
+            DocumentSigner::create([...$data, 'aktif' => true]);
+        });
 
-        return back()->with('success', 'Penandatangan disimpan.');
+        return back()->with('success', 'Penandatangan disimpan dan diaktifkan. Penandatangan sebelumnya otomatis menjadi cadangan.');
     }
 
     public function update(Request $request, DocumentSigner $signer): RedirectResponse

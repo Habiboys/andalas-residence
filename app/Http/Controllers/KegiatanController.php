@@ -23,6 +23,7 @@ class KegiatanController extends Controller
             'gedung_id' => 'nullable|uuid|exists:gedung,id',
             'duration_minutes' => 'required|integer|between:1,1440',
             'radius_meters' => 'required|integer|between:10,1000',
+            'maximum_accuracy_meters' => 'nullable|integer|between:1,1000',
             'latitude' => 'required|numeric|between:-90,90',
             'longitude' => 'required|numeric|between:-180,180',
             'accuracy_meters' => 'required|numeric|min:0|lte:radius_meters',
@@ -55,7 +56,7 @@ class KegiatanController extends Controller
             ]);
 
             return $open->handle($activity, $request->user(), $activity->tanggal_selesai,
-                (float) $data['latitude'], (float) $data['longitude'], (int) $data['radius_meters'], (int) $data['radius_meters'], (float) $data['accuracy_meters'])['session'];
+                (float) $data['latitude'], (float) $data['longitude'], (int) $data['radius_meters'], (int) ($data['maximum_accuracy_meters'] ?? $data['radius_meters']), (float) $data['accuracy_meters'])['session'];
         });
 
         return back()->with('activity_session_id', $session->id)->with('toast', ['type' => 'success', 'message' => 'Kegiatan dan QR berhasil dibuat.']);

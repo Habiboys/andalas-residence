@@ -15,7 +15,10 @@ class DocumentVerificationQr
     public function make(string $token): array
     {
         $url = route('dokumen.verifikasi', $token);
-        $logo = public_path('images/unand.png');
+        // Versi terkompresi logo agar pembuatan QR tetap ringan di CLI/worker.
+        $logo = public_path('images/unand-qr.png');
+        $fallback = public_path('images/unand.png');
+        $resolved = is_file($logo) ? $logo : (is_file($fallback) ? $fallback : '');
 
         $result = (new Builder(
             writer: new PngWriter,
@@ -27,7 +30,7 @@ class DocumentVerificationQr
             roundBlockSizeMode: RoundBlockSizeMode::Margin,
             foregroundColor: new Color(15, 63, 58),
             backgroundColor: new Color(255, 255, 255),
-            logoPath: is_file($logo) ? $logo : '',
+            logoPath: $resolved,
             logoResizeToWidth: 110,
             logoPunchoutBackground: true,
         ))->build();

@@ -16,22 +16,22 @@ class DocumentNumber
         $year ??= (int) now()->year;
         $prefix ??= $this->prefixFor($tipe);
 
-        $sequence = DB::transaction(function () use ($tipe, $year): DocumentNumberSequence {
-            $sequence = DocumentNumberSequence::query()->firstOrCreate(
+        return DB::transaction(function () use ($tipe, $year, $prefix): string {
+            DocumentNumberSequence::query()->firstOrCreate(
                 ['tipe' => $tipe, 'tahun' => $year],
                 ['nomor_terakhir' => 0],
             );
 
-            return DocumentNumberSequence::query()
-                ->whereKey($sequence->getKey())
+            $sequence = DocumentNumberSequence::query()
+                ->where('tipe', $tipe)
+                ->where('tahun', $year)
                 ->lockForUpdate()
                 ->firstOrFail();
+
+            $sequence->increment('nomor_terakhir');
+
+            return sprintf('%s/UNAND/%d/%04d', $prefix, $year, $sequence->nomor_terakhir);
         });
-
-        $sequence->increment('nomor_terakhir');
-        $next = $sequence->fresh()->nomor_terakhir;
-
-        return sprintf('%s/UNAND/%d/%04d', $prefix, $year, $next);
     }
 
     private function prefixFor(string $tipe): string

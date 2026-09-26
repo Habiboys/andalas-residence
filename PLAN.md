@@ -1,5 +1,7 @@
 # Revisi Proses Bisnis Andalas Residence
 
+> Status 26 September 2026: dokumen ini merupakan penjabaran/rencana sebelumnya, bukan bukti seluruh fitur sudah selesai atau sesuai. Lampiran **Alur Proses Bisnis Andalas Residence** menjadi acuan utama. Hasil pemeriksaan kode, pengujian, perbedaan aturan, dan pekerjaan lanjutan tersedia di [Audit kesesuaian probis](AUDIT_KESESUAIAN_PROBIS.md). **Ringkas: 52 sesuai, 5 sebagian, 0 belum dari 57 ketentuan** — sisa "sebagian" bersifat keterbatasan eksternal (VA manual, email log, kategori invoice JSON) dan sudah terdokumentasi. Ketentuan tambahan di bawah tidak otomatis mengesampingkan lampiran.
+
 ## 1. Dasar status mahasiswa dan periode
 
 Pisahkan **angkatan**, **kategori mahasiswa**, **status hunian**, dan **penanggung biaya** agar perubahan salah satunya tidak menghapus riwayat lainnya.

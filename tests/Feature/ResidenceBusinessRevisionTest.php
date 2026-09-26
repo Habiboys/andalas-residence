@@ -172,7 +172,7 @@ it('uses the historical building cohort tariff and issues a letter once paid', f
     $application = PengajuanBebasAsrama::where('mahasiswa_id', $student->id)->sole();
     expect((float) $application->tagihan->total)->toBe(2100000.0);
     app(PostPayment::class)->handle('LEGACY-PART', $student->id, now()->toDateTimeString(), [['tagihan_id' => $application->tagihan_id, 'jumlah' => 1000000]]);
-    expect($application->fresh()->status->value)->toBe('diverifikasi');
+    expect($application->fresh()->status->value)->toBe('ditolak');
     app(PostPayment::class)->handle('LEGACY-FINAL', $student->id, now()->toDateTimeString(), [['tagihan_id' => $application->tagihan_id, 'jumlah' => 1100000]]);
     expect($application->fresh()->status->value)->toBe('disetujui');
     expect($application->fresh()->document_snapshot['nama'])->toBe($student->user->nama);
@@ -188,7 +188,7 @@ it('automatically classifies an archived alumnus without duplicating the histori
     for ($attempt = 0; $attempt < 2; $attempt++) {
         $this->actingAs($student->user)->post(route('andalas.pengajuan.bebas'), ['alasan' => 'Kliring', 'legacy_verification_path' => 'not_alumni'])->assertSessionHasNoErrors();
     }
-    $this->assertDatabaseHas('pengajuan_bebas_asrama', ['mahasiswa_id' => $student->id, 'status' => 'diverifikasi', 'legacy_verification_path' => 'alumni_unpaid']);
+    $this->assertDatabaseHas('pengajuan_bebas_asrama', ['mahasiswa_id' => $student->id, 'status' => 'ditolak', 'legacy_verification_path' => 'alumni_unpaid']);
     $this->assertDatabaseCount('tagihan', 1);
 });
 

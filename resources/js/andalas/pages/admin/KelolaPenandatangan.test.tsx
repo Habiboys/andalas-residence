@@ -32,7 +32,7 @@ it('marks the active signer and only offers actions allowed by status', () => {
         'Dr. Sinta Wijaya, M.Si.',
         'Aktif',
         'Cadangan',
-        'Simpan penandatangan',
+        'Simpan &amp; aktifkan',
     ]) {
         expect(html).toContain(text);
     }

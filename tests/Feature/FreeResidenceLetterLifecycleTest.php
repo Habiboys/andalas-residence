@@ -82,7 +82,8 @@ it('invoices an unpaid legacy alumnus at the cohort rate and issues the letter a
     ])->assertSessionHasNoErrors();
 
     $application = PengajuanBebasAsrama::sole();
-    expect($application->status)->toBe(FreeResidenceLetterStatus::Diverifikasi)
+    expect($application->status)->toBe(FreeResidenceLetterStatus::Ditolak)
+        ->and($application->catatan_penolakan)->toContain('terdata sebagai alumni asrama')
         ->and((float) $application->tagihan->total)->toBe(2100000.0)
         ->and($fixture['studentUser']->fresh()->status)->toBe('aktif');
     Queue::assertNotPushed(GenerateFreeResidenceLetter::class);
@@ -162,7 +163,8 @@ it('ignores a submitted nonresident classification and uses the alumnus archive 
     ])->assertSessionHasNoErrors();
 
     $application = PengajuanBebasAsrama::sole();
-    expect($application->status)->toBe(FreeResidenceLetterStatus::Diverifikasi)
+    expect($application->status)->toBe(FreeResidenceLetterStatus::Ditolak)
+        ->and($application->catatan_penolakan)->toContain('terdata sebagai alumni asrama')
         ->and($application->legacy_verification_path)->toBe(LegacyFreeResidenceVerificationPath::AlumniUnpaid)
         ->and($application->document_kind)->toBe('free_residence')
         ->and($application->tagihan_id)->not->toBeNull();

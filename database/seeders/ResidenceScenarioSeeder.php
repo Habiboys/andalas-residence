@@ -138,7 +138,7 @@ class ResidenceScenarioSeeder extends Seeder
                 $floor = Models\Lantai::firstOrCreate(['gedung_id' => $building->id, 'nomor_lantai' => $level], ['nama_lantai' => 'Lantai '.$level]);
                 for ($number = 1; $number <= 10; $number++) {
                     $room = Models\Kamar::firstOrCreate(['lantai_id' => $floor->id, 'nomor_kamar' => $level.sprintf('%02d', $number)], [
-                        'kapasitas' => 2, 'status' => $number === 10 ? 'maintenance' : 'kosong', 'tipe_kamar' => $level === 1 ? 'reguler' : 'premium', 'tarif_per_periode' => $level === 1 ? 1500000 : 2000000,
+                        'kapasitas' => 2, 'status' => $number === 10 ? 'maintenance' : 'kosong', 'tipe_kamar' => $level === 1 ? 'standar' : 'premium', 'tarif_per_periode' => $level === 1 ? 1500000 : 2000000,
                     ]);
                     foreach (['KURSI', 'MEJA'] as $stockCode) {
                         $stock = Models\StokAset::where('kode', 'DEMO-'.$stockCode)->firstOrFail();
@@ -162,13 +162,41 @@ class ResidenceScenarioSeeder extends Seeder
         }
         foreach (['P', 'W', 'T'] as $code) {
             $building = Models\Gedung::where('kode_gedung', 'DEMO-'.$code)->firstOrFail();
-            foreach (['reguler' => 1500000, 'premium' => 2000000] as $type => $amount) {
+            foreach (['standar' => 1500000, 'premium' => 2000000] as $type => $amount) {
                 Models\ResidenceRate::firstOrCreate(['gedung_id' => $building->id, 'tipe_kamar' => $type, 'unit' => 'period'], ['amount' => $amount]);
                 Models\ResidenceRate::firstOrCreate(['gedung_id' => $building->id, 'tipe_kamar' => $type, 'unit' => 'day'], ['amount' => $type === 'premium' ? 100000 : 75000]);
             }
         }
         foreach ([2023 => 1200000, 2024 => 1350000, 2025 => 1500000] as $year => $amount) {
             Models\LegacyResidenceRate::firstOrCreate(['angkatan' => $year, 'gedung_id' => Models\Gedung::where('kode_gedung', 'DEMO-P')->value('id')], ['jumlah' => $amount]);
+        }
+        $this->buildingFacilitators();
+    }
+
+    /**
+     * Setiap gedung riil mendapat satu akun fasilitator untuk menguji
+     * pembatasan akses lintas gedung, sesuai lampiran probis.
+     */
+    private function buildingFacilitators(): void
+    {
+        $assignments = [
+            'A' => 'rpx', 'B' => 'rusunawa', 'C' => 'pupera-puteri', 'D' => 'menpera', 'E' => 'rms',
+            'F' => 'oren', 'G' => 'hijau', 'H' => 'pupera-putera', 'ASN' => 'asn', 'Nakes' => 'nakes',
+        ];
+        foreach ($assignments as $buildingCode => $slug) {
+            $building = Models\Gedung::where('kode_gedung', $buildingCode)->first();
+            if ($building === null) {
+                continue;
+            }
+            $user = Models\User::firstOrCreate(['email' => 'fasilitator-'.$slug.'@example.test'], [
+                'nim_nip' => 'DEMO-FAS-'.$buildingCode, 'nama' => 'Fasilitator Gedung '.$buildingCode,
+                'password' => 'password', 'email_verified_at' => now(), 'no_hp' => '080000000000', 'gender' => $building->gender_peruntukan === 'perempuan' ? 'perempuan' : 'laki_laki',
+                'status' => 'aktif',
+            ]);
+            if ($user->wasRecentlyCreated) {
+                $user->assignRole('fasilitator');
+            }
+            Models\FasilitatorWilayah::firstOrCreate(['user_id' => $user->id], ['gedung_id' => $building->id]);
         }
     }
 

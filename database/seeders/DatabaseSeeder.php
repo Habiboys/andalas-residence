@@ -58,7 +58,7 @@ class DatabaseSeeder extends Seeder
             Kamar::firstOrCreate(['lantai_id' => $lantai->id, 'nomor_kamar' => (string) $i], [
                 'kapasitas' => 2,
                 'status' => 'kosong',
-                'tipe_kamar' => 'reguler',
+                'tipe_kamar' => 'standar',
                 'tarif_per_periode' => 1500000,
             ]);
         }

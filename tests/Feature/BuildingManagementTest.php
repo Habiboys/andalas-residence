@@ -20,7 +20,7 @@ function buildingFixture(): array
 {
     $gedung = Gedung::create(['kode_gedung' => 'CRUD-1', 'nama_gedung' => 'Gedung CRUD']);
     $lantai = Lantai::create(['gedung_id' => $gedung->id, 'nomor_lantai' => 1, 'nama_lantai' => 'Lantai 1']);
-    $kamar = Kamar::create(['lantai_id' => $lantai->id, 'nomor_kamar' => '101', 'kapasitas' => 2, 'status' => 'kosong', 'tipe_kamar' => 'reguler']);
+    $kamar = Kamar::create(['lantai_id' => $lantai->id, 'nomor_kamar' => '101', 'kapasitas' => 2, 'status' => 'kosong', 'tipe_kamar' => 'standar']);
 
     return compact('gedung', 'lantai', 'kamar');
 }

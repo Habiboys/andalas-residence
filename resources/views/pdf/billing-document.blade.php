@@ -25,8 +25,11 @@
             <tr><th>Gedung / kamar</th><td>{{ $placement->kamar->lantai->gedung->nama_gedung }} / {{ $placement->kamar->nomor_kamar }}</td></tr>
             <tr><th>Tipe kamar</th><td>{{ $placement->kamar->tipe_kamar }}</td></tr>
             <tr><th>Masa tinggal</th><td>{{ $placement->tanggal_mulai }} sampai {{ $registration->ends_at ?? $registration->periode->tanggal_selesai }}</td></tr>
-            <tr><th>Total dibayar</th><td>Rp {{ number_format((float) $invoice->total_dibayar, 0, ',', '.') }}</td></tr>
+        @elseif (! empty($invoice->residence_snapshot['building']))
+            <tr><th>Gedung / kamar</th><td>{{ $invoice->residence_snapshot['building'] }} / {{ $invoice->residence_snapshot['room'] ?? '-' }}</td></tr>
+            <tr><th>Tipe kamar</th><td>{{ $invoice->residence_snapshot['type'] ?? '-' }}</td></tr>
         @endif
+        <tr><th>Total dibayar</th><td>Rp {{ number_format((float) $invoice->total_dibayar, 0, ',', '.') }}</td></tr>
         @if ($payment)
             <tr><th>Referensi pembayaran</th><td>{{ $payment->referensi }}</td></tr>
             <tr><th>Jumlah pembayaran</th><td>Rp {{ number_format((float) $payment->jumlah, 0, ',', '.') }}</td></tr>

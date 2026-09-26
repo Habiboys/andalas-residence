@@ -191,7 +191,7 @@ export default function KelolaPenandatangan({
                     </label>
                     <div className="sm:col-span-2">
                         <Button type="submit" disabled={createForm.processing}>
-                            Simpan penandatangan
+                            Simpan & aktifkan
                         </Button>
                     </div>
                 </form>

@@ -78,7 +78,7 @@ class PostPayment
             $hasOutstandingDebt = Tagihan::where('mahasiswa_id', $mahasiswaId)->where('status', '!=', TagihanStatus::Batal)->whereColumn('total', '>', 'total_dibayar')->exists();
             if (! $hasOutstandingDebt) {
                 $application = PengajuanBebasAsrama::where('mahasiswa_id', $mahasiswaId)
-                    ->where('status', FreeResidenceLetterStatus::Diverifikasi)
+                    ->whereIn('status', [FreeResidenceLetterStatus::Diverifikasi, FreeResidenceLetterStatus::Ditolak])
                     ->where('legacy_verification_path', 'alumni_unpaid')
                     ->whereHas('tagihan', fn ($query) => $query->where('status', TagihanStatus::Lunas))
                     ->whereDoesntHave('mahasiswa.penempatanKamar', fn ($query) => $query->where('status', 'aktif'))

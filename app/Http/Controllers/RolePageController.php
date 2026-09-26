@@ -103,7 +103,12 @@ class RolePageController extends Controller
                     ? $request->user()->parentStudentLinks()->with(['studentProfile.user', 'studentProfile.penempatanKamar.kamar.lantai.gedung'])->get()
                     : [],
                 'pembayaran' => $this->payments($request),
-                ...($request->user()->hasRole('pimpinan') ? ['keuangan' => TransaksiKeuangan::query()->latest()->get(), 'tiket' => $this->tickets($request)] : []),
+                ...($request->user()->hasRole('pimpinan') ? [
+                    'keuangan' => TransaksiKeuangan::query()->latest()->get(),
+                    'tiket' => $this->tickets($request),
+                    'performance' => $this->teknisiPerformance(),
+                    'gedung_report' => $this->buildingReport(),
+                ] : []),
             ],
             'registration' => [
                 'rates' => ResidenceRate::all(),
@@ -300,6 +305,28 @@ class RolePageController extends Controller
         }
 
         return $results;
+    }
+
+    /** Laporan per gedung untuk dashboard pimpinan. */
+    private function buildingReport(): array
+    {
+        return Gedung::query()->orderBy('kode_gedung')->with([
+            'lantai.kamar.penempatanKamar' => fn ($query) => $query->where('status', 'aktif'),
+            'lantai.kamar.aset',
+        ])->get()->map(function (Gedung $gedung): array {
+            $kamar = $gedung->lantai->flatMap->kamar;
+
+            return [
+                'kode_gedung' => $gedung->kode_gedung,
+                'nama_gedung' => $gedung->nama_gedung,
+                'penghuni_aktif' => $kamar->flatMap->penempatanKamar->count(),
+                'kamar_total' => $kamar->count(),
+                'kamar_terisi' => $kamar->filter(fn ($room) => $room->penempatanKamar->isNotEmpty())->count(),
+                'aset_rusak' => $kamar->flatMap->aset
+                    ->filter(fn ($aset) => in_array($aset->kondisi?->value ?? $aset->kondisi, ['rusak_ringan', 'rusak_berat', 'hilang']))
+                    ->count(),
+            ];
+        })->all();
     }
 
     private function gedungTree(?User $user = null): array

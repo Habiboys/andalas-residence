@@ -4,12 +4,14 @@ use App\Actions\Checkout\CompleteCheckout;
 use App\Actions\Checkout\CreateCheckoutRequest;
 use App\Enums\CheckoutRequestStatus;
 use App\Enums\RoomInspectionStatus;
+use App\Enums\TagihanStatus;
 use App\Models\Aset;
 use App\Models\Gedung;
 use App\Models\Kamar;
 use App\Models\Lantai;
 use App\Models\MahasiswaProfil;
 use App\Models\PenempatanKamar;
+use App\Models\Tagihan;
 use App\Models\User;
 use Illuminate\Validation\ValidationException;
 use Spatie\Permission\Models\Permission;
@@ -56,6 +58,28 @@ it('creates one checkout request and required reviews idempotently', function ()
 it('refuses checkout until the GO inspection is complete', function () {
     $fixture = checkoutFixture();
     $request = (new CreateCheckoutRequest)->handle($fixture['mahasiswa']);
+
+    expect(fn () => (new CompleteCheckout)->handle($request))
+        ->toThrow(ValidationException::class);
+
+    $this->assertDatabaseHas('penempatan_kamar', ['id' => $fixture['placement']->id, 'status' => 'aktif']);
+    $this->assertDatabaseHas('checkout_requests', ['id' => $request->id, 'status' => 'diajukan']);
+});
+
+it('refuses checkout while the student still has unsettled personal invoices', function () {
+    $fixture = checkoutFixture();
+    $request = (new CreateCheckoutRequest)->handle($fixture['mahasiswa']);
+    $request->inspection->update(['status' => RoomInspectionStatus::Selesai, 'inspected_at' => now()]);
+    $invoice = Tagihan::create([
+        'mahasiswa_id' => $fixture['mahasiswa']->id,
+        'nomor' => 'DEBT-'.fake()->unique()->numerify('####'),
+        'status' => TagihanStatus::Terbit,
+        'subtotal' => 500000,
+        'total' => 500000,
+        'total_dibayar' => 0,
+        'tanggal_terbit' => now(),
+    ]);
+    $invoice->items()->create(['deskripsi' => 'Sewa', 'kuantitas' => 1, 'harga_satuan' => 500000, 'jumlah' => 500000]);
 
     expect(fn () => (new CompleteCheckout)->handle($request))
         ->toThrow(ValidationException::class);
