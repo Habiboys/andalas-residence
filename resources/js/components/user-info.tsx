@@ -10,7 +10,10 @@ export function UserInfo({
     showEmail?: boolean;
 }) {
     const getInitials = useInitials();
-    const displayName = user.name || (typeof user.nama === 'string' ? user.nama : '') || user.email;
+    const displayName =
+        user.name ||
+        (typeof user.nama === 'string' ? user.nama : '') ||
+        user.email;
 
     return (
         <>

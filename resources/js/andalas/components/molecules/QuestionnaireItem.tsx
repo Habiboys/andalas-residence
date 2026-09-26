@@ -22,7 +22,10 @@ type Props =
     | {
           pertanyaan: Pertanyaan;
           value?: { nilai_skor?: number; jawaban_teks?: string };
-          onChange: (value: { nilai_skor?: number; jawaban_teks?: string }) => void;
+          onChange: (value: {
+              nilai_skor?: number;
+              jawaban_teks?: string;
+          }) => void;
       };
 
 export function QuestionnaireItem(props: Props) {
@@ -32,28 +35,37 @@ export function QuestionnaireItem(props: Props) {
         const max = pertanyaan.skor_maksimal ?? 5;
 
         return (
-            <div className="space-y-3 rounded-box border border-base-300 p-4">
+            <div className="rounded-box border-base-300 space-y-3 border p-4">
                 <div>
                     {/* The question code is an identifier, so it keeps the fixed-width face. */}
-                    <p className="text-identifier text-xs text-muted">
+                    <p className="text-identifier text-muted text-xs">
                         {pertanyaan.kode_pertanyaan}
                     </p>
                     <p className="font-medium">
                         {pertanyaan.teks_pertanyaan}
                         {pertanyaan.wajib && (
-                            <span className="ml-1 text-error" aria-hidden="true">
+                            <span
+                                className="text-error ml-1"
+                                aria-hidden="true"
+                            >
                                 *
                             </span>
                         )}
-                        {pertanyaan.wajib && <span className="sr-only">(wajib diisi)</span>}
+                        {pertanyaan.wajib && (
+                            <span className="sr-only">(wajib diisi)</span>
+                        )}
                     </p>
-                    <p className="mt-1 text-xs text-muted">Bobot: {pertanyaan.bobot}</p>
+                    <p className="text-muted mt-1 text-xs">
+                        Bobot: {pertanyaan.bobot}
+                    </p>
                 </div>
 
                 {pertanyaan.tipe_jawaban === 'teks' ? (
                     <textarea
                         value={value?.jawaban_teks ?? ''}
-                        onChange={(e) => onChange({ jawaban_teks: e.target.value })}
+                        onChange={(e) =>
+                            onChange({ jawaban_teks: e.target.value })
+                        }
                         rows={3}
                         className="textarea w-full"
                     />
@@ -64,7 +76,10 @@ export function QuestionnaireItem(props: Props) {
                      * the dark theme's light gold and fail contrast.
                      */
                     <div className="flex flex-wrap gap-2">
-                        {Array.from({ length: max - min + 1 }, (_, i) => min + i).map((score) => {
+                        {Array.from(
+                            { length: max - min + 1 },
+                            (_, i) => min + i,
+                        ).map((score) => {
                             const selected = value?.nilai_skor === score;
 
                             return (
@@ -72,7 +87,9 @@ export function QuestionnaireItem(props: Props) {
                                     key={score}
                                     type="button"
                                     aria-pressed={selected}
-                                    onClick={() => onChange({ nilai_skor: score })}
+                                    onClick={() =>
+                                        onChange({ nilai_skor: score })
+                                    }
                                     className={`btn w-10 ${
                                         selected ? 'btn-accent' : 'btn-outline'
                                     }`}
@@ -90,13 +107,13 @@ export function QuestionnaireItem(props: Props) {
     const { code, question, required = false, children } = props;
 
     return (
-        <div className="space-y-3 rounded-box border border-base-300 p-4">
+        <div className="rounded-box border-base-300 space-y-3 border p-4">
             <div>
-                <p className="text-identifier text-xs text-muted">{code}</p>
+                <p className="text-identifier text-muted text-xs">{code}</p>
                 <p className="font-medium">
                     {question}
                     {required && (
-                        <span className="ml-1 text-error" aria-hidden="true">
+                        <span className="text-error ml-1" aria-hidden="true">
                             *
                         </span>
                     )}

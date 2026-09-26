@@ -17,12 +17,12 @@ type Props = {
  */
 export function AndalasAuthShell({ status, children, wide = false }: Props) {
     return (
-        <div className="flex min-h-svh flex-col bg-base-100 md:flex-row">
-            <div className="relative hidden flex-col justify-between overflow-hidden bg-primary p-10 text-primary-content md:flex md:w-5/12 lg:w-2/5 lg:p-12">
+        <div className="bg-base-100 flex min-h-svh flex-col md:flex-row">
+            <div className="bg-primary text-primary-content relative hidden flex-col justify-between overflow-hidden p-10 md:flex md:w-5/12 lg:w-2/5 lg:p-12">
                 <div className="relative z-10">
                     <Link
                         href="/"
-                        className="inline-flex items-center gap-2 text-sm text-primary-content/80 transition-colors hover:text-primary-content hover:underline"
+                        className="text-primary-content/80 hover:text-primary-content inline-flex items-center gap-2 text-sm transition-colors hover:underline"
                     >
                         <ArrowLeft className="size-4" aria-hidden="true" />
                         Kembali ke Beranda
@@ -31,17 +31,18 @@ export function AndalasAuthShell({ status, children, wide = false }: Props) {
 
                 <div className="relative z-10 flex flex-col items-start gap-4">
                     <AndalasLogo size="lg" />
-                    <p className="font-sans text-2xl font-bold leading-snug">
+                    <p className="font-sans text-2xl leading-snug font-bold">
                         Asrama mahasiswa Universitas Andalas
                     </p>
-                    <p className="max-w-xs text-sm text-primary-content/80">
-                        Satu tempat untuk hunian, pembayaran, absensi, dan pengajuan selama masa
-                        tinggal di asrama.
+                    <p className="text-primary-content/80 max-w-xs text-sm">
+                        Satu tempat untuk hunian, pembayaran, absensi, dan
+                        pengajuan selama masa tinggal di asrama.
                     </p>
                 </div>
 
-                <div className="relative z-10 text-xs text-primary-content/70">
-                    © {new Date().getFullYear()} Andalas Residen, Universitas Andalas
+                <div className="text-primary-content/70 relative z-10 text-xs">
+                    © {new Date().getFullYear()} Andalas Residen, Universitas
+                    Andalas
                 </div>
             </div>
 
@@ -49,7 +50,7 @@ export function AndalasAuthShell({ status, children, wide = false }: Props) {
                 <div className="mb-6 flex w-full max-w-md items-center justify-between md:hidden">
                     <Link
                         href="/"
-                        className="inline-flex items-center gap-1.5 text-sm text-muted transition-colors hover:text-primary"
+                        className="text-muted hover:text-primary inline-flex items-center gap-1.5 text-sm transition-colors"
                     >
                         <ArrowLeft className="size-4" aria-hidden="true" />
                         Beranda
@@ -59,7 +60,10 @@ export function AndalasAuthShell({ status, children, wide = false }: Props) {
 
                 <div className={wide ? 'w-full max-w-3xl' : 'w-full max-w-md'}>
                     {status && (
-                        <div role="status" className="alert alert-success mb-4 text-sm">
+                        <div
+                            role="status"
+                            className="alert alert-success mb-4 text-sm"
+                        >
                             {status}
                         </div>
                     )}
@@ -86,10 +90,12 @@ export function AuthField({
 }) {
     return (
         <fieldset className="fieldset">
-            <legend className="fieldset-legend text-sm font-medium">{label}</legend>
+            <legend className="fieldset-legend text-sm font-medium">
+                {label}
+            </legend>
             {children}
             {error && (
-                <p role="alert" className="text-xs text-error">
+                <p role="alert" className="text-error text-xs">
                     {error}
                 </p>
             )}
@@ -105,8 +111,17 @@ export function AuthSubmitButton({
     children: ReactNode;
 }) {
     return (
-        <button type="submit" disabled={processing} className="btn btn-primary w-full">
-            {processing && <span className="loading loading-spinner loading-sm" aria-hidden="true" />}
+        <button
+            type="submit"
+            disabled={processing}
+            className="btn btn-primary w-full"
+        >
+            {processing && (
+                <span
+                    className="loading loading-spinner loading-sm"
+                    aria-hidden="true"
+                />
+            )}
             {processing ? 'Memproses…' : children}
         </button>
     );
@@ -142,7 +157,9 @@ export function PasswordInput({
                     type="button"
                     onClick={() => setVisible((v) => !v)}
                     className="btn btn-ghost btn-sm absolute top-1/2 right-1 -translate-y-1/2"
-                    aria-label={visible ? 'Sembunyikan password' : 'Tampilkan password'}
+                    aria-label={
+                        visible ? 'Sembunyikan password' : 'Tampilkan password'
+                    }
                     aria-pressed={visible}
                 >
                     {visible ? (

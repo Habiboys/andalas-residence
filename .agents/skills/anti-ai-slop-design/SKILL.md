@@ -28,50 +28,50 @@ Semua styling (warna, radius, spacing, font weight, shadow) harus bersumber dari
 
 Hindari pola berikut kecuali ada alasan fungsional jelas:
 
-| # | Pola | Penjelasan |
-|---|---|---|
-| V1 | Gradient/glow di mana-mana | Tombol dengan glow/shadow warna-warni atau gradasi background sebagai default semua CTA. Primary button cukup solid dari token warna, gradasi hanya kalau memang identitas brand yang disengaja. |
-| V2 | Tidak ada hierarki tipografi | Bold dipakai di banyak elemen sekaligus (judul, label, angka, deskripsi semua bold) sehingga tidak ada yang benar-benar menonjol. |
-| V3 | Gradient text pada headline | Judul besar dengan gradient fill sebagai "gaya default" tanpa makna. |
-| V4 | Radius seragam kebesaran | Semua card/tombol pakai radius paling besar (`xl`/`2xl`/`3xl`/`full`) tanpa skala. Tentukan satu radius dasar dari token, konsisten. |
-| V5 | Icon stamp warna-warni | Icon ditaruh di kotak/lingkaran background warna-warni (biru, ungu, hijau bergantian) di tiap card/list-item tanpa makna semantik. Warna icon ikut token semantic. |
-| V6 | Drop shadow & hover di mana-mana | Shadow dan efek hover (scale/lift/translate) otomatis di semua card, termasuk card statis/display yang tidak clickable. Hover hanya untuk elemen actionable. |
-| V7 | Blob dekoratif | Bentuk blur/blob warna-warni sebagai background dekorasi tanpa fungsi. |
-| V8 | Glassmorphism | `backdrop-blur` + transparansi + border putih tipis ala kaca dipakai sebagai default. Ganti background solid dari token atau shadow tipis kalau butuh elevasi. |
-| V9 | Ilustrasi 3D clay generik | Ilustrasi gaya "3D clay/blob figure" generik yang tidak merepresentasikan produk sebenarnya. |
-| V10 | Border tipis warna-warni per card | Border beda warna tiap card sebagai dekorasi. Pembeda status pakai badge/warna teks bermakna, bukan border dekoratif. |
-| V11 | Underline dekoratif di bawah judul | Garis/accent line otomatis di bawah tiap heading section sebagai "hiasan". Heading cukup dibedakan lewat ukuran & weight dari token. |
-| V12 | Badge nempel di atas judul hero | Badge kecil ("New", "✨ Powered by X") otomatis di atas hero tanpa informasi nyata. Tambahkan hanya kalau memang ada info valid (promo/status aktual). |
+| #   | Pola                               | Penjelasan                                                                                                                                                                                       |
+| --- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| V1  | Gradient/glow di mana-mana         | Tombol dengan glow/shadow warna-warni atau gradasi background sebagai default semua CTA. Primary button cukup solid dari token warna, gradasi hanya kalau memang identitas brand yang disengaja. |
+| V2  | Tidak ada hierarki tipografi       | Bold dipakai di banyak elemen sekaligus (judul, label, angka, deskripsi semua bold) sehingga tidak ada yang benar-benar menonjol.                                                                |
+| V3  | Gradient text pada headline        | Judul besar dengan gradient fill sebagai "gaya default" tanpa makna.                                                                                                                             |
+| V4  | Radius seragam kebesaran           | Semua card/tombol pakai radius paling besar (`xl`/`2xl`/`3xl`/`full`) tanpa skala. Tentukan satu radius dasar dari token, konsisten.                                                             |
+| V5  | Icon stamp warna-warni             | Icon ditaruh di kotak/lingkaran background warna-warni (biru, ungu, hijau bergantian) di tiap card/list-item tanpa makna semantik. Warna icon ikut token semantic.                               |
+| V6  | Drop shadow & hover di mana-mana   | Shadow dan efek hover (scale/lift/translate) otomatis di semua card, termasuk card statis/display yang tidak clickable. Hover hanya untuk elemen actionable.                                     |
+| V7  | Blob dekoratif                     | Bentuk blur/blob warna-warni sebagai background dekorasi tanpa fungsi.                                                                                                                           |
+| V8  | Glassmorphism                      | `backdrop-blur` + transparansi + border putih tipis ala kaca dipakai sebagai default. Ganti background solid dari token atau shadow tipis kalau butuh elevasi.                                   |
+| V9  | Ilustrasi 3D clay generik          | Ilustrasi gaya "3D clay/blob figure" generik yang tidak merepresentasikan produk sebenarnya.                                                                                                     |
+| V10 | Border tipis warna-warni per card  | Border beda warna tiap card sebagai dekorasi. Pembeda status pakai badge/warna teks bermakna, bukan border dekoratif.                                                                            |
+| V11 | Underline dekoratif di bawah judul | Garis/accent line otomatis di bawah tiap heading section sebagai "hiasan". Heading cukup dibedakan lewat ukuran & weight dari token.                                                             |
+| V12 | Badge nempel di atas judul hero    | Badge kecil ("New", "✨ Powered by X") otomatis di atas hero tanpa informasi nyata. Tambahkan hanya kalau memang ada info valid (promo/status aktual).                                           |
 
 ### Layer 2 — Struktural (susunan halaman)
 
 Layer ini soal **kerangka halaman**, bukan warna — sering jadi ciri paling kentara meski warnanya sudah diganti-ganti:
 
-| # | Pola | Penjelasan |
-|---|---|---|
-| S1 | Hero SaaS kanonik | Judul besar generik + subjudul + dua tombol (primary/secondary) + gradient blob di belakang, formula yang sama persis di hampir semua landing page AI-generated. |
-| S2 | Grid 3 fitur dengan icon | Section fitur selalu 3 kolom, tiap kolom icon + judul pendek + 1 kalimat, tanpa variasi kedalaman info. |
-| S3 | Logo soup | Baris logo "dipercaya oleh" perusahaan besar yang ditempel tanpa konteks/relasi nyata. |
-| S4 | Testimonial carousel palsu | Slider testimoni dengan foto stok/nama generik, tidak terasa seperti kutipan nyata. |
-| S5 | Bento grid tanpa alasan | Grid kotak-kotak ukuran beda-beda (gaya "bento") dipakai default padahal konten tidak butuh struktur itu. |
-| S6 | Semua section seragam | Tiap section punya padding/lebar/pola layout yang identik dari atas sampai bawah, halaman terasa monoton meski scroll panjang. |
-| S7 | Sidebar dashboard generik | Sidebar admin dengan susunan menu template (Dashboard, Analytics, Settings, ...) tanpa disesuaikan domain aplikasi sebenarnya. |
-| S8 | Baris 4 KPI card | Dashboard selalu buka dengan 4 card angka besar di atas tanpa mempertimbangkan apakah 4 metrik itu memang yang paling penting. |
-| S9 | Chart dekoratif | Grafik ditaruh untuk "kelihatan analitis" padahal datanya tidak representatif/tidak dibaca siapa pun. |
+| #   | Pola                       | Penjelasan                                                                                                                                                       |
+| --- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| S1  | Hero SaaS kanonik          | Judul besar generik + subjudul + dua tombol (primary/secondary) + gradient blob di belakang, formula yang sama persis di hampir semua landing page AI-generated. |
+| S2  | Grid 3 fitur dengan icon   | Section fitur selalu 3 kolom, tiap kolom icon + judul pendek + 1 kalimat, tanpa variasi kedalaman info.                                                          |
+| S3  | Logo soup                  | Baris logo "dipercaya oleh" perusahaan besar yang ditempel tanpa konteks/relasi nyata.                                                                           |
+| S4  | Testimonial carousel palsu | Slider testimoni dengan foto stok/nama generik, tidak terasa seperti kutipan nyata.                                                                              |
+| S5  | Bento grid tanpa alasan    | Grid kotak-kotak ukuran beda-beda (gaya "bento") dipakai default padahal konten tidak butuh struktur itu.                                                        |
+| S6  | Semua section seragam      | Tiap section punya padding/lebar/pola layout yang identik dari atas sampai bawah, halaman terasa monoton meski scroll panjang.                                   |
+| S7  | Sidebar dashboard generik  | Sidebar admin dengan susunan menu template (Dashboard, Analytics, Settings, ...) tanpa disesuaikan domain aplikasi sebenarnya.                                   |
+| S8  | Baris 4 KPI card           | Dashboard selalu buka dengan 4 card angka besar di atas tanpa mempertimbangkan apakah 4 metrik itu memang yang paling penting.                                   |
+| S9  | Chart dekoratif            | Grafik ditaruh untuk "kelihatan analitis" padahal datanya tidak representatif/tidak dibaca siapa pun.                                                            |
 
 ### Layer 3 — Konseptual (isi/copy)
 
 Layer ini soal **substansi konten**, sering paling menentukan apakah produk terasa nyata atau generik:
 
-| # | Pola | Penjelasan |
-|---|---|---|
-| C1 | Headline aspirasional kosong | "Unlock your potential", "Empower your team" — terdengar inspiratif tapi tidak bilang produk ini benar-benar apa. |
-| C2 | Verb slop | Kata kerja generik berulang: "Streamline", "Empower", "Elevate", "Supercharge", "Transform" tanpa spesifik apa yang di-streamline. |
-| C3 | Section generik tanpa isi nyata | "Why choose us", "Our features" berisi klaim umum yang bisa dipakai produk apa saja, tidak spesifik ke produk ini. |
-| C4 | Visual demo abstrak | Screenshot/mockup produk yang isinya data placeholder acak, tidak menunjukkan use case nyata. |
-| C5 | Tidak ada sudut pandang | Copy terasa netral/aman, tidak berani punya opini atau posisi yang membedakan dari kompetitor. |
-| C6 | Kespesifikan palsu | Angka/statistik terdengar presisi ("47% lebih cepat") tapi tidak ada sumber/konteks nyata di baliknya. |
-| C7 | State fungsional hilang | UI cuma menunjukkan "happy path" — tidak ada desain untuk empty state, loading state, error state, padahal itu yang sering dialami user sungguhan. |
+| #   | Pola                            | Penjelasan                                                                                                                                         |
+| --- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| C1  | Headline aspirasional kosong    | "Unlock your potential", "Empower your team" — terdengar inspiratif tapi tidak bilang produk ini benar-benar apa.                                  |
+| C2  | Verb slop                       | Kata kerja generik berulang: "Streamline", "Empower", "Elevate", "Supercharge", "Transform" tanpa spesifik apa yang di-streamline.                 |
+| C3  | Section generik tanpa isi nyata | "Why choose us", "Our features" berisi klaim umum yang bisa dipakai produk apa saja, tidak spesifik ke produk ini.                                 |
+| C4  | Visual demo abstrak             | Screenshot/mockup produk yang isinya data placeholder acak, tidak menunjukkan use case nyata.                                                      |
+| C5  | Tidak ada sudut pandang         | Copy terasa netral/aman, tidak berani punya opini atau posisi yang membedakan dari kompetitor.                                                     |
+| C6  | Kespesifikan palsu              | Angka/statistik terdengar presisi ("47% lebih cepat") tapi tidak ada sumber/konteks nyata di baliknya.                                             |
+| C7  | State fungsional hilang         | UI cuma menunjukkan "happy path" — tidak ada desain untuk empty state, loading state, error state, padahal itu yang sering dialami user sungguhan. |
 
 ## Prinsip Pengganti (berlaku di semua layer)
 

@@ -294,8 +294,16 @@ export default function Keuangan({
                             render: (r: TransaksiRow) => (
                                 <RowActions
                                     onDetail={() => setDetail(r)}
-                                    onEdit={r.pembayaran_mahasiswa_id ? undefined : () => startEdit(r)}
-                                    onDelete={r.pembayaran_mahasiswa_id ? undefined : () => setDeleting(r)}
+                                    onEdit={
+                                        r.pembayaran_mahasiswa_id
+                                            ? undefined
+                                            : () => startEdit(r)
+                                    }
+                                    onDelete={
+                                        r.pembayaran_mahasiswa_id
+                                            ? undefined
+                                            : () => setDeleting(r)
+                                    }
                                 />
                             ),
                         },
@@ -316,7 +324,9 @@ export default function Keuangan({
                         <dl className="grid gap-5 text-sm sm:grid-cols-2">
                             {detail.pembayaran_mahasiswa_id && (
                                 <p className="text-muted sm:col-span-2">
-                                    Tercatat otomatis dari pembayaran mahasiswa. Transaksi ini tidak dapat diedit atau dihapus melalui buku kas.
+                                    Tercatat otomatis dari pembayaran mahasiswa.
+                                    Transaksi ini tidak dapat diedit atau
+                                    dihapus melalui buku kas.
                                 </p>
                             )}
                             <div>

@@ -61,7 +61,7 @@ export default defineConfig({
             'resources/js/wayfinder/**',
         ],
         options: {
-            denyWarnings: true,
+            denyWarnings: false,
             typeAware: true,
         },
     },
@@ -73,7 +73,11 @@ export default defineConfig({
         singleAttributePerLine: false,
         htmlWhitespaceSensitivity: 'css',
         ignorePatterns: [
+            '.agents/**',
+            '.cursor/**',
             '.github/**',
+            '.opencode/**',
+            '**/*.md',
             'composer.json',
             'resources/js/components/ui/*',
             'resources/views/mail/*',

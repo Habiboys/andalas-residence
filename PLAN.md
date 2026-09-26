@@ -28,16 +28,16 @@ Sediakan dua bagian dalam Manajemen Layanan Bebas Asrama:
 
 ### Alur pengajuan
 
-| Kondisi | Perilaku |
-|---|---|
-| Masih menjadi penghuni aktif | Pengajuan surat ditolak sampai check-out selesai |
-| Alumni lama mengaku sudah lunas | Wajib unggah bukti pembayaran dan rekening koran; Admin Layanan memverifikasi |
-| Bukti valid | Catat pelunasan historis yang terkait, nolkan sisa tagihannya, lalu terbitkan surat |
-| Bukti tidak valid | Tolak dengan pesan untuk menemui Admin Layanan di kantor |
-| Alumni lama belum lunas | Terbitkan invoice berdasarkan gedung dan angkatan, dikurangi pembayaran yang sudah terverifikasi |
-| Mengaku tidak pernah tinggal tetapi ditemukan dalam arsip alumni | Tolak jalur tersebut dan tampilkan tagihan belum lunas tanpa membuat tagihan ganda |
-| Tidak pernah tinggal dan tidak memiliki tagihan | Terbitkan Surat Keterangan Tidak Tinggal di Asrama secara otomatis |
-| Alumni dengan riwayat sistem, termasuk angkatan ≥2026 | Terbitkan surat otomatis setelah check-out selesai dan sisa tagihan pribadi nol |
+| Kondisi                                                          | Perilaku                                                                                         |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Masih menjadi penghuni aktif                                     | Pengajuan surat ditolak sampai check-out selesai                                                 |
+| Alumni lama mengaku sudah lunas                                  | Wajib unggah bukti pembayaran dan rekening koran; Admin Layanan memverifikasi                    |
+| Bukti valid                                                      | Catat pelunasan historis yang terkait, nolkan sisa tagihannya, lalu terbitkan surat              |
+| Bukti tidak valid                                                | Tolak dengan pesan untuk menemui Admin Layanan di kantor                                         |
+| Alumni lama belum lunas                                          | Terbitkan invoice berdasarkan gedung dan angkatan, dikurangi pembayaran yang sudah terverifikasi |
+| Mengaku tidak pernah tinggal tetapi ditemukan dalam arsip alumni | Tolak jalur tersebut dan tampilkan tagihan belum lunas tanpa membuat tagihan ganda               |
+| Tidak pernah tinggal dan tidak memiliki tagihan                  | Terbitkan Surat Keterangan Tidak Tinggal di Asrama secara otomatis                               |
+| Alumni dengan riwayat sistem, termasuk angkatan ≥2026            | Terbitkan surat otomatis setelah check-out selesai dan sisa tagihan pribadi nol                  |
 
 Pengakuan alumni lama yang belum ada dalam arsip masuk pemeriksaan Admin Layanan. Gedung atau tarif yang belum tersedia harus dilengkapi admin, bukan dianggap bernilai nol.
 

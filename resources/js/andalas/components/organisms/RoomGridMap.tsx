@@ -1,10 +1,10 @@
-import { Modal } from "../atoms/Modal";
-import { StatusBadge } from "../atoms/Badge";
+import { Modal } from '../atoms/Modal';
+import { StatusBadge } from '../atoms/Badge';
 import {
     PaymentStatusBadge,
     type ResidentPayment,
-} from "../atoms/PaymentStatusBadge";
-import { formatDate } from "../../lib/format";
+} from '../atoms/PaymentStatusBadge';
+import { formatDate } from '../../lib/format';
 
 export type RoomAsset = {
     id: string;
@@ -52,10 +52,10 @@ export type RoomGridItem = {
  * contrast does not depend on the tint.
  */
 const cellTone: Record<string, string> = {
-    kosong: "border-success bg-success/15",
-    terisi_sebagian: "border-warning bg-warning/15",
-    penuh: "border-error bg-error/15",
-    maintenance: "border-base-300 bg-base-200",
+    kosong: 'border-success bg-success/15',
+    terisi_sebagian: 'border-warning bg-warning/15',
+    penuh: 'border-error bg-error/15',
+    maintenance: 'border-base-300 bg-base-200',
 };
 
 type Props = {
@@ -66,7 +66,7 @@ type Props = {
 export function RoomGridMap({ rooms, onSelect }: Props) {
     if (rooms.length === 0) {
         return (
-            <p className="py-8 text-center text-sm text-muted">
+            <p className="text-muted py-8 text-center text-sm">
                 Belum ada kamar pada gedung ini. Kamar yang ditambahkan lewat
                 Kelola Bangunan akan muncul di sini.
             </p>
@@ -96,7 +96,7 @@ export function RoomGridMap({ rooms, onSelect }: Props) {
                             {okupansi}/{kamar.kapasitas} penghuni
                         </p>
                         {kamar.tipe_kamar && (
-                            <span className="mt-1 inline-block text-xs text-muted">
+                            <span className="text-muted mt-1 inline-block text-xs">
                                 {kamar.tipe_kamar}
                             </span>
                         )}
@@ -111,25 +111,25 @@ export function ResidentDetail({ resident }: { resident: RoomResident }) {
     const mahasiswa = resident.mahasiswa;
 
     return (
-        <li className="space-y-1.5 rounded-field bg-base-200 px-3 py-3">
+        <li className="rounded-field bg-base-200 space-y-1.5 px-3 py-3">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                 <span className="font-medium">
-                    {mahasiswa?.user?.nama ?? "Nama tidak tersedia"}
+                    {mahasiswa?.user?.nama ?? 'Nama tidak tersedia'}
                 </span>
-                <span className="text-identifier text-xs text-muted">
-                    {mahasiswa?.user?.nim_nip ?? "NIM tidak tersedia"}
+                <span className="text-identifier text-muted text-xs">
+                    {mahasiswa?.user?.nim_nip ?? 'NIM tidak tersedia'}
                 </span>
-                <StatusBadge status={mahasiswa?.status_huni ?? ""} />
+                <StatusBadge status={mahasiswa?.status_huni ?? ''} />
             </div>
             {mahasiswa?.prodi?.name && (
-                <p className="text-xs text-muted">
+                <p className="text-muted text-xs">
                     {mahasiswa.prodi.name}
                     {mahasiswa.angkatan
                         ? ` · Angkatan ${mahasiswa.angkatan}`
-                        : ""}
+                        : ''}
                 </p>
             )}
-            <p className="text-xs text-muted">
+            <p className="text-muted text-xs">
                 Masuk asrama: {formatDate(mahasiswa?.tanggal_masuk)}
             </p>
             <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -154,7 +154,7 @@ export function RoomDetailModal({
         <Modal
             open={!!room}
             onClose={onClose}
-            title={room ? `Detail Kamar ${room.nomor_kamar}` : "Detail Kamar"}
+            title={room ? `Detail Kamar ${room.nomor_kamar}` : 'Detail Kamar'}
             width="max-w-xl"
         >
             {room && (
@@ -179,15 +179,15 @@ export function RoomDetailModal({
                                 {aset.map((a) => (
                                     <li
                                         key={a.id}
-                                        className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-field bg-base-200 px-3 py-2"
+                                        className="rounded-field bg-base-200 flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-2"
                                     >
                                         <span className="font-medium">
                                             {a.nama_aset}
                                         </span>
-                                        <span className="text-identifier text-xs text-muted">
+                                        <span className="text-identifier text-muted text-xs">
                                             {a.kode_inventaris}
                                         </span>
-                                        <span className="text-identifier text-xs text-muted">
+                                        <span className="text-identifier text-muted text-xs">
                                             ×{a.jumlah}
                                         </span>
                                         <StatusBadge status={a.kondisi} />

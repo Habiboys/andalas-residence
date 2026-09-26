@@ -1,7 +1,7 @@
-import { Head } from "@inertiajs/react";
-import LandingLayout from "@/andalas/components/LandingLayout";
-import LandingPageHero from "@/andalas/components/LandingPageHero";
-import "@/andalas/index.css";
+import { Head } from '@inertiajs/react';
+import LandingLayout from '@/andalas/components/LandingLayout';
+import LandingPageHero from '@/andalas/components/LandingPageHero';
+import '@/andalas/index.css';
 
 type Gedung = {
     id: string;
@@ -20,11 +20,15 @@ type Props = {
 
 function genderLabel(v?: string) {
     switch (v) {
-        case "laki_laki": return "Putra";
-        case "perempuan": return "Putri";
-        case "campuran":
-        case "campur": return "Campuran";
-        default: return "Campuran";
+        case 'laki_laki':
+            return 'Putra';
+        case 'perempuan':
+            return 'Putri';
+        case 'campuran':
+        case 'campur':
+            return 'Campuran';
+        default:
+            return 'Campuran';
     }
 }
 
@@ -35,43 +39,83 @@ export default function UnitPage(props: Props) {
         <>
             <Head title="Unit" />
             <LandingLayout active="unit">
-                <LandingPageHero title="Unit Andalas Residence" breadcrumb="Unit" />
+                <LandingPageHero
+                    title="Unit Andalas Residence"
+                    breadcrumb="Unit"
+                />
 
                 <section className="py-16 md:py-24">
-                    <div className="max-w-6xl mx-auto px-6">
-                        <div className="max-w-2xl mb-14">
-                            <div className="text-accent text-xs font-medium tracking-widest uppercase mb-3">Gedung Kami</div>
-                            <h2 className="font-[DM_Serif_Display,Georgia,serif] text-4xl text-base-content leading-tight mb-4">
-                                Unit Hunian<br />di Andalas Residence
+                    <div className="mx-auto max-w-6xl px-6">
+                        <div className="mb-14 max-w-2xl">
+                            <div className="text-accent mb-3 text-xs font-medium tracking-widest uppercase">
+                                Gedung Kami
+                            </div>
+                            <h2 className="text-base-content mb-4 font-[DM_Serif_Display,Georgia,serif] text-4xl leading-tight">
+                                Unit Hunian
+                                <br />
+                                di Andalas Residence
                             </h2>
                             <p className="text-base-content/70 text-base leading-relaxed">
-                                Andalas Residence terdiri dari berbagai gedung unit hunian yang masing-masing dirancang untuk mendukung kenyamanan dan aktivitas akademik mahasiswa.
+                                Andalas Residence terdiri dari berbagai gedung
+                                unit hunian yang masing-masing dirancang untuk
+                                mendukung kenyamanan dan aktivitas akademik
+                                mahasiswa.
                             </p>
                         </div>
 
                         {gedung.length === 0 ? (
-                            <p className="text-center text-base-content/70 text-sm">Belum ada gedung terdaftar.</p>
+                            <p className="text-base-content/70 text-center text-sm">
+                                Belum ada gedung terdaftar.
+                            </p>
                         ) : (
-                            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                                 {gedung.map((g) => (
-                                    <div key={g.id} className="bg-base-100 border border-base-300 rounded-lg overflow-hidden group hover:shadow-lg transition-shadow">
+                                    <div
+                                        key={g.id}
+                                        className="bg-base-100 border-base-300 group overflow-hidden rounded-lg border transition-shadow hover:shadow-lg"
+                                    >
                                         {g.foto ? (
-                                            <img src={`/storage/${g.foto}`} alt={g.nama_gedung} className="w-full h-44 object-cover" />
+                                            <img
+                                                src={`/storage/${g.foto}`}
+                                                alt={g.nama_gedung}
+                                                className="h-44 w-full object-cover"
+                                            />
                                         ) : (
-                                            <div className="w-full h-44 bg-primary flex items-center justify-center">
-                                                <span className="font-[DM_Serif_Display,Georgia,serif] text-5xl text-accent">{g.kode_gedung}</span>
+                                            <div className="bg-primary flex h-44 w-full items-center justify-center">
+                                                <span className="text-accent font-[DM_Serif_Display,Georgia,serif] text-5xl">
+                                                    {g.kode_gedung}
+                                                </span>
                                             </div>
                                         )}
                                         <div className="p-5">
                                             <div className="flex items-start justify-between gap-2">
-                                                <h3 className="font-semibold text-base-content text-base">{g.nama_gedung}</h3>
-                                                <span className="text-[10px] font-semibold uppercase tracking-wider bg-primary text-primary-content px-2 py-0.5 rounded">{g.kode_gedung}</span>
+                                                <h3 className="text-base-content text-base font-semibold">
+                                                    {g.nama_gedung}
+                                                </h3>
+                                                <span className="bg-primary text-primary-content rounded px-2 py-0.5 text-[10px] font-semibold tracking-wider uppercase">
+                                                    {g.kode_gedung}
+                                                </span>
                                             </div>
-                                            <div className="mt-1 flex items-center gap-3 text-xs text-base-content/70">
-                                                <span className="capitalize">Peruntukan: {genderLabel(g.gender_peruntukan)}</span>
-                                                {typeof g.lantai_count === "number" && <span>• {g.lantai_count} lantai</span>}
+                                            <div className="text-base-content/70 mt-1 flex items-center gap-3 text-xs">
+                                                <span className="capitalize">
+                                                    Peruntukan:{' '}
+                                                    {genderLabel(
+                                                        g.gender_peruntukan,
+                                                    )}
+                                                </span>
+                                                {typeof g.lantai_count ===
+                                                    'number' && (
+                                                    <span>
+                                                        • {g.lantai_count}{' '}
+                                                        lantai
+                                                    </span>
+                                                )}
                                             </div>
-                                            {g.deskripsi && <p className="mt-3 text-sm text-base-content/70 leading-relaxed line-clamp-3">{g.deskripsi}</p>}
+                                            {g.deskripsi && (
+                                                <p className="text-base-content/70 mt-3 line-clamp-3 text-sm leading-relaxed">
+                                                    {g.deskripsi}
+                                                </p>
+                                            )}
                                         </div>
                                     </div>
                                 ))}

@@ -149,8 +149,7 @@ export default function MahasiswaDashboard({
                             : 'Lihat syarat binaan dan riwayat absensi',
                         href: absensi.url(),
                         icon: QrCode,
-                        visible:
-                            currentUser?.attendance_eligible,
+                        visible: currentUser?.attendance_eligible,
                     },
                     {
                         title: 'Laporkan kerusakan',

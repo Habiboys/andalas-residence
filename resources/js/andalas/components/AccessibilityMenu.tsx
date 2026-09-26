@@ -1,12 +1,6 @@
-import { Accessibility, Minus, Moon, Plus, Sun } from "lucide-react";
-import {
-    FONT_SCALES,
-    getFontScale,
-} from "@/lib/theme";
-import {
-    useAccessibility,
-    useTheme,
-} from "../context/AppContext";
+import { Accessibility, Minus, Moon, Plus, Sun } from 'lucide-react';
+import { FONT_SCALES, getFontScale } from '@/lib/theme';
+import { useAccessibility, useTheme } from '../context/AppContext';
 
 /*
  * Menu kemudahan ala MyUNAND: pilih terang/gelap dan perbesar ukuran huruf.
@@ -31,14 +25,17 @@ export function AccessibilityMenu() {
                 aria-label="Kemudahan tampilan"
                 title="Kemudahan tampilan"
             >
-                <Accessibility className="size-4 text-primary" aria-hidden="true" />
+                <Accessibility
+                    className="text-primary size-4"
+                    aria-hidden="true"
+                />
             </button>
 
             <div
                 tabIndex={0}
-                className="dropdown-content z-50 mt-2 w-72 rounded-box border border-base-300 bg-base-100 p-3 shadow-xl"
+                className="dropdown-content rounded-box border-base-300 bg-base-100 z-50 mt-2 w-72 border p-3 shadow-xl"
             >
-                <p className="mb-3 text-xs font-medium uppercase tracking-wide text-base-content/60">
+                <p className="text-base-content/60 mb-3 text-xs font-medium tracking-wide uppercase">
                     Kemudahan tampilan
                 </p>
 
@@ -46,7 +43,7 @@ export function AccessibilityMenu() {
                 <div className="mb-4 grid grid-cols-2 gap-2">
                     <button
                         type="button"
-                        className={`btn btn-sm gap-1.5 ${darkMode ? "btn-ghost" : "btn-primary"}`}
+                        className={`btn btn-sm gap-1.5 ${darkMode ? 'btn-ghost' : 'btn-primary'}`}
                         onClick={() => darkMode && toggleDarkMode()}
                     >
                         <Sun className="size-3.5" aria-hidden="true" />
@@ -54,7 +51,7 @@ export function AccessibilityMenu() {
                     </button>
                     <button
                         type="button"
-                        className={`btn btn-sm gap-1.5 ${darkMode ? "btn-primary" : "btn-ghost"}`}
+                        className={`btn btn-sm gap-1.5 ${darkMode ? 'btn-primary' : 'btn-ghost'}`}
                         onClick={() => !darkMode && toggleDarkMode()}
                     >
                         <Moon className="size-3.5" aria-hidden="true" />
@@ -63,7 +60,7 @@ export function AccessibilityMenu() {
                 </div>
 
                 <p className="mb-1.5 text-sm font-medium">Ukuran huruf</p>
-                <p className="mb-2 text-xs text-base-content/60">
+                <p className="text-base-content/60 mb-2 text-xs">
                     Perbesar teks jika tulisan terasa kecil.
                 </p>
                 <div className="mb-2 flex items-center gap-2">
@@ -94,7 +91,7 @@ export function AccessibilityMenu() {
                         <button
                             key={item.id}
                             type="button"
-                            className={`btn btn-xs ${item.id === current.id ? "btn-primary" : "btn-ghost"}`}
+                            className={`btn btn-xs ${item.id === current.id ? 'btn-primary' : 'btn-ghost'}`}
                             onClick={() => setFontScale(item.id)}
                         >
                             {item.label}

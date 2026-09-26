@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useForm, router } from "@inertiajs/react";
+import { useState } from 'react';
+import { useForm, router } from '@inertiajs/react';
 import {
     PageHeader,
     Card,
@@ -11,14 +11,14 @@ import {
     inputClass,
     ConfirmDialog,
     RowActions,
-} from "../../components/ui";
+} from '../../components/ui';
 import {
     store as asetStore,
     update as asetUpdate,
     destroy as asetDestroy,
     importMethod as importAssets,
     template,
-} from "@/routes/andalas/aset";
+} from '@/routes/andalas/aset';
 
 type Stock = {
     id: string;
@@ -81,16 +81,16 @@ type Props = {
 };
 
 const emptyForm = {
-    gedung_id: "",
-    stok_aset_id: "",
+    gedung_id: '',
+    stok_aset_id: '',
     jumlah: 1,
-    kode_inventaris: "",
-    nama_aset: "",
-    kategori: "",
-    kondisi: "baik",
-    kamar_id: "",
-    fasilitas_umum_id: "",
-    nilai_aset: "",
+    kode_inventaris: '',
+    nama_aset: '',
+    kategori: '',
+    kondisi: 'baik',
+    kamar_id: '',
+    fasilitas_umum_id: '',
+    nilai_aset: '',
 };
 
 export default function KelolaAset({
@@ -125,7 +125,7 @@ export default function KelolaAset({
             : []) ?? [];
 
     const buildingId = (row: AsetRow) =>
-        row.kamar?.lantai?.gedung?.id ?? row.fasilitas_umum?.gedung?.id ?? "";
+        row.kamar?.lantai?.gedung?.id ?? row.fasilitas_umum?.gedung?.id ?? '';
 
     function openCreate() {
         setEditing(null);
@@ -137,15 +137,15 @@ export default function KelolaAset({
         setEditing(row);
         setData({
             gedung_id: buildingId(row),
-            stok_aset_id: row.stok_aset_id ?? "",
+            stok_aset_id: row.stok_aset_id ?? '',
             jumlah: row.jumlah ?? 1,
-            kode_inventaris: row.kode_inventaris ?? "",
-            nama_aset: row.nama_aset ?? "",
-            kategori: row.kategori ?? "",
-            kondisi: row.kondisi ?? "baik",
-            kamar_id: row.kamar?.id ?? "",
-            fasilitas_umum_id: row.fasilitas_umum_id ?? "",
-            nilai_aset: row.nilai_aset ?? "",
+            kode_inventaris: row.kode_inventaris ?? '',
+            nama_aset: row.nama_aset ?? '',
+            kategori: row.kategori ?? '',
+            kondisi: row.kondisi ?? 'baik',
+            kamar_id: row.kamar?.id ?? '',
+            fasilitas_umum_id: row.fasilitas_umum_id ?? '',
+            nilai_aset: row.nilai_aset ?? '',
         });
         clearErrors();
         setOpen(true);
@@ -181,44 +181,44 @@ export default function KelolaAset({
     }
 
     const columns = [
-        { key: "kode_inventaris", label: "Kode" },
-        { key: "nama_aset", label: "Nama Aset" },
-        { key: "kategori", label: "Kategori" },
+        { key: 'kode_inventaris', label: 'Kode' },
+        { key: 'nama_aset', label: 'Nama Aset' },
+        { key: 'kategori', label: 'Kategori' },
         {
-            key: "kamar",
-            label: "Lokasi",
+            key: 'kamar',
+            label: 'Lokasi',
             render: (r: AsetRow) =>
                 r.kamar
                     ? [
                           r.kamar.lantai?.gedung?.nama_gedung,
-                          "Kamar " + r.kamar.nomor_kamar,
-                      ].join(" / ")
+                          'Kamar ' + r.kamar.nomor_kamar,
+                      ].join(' / ')
                     : [
                           r.fasilitas_umum?.gedung?.nama_gedung,
                           r.fasilitas_umum?.nama_fasilitas,
                       ]
                           .filter(Boolean)
-                          .join(" / ") || "Belum ditentukan",
+                          .join(' / ') || 'Belum ditentukan',
         },
         {
-            key: "jumlah",
-            label: "Jumlah",
+            key: 'jumlah',
+            label: 'Jumlah',
             render: (r: AsetRow) => r.jumlah ?? 1,
         },
         {
-            key: "kondisi",
-            label: "Kondisi",
+            key: 'kondisi',
+            label: 'Kondisi',
             render: (r: AsetRow) => (
-                <StatusBadge status={r.kondisi ?? "baik"} />
+                <StatusBadge status={r.kondisi ?? 'baik'} />
             ),
             filter: {
-                type: "select",
-                options: ["baik", "rusak_ringan", "rusak_berat", "hilang"],
+                type: 'select',
+                options: ['baik', 'rusak_ringan', 'rusak_berat', 'hilang'],
             },
         },
         {
-            key: "aksi",
-            label: "",
+            key: 'aksi',
+            label: '',
             render: (r: AsetRow) => (
                 <RowActions
                     onEdit={() => openEdit(r)}
@@ -258,14 +258,14 @@ export default function KelolaAset({
                                 className={inputClass}
                                 onChange={(event) =>
                                     importForm.setData(
-                                        "file",
+                                        'file',
                                         event.target.files?.[0] ?? null,
                                     )
                                 }
                             />
                         </FormField>
                         <Button type="submit" disabled={importForm.processing}>
-                            {importForm.processing ? "Mengimpor…" : "Impor"}
+                            {importForm.processing ? 'Mengimpor…' : 'Impor'}
                         </Button>
                         <a
                             className="text-primary py-2 text-sm underline"
@@ -297,7 +297,7 @@ export default function KelolaAset({
             <Drawer
                 open={open}
                 onClose={() => setOpen(false)}
-                title={editing ? "Edit Aset" : "Tambah Aset"}
+                title={editing ? 'Edit Aset' : 'Tambah Aset'}
                 width="w-full max-w-xl"
                 footer={
                     <div className="flex justify-end gap-2">
@@ -313,7 +313,7 @@ export default function KelolaAset({
                             form="kelola-aset-form"
                             disabled={processing}
                         >
-                            {processing ? "Menyimpan..." : "Simpan"}
+                            {processing ? 'Menyimpan...' : 'Simpan'}
                         </Button>
                     </div>
                 }
@@ -328,7 +328,7 @@ export default function KelolaAset({
                             className={inputClass}
                             value={data.kode_inventaris}
                             onChange={(e) =>
-                                setData("kode_inventaris", e.target.value)
+                                setData('kode_inventaris', e.target.value)
                             }
                             required
                         />
@@ -351,15 +351,15 @@ export default function KelolaAset({
                                 setData((values) => ({
                                     ...values,
                                     stok_aset_id: event.target.value,
-                                    nama_aset: selected?.nama ?? "",
-                                    kategori: selected?.kategori ?? "",
+                                    nama_aset: selected?.nama ?? '',
+                                    kategori: selected?.kategori ?? '',
                                 }));
                             }}
                         >
                             <option value="">Pilih jenis stok</option>
                             {stok.map((item) => (
                                 <option key={item.id} value={item.id}>
-                                    {item.kode} — {item.nama} (tersedia:{" "}
+                                    {item.kode} — {item.nama} (tersedia:{' '}
                                     {item.jumlah_total -
                                         Number(item.jumlah_ditempatkan ?? 0)}
                                     )
@@ -376,13 +376,13 @@ export default function KelolaAset({
                             className={inputClass}
                             value={data.jumlah}
                             onChange={(event) =>
-                                setData("jumlah", Number(event.target.value))
+                                setData('jumlah', Number(event.target.value))
                             }
                         />
                     </FormField>
                     {Object.entries(errors)
                         .filter(([field]) =>
-                            ["stok_aset_id", "jumlah"].includes(field),
+                            ['stok_aset_id', 'jumlah'].includes(field),
                         )
                         .map(([field, error]) => (
                             <p key={field} className="text-error text-sm">
@@ -398,8 +398,8 @@ export default function KelolaAset({
                                 setData({
                                     ...data,
                                     gedung_id: event.target.value,
-                                    kamar_id: "",
-                                    fasilitas_umum_id: "",
+                                    kamar_id: '',
+                                    fasilitas_umum_id: '',
                                 })
                             }
                         >
@@ -422,8 +422,8 @@ export default function KelolaAset({
                             disabled={!selectedGedung}
                             value={data.kamar_id}
                             onChange={(e) => {
-                                setData("kamar_id", e.target.value);
-                                setData("fasilitas_umum_id", "");
+                                setData('kamar_id', e.target.value);
+                                setData('fasilitas_umum_id', '');
                             }}
                         >
                             <option value="">Fasilitas Umum</option>
@@ -451,7 +451,7 @@ export default function KelolaAset({
                             label="Lokasi fasilitas umum"
                             hint={
                                 facilityOptions.length === 0
-                                    ? "Belum ada fasilitas umum terdaftar di gedung ini."
+                                    ? 'Belum ada fasilitas umum terdaftar di gedung ini.'
                                     : undefined
                             }
                         >
@@ -461,7 +461,7 @@ export default function KelolaAset({
                                 className={inputClass}
                                 value={data.fasilitas_umum_id}
                                 onChange={(e) =>
-                                    setData("fasilitas_umum_id", e.target.value)
+                                    setData('fasilitas_umum_id', e.target.value)
                                 }
                             >
                                 <option value="">Pilih fasilitas</option>
@@ -485,7 +485,7 @@ export default function KelolaAset({
                         <select
                             className={inputClass}
                             value={data.kondisi}
-                            onChange={(e) => setData("kondisi", e.target.value)}
+                            onChange={(e) => setData('kondisi', e.target.value)}
                         >
                             <option value="baik">Baik</option>
                             <option value="rusak_ringan">Rusak Ringan</option>
@@ -507,7 +507,7 @@ export default function KelolaAset({
                 onConfirm={confirmDelete}
                 loading={deletingBusy}
                 title="Hapus Aset"
-                message={`Hapus aset ${deleting?.nama_aset ?? ""}? Tindakan ini tidak dapat dibatalkan.`}
+                message={`Hapus aset ${deleting?.nama_aset ?? ''}? Tindakan ini tidak dapat dibatalkan.`}
             />
         </div>
     );

@@ -25,8 +25,12 @@ export default function AuthCardLayout({
                 <div className="card bg-base-100 shadow-sm">
                     <div className="card-body px-10 py-8">
                         <div className="mb-6 text-center">
-                            <h1 className="card-title justify-center text-xl">{title}</h1>
-                            <p className="text-base-content/70 text-sm">{description}</p>
+                            <h1 className="card-title justify-center text-xl">
+                                {title}
+                            </h1>
+                            <p className="text-base-content/70 text-sm">
+                                {description}
+                            </p>
                         </div>
                         {children}
                     </div>

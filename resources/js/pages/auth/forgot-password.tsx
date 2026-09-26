@@ -12,7 +12,7 @@ export default function ForgotPassword({ status }: { status?: string }) {
             <Head title="Forgot password" />
 
             {status && (
-                <div className="mb-4 text-center text-sm font-medium text-success">
+                <div className="text-success mb-4 text-center text-sm font-medium">
                     {status}
                 </div>
             )}
@@ -22,7 +22,9 @@ export default function ForgotPassword({ status }: { status?: string }) {
                     {({ processing, errors }) => (
                         <>
                             <fieldset className="fieldset">
-                                <label className="label" htmlFor="email">Email address</label>
+                                <label className="label" htmlFor="email">
+                                    Email address
+                                </label>
                                 <input
                                     id="email"
                                     type="email"

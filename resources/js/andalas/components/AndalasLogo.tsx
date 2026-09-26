@@ -11,7 +11,11 @@ const heightMap = {
     lg: 'h-12',
 };
 
-export function AndalasLogo({ variant = 'full', size = 'md', className = '' }: Props) {
+export function AndalasLogo({
+    variant = 'full',
+    size = 'md',
+    className = '',
+}: Props) {
     const h = heightMap[size];
 
     const img = (
@@ -27,7 +31,11 @@ export function AndalasLogo({ variant = 'full', size = 'md', className = '' }: P
     }
 
     if (variant === 'stacked') {
-        return <div className={`flex flex-col items-center ${className}`}>{img}</div>;
+        return (
+            <div className={`flex flex-col items-center ${className}`}>
+                {img}
+            </div>
+        );
     }
 
     return <div className={`flex items-center ${className}`}>{img}</div>;

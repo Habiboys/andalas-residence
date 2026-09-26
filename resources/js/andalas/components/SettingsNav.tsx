@@ -7,7 +7,11 @@ import { Card } from './ui';
 
 const LINKS = [
     { label: 'Profil', icon: User, url: () => profileEdit() },
-    { label: 'Keamanan & Password', icon: ShieldCheck, url: () => securityEdit() },
+    {
+        label: 'Keamanan & Password',
+        icon: ShieldCheck,
+        url: () => securityEdit(),
+    },
     { label: 'Tampilan', icon: Palette, url: () => appearanceEdit() },
 ];
 
@@ -25,7 +29,8 @@ export default function SettingsNav() {
             <nav aria-label="Pengaturan akun" className="flex flex-wrap gap-1">
                 {LINKS.map((link) => {
                     const target = link.url();
-                    const href = typeof target === 'string' ? target : target.url;
+                    const href =
+                        typeof target === 'string' ? target : target.url;
                     const active = url.startsWith(toPath(target));
                     const Icon = link.icon;
 

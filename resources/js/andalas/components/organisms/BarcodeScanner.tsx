@@ -6,7 +6,10 @@ type Props = {
     placeholder?: string;
 };
 
-export function BarcodeScanner({ onScan, placeholder = 'Scan barcode atau ketik kode...' }: Props) {
+export function BarcodeScanner({
+    onScan,
+    placeholder = 'Scan barcode atau ketik kode...',
+}: Props) {
     const inputRef = useRef<HTMLInputElement>(null);
     const [value, setValue] = useState('');
 
@@ -33,8 +36,9 @@ export function BarcodeScanner({ onScan, placeholder = 'Scan barcode atau ketik 
                 autoComplete="off"
                 className={atomInputClass}
             />
-            <p className="text-xs text-muted">
-                Gunakan scanner USB/barcode reader atau ketik kode manual. Tekan Enter untuk mencatat.
+            <p className="text-muted text-xs">
+                Gunakan scanner USB/barcode reader atau ketik kode manual. Tekan
+                Enter untuk mencatat.
             </p>
         </form>
     );

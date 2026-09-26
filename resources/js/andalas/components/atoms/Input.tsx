@@ -7,6 +7,9 @@ import type { InputHTMLAttributes } from 'react';
  */
 export const atomInputClass = 'input w-full';
 
-export function AtomInput({ className = '', ...props }: InputHTMLAttributes<HTMLInputElement>) {
+export function AtomInput({
+    className = '',
+    ...props
+}: InputHTMLAttributes<HTMLInputElement>) {
     return <input className={`${atomInputClass} ${className}`} {...props} />;
 }

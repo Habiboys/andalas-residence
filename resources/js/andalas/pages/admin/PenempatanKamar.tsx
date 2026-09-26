@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link } from "@inertiajs/react";
+import { useState } from 'react';
+import { Link } from '@inertiajs/react';
 import {
     PageHeader,
     Card,
@@ -7,14 +7,14 @@ import {
     StatusBadge,
     Modal,
     RowActions,
-} from "../../components/ui";
+} from '../../components/ui';
 import {
     PaymentStatusBadge,
     type ResidentPayment,
-} from "../../components/atoms/PaymentStatusBadge";
-import { formatDate } from "../../lib/format";
-import { registrationReview as adminReview } from "@/routes/admin";
-import { registrationReview as layananReview } from "@/routes/admin_layanan";
+} from '../../components/atoms/PaymentStatusBadge';
+import { formatDate } from '../../lib/format';
+import { registrationReview as adminReview } from '@/routes/admin';
+import { registrationReview as layananReview } from '@/routes/admin_layanan';
 
 type Placement = {
     id: string;
@@ -49,7 +49,7 @@ function DetailRow({
 }) {
     return (
         <div className="flex flex-wrap items-baseline justify-between gap-x-4 py-1.5">
-            <dt className="shrink-0 text-muted">{label}</dt>
+            <dt className="text-muted shrink-0">{label}</dt>
             <dd className="text-right font-medium">{children}</dd>
         </div>
     );
@@ -77,7 +77,7 @@ export default function PenempatanKamar({
                 </p>
                 <Link
                     className="link link-primary"
-                    href={(role === "admin_layanan"
+                    href={(role === 'admin_layanan'
                         ? layananReview
                         : adminReview
                     ).url()}
@@ -89,47 +89,47 @@ export default function PenempatanKamar({
                 <Table
                     columns={[
                         {
-                            key: "student",
-                            label: "Penghuni",
+                            key: 'student',
+                            label: 'Penghuni',
                             render: (row: Placement) =>
-                                row.mahasiswa?.user?.nama ?? "-",
+                                row.mahasiswa?.user?.nama ?? '-',
                         },
                         {
-                            key: "identity",
-                            label: "NIM / identitas",
+                            key: 'identity',
+                            label: 'NIM / identitas',
                             render: (row: Placement) =>
-                                row.mahasiswa?.user?.nim_nip ?? "-",
+                                row.mahasiswa?.user?.nim_nip ?? '-',
                         },
                         {
-                            key: "room",
-                            label: "Gedung / kamar",
+                            key: 'room',
+                            label: 'Gedung / kamar',
                             render: (row: Placement) =>
                                 [
                                     row.kamar?.lantai?.gedung?.nama_gedung,
                                     row.kamar?.nomor_kamar,
                                 ]
                                     .filter(Boolean)
-                                    .join(" / "),
+                                    .join(' / '),
                         },
                         {
-                            key: "status",
-                            label: "Penempatan",
+                            key: 'status',
+                            label: 'Penempatan',
                             render: (row: Placement) => (
                                 <StatusBadge status={row.status} />
                             ),
                         },
                         {
-                            key: "occupancy",
-                            label: "Status penghuni",
+                            key: 'occupancy',
+                            label: 'Status penghuni',
                             render: (row: Placement) => (
                                 <StatusBadge
-                                    status={row.mahasiswa?.status_huni ?? ""}
+                                    status={row.mahasiswa?.status_huni ?? ''}
                                 />
                             ),
                         },
                         {
-                            key: "aksi",
-                            label: "Aksi",
+                            key: 'aksi',
+                            label: 'Aksi',
                             render: (row: Placement) => (
                                 <RowActions onDetail={() => setSelected(row)} />
                             ),
@@ -146,7 +146,7 @@ export default function PenempatanKamar({
                 title={
                     selected?.mahasiswa?.user?.nama
                         ? `Detail Penempatan ${selected.mahasiswa.user.nama}`
-                        : "Detail Penempatan"
+                        : 'Detail Penempatan'
                 }
             >
                 {selected && (
@@ -164,11 +164,11 @@ export default function PenempatanKamar({
                                         selected.kamar?.nomor_kamar,
                                     ]
                                         .filter(Boolean)
-                                        .join(" / ") || "-"}
+                                        .join(' / ') || '-'}
                                 </DetailRow>
                                 <DetailRow label="Periode huni">
                                     {formatDate(selected.tanggal_mulai)}
-                                    {" – "}
+                                    {' – '}
                                     {formatDate(selected.tanggal_selesai)}
                                 </DetailRow>
                             </dl>
@@ -178,22 +178,22 @@ export default function PenempatanKamar({
                             <h3 className="mb-1 font-medium">Penghuni</h3>
                             <dl>
                                 <DetailRow label="Nama">
-                                    {selected.mahasiswa?.user?.nama ?? "-"}
+                                    {selected.mahasiswa?.user?.nama ?? '-'}
                                 </DetailRow>
                                 <DetailRow label="NIM">
-                                    {selected.mahasiswa?.user?.nim_nip ?? "-"}
+                                    {selected.mahasiswa?.user?.nim_nip ?? '-'}
                                 </DetailRow>
                                 <DetailRow label="Prodi">
-                                    {selected.mahasiswa?.prodi?.name ?? "-"}
+                                    {selected.mahasiswa?.prodi?.name ?? '-'}
                                 </DetailRow>
                                 <DetailRow label="Angkatan">
-                                    {selected.mahasiswa?.angkatan ?? "-"}
+                                    {selected.mahasiswa?.angkatan ?? '-'}
                                 </DetailRow>
                                 <DetailRow label="No. HP">
-                                    {selected.mahasiswa?.user?.no_hp || "-"}
+                                    {selected.mahasiswa?.user?.no_hp || '-'}
                                 </DetailRow>
                                 <DetailRow label="Email">
-                                    {selected.mahasiswa?.user?.email || "-"}
+                                    {selected.mahasiswa?.user?.email || '-'}
                                 </DetailRow>
                                 <DetailRow label="Masuk asrama">
                                     {formatDate(
@@ -204,7 +204,7 @@ export default function PenempatanKamar({
                                     <StatusBadge
                                         status={
                                             selected.mahasiswa?.status_huni ??
-                                            ""
+                                            ''
                                         }
                                     />
                                 </DetailRow>

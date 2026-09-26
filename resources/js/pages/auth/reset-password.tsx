@@ -24,7 +24,9 @@ export default function ResetPassword({ token, email, passwordRules }: Props) {
                 {({ processing, errors }) => (
                     <div className="grid gap-6">
                         <div className="grid gap-2">
-                            <label className="label" htmlFor="email">Email</label>
+                            <label className="label" htmlFor="email">
+                                Email
+                            </label>
                             <input
                                 id="email"
                                 type="email"
@@ -41,7 +43,9 @@ export default function ResetPassword({ token, email, passwordRules }: Props) {
                         </div>
 
                         <div className="grid gap-2">
-                            <label className="label" htmlFor="password">Password</label>
+                            <label className="label" htmlFor="password">
+                                Password
+                            </label>
                             <PasswordInput
                                 id="password"
                                 name="password"
@@ -55,7 +59,10 @@ export default function ResetPassword({ token, email, passwordRules }: Props) {
                         </div>
 
                         <div className="grid gap-2">
-                            <label className="label" htmlFor="password_confirmation">
+                            <label
+                                className="label"
+                                htmlFor="password_confirmation"
+                            >
                                 Confirm password
                             </label>
                             <PasswordInput
@@ -78,7 +85,9 @@ export default function ResetPassword({ token, email, passwordRules }: Props) {
                             disabled={processing}
                             data-test="reset-password-button"
                         >
-                            {processing && <LoaderCircle className="size-4 animate-spin" />}
+                            {processing && (
+                                <LoaderCircle className="size-4 animate-spin" />
+                            )}
                             Reset password
                         </button>
                     </div>

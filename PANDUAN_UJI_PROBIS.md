@@ -6,10 +6,10 @@ Panduan pengujian manual, disusun 24 September 2026 berdasarkan implementasi dan
 
 Ada dua cara pengujian:
 
-| Cara | Akun yang dipakai | Cocok untuk |
-| --- | --- | --- |
-| Dari pembuatan akun | Buat akun baru lewat halaman Daftar, memakai email dan NIM yang belum digunakan | Menguji seluruh perjalanan pendaftaran sampai surat |
-| Dari tahap tertentu | Akun `@example.test` di panduan ini | Menguji satu proses tanpa mengulang seluruh pendaftaran |
+| Cara                | Akun yang dipakai                                                               | Cocok untuk                                             |
+| ------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| Dari pembuatan akun | Buat akun baru lewat halaman Daftar, memakai email dan NIM yang belum digunakan | Menguji seluruh perjalanan pendaftaran sampai surat     |
+| Dari tahap tertentu | Akun `@example.test` di panduan ini                                             | Menguji satu proses tanpa mengulang seluruh pendaftaran |
 
 **Password awal semua akun seeder: `password`.** Password akun yang dibuat sendiri mengikuti isian Anda. Login menggunakan email. Daftar lengkap tersedia di [AKUN_UJI_COBA.md](AKUN_UJI_COBA.md), sedangkan pembagian 54 akun tersedia di [SKENARIO_UJI_COBA.md](SKENARIO_UJI_COBA.md).
 
@@ -86,18 +86,18 @@ docker compose exec andalas-app php artisan migrate:fresh --seed --no-interactio
 
 ## 3. Akun petugas dan urutan pengujian
 
-| Peran | Email | Digunakan untuk |
-| --- | --- | --- |
-| Admin layanan | `admin_layanan@example.test` | Pengaturan layanan, penempatan KIPK/sponsor, verifikasi pembayaran, invoice gabungan, surat |
-| Admin aset | `admin_aset@example.test` | Gedung/kamar, stok dan aset |
-| Fasilitator W | `fasilitator@example.test` | Aset, kegiatan/QR, izin dan checkout DEMO-W |
-| Fasilitator P | `fasilitator@unand.ac.id` | Aset, kegiatan/QR, izin dan checkout DEMO-P |
-| GO | `go@example.test` | Inspeksi kamar dan aset sebelum checkout |
-| Teknisi | `teknisi@example.test` | Pengerjaan dan penyelesaian kerusakan |
-| Pimpinan | `pimpinan@example.test` | Pemantauan laporan, kerusakan, aset, keuangan |
-| Orang tua | `orang_tua@example.test` | Pemantauan anak `binaan-aktif@example.test` |
-| Staff administrasi | `staff_admin@example.test` | Data master, keuangan, konten landing |
-| Superadmin | `superadmin@example.test` | Akun/peran, audit, pemeriksaan lintas modul |
+| Peran              | Email                        | Digunakan untuk                                                                             |
+| ------------------ | ---------------------------- | ------------------------------------------------------------------------------------------- |
+| Admin layanan      | `admin_layanan@example.test` | Pengaturan layanan, penempatan KIPK/sponsor, verifikasi pembayaran, invoice gabungan, surat |
+| Admin aset         | `admin_aset@example.test`    | Gedung/kamar, stok dan aset                                                                 |
+| Fasilitator W      | `fasilitator@example.test`   | Aset, kegiatan/QR, izin dan checkout DEMO-W                                                 |
+| Fasilitator P      | `fasilitator@unand.ac.id`    | Aset, kegiatan/QR, izin dan checkout DEMO-P                                                 |
+| GO                 | `go@example.test`            | Inspeksi kamar dan aset sebelum checkout                                                    |
+| Teknisi            | `teknisi@example.test`       | Pengerjaan dan penyelesaian kerusakan                                                       |
+| Pimpinan           | `pimpinan@example.test`      | Pemantauan laporan, kerusakan, aset, keuangan                                               |
+| Orang tua          | `orang_tua@example.test`     | Pemantauan anak `binaan-aktif@example.test`                                                 |
+| Staff administrasi | `staff_admin@example.test`   | Data master, keuangan, konten landing                                                       |
+| Superadmin         | `superadmin@example.test`    | Akun/peran, audit, pemeriksaan lintas modul                                                 |
 
 Fasilitator **`fasilitator@example.test` ditugaskan ke DEMO-W**, sedangkan **`fasilitator@unand.ac.id` ke DEMO-P**. Pilih petugas sesuai gedung penghuni untuk aset, izin, absensi, dan checkout. DEMO-T digunakan untuk pengujian pembatasan akses.
 
@@ -113,16 +113,16 @@ Urutan perjalanan lengkap:
 
 **Akun:** client baru atau `daftar-draft@example.test`; petugas `admin_layanan@example.test`.
 
-| Langkah | Akun dan tindakan | Hasil yang diperiksa |
-| --- | --- | --- |
-| 1 | Jika menguji dari nol, buka Daftar tanpa login; isi identitas, email, password, jenis pendaftar mahasiswa lokal, NIM, fakultas/departemen/prodi, dan data wajib lainnya | Akun dibuat sebagai calon penghuni; KIP-K ditentukan sistem dari daftar admin, bukan pilihan pendaftar |
-| 2 | Login client, buka Pendaftaran Asrama | Pilihan gedung, tipe dan nomor kamar tersedia bagi non-KIPK; periode mengikuti satu periode aktif yang ditetapkan admin |
-| 3 | Pilih gedung DEMO-P/W sesuai jenis kelamin, tipe dan nomor kamar serta periode aktif; periksa modal konfirmasi lalu kirim | Reservasi kamar berlaku 24 jam (sesuai jam reservasi periode) dan invoice terbentuk otomatis; status menunggu pembayaran, tanpa persetujuan admin tambahan untuk pembayar pribadi |
-| 4 | Login admin layanan → Invoice → cari tagihan client | Identitas, gedung/tipe/nomor kamar, durasi dan tarif sesuai pilihan; total, dibayar, sisa dan nominal sekarang tampil terpisah |
-| 5 | (Opsional cicilan) Tetapkan nominal pembayaran berikutnya beserta VA pada tagihan tersebut | Client hanya dapat mengunggah bukti sebesar nominal yang ditetapkan |
-| 6 | Login client → Tagihan → buka invoice; unggah bukti pembayaran sejumlah tagihan (atau nominal berikutnya bila ditetapkan) | Bukti masuk sebagai pembayaran menunggu verifikasi, bukan langsung lunas |
-| 7 | Login admin → Verifikasi Pembayaran → tab menunggu → detail pembayaran → setujui | Invoice lunas/cicilan pertama terpenuhi; pendaftaran selesai otomatis: penempatan tercatat, status hunian aktif, kwitansi diproses |
-| 8 | Login client; periksa hunian, menu layanan dan unduh kwitansi setelah worker selesai | Kwitansi berisi nama, jumlah benar-benar dibayar, gedung, nomor/tipe kamar dan masa tinggal |
+| Langkah | Akun dan tindakan                                                                                                                                                       | Hasil yang diperiksa                                                                                                                                                              |
+| ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1       | Jika menguji dari nol, buka Daftar tanpa login; isi identitas, email, password, jenis pendaftar mahasiswa lokal, NIM, fakultas/departemen/prodi, dan data wajib lainnya | Akun dibuat sebagai calon penghuni; KIP-K ditentukan sistem dari daftar admin, bukan pilihan pendaftar                                                                            |
+| 2       | Login client, buka Pendaftaran Asrama                                                                                                                                   | Pilihan gedung, tipe dan nomor kamar tersedia bagi non-KIPK; periode mengikuti satu periode aktif yang ditetapkan admin                                                           |
+| 3       | Pilih gedung DEMO-P/W sesuai jenis kelamin, tipe dan nomor kamar serta periode aktif; periksa modal konfirmasi lalu kirim                                               | Reservasi kamar berlaku 24 jam (sesuai jam reservasi periode) dan invoice terbentuk otomatis; status menunggu pembayaran, tanpa persetujuan admin tambahan untuk pembayar pribadi |
+| 4       | Login admin layanan → Invoice → cari tagihan client                                                                                                                     | Identitas, gedung/tipe/nomor kamar, durasi dan tarif sesuai pilihan; total, dibayar, sisa dan nominal sekarang tampil terpisah                                                    |
+| 5       | (Opsional cicilan) Tetapkan nominal pembayaran berikutnya beserta VA pada tagihan tersebut                                                                              | Client hanya dapat mengunggah bukti sebesar nominal yang ditetapkan                                                                                                               |
+| 6       | Login client → Tagihan → buka invoice; unggah bukti pembayaran sejumlah tagihan (atau nominal berikutnya bila ditetapkan)                                               | Bukti masuk sebagai pembayaran menunggu verifikasi, bukan langsung lunas                                                                                                          |
+| 7       | Login admin → Verifikasi Pembayaran → tab menunggu → detail pembayaran → setujui                                                                                        | Invoice lunas/cicilan pertama terpenuhi; pendaftaran selesai otomatis: penempatan tercatat, status hunian aktif, kwitansi diproses                                                |
+| 8       | Login client; periksa hunian, menu layanan dan unduh kwitansi setelah worker selesai                                                                                    | Kwitansi berisi nama, jumlah benar-benar dibayar, gedung, nomor/tipe kamar dan masa tinggal                                                                                       |
 
 Tidak ada langkah check-in terpisah yang harus dilakukan penghuni setelah proses ini.
 
@@ -145,13 +145,13 @@ Alumni yang hanya membutuhkan surat langsung memilih **Layanan bebas asrama**, t
 
 **Jalur cepat dan penolakan:**
 
-| Akun client | Mulai dari | Pengujian |
-| --- | --- | --- |
-| `daftar-review@example.test` | Pengajuan sudah dikirim | Menunggu pembayaran; biarkan reservasi kedaluwarsa untuk melihat pengajuan dibatalkan dan kamar dilepas |
-| `daftar-ditolak@example.test` | Pengajuan ditolak | Baca alasan, perbaiki pilihan lalu ajukan ulang; invoice lama batal dan invoice baru terbit |
-| `tagihan-belum-bayar@example.test` | Tagihan belum dibayar | Periksa informasi jatuh tempo dan lanjutkan pembayaran sesuai form |
-| `bayar-verifikasi@example.test` | Bukti sudah masuk, menunggu verifikasi | Admin menyetujui pembayaran; pendaftaran selesai otomatis tanpa review pendaftaran |
-| `bayar-ditolak@example.test` | Bukti pembayaran ditolak | Client melihat alasan dan mengunggah bukti pengganti |
+| Akun client                        | Mulai dari                             | Pengujian                                                                                               |
+| ---------------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `daftar-review@example.test`       | Pengajuan sudah dikirim                | Menunggu pembayaran; biarkan reservasi kedaluwarsa untuk melihat pengajuan dibatalkan dan kamar dilepas |
+| `daftar-ditolak@example.test`      | Pengajuan ditolak                      | Baca alasan, perbaiki pilihan lalu ajukan ulang; invoice lama batal dan invoice baru terbit             |
+| `tagihan-belum-bayar@example.test` | Tagihan belum dibayar                  | Periksa informasi jatuh tempo dan lanjutkan pembayaran sesuai form                                      |
+| `bayar-verifikasi@example.test`    | Bukti sudah masuk, menunggu verifikasi | Admin menyetujui pembayaran; pendaftaran selesai otomatis tanpa review pendaftaran                      |
+| `bayar-ditolak@example.test`       | Bukti pembayaran ditolak               | Client melihat alasan dan mengunggah bukti pengganti                                                    |
 
 Uji bahwa kamar penuh/maintenance tidak dapat dipilih, pembayaran belum diverifikasi tidak mengaktifkan hunian, dan calon penghuni tidak dapat memakai layanan khusus penghuni aktif.
 
@@ -163,15 +163,15 @@ Uji bahwa kamar penuh/maintenance tidak dapat dipilih, pembayaran belum diverifi
 
 Halaman ini menjadi sumber kebenaran kategori, tarif, dan arsip. Uji setiap blok penyimpanan dengan toast sukses dan data yang tampil kembali.
 
-| Blok | Yang diuji |
-| --- | --- |
-| Periode | Aktifkan satu periode penerimaan; isi tahun angkatan maba (mis. 2026/2027 → 2026) dan jam reservasi (default 24). Mengaktifkan periode lain otomatis menonaktifkan sebelumnya; hanya satu periode aktif |
-| Daftar KIP-K | Tambah NIM, nama; angkatan diambil otomatis dari NIM. Pendaftar lokal hanya diperlakukan KIPK bila NIM+angkatannya tercatat di sini dan sesuai angkatan maba periode aktif |
-| Tarif hunian | Tetapkan nominal per gedung–tipe kamar–satuan (`period` atau `day`). Pendaftaran tanpa tarif untuk kombinasi terpilih ditolak, bukan ditagih nol |
-| Kategori gedung | Batasi kategori penghuni yang boleh masuk tiap gedung (lokal KIPK/non-KIPK, internasional, non-mahasiswa) |
-| Arsip alumni | Tambah manual NIM (angkatan ≤2025), nama, gedung terakhir, keterangan, tanggal checkout opsional; dapat dibuat sebelum akun ada dan terhubung otomatis lewat NIM |
-| Impor arsip | Template lima kolom `nim,nama,kode_gedung,checked_out_at,notes`, satu sheet, maksimal 500 baris; duplikat NIM dan baris bermasalah dibatalkan seluruhnya |
-| Tarif historis | Tetapkan nominal per gedung–angkatan untuk alumni lama; kombinasi gedung–angkatan unik |
+| Blok            | Yang diuji                                                                                                                                                                                              |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Periode         | Aktifkan satu periode penerimaan; isi tahun angkatan maba (mis. 2026/2027 → 2026) dan jam reservasi (default 24). Mengaktifkan periode lain otomatis menonaktifkan sebelumnya; hanya satu periode aktif |
+| Daftar KIP-K    | Tambah NIM, nama; angkatan diambil otomatis dari NIM. Pendaftar lokal hanya diperlakukan KIPK bila NIM+angkatannya tercatat di sini dan sesuai angkatan maba periode aktif                              |
+| Tarif hunian    | Tetapkan nominal per gedung–tipe kamar–satuan (`period` atau `day`). Pendaftaran tanpa tarif untuk kombinasi terpilih ditolak, bukan ditagih nol                                                        |
+| Kategori gedung | Batasi kategori penghuni yang boleh masuk tiap gedung (lokal KIPK/non-KIPK, internasional, non-mahasiswa)                                                                                               |
+| Arsip alumni    | Tambah manual NIM (angkatan ≤2025), nama, gedung terakhir, keterangan, tanggal checkout opsional; dapat dibuat sebelum akun ada dan terhubung otomatis lewat NIM                                        |
+| Impor arsip     | Template lima kolom `nim,nama,kode_gedung,checked_out_at,notes`, satu sheet, maksimal 500 baris; duplikat NIM dan baris bermasalah dibatalkan seluruhnya                                                |
+| Tarif historis  | Tetapkan nominal per gedung–angkatan untuk alumni lama; kombinasi gedung–angkatan unik                                                                                                                  |
 
 **Uji gagal:** mengaktifkan dua periode aktif sekaligus (ditolak), tarif historis tanpa gedung (ditolak), impor dengan header/beda kolom (ditolak dengan nomor baris).
 
@@ -202,12 +202,12 @@ Tagihan nol KIPK bukan bukti dana sponsor sudah diterima bank. Integrasi pembaya
 
 ### Kategori lain
 
-| Kategori | Akun dari tahap awal | Akun untuk melihat hasil aktif | Alur yang diperiksa |
-| --- | --- | --- | --- |
+| Kategori                       | Akun dari tahap awal                                                             | Akun untuk melihat hasil aktif      | Alur yang diperiksa                                                                                                                                         |
+| ------------------------------ | -------------------------------------------------------------------------------- | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Internasional fasilitas gratis | `international@unand.ac.id` jika belum dipakai, atau akun baru kategori tersebut | `internasional-gratis@example.test` | Tetap memilih kamar; invoice pribadi nol dengan piutang sponsor tercatat; aktif setelah admin mengesahkan penanggung biaya, tanpa menunggu sponsor membayar |
-| Internasional berbayar | Buat akun baru kategori internasional berbayar | `internasional-bayar@example.test` | Pilih kamar, bayar, verifikasi, kwitansi seperti alur berbayar; atau pilih penanggung biaya dan tunggu pengesahan admin |
-| Nonmahasiswa | `nonmahasiswa@unand.ac.id` jika belum dipakai, atau akun baru nonmahasiswa | `nonmahasiswa-aktif@example.test` | Pilih kamar dan selesaikan pembayaran; tidak menjadi mahasiswa binaan |
-| Penghuni lokal lama | `mahasiswa.penghuni@unand.ac.id` jika belum dipakai | `penghuni-lama@example.test` | Hunian dapat aktif tetapi kategori hunian biasa: tanpa absensi/perizinan binaan |
+| Internasional berbayar         | Buat akun baru kategori internasional berbayar                                   | `internasional-bayar@example.test`  | Pilih kamar, bayar, verifikasi, kwitansi seperti alur berbayar; atau pilih penanggung biaya dan tunggu pengesahan admin                                     |
+| Nonmahasiswa                   | `nonmahasiswa@unand.ac.id` jika belum dipakai, atau akun baru nonmahasiswa       | `nonmahasiswa-aktif@example.test`   | Pilih kamar dan selesaikan pembayaran; tidak menjadi mahasiswa binaan                                                                                       |
+| Penghuni lokal lama            | `mahasiswa.penghuni@unand.ac.id` jika belum dipakai                              | `penghuni-lama@example.test`        | Hunian dapat aktif tetapi kategori hunian biasa: tanpa absensi/perizinan binaan                                                                             |
 
 Akun dengan kondisi aktif bukan akun kosong untuk mengulang pendaftaran pertama.
 
@@ -261,13 +261,13 @@ Untuk contoh import DEMO-P, gunakan `fasilitator@unand.ac.id`. Buat stok `UJI-KU
 5. Teknisi menyelesaikan pekerjaan dengan deskripsi penyelesaian dan foto sesudah; keduanya wajib.
 6. Penghuni dan pimpinan memeriksa status selesai, bukti dan waktu penyelesaian. Kondisi aset kembali baik bila tidak ada laporan terbuka lain untuk aset yang sama.
 
-| Akun penghuni untuk jalur cepat | Kondisi awal |
-| --- | --- |
-| `penghuni-01@example.test` | Tiket menunggu triage |
-| `penghuni-02@example.test` | Tiket sudah ditugaskan ke teknisi |
-| `penghuni-03@example.test` | Sedang dikerjakan |
-| `penghuni-04@example.test` | Selesai, bukti tersedia dan penilaian final |
-| `penghuni-05@example.test` | Tiket dibatalkan |
+| Akun penghuni untuk jalur cepat | Kondisi awal                                |
+| ------------------------------- | ------------------------------------------- |
+| `penghuni-01@example.test`      | Tiket menunggu triage                       |
+| `penghuni-02@example.test`      | Tiket sudah ditugaskan ke teknisi           |
+| `penghuni-03@example.test`      | Sedang dikerjakan                           |
+| `penghuni-04@example.test`      | Selesai, bukti tersedia dan penilaian final |
+| `penghuni-05@example.test`      | Tiket dibatalkan                            |
 
 **Uji gagal:** calon/nonpenghuni mengirim laporan, memilih aset yang tidak boleh diakses, menyelesaikan tanpa foto/deskripsi, atau teknisi yang tidak berhak mengubah tiket.
 
@@ -291,13 +291,13 @@ Untuk contoh import DEMO-P, gunakan `fasilitator@unand.ac.id`. Buat stok `UJI-KU
 3. Setujui untuk melanjutkan bukti sampai/kembali, atau tolak dengan alasan untuk menguji jalur penolakan. Kedua pilihan adalah cabang terpisah; setelah ditolak, gunakan pengajuan baru untuk mencoba persetujuan.
 4. Login penghuni untuk memeriksa keputusan; jika disetujui, lanjutkan dua tahap unggah bukti.
 
-| Akun | Digunakan untuk |
-| --- | --- |
-| `izin-otomatis@example.test` | Izin ketujuh sudah otomatis berjalan; lanjutkan bukti sampai |
-| `izin-sampai@example.test` | Sudah sampai; lanjutkan bukti kembali |
-| `izin-terlambat@example.test` | Monitoring sudah lewat rencana kembali |
-| `izin-kembali@example.test` | Melihat riwayat lengkap yang sudah selesai |
-| `penghuni-06@example.test` | Melihat contoh izin ditolak |
+| Akun                          | Digunakan untuk                                              |
+| ----------------------------- | ------------------------------------------------------------ |
+| `izin-otomatis@example.test`  | Izin ketujuh sudah otomatis berjalan; lanjutkan bukti sampai |
+| `izin-sampai@example.test`    | Sudah sampai; lanjutkan bukti kembali                        |
+| `izin-terlambat@example.test` | Monitoring sudah lewat rencana kembali                       |
+| `izin-kembali@example.test`   | Melihat riwayat lengkap yang sudah selesai                   |
+| `penghuni-06@example.test`    | Melihat contoh izin ditolak                                  |
 
 Batas dihitung dari pengajuan **sebelumnya**: izin ketujuh masih otomatis bila sebelumnya tepat enam; izin kedelapan memerlukan verifikasi bila sebelumnya tujuh. Bukti kembali sebelum bukti sampai dan pengajuan baru saat masih ada izin terbuka harus ditolak. Waktu/lokasi dicatat saat unggah; proses ini bukan pengenalan otomatis isi foto atau pembuktian lokasi dari EXIF foto.
 
@@ -342,18 +342,18 @@ Kelayakan peserta: mahasiswa lokal angkatan **2026 ke atas**, masih tahun pertam
 
 ### Pengujian penolakan
 
-| Percobaan | Hasil yang diharapkan |
-| --- | --- |
-| Mahasiswa berada di luar radius | Tidak mencatat kehadiran |
+| Percobaan                                                  | Hasil yang diharapkan                                  |
+| ---------------------------------------------------------- | ------------------------------------------------------ |
+| Mahasiswa berada di luar radius                            | Tidak mencatat kehadiran                               |
 | Fasilitator keluar radius, pembaruan lokasi sudah diterima | Scan ditolak meskipun mahasiswa berada di dalam radius |
-| GPS fasilitator tidak diperbarui lebih dari 60 detik | Scan ditolak |
-| GPS ditolak atau akurasi melebihi batas radius sesi | Tidak boleh berhasil |
-| Durasi habis atau sesi ditutup lebih awal | QR ditolak |
-| Penghuni P memindai QR W | Ditolak karena gedung berbeda |
-| Penghuni lama, internasional, atau nonmahasiswa | Tidak memenuhi binaan |
-| Fasilitator tanpa penugasan atau mencoba gedung lain | Pembuatan/akses ditolak |
-| Koreksi tanpa alasan, oleh mahasiswa, atau lintas gedung | Ditolak |
-| Peserta sudah memiliki catatan kehadiran/koreksi | Scan tidak menambah catatan baru |
+| GPS fasilitator tidak diperbarui lebih dari 60 detik       | Scan ditolak                                           |
+| GPS ditolak atau akurasi melebihi batas radius sesi        | Tidak boleh berhasil                                   |
+| Durasi habis atau sesi ditutup lebih awal                  | QR ditolak                                             |
+| Penghuni P memindai QR W                                   | Ditolak karena gedung berbeda                          |
+| Penghuni lama, internasional, atau nonmahasiswa            | Tidak memenuhi binaan                                  |
+| Fasilitator tanpa penugasan atau mencoba gedung lain       | Pembuatan/akses ditolak                                |
+| Koreksi tanpa alasan, oleh mahasiswa, atau lintas gedung   | Ditolak                                                |
+| Peserta sudah memiliki catatan kehadiran/koreksi           | Scan tidak menambah catatan baru                       |
 
 Peta Leaflet menampilkan layer Google Maps hybrid tanpa API key, mengikuti pendekatan [TA-SIMBIMA](https://github.com/syaunabiih/TA-SIMBIMA/blob/main/client/src/pages/fasilitator/TambahKegiatanPage.jsx). Peta memerlukan koneksi internet; jika tile Google gagal dimuat, tampilan beralih ke OpenStreetMap. Tidak ada konfigurasi key tambahan. Pergantian layer peta tidak meningkatkan akurasi GPS perangkat, dan menggeser peta tidak mengubah titik GPS absensi.
 
@@ -363,14 +363,14 @@ Pengujian endpoint otomatis tidak menggantikan percobaan kamera/GPS perangkat ny
 
 **Dari awal:** client baru yang sudah aktif. **Jalur cepat:** `checkout-pengajuan@example.test` (DEMO-P), diselesaikan oleh `fasilitator@unand.ac.id`. Akun `checkout-siap` juga di P; `checkout-rusak` di W memakai `fasilitator@example.test`.
 
-| Langkah | Akun dan tindakan | Hasil yang diperiksa |
-| --- | --- | --- |
-| 1 | Penghuni membuka Checkout, membaca syarat/mekanisme, lalu mengajukan | Pengajuan tercatat; kamar belum langsung kosong |
-| 2 | GO `go@example.test` membuka pemeriksaan checkout dan detail penghuni | Identitas, kamar dan daftar aset benar |
-| 3 | GO menghitung seluruh aset, mengisi jumlah fisik, kondisi, dan catatan temuan | Semua aset kamar harus diperiksa; jumlah/kondisi tidak sesuai harus disertai catatan |
-| 4 | GO menyelesaikan inspeksi | Pemeriksaan selesai; temuan rusak/hilang terkait laporan kerusakan |
-| 5 | Fasilitator membuka penyelesaian checkout gedung tugasnya dan menyelesaikan | Status penghuni keluar, penempatan berakhir, riwayat checkout tercatat |
-| 6 | Admin/fasilitator memeriksa kamar dan penghuni | Kapasitas tersedia diperbarui sesuai penghuni lain yang masih tinggal |
+| Langkah | Akun dan tindakan                                                             | Hasil yang diperiksa                                                                 |
+| ------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| 1       | Penghuni membuka Checkout, membaca syarat/mekanisme, lalu mengajukan          | Pengajuan tercatat; kamar belum langsung kosong                                      |
+| 2       | GO `go@example.test` membuka pemeriksaan checkout dan detail penghuni         | Identitas, kamar dan daftar aset benar                                               |
+| 3       | GO menghitung seluruh aset, mengisi jumlah fisik, kondisi, dan catatan temuan | Semua aset kamar harus diperiksa; jumlah/kondisi tidak sesuai harus disertai catatan |
+| 4       | GO menyelesaikan inspeksi                                                     | Pemeriksaan selesai; temuan rusak/hilang terkait laporan kerusakan                   |
+| 5       | Fasilitator membuka penyelesaian checkout gedung tugasnya dan menyelesaikan   | Status penghuni keluar, penempatan berakhir, riwayat checkout tercatat               |
+| 6       | Admin/fasilitator memeriksa kamar dan penghuni                                | Kapasitas tersedia diperbarui sesuai penghuni lain yang masih tinggal                |
 
 Kamar tidak selalu menjadi kosong jika masih ada penghuni lain. Kamar berstatus maintenance tetap maintenance. Pengajuan saja tidak boleh melepaskan kamar sebelum inspeksi dan penyelesaian fasilitator.
 
@@ -480,30 +480,30 @@ Gunakan daftar dengan banyak data, misalnya Data Mahasiswa, Review Pendaftaran, 
 
 ## 19. Jika hasil berbeda atau proses berhenti
 
-| Gejala | Yang diperiksa |
-| --- | --- |
-| Akun demo sudah berada di tahap berikutnya | Akun pernah diuji; seeding ulang tidak mereset. Gunakan client baru atau database uji bersih |
-| Login tidak sama dengan panduan | Password mungkin sudah diganti; `password` hanya nilai awal seeder |
-| Menu penghuni belum muncul | Pembayaran memenuhi syarat/cicilan pertama yang ditetapkan admin telah terverifikasi dan status hunian aktif |
-| Menu absensi/perizinan tidak ada untuk penghuni | Memang tersembunyi bagi yang bukan binaan: hanya mahasiswa lokal angkatan maba periode aktif pada hunian pertama |
-| Akun nonaktif setelah surat | Masih dapat login, membaca arsip surat, dan mendaftar kembali; blokir penuh hanya dari status nonaktif oleh admin |
-| Pengajuan alumni ditolak minta arsip/tarif | Lengkapi arsip alumni dan tarif historis di Pengaturan Layanan; invoice tidak boleh terbit nol |
-| Fasilitator tidak melihat data | Gedung harus sesuai penugasan: `fasilitator@example.test` W, `fasilitator@unand.ac.id` P |
-| QR tidak tersedia | Buka detail Kegiatan & Absensi sebagai pembuat; periksa gedung, GPS, durasi dan status sesi |
-| Scan ditolak | Kelayakan binaan, lokasi/akurasi kedua pihak, pembaruan lokasi fasilitator, waktu, dan scan duplikat |
-| PDF belum siap | Worker antrean; periksa `php artisan queue:failed` dan log aplikasi sebelum mengulang transaksi |
-| Tidak ada email di inbox | Konfigurasi masih mailer log |
-| Surat ditolak | Checkout selesai, tidak ada hunian aktif, seluruh tagihan lunas; legacy juga memerlukan klasifikasi/bukti sesuai cabangnya |
-| Kamar tidak kosong setelah checkout | Masih ada penghuni lain atau kamar maintenance |
-| Gagal import aset | Header/format file, stok, kamar, kode inventaris, jumlah tersedia dan akses gedung |
-| Tampilan lama masih muncul | Refresh browser; pastikan build terbaru dijalankan pada server/container yang sedang dibuka |
+| Gejala                                          | Yang diperiksa                                                                                                             |
+| ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Akun demo sudah berada di tahap berikutnya      | Akun pernah diuji; seeding ulang tidak mereset. Gunakan client baru atau database uji bersih                               |
+| Login tidak sama dengan panduan                 | Password mungkin sudah diganti; `password` hanya nilai awal seeder                                                         |
+| Menu penghuni belum muncul                      | Pembayaran memenuhi syarat/cicilan pertama yang ditetapkan admin telah terverifikasi dan status hunian aktif               |
+| Menu absensi/perizinan tidak ada untuk penghuni | Memang tersembunyi bagi yang bukan binaan: hanya mahasiswa lokal angkatan maba periode aktif pada hunian pertama           |
+| Akun nonaktif setelah surat                     | Masih dapat login, membaca arsip surat, dan mendaftar kembali; blokir penuh hanya dari status nonaktif oleh admin          |
+| Pengajuan alumni ditolak minta arsip/tarif      | Lengkapi arsip alumni dan tarif historis di Pengaturan Layanan; invoice tidak boleh terbit nol                             |
+| Fasilitator tidak melihat data                  | Gedung harus sesuai penugasan: `fasilitator@example.test` W, `fasilitator@unand.ac.id` P                                   |
+| QR tidak tersedia                               | Buka detail Kegiatan & Absensi sebagai pembuat; periksa gedung, GPS, durasi dan status sesi                                |
+| Scan ditolak                                    | Kelayakan binaan, lokasi/akurasi kedua pihak, pembaruan lokasi fasilitator, waktu, dan scan duplikat                       |
+| PDF belum siap                                  | Worker antrean; periksa `php artisan queue:failed` dan log aplikasi sebelum mengulang transaksi                            |
+| Tidak ada email di inbox                        | Konfigurasi masih mailer log                                                                                               |
+| Surat ditolak                                   | Checkout selesai, tidak ada hunian aktif, seluruh tagihan lunas; legacy juga memerlukan klasifikasi/bukti sesuai cabangnya |
+| Kamar tidak kosong setelah checkout             | Masih ada penghuni lain atau kamar maintenance                                                                             |
+| Gagal import aset                               | Header/format file, stok, kamar, kode inventaris, jumlah tersedia dan akses gedung                                         |
+| Tampilan lama masih muncul                      | Refresh browser; pastikan build terbaru dijalankan pada server/container yang sedang dibuka                                |
 
 ## 20. Catatan hasil uji
 
 Salin tabel berikut untuk setiap percobaan. Catat hasil nyata, bukan hanya status akhir yang diharapkan.
 
 | Tanggal | Proses/cabang | Akun client | Akun petugas | Nomor invoice/tiket/izin | Hasil diharapkan | Hasil aktual | Lulus/gagal |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| | | | | | | | |
+| ------- | ------------- | ----------- | ------------ | ------------------------ | ---------------- | ------------ | ----------- |
+|         |               |             |              |                          |                  |              |             |
 
 Prioritas perjalanan pertama: **pendaftaran berbayar → penghuni aktif → kerusakan → izin → absensi → checkout → surat modern**. Gunakan akun legacy dan kategori khusus secara terpisah untuk cabang yang tidak dapat dilalui oleh client perjalanan pertama.

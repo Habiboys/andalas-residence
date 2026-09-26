@@ -10,9 +10,7 @@ import {
     inputClass,
 } from '../../components/ui';
 import { store as pembayaranStore } from '@/routes/andalas/pembayaran';
-import {
-    document as billingDocument,
-} from '@/routes/andalas/tagihan';
+import { document as billingDocument } from '@/routes/andalas/tagihan';
 import { formatRupiah, mapPaymentStatus } from '../../lib/format';
 
 type Invoice = {
@@ -38,7 +36,11 @@ type Payment = {
 };
 
 function amountDue(invoice: Invoice): number {
-    if (invoice.amount_due_now !== null && invoice.amount_due_now !== undefined) return Math.min(Number(invoice.amount_due_now), Number(invoice.total) - Number(invoice.total_dibayar));
+    if (invoice.amount_due_now !== null && invoice.amount_due_now !== undefined)
+        return Math.min(
+            Number(invoice.amount_due_now),
+            Number(invoice.total) - Number(invoice.total_dibayar),
+        );
     let cumulative = 0;
     for (const term of invoice.jadwal_cicilan
         .slice()
@@ -57,7 +59,11 @@ export default function Tagihan({
 }: {
     pembayaran?: Payment[];
     billing?: Invoice[];
-    virtual_accounts?: Array<{bank:string;nomor:string;atas_nama:string}>;
+    virtual_accounts?: Array<{
+        bank: string;
+        nomor: string;
+        atas_nama: string;
+    }>;
 }) {
     const [selected, setSelected] = useState<Invoice | null>(null);
     const form = useForm({
@@ -95,7 +101,12 @@ export default function Tagihan({
                 title="Tagihan & Pembayaran"
                 subtitle="Invoice dan sisa kewajiban Anda, termasuk jadwal cicilan yang disetujui admin."
             />
-            {virtual_accounts.map(a => <Card key={a.nomor} className="p-5">Bayar ke VA {a.bank}: <strong>{a.nomor}</strong> / {a.atas_nama}</Card>)}
+            {virtual_accounts.map((a) => (
+                <Card key={a.nomor} className="p-5">
+                    Bayar ke VA {a.bank}: <strong>{a.nomor}</strong> /{' '}
+                    {a.atas_nama}
+                </Card>
+            ))}
             <div className="grid gap-4 sm:grid-cols-3">
                 <Card className="p-5">
                     <p>Total tagihan</p>
@@ -263,4 +274,3 @@ export default function Tagihan({
         </div>
     );
 }
-

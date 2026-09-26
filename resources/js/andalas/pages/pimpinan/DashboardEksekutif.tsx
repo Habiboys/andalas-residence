@@ -1,4 +1,9 @@
-import { ChartCard, DonutChart, OccupancyChart, TrendBarChart } from '../../components/charts';
+import {
+    ChartCard,
+    DonutChart,
+    OccupancyChart,
+    TrendBarChart,
+} from '../../components/charts';
 import { photo } from '@/routes/andalas/tiket';
 import {
     PageHeader,
@@ -72,18 +77,67 @@ export default function DashboardEksekutif({
                 />
             </div>
             <div className="grid gap-4 xl:grid-cols-3">
-                <ChartCard title="Keterisian kamar" subtitle="Proporsi kamar dengan penghuni aktif">
-                    <OccupancyChart total={stats?.okupansi.total_kamar ?? 0} empty={stats?.okupansi.kosong ?? 0} />
+                <ChartCard
+                    title="Keterisian kamar"
+                    subtitle="Proporsi kamar dengan penghuni aktif"
+                >
+                    <OccupancyChart
+                        total={stats?.okupansi.total_kamar ?? 0}
+                        empty={stats?.okupansi.kosong ?? 0}
+                    />
                 </ChartCard>
-                <ChartCard title="Penanganan kerusakan" subtitle="Status laporan fasilitas">
-                    <DonutChart data={[
-                        { name: 'Selesai', value: tiket.filter((item) => item.status === 'selesai').length, color: '#27745a' },
-                        { name: 'Dikerjakan', value: tiket.filter((item) => item.status === 'diproses').length, color: '#dbad4a' },
-                        { name: 'Laporan lain', value: tiket.filter((item) => !['selesai', 'diproses'].includes(item.status)).length, color: '#578cc8' },
-                    ]} />
+                <ChartCard
+                    title="Penanganan kerusakan"
+                    subtitle="Status laporan fasilitas"
+                >
+                    <DonutChart
+                        data={[
+                            {
+                                name: 'Selesai',
+                                value: tiket.filter(
+                                    (item) => item.status === 'selesai',
+                                ).length,
+                                color: '#27745a',
+                            },
+                            {
+                                name: 'Dikerjakan',
+                                value: tiket.filter(
+                                    (item) => item.status === 'diproses',
+                                ).length,
+                                color: '#dbad4a',
+                            },
+                            {
+                                name: 'Laporan lain',
+                                value: tiket.filter(
+                                    (item) =>
+                                        !['selesai', 'diproses'].includes(
+                                            item.status,
+                                        ),
+                                ).length,
+                                color: '#578cc8',
+                            },
+                        ]}
+                    />
                 </ChartCard>
-                <ChartCard title="Arus keuangan" subtitle="Total transaksi yang tercatat">
-                    <TrendBarChart data={[{ jenis: 'Pemasukan', jumlah: pemasukan }, { jenis: 'Pengeluaran', jumlah: pengeluaran }]} xKey="jenis" series={[{ key: 'jumlah', name: 'Nominal', color: '#27745a' }]} valueFormatter={formatRupiah} />
+                <ChartCard
+                    title="Arus keuangan"
+                    subtitle="Total transaksi yang tercatat"
+                >
+                    <TrendBarChart
+                        data={[
+                            { jenis: 'Pemasukan', jumlah: pemasukan },
+                            { jenis: 'Pengeluaran', jumlah: pengeluaran },
+                        ]}
+                        xKey="jenis"
+                        series={[
+                            {
+                                key: 'jumlah',
+                                name: 'Nominal',
+                                color: '#27745a',
+                            },
+                        ]}
+                        valueFormatter={formatRupiah}
+                    />
                 </ChartCard>
             </div>
             <Card>

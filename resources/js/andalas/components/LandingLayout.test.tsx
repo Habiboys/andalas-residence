@@ -9,21 +9,38 @@ const page = vi.hoisted(() => ({
 
 vi.mock('@inertiajs/react', () => ({
     router: {},
-    Link: ({ href, children, ...props }: { href: string | { url: string }; children: ReactNode }) => (
-        <a href={typeof href === 'string' ? href : href.url} {...props}>{children}</a>
+    Link: ({
+        href,
+        children,
+        ...props
+    }: {
+        href: string | { url: string };
+        children: ReactNode;
+    }) => (
+        <a href={typeof href === 'string' ? href : href.url} {...props}>
+            {children}
+        </a>
     ),
     usePage: () => page,
 }));
 
 it('offers login to visitors and the role-aware dashboard route to signed-in users', () => {
     page.props.auth.user = null;
-    const guest = renderToStaticMarkup(<LandingLayout><main>Beranda</main></LandingLayout>);
+    const guest = renderToStaticMarkup(
+        <LandingLayout>
+            <main>Beranda</main>
+        </LandingLayout>,
+    );
     expect(guest).toContain('/login"');
     expect(guest).toContain('>Masuk</a>');
     expect(guest).not.toContain('/dashboard/redirect');
 
     page.props.auth.user = { id: 'resident' };
-    const authenticated = renderToStaticMarkup(<LandingLayout><main>Beranda</main></LandingLayout>);
+    const authenticated = renderToStaticMarkup(
+        <LandingLayout>
+            <main>Beranda</main>
+        </LandingLayout>,
+    );
     expect(authenticated).toContain('/dashboard/redirect"');
     expect(authenticated).toContain('>Dashboard</a>');
     expect(authenticated).not.toContain('/login"');

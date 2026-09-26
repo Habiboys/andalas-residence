@@ -19,7 +19,9 @@ export default function DeleteUser() {
             <div className="alert alert-error alert-soft">
                 <div>
                     <p className="font-medium">Warning</p>
-                    <p className="text-sm">Please proceed with caution, this cannot be undone.</p>
+                    <p className="text-sm">
+                        Please proceed with caution, this cannot be undone.
+                    </p>
                 </div>
                 <button
                     type="button"
@@ -33,9 +35,14 @@ export default function DeleteUser() {
 
             <dialog ref={dialog} className="modal">
                 <div className="modal-box">
-                    <h2 className="text-lg font-bold">Are you sure you want to delete your account?</h2>
-                    <p className="py-4 text-sm text-base-content/70">
-                        Once your account is deleted, all of its resources and data will also be permanently deleted. Please enter your password to confirm you would like to permanently delete your account.
+                    <h2 className="text-lg font-bold">
+                        Are you sure you want to delete your account?
+                    </h2>
+                    <p className="text-base-content/70 py-4 text-sm">
+                        Once your account is deleted, all of its resources and
+                        data will also be permanently deleted. Please enter your
+                        password to confirm you would like to permanently delete
+                        your account.
                     </p>
                     <Form
                         action={ProfileController.destroy.url()}
@@ -47,7 +54,12 @@ export default function DeleteUser() {
                     >
                         {({ resetAndClearErrors, processing, errors }) => (
                             <>
-                                <label className="sr-only" htmlFor="delete_user_password">Password</label>
+                                <label
+                                    className="sr-only"
+                                    htmlFor="delete_user_password"
+                                >
+                                    Password
+                                </label>
                                 <PasswordInput
                                     id="delete_user_password"
                                     name="password"
@@ -81,7 +93,9 @@ export default function DeleteUser() {
                     </Form>
                 </div>
                 <form method="dialog" className="modal-backdrop">
-                    <button aria-label="Close delete account dialog">close</button>
+                    <button aria-label="Close delete account dialog">
+                        close
+                    </button>
                 </form>
             </dialog>
         </div>

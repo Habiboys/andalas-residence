@@ -1,10 +1,10 @@
 export const ROLE_LABELS: Record<string, string> = {
-    mahasiswa: "Mahasiswa",
-    fasilitator: "Fasilitator",
-    staff_admin: "Staff Admin",
-    superadmin: "Super Admin",
-    teknisi: "Teknisi",
-    pimpinan: "Pimpinan",
+    mahasiswa: 'Mahasiswa',
+    fasilitator: 'Fasilitator',
+    staff_admin: 'Staff Admin',
+    superadmin: 'Super Admin',
+    teknisi: 'Teknisi',
+    pimpinan: 'Pimpinan',
 };
 
 /*
@@ -14,9 +14,9 @@ export const ROLE_LABELS: Record<string, string> = {
  * roles get a colour now, so the badge actually communicates rank.
  */
 export const ROLE_BADGE: Record<string, string> = {
-    superadmin: "badge-accent",
-    staff_admin: "badge-primary",
+    superadmin: 'badge-accent',
+    staff_admin: 'badge-primary',
 };
 
 export const roleBadgeClass = (role: string): string =>
-    `badge badge-sm badge-neutral ${ROLE_BADGE[role] ?? ""}`;
+    `badge badge-sm badge-neutral ${ROLE_BADGE[role] ?? ''}`;

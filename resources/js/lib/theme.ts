@@ -42,7 +42,9 @@ export const DEFAULT_FONT_SCALE: FontScaleId = 'normal';
 
 const FONT_SCALE_STORAGE_KEY = 'andalas_font_scale';
 
-export function getFontScale(id: string): Readonly<(typeof FONT_SCALES)[number]> {
+export function getFontScale(
+    id: string,
+): Readonly<(typeof FONT_SCALES)[number]> {
     return FONT_SCALES.find((item) => item.id === id) ?? FONT_SCALES[0];
 }
 
@@ -64,7 +66,10 @@ export function applyFontScaleToDocument(id: string): void {
         return;
     }
 
-    document.documentElement.style.setProperty('--app-font-size', `${getFontScale(id).px}px`);
+    document.documentElement.style.setProperty(
+        '--app-font-size',
+        `${getFontScale(id).px}px`,
+    );
 }
 
 export function persistFontScale(id: FontScaleId): void {

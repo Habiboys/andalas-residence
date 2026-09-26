@@ -15,7 +15,13 @@ type Props = {
  * implementation in `components/ui`, which is built on the native <dialog>
  * element and therefore gets Escape and the focus trap from the platform.
  */
-export function Modal({ open, onClose, title, children, width = 'max-w-lg' }: Props) {
+export function Modal({
+    open,
+    onClose,
+    title,
+    children,
+    width = 'max-w-lg',
+}: Props) {
     return (
         <BaseModal open={open} onClose={onClose} title={title} width={width}>
             {children}

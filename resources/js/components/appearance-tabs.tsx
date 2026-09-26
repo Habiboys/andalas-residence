@@ -18,13 +18,7 @@ export default function AppearanceToggleTab({
     ];
 
     return (
-        <div
-            className={cn(
-                'join bg-base-200 p-1',
-                className,
-            )}
-            {...props}
-        >
+        <div className={cn('join bg-base-200 p-1', className)} {...props}>
             {tabs.map(({ value, icon: Icon, label }) => (
                 <button
                     key={value}
@@ -33,7 +27,9 @@ export default function AppearanceToggleTab({
                     aria-pressed={appearance === value}
                     className={cn(
                         'btn btn-sm join-item',
-                        appearance === value ? 'btn-active btn-primary' : 'btn-ghost',
+                        appearance === value
+                            ? 'btn-active btn-primary'
+                            : 'btn-ghost',
                     )}
                 >
                     <Icon className="-ml-1 h-4 w-4" />

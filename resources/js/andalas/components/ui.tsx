@@ -663,7 +663,9 @@ export function DataTable<T extends Record<string, unknown>>({
                                     tabIndex={onRowClick ? 0 : undefined}
                                     className={
                                         'hover:bg-base-300 ' +
-                                        (i % 2 === 0 ? 'bg-base-100 ' : 'bg-base-200 ') +
+                                        (i % 2 === 0
+                                            ? 'bg-base-100 '
+                                            : 'bg-base-200 ') +
                                         (onRowClick ? 'cursor-pointer' : '')
                                     }
                                 >
@@ -675,7 +677,7 @@ export function DataTable<T extends Record<string, unknown>>({
                                             key={col.key}
                                             className={
                                                 col.action
-                                                    ? 'bg-inherit sticky right-0 z-[1] w-px whitespace-nowrap shadow-sm'
+                                                    ? 'sticky right-0 z-[1] w-px bg-inherit whitespace-nowrap shadow-sm'
                                                     : ''
                                             }
                                             onClick={

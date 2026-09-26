@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
-import { PageHeader, Card, inputClass } from "../../components/ui";
+import { useEffect, useMemo, useState } from 'react';
+import { PageHeader, Card, inputClass } from '../../components/ui';
 import {
     RoomGridMap,
     RoomDetailModal,
     type RoomGridItem,
-} from "../../components/organisms/RoomGridMap";
+} from '../../components/organisms/RoomGridMap';
 
 type Gedung = {
     id: string;
@@ -19,8 +19,8 @@ type Gedung = {
 };
 
 export default function PemetaanKamar({ gedung = [] }: { gedung?: Gedung[] }) {
-    const [selectedGedung, setSelectedGedung] = useState("");
-    const [selectedLantai, setSelectedLantai] = useState("");
+    const [selectedGedung, setSelectedGedung] = useState('');
+    const [selectedLantai, setSelectedLantai] = useState('');
     const [selectedKamar, setSelectedKamar] = useState<RoomGridItem | null>(
         null,
     );
@@ -28,7 +28,7 @@ export default function PemetaanKamar({ gedung = [] }: { gedung?: Gedung[] }) {
     useEffect(() => {
         if (gedung?.length && !selectedGedung) {
             setSelectedGedung(gedung[0].id);
-            setSelectedLantai(gedung[0].lantai?.[0]?.id ?? "");
+            setSelectedLantai(gedung[0].lantai?.[0]?.id ?? '');
         }
     }, [gedung, selectedGedung]);
 
@@ -64,7 +64,7 @@ export default function PemetaanKamar({ gedung = [] }: { gedung?: Gedung[] }) {
                                 const first = gedung?.find(
                                     (g) => g.id === e.target.value,
                                 )?.lantai?.[0];
-                                setSelectedLantai(first?.id ?? "");
+                                setSelectedLantai(first?.id ?? '');
                             }}
                         >
                             {(gedung ?? []).map((g) => (

@@ -46,9 +46,14 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
                             <Link
                                 key={`${toUrl(item.href)}-${index}`}
                                 href={item.href}
-                                className={cn('btn btn-ghost btn-sm w-full justify-start', {
-                                    'btn-active': isCurrentOrParentUrl(item.href),
-                                })}
+                                className={cn(
+                                    'btn btn-ghost btn-sm w-full justify-start',
+                                    {
+                                        'btn-active': isCurrentOrParentUrl(
+                                            item.href,
+                                        ),
+                                    },
+                                )}
                             >
                                 {item.icon && <item.icon className="h-4 w-4" />}
                                 {item.title}

@@ -58,7 +58,10 @@ export default function Security(props: Props) {
                     {({ errors, processing }) => (
                         <>
                             <div className="grid gap-2">
-                                <label className="label" htmlFor="current_password">
+                                <label
+                                    className="label"
+                                    htmlFor="current_password"
+                                >
                                     Current password
                                 </label>
 
@@ -75,7 +78,9 @@ export default function Security(props: Props) {
                             </div>
 
                             <div className="grid gap-2">
-                                <label className="label" htmlFor="password">New password</label>
+                                <label className="label" htmlFor="password">
+                                    New password
+                                </label>
 
                                 <PasswordInput
                                     id="password"
@@ -91,7 +96,10 @@ export default function Security(props: Props) {
                             </div>
 
                             <div className="grid gap-2">
-                                <label className="label" htmlFor="password_confirmation">
+                                <label
+                                    className="label"
+                                    htmlFor="password_confirmation"
+                                >
                                     Confirm password
                                 </label>
 

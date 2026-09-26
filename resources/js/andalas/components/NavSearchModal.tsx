@@ -75,7 +75,9 @@ export function NavSearchModal({
             buildIndex(role).filter(
                 (item) =>
                     role !== 'mahasiswa' ||
-                    ((item.page !== 'absensi' || attendanceEligible || activeResident) &&
+                    ((item.page !== 'absensi' ||
+                        attendanceEligible ||
+                        activeResident) &&
                         (!['lapor-kerusakan', 'checkout'].includes(item.page) ||
                             activeResident)),
             ),

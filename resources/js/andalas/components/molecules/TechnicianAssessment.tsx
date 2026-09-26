@@ -15,7 +15,10 @@ export type KuesionerPertanyaan = {
 type Props = {
     pertanyaan: KuesionerPertanyaan[];
     answers: Record<string, { nilai_skor?: number; jawaban_teks?: string }>;
-    onChange: (pertanyaanId: string, value: { nilai_skor?: number; jawaban_teks?: string }) => void;
+    onChange: (
+        pertanyaanId: string,
+        value: { nilai_skor?: number; jawaban_teks?: string },
+    ) => void;
 };
 
 export function TechnicianAssessment({ pertanyaan, answers, onChange }: Props) {
