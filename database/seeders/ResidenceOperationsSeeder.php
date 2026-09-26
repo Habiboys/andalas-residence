@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Enums\AttendanceRejectionReason;
 use App\Models;
 use App\Services\AttendanceRoster;
+use App\Services\DocumentVerificationQr;
 use App\Services\FreeResidenceLetterFormat;
 use App\Services\QuestionnaireScoringService;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -12,6 +13,7 @@ use Carbon\CarbonInterface;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class ResidenceOperationsSeeder extends Seeder
 {
@@ -147,6 +149,7 @@ class ResidenceOperationsSeeder extends Seeder
             $request = Models\PengajuanBebasAsrama::create([
                 'nomor_pengajuan' => 'DEMO-FREE-'.$name, 'nomor_surat_resmi' => $approved ? 'DEMO-SURAT-'.$name : null,
                 'mahasiswa_id' => $student->id, 'alasan' => 'DEMO: pengurusan administrasi kelulusan.', 'status' => $status,
+                'document_kind' => $approved ? ($path === 'not_alumni' ? 'not_resident' : 'free_residence') : null,
                 'catatan_penolakan' => $status === 'ditolak' ? 'Bukti pembayaran belum sesuai, unggah ulang bukti yang jelas.' : null,
                 'disetujui_oleh' => $approved ? ResidenceScenarioSeeder::staff('admin_layanan')->id : null,
                 'file_surat_path' => $file, 'lifecycle_year' => $modern ? max(2026, now()->year) : 2025, 'legacy_verification_path' => $path,
@@ -160,12 +163,16 @@ class ResidenceOperationsSeeder extends Seeder
                 Models\PengajuanBebasAsramaStatusHistory::create(['pengajuan_id' => $request->id, 'status' => $step, 'changed_by' => ResidenceScenarioSeeder::staff('admin_layanan')->id, 'note' => 'Riwayat pengajuan demo']);
             }
             if ($approved) {
-                $contents = Pdf::loadView('pdf.surat-bebas-asrama', ['pengajuan' => $request, 'mahasiswa' => $student, 'documentNumber' => $request->nomor_surat_resmi])->setPaper('a4')->output();
+                $token = (string) Str::uuid();
+                $signer = Models\DocumentSigner::aktif();
+                $contents = Pdf::loadView('pdf.surat-bebas-asrama', ['pengajuan' => $request, 'mahasiswa' => $student, 'documentNumber' => $request->nomor_surat_resmi,
+                    'verificationQr' => app(DocumentVerificationQr::class)->make($token)['data_uri']])->setPaper('a4')->output();
                 Storage::disk('local')->put($file, $contents);
                 gc_collect_cycles();
                 $student->user->update(['status' => 'nonaktif', 'inactive_reason' => 'letter_issued']);
                 $student->update(['status_huni' => 'keluar']);
                 Models\FreeResidenceLetterDocumentIntent::create(['pengajuan_id' => $request->id, 'status' => 'ready', 'nomor' => $request->nomor_surat_resmi,
+                    'verification_token' => $token, 'signer_name' => $signer?->nama ?? config('residence.letter_signer'), 'signer_nip' => $signer?->nip,
                     'path' => $file, 'checksum_sha256' => hash('sha256', $contents), 'template_version' => FreeResidenceLetterFormat::VERSION, 'requested_at' => now()->subDay(), 'generated_at' => now()->subDay()]);
             }
         }

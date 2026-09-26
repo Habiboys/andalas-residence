@@ -9,11 +9,12 @@
     <style>
         @page { margin: 42pt 60pt 64pt; }
         body { font-family: 'DejaVu Sans', sans-serif; font-size: 9pt; line-height: 1.45; color: #000; }
-        .letterhead { width: 100%; border-collapse: collapse; border-bottom: 1.5pt solid #000; }
-        .logo { width: 66pt; vertical-align: middle; }
+        .letterhead { width: 100%; table-layout: fixed; border-collapse: collapse; border-bottom: 1.5pt solid #000; }
+        .logo { width: 16.66%; text-align: center; vertical-align: middle; }
         .logo img { width: 60pt; height: auto; }
-        .institution { text-align: center; font-family: 'DejaVu Serif', serif; line-height: 1.3; font-size: 11pt; }
+        .institution { width: 66.66%; text-align: center; font-family: 'DejaVu Serif', serif; line-height: 1.3; font-size: 11pt; }
         .institution strong { font-size: 13pt; }
+        .spacer { width: 16.66%; }
         .address { font-size: 7pt; line-height: 1.5; }
         .title { margin: 16pt 0 0; text-align: center; text-decoration: underline; font-size: 10pt; font-weight: bold; }
         .number { text-align: center; font-size: 9pt; margin-top: 1pt; }
@@ -23,9 +24,13 @@
         .identity td { vertical-align: top; padding: 1pt 0; }
         .label { width: 57pt; }
         .colon { width: 10pt; }
-        .signature { margin: 32pt 0 0 59%; width: 41%; page-break-inside: avoid; }
-        .signature p { text-align: left; margin: 0; }
-        .signer { margin-top: 52pt !important; }
+        .signature { margin: 32pt 0 0 59%; width: 41%; page-break-inside: avoid; text-align: center; }
+        .signature p { text-align: center; margin: 0; }
+        .qr { margin: 8pt auto 4pt; }
+        .qr img { width: 78pt; height: 78pt; }
+        .qr-hint { font-size: 6.5pt; color: #333; }
+        .signer { margin-top: 6pt !important; font-weight: bold; }
+        .signer-nip { font-size: 8pt; }
         .notice { position: fixed; bottom: 0; left: 0; right: 0; border: .6pt solid #000; padding: 3pt; font-family: 'DejaVu Serif', serif; font-size: 6.5pt; font-style: italic; line-height: 1.3; }
     </style>
 </head>
@@ -39,6 +44,7 @@
                 <div class="address">Alamat : Gedung Asrama Roesma/M.Syaff, Limau Manis Padang - 25163<br>
                     Laman : http://www.unand.ac.id &nbsp; email : andalasresidence@unand.ac.id</div>
             </td>
+            <td class="spacer"></td>
         </tr>
     </table>
     <h1 class="title">{{ $letter['title'] }}</h1>
@@ -66,8 +72,15 @@
     </div>
     <div class="signature">
         <p>Padang, {{ $letter['issuedAt']->translatedFormat('d F Y') }}</p>
-        <p>Pengelola Asrama<br>Universitas Andalas</p>
+        <p>{{ $letter['signerJabatan'] ?? 'Pengelola Asrama' }}<br>{{ $letter['signerUnit'] ?? 'Universitas Andalas' }}</p>
+        @if (! empty($verificationQr))
+            <div class="qr"><img src="{{ $verificationQr }}" alt="Kode verifikasi dokumen"></div>
+            <p class="qr-hint">Pindai untuk verifikasi keaslian</p>
+        @endif
         <p class="signer">{{ $letter['signer'] ?? config('residence.letter_signer') }}</p>
+        @if (! empty($letter['signerNip']))
+            <p class="signer-nip">NIP. {{ $letter['signerNip'] }}</p>
+        @endif
     </div>
     <div class="notice">
         Dilarang memalsukan dokumen. Jika terbukti melanggar, tindakan tersebut akan diproses sesuai dengan sanksi yang berlaku.<br>

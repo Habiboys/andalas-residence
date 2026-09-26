@@ -7,12 +7,14 @@ use App\Enums\FreeResidenceLetterStatus;
 use App\Enums\LegacyFreeResidenceVerificationPath;
 use App\Enums\TagihanStatus;
 use App\Jobs\GenerateFreeResidenceLetter;
+use App\Models\DocumentSigner;
 use App\Models\PengajuanBebasAsrama;
 use App\Models\Tagihan;
 use App\Models\User;
 use App\Services\FreeResidenceLetterFormat;
 use App\Services\ResidenceLifecycle;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class ApproveFreeResidenceLetter
@@ -34,6 +36,7 @@ class ApproveFreeResidenceLetter
             }
 
             $student = $application->mahasiswa()->lockForUpdate()->firstOrFail();
+            $signer = $this->activeSigner();
             $life = app(ResidenceLifecycle::class);
             if ($student->penempatanKamar()->where('status', 'aktif')->exists() || $life->hasDebt($student)) {
                 throw ValidationException::withMessages(['status' => 'Hunian harus berakhir dan seluruh tagihan pribadi harus lunas.']);
@@ -55,7 +58,10 @@ class ApproveFreeResidenceLetter
             $snapshot['issuedAt'] = $snapshot['issuedAt']->toIso8601String();
             $snapshot['nama'] = $student->user->nama;
             $snapshot['nim'] = $student->user->nim_nip;
-            $snapshot['signer'] = config('residence.letter_signer');
+            $snapshot['signer'] = $signer['nama'];
+            $snapshot['signerNip'] = $signer['nip'];
+            $snapshot['signerJabatan'] = $signer['jabatan'];
+            $snapshot['signerUnit'] = $signer['unit'];
             $application->document_snapshot = $snapshot;
 
             $application->update([
@@ -71,11 +77,27 @@ class ApproveFreeResidenceLetter
             $intent = $application->documentIntent()->firstOrCreate([], [
                 'status' => 'pending',
                 'requested_at' => now(),
+                'verification_token' => (string) Str::uuid(),
+                'signer_name' => $signer['nama'],
+                'signer_nip' => $signer['nip'],
             ]);
             GenerateFreeResidenceLetter::dispatch($intent->id)->afterCommit();
 
             return $application->fresh(['statusHistories', 'documentIntent']);
         });
+    }
+
+    /** @return array{nama: string, nip: ?string, jabatan: string, unit: string} */
+    private function activeSigner(): array
+    {
+        $signer = DocumentSigner::aktif();
+
+        return [
+            'nama' => $signer?->nama ?? (string) config('residence.letter_signer'),
+            'nip' => $signer?->nip,
+            'jabatan' => $signer?->jabatan ?? 'Pengelola Asrama',
+            'unit' => $signer?->unit ?? 'Universitas Andalas',
+        ];
     }
 
     private function validateLegacy(PengajuanBebasAsrama $application): void

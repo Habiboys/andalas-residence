@@ -10,7 +10,7 @@ use Illuminate\Support\Carbon;
 
 class FreeResidenceLetterFormat
 {
-    public const VERSION = 'residence-snapshot-v3';
+    public const VERSION = 'residence-snapshot-v4';
 
     /** @return array<string, mixed> */
     public function data(PengajuanBebasAsrama $application): array

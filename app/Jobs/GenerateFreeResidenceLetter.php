@@ -4,12 +4,15 @@ namespace App\Jobs;
 
 use App\Models\FreeResidenceLetterDocumentIntent;
 use App\Notifications\DocumentReadyNotification;
+use App\Services\DocumentNumber;
+use App\Services\DocumentVerificationQr;
 use App\Services\FreeResidenceLetterFormat;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Throwable;
 
 class GenerateFreeResidenceLetter implements ShouldBeUnique, ShouldQueue
@@ -40,18 +43,24 @@ class GenerateFreeResidenceLetter implements ShouldBeUnique, ShouldQueue
         }
 
         $application = $intent->pengajuan;
-        $number = $application->nomor_surat_resmi ?: 'SBA-'.$application->nomor_pengajuan;
+        $number = $intent->nomor
+            ?? ($application->nomor_surat_resmi ?: app(DocumentNumber::class)->next('surat_bebas_asrama', 'SBA'));
+        $verificationToken = $intent->verification_token ?: (string) Str::uuid();
+        $qr = app(DocumentVerificationQr::class)->make($verificationToken);
         $path = 'documents/free-residence/'.$intent->id.'.pdf';
         $contents = Pdf::loadView('pdf.surat-bebas-asrama', [
             'pengajuan' => $application,
             'mahasiswa' => $application->mahasiswa,
             'documentNumber' => $number,
+            'verificationQr' => $qr['data_uri'],
+            'verificationUrl' => $qr['url'],
         ])->setPaper('a4')->output();
 
         Storage::disk('local')->put($path, $contents);
         $intent->update([
             'status' => 'ready',
             'nomor' => $number,
+            'verification_token' => $verificationToken,
             'path' => $path,
             'checksum_sha256' => hash('sha256', $contents),
             'template_version' => FreeResidenceLetterFormat::VERSION,

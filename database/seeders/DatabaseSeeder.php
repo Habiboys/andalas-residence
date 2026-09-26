@@ -158,7 +158,7 @@ class DatabaseSeeder extends Seeder
             }
         }
 
-        $this->call([LandingContentSeeder::class, ResidenceScenarioSeeder::class, ResidenceOperationsSeeder::class]);
+        $this->call([LandingContentSeeder::class, DocumentSystemSeeder::class, ResidenceScenarioSeeder::class, ResidenceOperationsSeeder::class]);
         $this->command?->table(['Akun demo', 'Kegunaan'], [
             ['superadmin@example.test', 'Seluruh pengelolaan dan audit'],
             ['admin_layanan@example.test', 'Pendaftaran, tagihan, pembayaran, surat'],

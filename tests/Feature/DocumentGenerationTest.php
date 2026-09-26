@@ -101,12 +101,19 @@ it('generates a free residence letter from its intent and records terminal failu
     $intent = $approved->documentIntent->fresh();
     Storage::disk('local')->assertExists($intent->path);
     expect($intent->status)->toBe('ready')
-        ->and($intent->nomor)->toBe('SBA-BA-DOC-001')
+        ->and($intent->nomor)->toBe('SBA/UNAND/'.now()->year.'/0001')
+        ->and($intent->verification_token)->not->toBeNull()
+        ->and($intent->signer_name)->toBe(config('residence.letter_signer'))
         ->and($intent->template_version)->toBe(FreeResidenceLetterFormat::VERSION)
         ->and($intent->checksum_sha256)->toHaveLength(64);
     Notification::assertSentTo($student->user, DocumentReadyNotification::class);
-    expect(view('pdf.surat-bebas-asrama', ['pengajuan' => $approved, 'mahasiswa' => $student])->render())
-        ->toContain('SURAT KETERANGAN TIDAK TINGGAL DI ASRAMA', 'images/unand.png', $student->user->nim_nip)
+    $html = view('pdf.surat-bebas-asrama', [
+        'pengajuan' => $approved,
+        'mahasiswa' => $student,
+        'documentNumber' => $intent->nomor,
+        'verificationQr' => 'data:image/png;base64,AAAA',
+    ])->render();
+    expect($html)->toContain('SURAT KETERANGAN TIDAK TINGGAL DI ASRAMA', 'images/unand.png', $student->user->nim_nip, 'data:image/png;base64,AAAA')
         ->not->toContain('CONTOH / DUMMY', 'telah melunasi uang asrama');
 
     $failedIntent = FreeResidenceLetterDocumentIntent::create([
@@ -143,7 +150,8 @@ it('selects the letter wording from verified residence status and funding catego
         'legacy_verification_path' => $path, 'approved_at' => '2026-09-24 07:17:33',
     ]);
     $html = view('pdf.surat-bebas-asrama', ['pengajuan' => $application, 'mahasiswa' => $student, 'documentNumber' => '674/B/Asrama-XIV/UA/2026'])->render();
-    expect($html)->toContain($title, '674/B/Asrama-XIV/UA/2026', '24 September 2026', '14:17:33', 'Fatmasari, Amd.Kep');
+    expect($html)->toContain($title, '674/B/Asrama-XIV/UA/2026', '24 September 2026', '14:17:33', 'Fatmasari, Amd.Kep')
+        ->not->toContain('NIP. ');
     if ($category === 'local_kipk' || $category === 'international_free_facility') {
         expect($html)->not->toContain('telah melunasi uang asrama');
     }

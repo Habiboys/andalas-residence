@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class FreeResidenceLetterDocumentIntent extends BaseModel
 {
-    protected $fillable = ['pengajuan_id', 'status', 'nomor', 'path', 'checksum_sha256', 'template_version', 'requested_at', 'generated_at', 'failure_reason'];
+    protected $fillable = ['pengajuan_id', 'status', 'nomor', 'verification_token', 'signer_name', 'signer_nip', 'path', 'checksum_sha256', 'template_version', 'requested_at', 'generated_at', 'failure_reason'];
 
     protected function casts(): array
     {

@@ -185,6 +185,7 @@ class RolePermissionSeeder extends Seeder
             'absensi.view',
             'free-residence.review',
             'registration.review',
+            'documents.manage',
             'pengajuan.download_surat',
             'kuesioner.view',
             'kegiatan.view',

@@ -6,6 +6,8 @@ use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AsetController;
 use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\DepartemenController;
+use App\Http\Controllers\DocumentSignerController;
+use App\Http\Controllers\DocumentVerificationController;
 use App\Http\Controllers\FakultasController;
 use App\Http\Controllers\GedungController;
 use App\Http\Controllers\InvoiceController;
@@ -41,6 +43,9 @@ Route::get('/program', [LandingController::class, 'programIndex'])->name('landin
 Route::get('/program/{program}', [LandingController::class, 'programDetail'])->name('landing.program.detail');
 Route::get('/kontak', [LandingController::class, 'kontak'])->name('landing.kontak');
 
+// Halaman publik untuk memindai QR pada surat resmi.
+Route::get('/dokumen/verifikasi/{token}', [DocumentVerificationController::class, 'show'])->name('dokumen.verifikasi');
+
 Route::middleware(['auth', 'verified', EnsureResidenceAccountAccess::class])->group(function () {
     require __DIR__.'/role-pages.php';
 
@@ -52,6 +57,14 @@ Route::middleware(['auth', 'verified', EnsureResidenceAccountAccess::class])->gr
 
         return redirect()->route($prefix.'.dashboard');
     })->name('dashboard.redirect');
+
+    Route::middleware('role:staff_admin|admin_layanan')->group(function () {
+        Route::get('/admin/kelola-penandatangan', [DocumentSignerController::class, 'index'])->name('admin.kelola-penandatangan');
+        Route::post('/admin/penandatangan', [DocumentSignerController::class, 'store'])->name('admin.penandatangan.store');
+        Route::put('/admin/penandatangan/{signer}', [DocumentSignerController::class, 'update'])->name('admin.penandatangan.update');
+        Route::post('/admin/penandatangan/{signer}/aktifkan', [DocumentSignerController::class, 'activate'])->name('admin.penandatangan.activate');
+        Route::delete('/admin/penandatangan/{signer}', [DocumentSignerController::class, 'destroy'])->name('admin.penandatangan.destroy');
+    });
 
     Route::prefix('admin/master-data')->name('admin.master-data.')->middleware('role:staff_admin|superadmin')->group(function () {
         Route::post('/jenis-kegiatan', [ActivityMasterController::class, 'storeType'])->name('jenis-kegiatan.store');

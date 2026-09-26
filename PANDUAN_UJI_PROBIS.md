@@ -424,6 +424,17 @@ Uji tab Semua, Menunggu verifikasi, Diverifikasi, Disetujui, dan Ditolak; jumlah
 
 Pengiriman email pada konfigurasi sekarang memakai `MAIL_MAILER=log`: periksa log aplikasi, bukan inbox sungguhan. Notifikasi akun dan PDF tetap dapat diuji. Email nyata memerlukan konfigurasi SMTP tersendiri.
 
+### Penandatangan dan verifikasi dokumen
+
+**Akun:** `staff_admin@example.test` atau `admin_layanan@example.test` untuk menu **Penandatangan Surat**.
+
+1. Buka menu **Penandatangan Surat** pada grup Pengajuan. Tambah penandatangan (nama, NIP opsional, jabatan, unit), lalu tandai satu penandatangan sebagai aktif lewat tombol Aktifkan. Hanya satu penandatangan boleh aktif; penandatangan aktif tidak dapat dihapus sebelum ada pengganti.
+2. Terbitkan surat bebas asrama seperti pada bagian 13/14. Bila `nomor_surat_resmi` diisi manual, nomor itu yang dipakai. Bila dikosongkan, nomor dibuat berurutan per tahun, misalnya `SBA/UNAND/2026/0001`, lalu `0002` untuk surat berikutnya pada tahun yang sama.
+3. Buka PDF surat: kop harus tetap center penuh, blok tanda tangan memuat jabatan, unit, QR code, nama, dan NIP penandatangan.
+4. Pindai QR atau buka URL di bawahnya tanpa login. Halaman verifikasi publik harus menampilkan nomor, nama, NIM, fakultas, program studi, tanggal terbit, dan penandatangan.
+5. Uji token asing atau surat yang belum terbit: halaman menampilkan keterangan tidak dapat diverifikasi dan tidak membocorkan data.
+6. Ganti penandatangan aktif lalu terbitkan surat baru. Surat lama harus tetap menampilkan nama/NIP penandatangan saat terbit, karena data penandatangan disalin ke dokumen.
+
 ## 15. Keuangan dan pemantauan pimpinan
 
 **Akun:** `staff_admin@example.test` atau `superadmin@example.test` untuk buku kas; `pimpinan@example.test` untuk pemantauan.
