@@ -1,32 +1,26 @@
 import { Head } from '@inertiajs/react';
 import AppearanceTabs from '@/components/appearance-tabs';
 import Heading from '@/components/heading';
-import { edit as editAppearance } from '@/routes/appearance';
+import SettingsNav from '@/andalas/components/SettingsNav';
+import { Card } from '@/andalas/components/ui';
 
 export default function Appearance() {
     return (
-        <>
-            <Head title="Appearance settings" />
+        <div className="mx-auto w-full max-w-3xl">
+            <Head title="Tampilan" />
 
-            <h1 className="sr-only">Appearance settings</h1>
+            <h1 className="sr-only">Tampilan</h1>
 
-            <div className="space-y-6">
+            <SettingsNav />
+
+            <Card className="space-y-6 p-5">
                 <Heading
                     variant="small"
-                    title="Appearance settings"
-                    description="Update the appearance settings for your account"
+                    title="Tampilan"
+                    description="Atur tampilan terang atau gelap untuk akun Anda"
                 />
                 <AppearanceTabs />
-            </div>
-        </>
+            </Card>
+        </div>
     );
 }
-
-Appearance.layout = {
-    breadcrumbs: [
-        {
-            title: 'Appearance settings',
-            href: editAppearance(),
-        },
-    ],
-};

@@ -12,6 +12,7 @@ use App\Models\Kegiatan;
 use App\Models\Lantai;
 use App\Models\MahasiswaProfil;
 use App\Models\PenempatanKamar;
+use App\Models\Periode;
 use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Validation\ValidationException;
@@ -24,6 +25,7 @@ beforeEach(function () {
     $this->facilitator = User::factory()->create()->assignRole('fasilitator');
     $this->building = Gedung::create(['kode_gedung' => 'UNIFIED', 'nama_gedung' => 'Asrama Uji']);
     FasilitatorWilayah::create(['user_id' => $this->facilitator->id, 'gedung_id' => $this->building->id]);
+    Periode::create(['nama_periode' => '2026/2027', 'status' => 'aktif', 'angkatan_maba' => 2026, 'tanggal_mulai' => now()->startOfYear(), 'tanggal_selesai' => now()->endOfYear()]);
     $this->payload = ['jenis_kegiatan_id' => JenisKegiatan::where('nama', 'Sholat Subuh')->value('id'), 'duration_minutes' => 20,
         'radius_meters' => 100, 'latitude' => -0.9145, 'longitude' => 100.46, 'accuracy_meters' => 5];
 });

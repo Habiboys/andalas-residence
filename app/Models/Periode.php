@@ -8,11 +8,13 @@ class Periode extends BaseModel
 {
     protected $table = 'periode';
 
-    protected $fillable = ['nama_periode', 'status', 'tanggal_mulai', 'tanggal_selesai'];
+    protected $fillable = ['nama_periode', 'status', 'tanggal_mulai', 'tanggal_selesai', 'angkatan_maba', 'reservation_hours'];
 
     protected function casts(): array
     {
         return [
+            'angkatan_maba' => 'integer',
+            'reservation_hours' => 'integer',
             'tanggal_mulai' => 'date',
             'tanggal_selesai' => 'date',
         ];

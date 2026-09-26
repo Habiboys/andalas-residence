@@ -3,8 +3,6 @@
 namespace Database\Seeders;
 
 use App\Enums\ClientProfileCategory;
-use App\Models\Departemen;
-use App\Models\Faculty;
 use App\Models\Gedung;
 use App\Models\Kamar;
 use App\Models\KategoriTransaksi;

@@ -55,9 +55,12 @@ class AdminUserController extends Controller
             'role' => 'sometimes|string|in:superadmin,pimpinan,admin_layanan,admin_aset,staff_admin,fasilitator,teknisi,go',
         ]);
 
-        $data = collect($validated)->except(['role', 'password'])->filter()->all();
+        $data = array_filter(array_diff_key($validated, array_flip(['role', 'password'])));
         if (! empty($validated['password'])) {
             $data['password'] = Hash::make($validated['password']);
+        }
+        if (isset($validated['status'])) {
+            $data['inactive_reason'] = $validated['status'] === 'nonaktif' ? 'admin_blocked' : null;
         }
         $user->update($data);
 

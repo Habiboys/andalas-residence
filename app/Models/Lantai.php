@@ -11,11 +11,13 @@ class Lantai extends BaseModel
 
     protected $fillable = ['gedung_id', 'nomor_lantai', 'nama_lantai'];
 
+    /** @return BelongsTo<Gedung, $this> */
     public function gedung(): BelongsTo
     {
         return $this->belongsTo(Gedung::class);
     }
 
+    /** @return HasMany<Kamar, $this> */
     public function kamar(): HasMany
     {
         return $this->hasMany(Kamar::class);

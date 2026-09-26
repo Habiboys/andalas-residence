@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
+ * @property array<string, mixed>|null $document_snapshot
  * @property FreeResidenceLetterStatus $status
  * @property LegacyFreeResidenceVerificationPath|null $legacy_verification_path
  * @property-read CheckoutRequest|null $checkoutRequest
@@ -18,6 +19,7 @@ class PengajuanBebasAsrama extends BaseModel
     protected $table = 'pengajuan_bebas_asrama';
 
     protected $fillable = [
+        'document_kind', 'stay_key', 'document_snapshot', 'legacy_resident_id',
         'nomor_pengajuan', 'nomor_surat_resmi', 'mahasiswa_id', 'alasan',
         'status', 'catatan_penolakan', 'disetujui_oleh', 'file_surat_path',
         'lifecycle_year', 'legacy_verification_path', 'checkout_request_id',
@@ -28,12 +30,14 @@ class PengajuanBebasAsrama extends BaseModel
     {
         return [
             'status' => FreeResidenceLetterStatus::class,
+            'document_snapshot' => 'array',
             'legacy_verification_path' => LegacyFreeResidenceVerificationPath::class,
             'verified_at' => 'datetime',
             'approved_at' => 'datetime',
         ];
     }
 
+    /** @return BelongsTo<Tagihan, $this> */
     public function tagihan(): BelongsTo
     {
         return $this->belongsTo(Tagihan::class);

@@ -1,5 +1,4 @@
 import { Head, Link, useForm } from '@inertiajs/react';
-import RegistrationSteps from '@/andalas/components/RegistrationSteps';
 import AcademicFields, {
     cohortFromNim,
     type AcademicOptions,
@@ -21,7 +20,7 @@ export default function Register(options: AcademicOptions) {
         email: '',
         password: '',
         password_confirmation: '',
-        client_profile_category: 'local_non_kipk',
+        client_profile_category: '',
         faculty_id: '',
         departemen_id: '',
         prodi_id: '',
@@ -30,22 +29,18 @@ export default function Register(options: AcademicOptions) {
     });
     const nonStudent = form.data.client_profile_category === 'non_student';
     const categories = [
-        ['local_non_kipk', 'Mahasiswa lokal non-KIPK'],
-        ['local_kipk', 'Mahasiswa lokal KIPK'],
+        ['local_student', 'Mahasiswa lokal'],
         ['international_student', 'Mahasiswa internasional'],
-        [
-            'international_free_facility',
-            'Mahasiswa internasional dengan fasilitas asrama gratis',
-        ],
-        ['non_student', 'Non-mahasiswa'],
+        ['non_student', 'Nonmahasiswa'],
     ];
     return (
         <AndalasAuthShell wide>
             <Head title="Daftar Akun Andalas Residence" />
             <h1 className="mb-5 text-2xl font-bold">Daftar akun</h1>
-            <div className="mb-6">
-                <RegistrationSteps current={0} />
-            </div>
+            <p className="text-muted mb-6 text-sm">
+                Buat akun untuk mengakses layanan asrama. Setelah masuk, pilih
+                pendaftaran hunian atau pengurusan surat bebas asrama.
+            </p>
             <form
                 className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 md:grid-cols-1 lg:grid-cols-2 [&>fieldset]:min-w-0"
                 onSubmit={(event) => {
@@ -54,10 +49,12 @@ export default function Register(options: AcademicOptions) {
                 }}
             >
                 <AuthField
-                    label="Kategori client"
+                    label="Jenis pendaftar"
                     error={form.errors.client_profile_category}
                 >
                     <select
+                        required
+                        aria-label="Jenis pendaftar"
                         className={authInputClass}
                         value={form.data.client_profile_category}
                         onChange={(event) =>
@@ -67,6 +64,7 @@ export default function Register(options: AcademicOptions) {
                             )
                         }
                     >
+                        <option value="">Pilih jenis pendaftar</option>
                         {categories.map(([value, label]) => (
                             <option key={value} value={value}>
                                 {label}
@@ -181,9 +179,10 @@ export default function Register(options: AcademicOptions) {
                     />
                 </AuthField>
                 <p className="text-muted col-span-full text-sm">
-                    Kategori dan fasilitas gratis diperiksa admin saat
-                    pendaftaran hunian. Angkatan ditentukan dari dua digit awal
-                    NIM.
+                    KIP-K ditentukan otomatis dari NIM, angkatan, dan daftar
+                    penerima yang dikelola admin. Jika hasilnya tidak sesuai,
+                    hubungi Admin Layanan untuk pemeriksaan data. Pembiayaan
+                    sponsor memerlukan pengesahan admin saat pendaftaran hunian.
                 </p>
                 <div className="col-span-full">
                     <AuthSubmitButton processing={form.processing}>

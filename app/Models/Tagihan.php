@@ -8,19 +8,23 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
+ * @property array<string, mixed>|null $residence_snapshot
  * @property TagihanStatus $status
  */
 class Tagihan extends BaseModel
 {
     protected $table = 'tagihan';
 
-    protected $fillable = ['nomor', 'mahasiswa_id', 'status', 'mata_uang', 'tanggal_terbit', 'jatuh_tempo', 'subtotal', 'total_penyesuaian', 'total', 'total_dibayar', 'cicilan_diminta_at', 'alasan_cicilan'];
+    protected $fillable = ['nomor', 'mahasiswa_id', 'status', 'mata_uang', 'tanggal_terbit', 'jatuh_tempo', 'subtotal', 'total_penyesuaian', 'total', 'total_dibayar', 'sponsor_total', 'sponsor_paid', 'sponsor_name', 'amount_due_now', 'residence_snapshot'];
 
     protected function casts(): array
     {
         return [
             'status' => TagihanStatus::class,
-            'cicilan_diminta_at' => 'datetime',
+            'residence_snapshot' => 'array',
+            'sponsor_total' => 'decimal:2',
+            'sponsor_paid' => 'decimal:2',
+            'amount_due_now' => 'decimal:2',
             'tanggal_terbit' => 'date',
             'jatuh_tempo' => 'date',
             'subtotal' => 'decimal:2',
@@ -30,6 +34,7 @@ class Tagihan extends BaseModel
         ];
     }
 
+    /** @return HasOne<ResidenceRegistration, $this> */
     public function registration(): HasOne
     {
         return $this->hasOne(ResidenceRegistration::class);

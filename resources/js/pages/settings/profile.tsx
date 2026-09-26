@@ -4,9 +4,13 @@ import ProfileController from '@/actions/App/Http/Controllers/Settings/ProfileCo
 import DeleteUser from '@/components/delete-user';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
-import { edit } from '@/routes/profile';
 import type { Auth } from '@/types';
 import { send } from '@/routes/verification';
+import UserProfileDetails, {
+    type ProfileSummary,
+} from '@/andalas/components/UserProfileDetails';
+import SettingsNav from '@/andalas/components/SettingsNav';
+import { Card } from '@/andalas/components/ui';
 
 type PageProps = {
     auth: Auth;
@@ -15,123 +19,134 @@ type PageProps = {
 export default function Profile({
     mustVerifyEmail,
     status,
+    profileSummary,
 }: {
     mustVerifyEmail: boolean;
     status?: string;
+    profileSummary: ProfileSummary;
 }) {
     const { auth } = usePage<PageProps>().props;
 
     return (
-        <>
-            <Head title="Profile settings" />
+        <div className="mx-auto w-full max-w-3xl">
+            <Head title="Profil Saya" />
+            <h1 className="sr-only">Profil Saya</h1>
 
-            <h1 className="sr-only">Profile settings</h1>
+            <SettingsNav />
 
-            <div className="space-y-6">
-                <Heading
-                    variant="small"
-                    title="Profile"
-                    description="Update your name and email address"
-                />
+            <div className="space-y-4">
+                <Card className="space-y-4 p-5">
+                    <Heading
+                        variant="small"
+                        title="Ringkasan akun"
+                        description="Identitas, kategori, dan kondisi akun Anda."
+                    />
+                    <UserProfileDetails summary={profileSummary} />
+                </Card>
 
-                <Form
-                    action={ProfileController.update.url()}
-                    method="patch"
-                    options={{
-                        preserveScroll: true,
-                    }}
-                    className="space-y-6"
-                >
-                    {({ processing, errors }) => (
-                        <>
-                            <div className="grid gap-2">
-                                <label className="label" htmlFor="name">Name</label>
+                <Card className="space-y-6 p-5">
+                    <Heading
+                        variant="small"
+                        title="Ubah nama dan email"
+                        description="Untuk koreksi identitas, data akademik, atau kategori akun, hubungi admin layanan."
+                    />
 
-                                <input
-                                    id="name"
-                                    className="input input-bordered mt-1 w-full"
-                                    defaultValue={auth.user.name}
-                                    name="name"
-                                    required
-                                    autoComplete="name"
-                                    placeholder="Full name"
-                                />
+                    <Form
+                        action={ProfileController.update.url()}
+                        method="patch"
+                        options={{
+                            preserveScroll: true,
+                        }}
+                        className="space-y-6"
+                    >
+                        {({ processing, errors }) => (
+                            <>
+                                <div className="grid gap-2">
+                                    <label className="label" htmlFor="name">
+                                        Nama lengkap
+                                    </label>
 
-                                <InputError
-                                    className="mt-2"
-                                    message={errors.name}
-                                />
-                            </div>
+                                    <input
+                                        id="name"
+                                        className="input input-bordered mt-1 w-full"
+                                        defaultValue={auth.user.name}
+                                        name="name"
+                                        required
+                                        autoComplete="name"
+                                        placeholder="Nama lengkap"
+                                    />
 
-                            <div className="grid gap-2">
-                                <label className="label" htmlFor="email">Email address</label>
+                                    <InputError
+                                        className="mt-2"
+                                        message={errors.name}
+                                    />
+                                </div>
 
-                                <input
-                                    id="email"
-                                    type="email"
-                                    className="input input-bordered mt-1 w-full"
-                                    defaultValue={auth.user.email}
-                                    name="email"
-                                    required
-                                    autoComplete="username"
-                                    placeholder="Email address"
-                                />
+                                <div className="grid gap-2">
+                                    <label className="label" htmlFor="email">
+                                        Email
+                                    </label>
 
-                                <InputError
-                                    className="mt-2"
-                                    message={errors.email}
-                                />
-                            </div>
+                                    <input
+                                        id="email"
+                                        type="email"
+                                        className="input input-bordered mt-1 w-full"
+                                        defaultValue={auth.user.email}
+                                        name="email"
+                                        required
+                                        autoComplete="username"
+                                        placeholder="Email"
+                                    />
 
-                            {mustVerifyEmail &&
-                                auth.user.email_verified_at === null && (
-                                    <div>
-                                        <p className="text-muted-foreground -mt-4 text-sm">
-                                            Your email address is unverified.{' '}
-                                            <Link
-                                                href={send()}
-                                                as="button"
-                                                className="text-foreground underline decoration-neutral-300 underline-offset-4 transition-colors duration-300 ease-out hover:decoration-current! dark:decoration-neutral-500"
-                                            >
-                                                Click here to re-send the
-                                                verification email.
-                                            </Link>
-                                        </p>
+                                    <InputError
+                                        className="mt-2"
+                                        message={errors.email}
+                                    />
+                                </div>
 
-                                        {status ===
-                                            'verification-link-sent' && (
-                                            <div className="mt-2 text-sm font-medium text-success">
-                                                A new verification link has been
-                                                sent to your email address.
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
+                                {mustVerifyEmail &&
+                                    auth.user.email_verified_at === null && (
+                                        <div>
+                                            <p className="text-muted-foreground -mt-4 text-sm">
+                                                Email Anda belum diverifikasi.{' '}
+                                                <Link
+                                                    href={send()}
+                                                    as="button"
+                                                    className="text-foreground underline decoration-neutral-300 underline-offset-4 transition-colors duration-300 ease-out hover:decoration-current! dark:decoration-neutral-500"
+                                                >
+                                                    Kirim ulang email
+                                                    verifikasi.
+                                                </Link>
+                                            </p>
 
-                            <div className="flex items-center gap-4">
-                                <button
-                                    className="btn btn-primary"
-                                    disabled={processing}
-                                    data-test="update-profile-button"
-                                >
-                                    Save
-                                </button>
-                            </div>
-                        </>
-                    )}
-                </Form>
+                                            {status ===
+                                                'verification-link-sent' && (
+                                                <div className="text-success mt-2 text-sm font-medium">
+                                                    Tautan verifikasi baru telah
+                                                    dikirim ke email Anda.
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                <div className="flex items-center gap-4">
+                                    <button
+                                        className="btn btn-primary"
+                                        disabled={processing}
+                                        data-test="update-profile-button"
+                                    >
+                                        Simpan perubahan
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                    </Form>
+                </Card>
+
+                <Card className="p-5">
+                    <DeleteUser />
+                </Card>
             </div>
-
-            <DeleteUser />
-        </>
+        </div>
     );
 }
-
-Profile.layout = {
-    breadcrumbs: [
-        {
-            title: 'Profile settings',
-            href: edit(),
-        },
-    ],
-};

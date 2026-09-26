@@ -6,30 +6,43 @@ use App\Models\ActivityAttendance;
 use App\Models\Aset;
 use App\Models\AuditLog;
 use App\Models\CheckoutRequest;
+use App\Models\Departemen;
+use App\Models\Faculty;
 use App\Models\FasilitasUmum;
 use App\Models\Gedung;
+use App\Models\InvoiceGroup;
 use App\Models\JenisKegiatan;
 use App\Models\Kamar;
 use App\Models\KategoriTransaksi;
 use App\Models\Kegiatan;
+use App\Models\KipkRecipient;
 use App\Models\Kuesioner;
 use App\Models\LaporanKerusakan;
 use App\Models\LegacyResidenceRate;
+use App\Models\LegacyResident;
 use App\Models\MahasiswaProfil;
 use App\Models\Pembayaran;
 use App\Models\PenempatanKamar;
 use App\Models\PengajuanBebasAsrama;
 use App\Models\PengajuanIzinPulang;
 use App\Models\PenilaianTeknisi;
+use App\Models\Periode;
+use App\Models\Prodi;
+use App\Models\ResidenceRate;
 use App\Models\ResidenceRegistration;
 use App\Models\StokAset;
 use App\Models\Tagihan;
 use App\Models\TransaksiKeuangan;
 use App\Models\User;
+use App\Models\VirtualAccount;
 use App\Services\AttendanceEligibility;
 use App\Services\LandingContentService;
 use App\Services\MasterDataService;
 use App\Services\ResidenceBuildingAccess;
+use App\Services\ResidenceLifecycle;
+use App\Services\RoomEligibility;
+use App\Services\RoomReservations;
+use App\Services\UserProfileSummary;
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -44,6 +57,10 @@ class RolePageController extends Controller
         $role = (string) $request->route()->defaults['role'];
         $page = (string) $request->route()->defaults['page'];
 
+        if ($request->user()->hasRole('mahasiswa') && in_array($page, ['perizinan', 'absensi'], true)) {
+            abort_unless($request->user()->mahasiswaProfil && app(AttendanceEligibility::class)->isEligible($request->user()->mahasiswaProfil, now()), 403);
+        }
+
         return Inertia::render($component, [
             'initialUser' => $this->userPayload($request),
             'role' => $role,
@@ -56,6 +73,20 @@ class RolePageController extends Controller
     private function pagePayload(Request $request, string $page): array
     {
         return match ($page) {
+            'temporary-stays' => app(TemporaryStayController::class)->payload($request),
+            'residence-management' => [
+                'gedung' => Gedung::orderBy('kode_gedung')->get(),
+                'periods' => MasterDataService::periodeList(),
+                'legacy_residents' => LegacyResident::orderBy('nim')->get(),
+                'legacy_rates' => LegacyResidenceRate::orderBy('angkatan')->get(),
+                'kipk_recipients' => KipkRecipient::orderByDesc('angkatan')->get(),
+                'residence_rates' => ResidenceRate::all(),
+            ],
+            'invoices' => [
+                'billing' => Tagihan::with(['mahasiswa.user', 'mahasiswa.prodi', 'jadwalCicilan', 'dokumen'])->latest()->get(),
+                'groups' => InvoiceGroup::latest()->get(),
+                'virtual_accounts' => VirtualAccount::where('aktif', true)->get(),
+            ],
             'dashboard' => [
                 'stats' => $this->dashboardStats($request),
                 'billing' => $request->user()->hasRole('mahasiswa')
@@ -74,15 +105,16 @@ class RolePageController extends Controller
                 ...($request->user()->hasRole('pimpinan') ? ['keuangan' => TransaksiKeuangan::query()->latest()->get(), 'tiket' => $this->tickets($request)] : []),
             ],
             'registration' => [
-                'periode' => MasterDataService::periodeList(),
+                'rates' => ResidenceRate::all(),
+                'periode' => Periode::where('status', 'aktif')->get(),
                 'billing' => Tagihan::with(['items', 'jadwalCicilan', 'dokumen'])->where('mahasiswa_id', $request->user()->mahasiswaProfil?->id)->latest()->get(),
-                'rooms' => \App\Services\RoomEligibility::available()->get()->filter(fn ($room) => \App\Services\RoomEligibility::allows($room->lantai->gedung, $request->user()))->values(),
-                'gedung' => Gedung::orderBy('kode_gedung')->get()->filter(fn ($building) => \App\Services\RoomEligibility::allows($building, $request->user()))->values(),
+                'rooms' => RoomEligibility::available()->get()->filter(fn ($room) => RoomEligibility::allows($room->lantai->gedung, $request->user()) && $room->penempatanKamar()->where('status', 'aktif')->count() + app(RoomReservations::class)->count($room) < $room->kapasitas)->values(),
+                'gedung' => Gedung::orderBy('kode_gedung')->get()->filter(fn ($building) => RoomEligibility::allows($building, $request->user()))->values(),
                 'registration' => ResidenceRegistration::with(['roomPreferences.kamar', 'periode', 'tagihan'])->where('student_profile_id', $request->user()->mahasiswaProfil?->id)->latest()->get(),
             ],
             'registration-review' => [
                 'registrations' => ResidenceRegistration::with(['studentProfile.user', 'studentProfile.prodi', 'roomPreferences.kamar.lantai.gedung', 'periode', 'tagihan'])->latest()->get(),
-                'rooms' => \App\Services\RoomEligibility::available()->get(),
+                'rooms' => RoomEligibility::available()->get(),
             ],
             'checkout-approval', 'checkout-inspection' => [
                 'checkout' => CheckoutRequest::with(['inspection.findings.aset', 'placement.kamar.lantai.gedung', 'placement.kamar.aset', 'mahasiswa.user'])
@@ -94,13 +126,18 @@ class RolePageController extends Controller
                     ->get(),
             ],
             'data-mahasiswa' => [
-                'mahasiswa' => MahasiswaProfil::with(['user', 'prodi', 'periode', 'penempatanKamar.kamar.lantai.gedung'])->get(),
-                'fakultas' => \App\Models\Faculty::orderBy('name')->get(['id', 'name']),
-                'departemen' => \App\Models\Departemen::orderBy('name')->get(['id', 'name', 'faculty_id']),
-                'prodi' => \App\Models\Prodi::orderBy('name')->get(['id', 'name', 'jenjang', 'departemen_id']),
+                'mahasiswa' => MahasiswaProfil::with(['user.roles', 'prodi.departemen.faculty', 'city.province', 'periode', 'penempatanKamar.kamar.lantai.gedung'])->get()->map(function (MahasiswaProfil $student) {
+                    $student->user->setRelation('mahasiswaProfil', $student);
+
+                    return [...$student->attributesToArray(), 'user' => $student->user->attributesToArray(), 'prodi' => $student->prodi, 'periode' => $student->periode, 'profile_summary' => app(UserProfileSummary::class)->forUser($student->user)];
+                }),
+                'fakultas' => Faculty::orderBy('name')->get(['id', 'name']),
+                'departemen' => Departemen::orderBy('name')->get(['id', 'name', 'faculty_id']),
+                'prodi' => Prodi::orderBy('name')->get(['id', 'name', 'jenjang', 'departemen_id']),
                 'periode' => MasterDataService::periodeList(),
             ],
             'tagihan', 'verifikasi-pembayaran' => [
+                'virtual_accounts' => VirtualAccount::where('mahasiswa_id', $request->user()->mahasiswaProfil?->id)->where('aktif', true)->get(),
                 'pembayaran' => $this->payments($request),
                 'billing' => Tagihan::with(['mahasiswa.user', 'mahasiswa.prodi', 'jadwalCicilan', 'dokumen'])
                     ->when($request->user()->hasRole('mahasiswa'), fn ($query) => $query->where('mahasiswa_id', $request->user()->mahasiswaProfil?->id))
@@ -108,7 +145,11 @@ class RolePageController extends Controller
             ],
             'detail-kamar' => ['penempatan' => PenempatanKamar::with('kamar.lantai.gedung')->whereHas('mahasiswa', fn ($q) => $q->where('user_id', $request->user()->id))->get()],
             'checkout' => ['checkout' => CheckoutRequest::with(['inspection', 'placement.kamar.lantai.gedung'])->where('mahasiswa_id', $request->user()->mahasiswaProfil?->id)->latest()->get()],
-            'bebas-asrama' => ['bebas_asrama' => PengajuanBebasAsrama::with(['mahasiswa.user', 'tagihan'])->where('mahasiswa_id', $request->user()->mahasiswaProfil?->id)->latest()->get()],
+            'bebas-asrama' => [
+                'bebas_asrama' => PengajuanBebasAsrama::with(['mahasiswa.user', 'tagihan'])->where('mahasiswa_id', $request->user()->mahasiswaProfil?->id)->latest()->get(),
+                'historical_evidence_allowed' => $request->user()->mahasiswaProfil !== null
+                    && ! $request->user()->mahasiswaProfil->checkoutRequests()->where('status', 'selesai')->exists(),
+            ],
             'lapor-kerusakan' => $this->damageReportPayload($request),
             'tiket-masuk', 'update-tiket' => ['tiket' => $this->tickets($request)],
             'jadwal-kegiatan' => $this->activitiesPayload($request),
@@ -279,7 +320,7 @@ class RolePageController extends Controller
         return [
             'perizinan' => $query->latest()->get(),
             'reviewer' => $reviewer,
-            'canSubmit' => ! $reviewer && $student?->status_huni === 'aktif' && $student->penempatanKamar()->where('status', 'aktif')->exists(),
+            'canSubmit' => ! $reviewer && $student && app(ResidenceLifecycle::class)->isBinaan($student) && $student->status_huni === 'aktif' && $student->penempatanKamar()->where('status', 'aktif')->exists(),
         ];
     }
 
@@ -336,6 +377,7 @@ class RolePageController extends Controller
                 'no_hp' => $u->no_hp,
                 'status' => $u->status,
                 'roles' => $u->roles->pluck('name'),
+                'profile_summary' => app(UserProfileSummary::class)->forUser($u),
             ])
             ->values()
             ->all();
@@ -421,7 +463,12 @@ class RolePageController extends Controller
             'no_hp' => $user->no_hp,
             'prodi' => $user->mahasiswaProfil?->prodi?->name,
             'angkatan' => $user->mahasiswaProfil?->angkatan,
-            'student_stage' => $user->mahasiswaProfil?->angkatan ? ((int) $user->mahasiswaProfil->angkatan === now()->year ? 'Mahasiswa baru' : 'Mahasiswa angkatan lama') : null,
+            'student_stage' => $user->mahasiswaProfil ? (app(ResidenceLifecycle::class)->isBinaan($user->mahasiswaProfil) ? 'Mahasiswa binaan' : 'Mahasiswa hunian') : null,
+            'residence_state' => $user->mahasiswaProfil ? app(ResidenceLifecycle::class)->state($user->mahasiswaProfil) : null,
+            'is_kipk' => $user->mahasiswaProfil && app(ResidenceLifecycle::class)->isKipk($user->mahasiswaProfil),
+            'can_use_sponsor' => $user->mahasiswaProfil && ! app(ResidenceLifecycle::class)->isLocal($user->mahasiswaProfil) && $user->client_profile_category?->value !== 'non_student',
+            'status' => $user->status,
+            'inactive_reason' => $user->inactive_reason,
             'needs_service_selection' => $user->status === 'aktif' && $user->mahasiswaProfil?->status_huni === 'calon',
             'barcode_code' => $user->mahasiswaProfil?->barcode_code,
             'status_huni' => $user->mahasiswaProfil?->status_huni,

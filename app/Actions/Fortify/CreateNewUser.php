@@ -3,7 +3,11 @@
 namespace App\Actions\Fortify;
 
 use App\Enums\ClientProfileCategory;
+use App\Models\KipkRecipient;
+use App\Models\LegacyResident;
 use App\Models\MahasiswaProfil;
+use App\Models\Periode;
+use App\Models\Prodi;
 use App\Models\User;
 use App\Services\StudentCohort;
 use Illuminate\Support\Facades\DB;
@@ -25,7 +29,7 @@ class CreateNewUser implements CreatesNewUsers
             'email' => ['required', 'string', 'email', 'max:255', Rule::unique('users', 'email')],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
             'client_profile_category' => ['required', Rule::in([
-                'local_kipk', 'local_non_kipk', 'international_student', 'international_free_facility', 'non_student',
+                'local_student', 'local_kipk', 'local_non_kipk', 'international_student', 'international_free_facility', 'non_student',
             ])],
             'faculty_id' => [Rule::requiredIf(! $isNonStudent), Rule::excludeIf($isNonStudent), 'uuid', 'exists:faculty,id'],
             'departemen_id' => [Rule::requiredIf(! $isNonStudent), Rule::excludeIf($isNonStudent), 'uuid', Rule::exists('departemen', 'id')->where('faculty_id', $input['faculty_id'] ?? null)],
@@ -34,6 +38,17 @@ class CreateNewUser implements CreatesNewUsers
             'no_hp' => ['nullable', 'string', 'max:20'],
         ])->validate();
         $validated['angkatan'] = $isNonStudent ? null : StudentCohort::fromNim($validated['nim_nip']);
+
+        if ($validated['client_profile_category'] === 'international_free_facility') {
+            $validated['client_profile_category'] = 'international_student';
+        }
+        if (in_array($validated['client_profile_category'], ['local_student', 'local_kipk', 'local_non_kipk'], true)) {
+            $isKipk = KipkRecipient::where('nim', $validated['nim_nip'])->where('angkatan', $validated['angkatan'])->exists()
+                && (int) Periode::where('status', 'aktif')->value('angkatan_maba') === (int) $validated['angkatan']
+                && ! LegacyResident::where('nim', $validated['nim_nip'])->exists()
+                && ! in_array(Prodi::whereKey($validated['prodi_id'])->value('jenjang'), ['S2', 'S3'], true);
+            $validated['client_profile_category'] = $isKipk ? 'local_kipk' : 'local_non_kipk';
+        }
 
         return DB::transaction(function () use ($validated): User {
             $user = User::create([

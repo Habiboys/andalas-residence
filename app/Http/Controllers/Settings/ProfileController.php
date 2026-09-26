@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\RolePageController;
 use App\Http\Requests\Settings\ProfileDeleteRequest;
 use App\Http\Requests\Settings\ProfileUpdateRequest;
+use App\Services\UserProfileSummary;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -20,8 +22,12 @@ class ProfileController extends Controller
     public function edit(Request $request): Response
     {
         return Inertia::render('settings/profile', [
+            'profileSummary' => app(UserProfileSummary::class)->forUser($request->user()),
             'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
             'status' => $request->session()->get('status'),
+            'role' => $request->user()->roles->first()?->name ?? 'mahasiswa',
+            'page' => 'kelola-profil',
+            'initialUser' => app(RolePageController::class)->userPayload($request),
         ]);
     }
 

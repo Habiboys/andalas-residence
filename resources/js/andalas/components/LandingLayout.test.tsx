@@ -18,13 +18,13 @@ vi.mock('@inertiajs/react', () => ({
 it('offers login to visitors and the role-aware dashboard route to signed-in users', () => {
     page.props.auth.user = null;
     const guest = renderToStaticMarkup(<LandingLayout><main>Beranda</main></LandingLayout>);
-    expect(guest).toContain('href="/login"');
+    expect(guest).toContain('/login"');
     expect(guest).toContain('>Masuk</a>');
-    expect(guest).not.toContain('href="/dashboard/redirect"');
+    expect(guest).not.toContain('/dashboard/redirect');
 
     page.props.auth.user = { id: 'resident' };
     const authenticated = renderToStaticMarkup(<LandingLayout><main>Beranda</main></LandingLayout>);
-    expect(authenticated).toContain('href="/dashboard/redirect"');
+    expect(authenticated).toContain('/dashboard/redirect"');
     expect(authenticated).toContain('>Dashboard</a>');
-    expect(authenticated).not.toContain('href="/login"');
+    expect(authenticated).not.toContain('/login"');
 });

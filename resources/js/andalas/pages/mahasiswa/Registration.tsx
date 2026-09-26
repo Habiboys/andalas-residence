@@ -1,399 +1,351 @@
-import RegistrationSteps from '../../components/RegistrationSteps';
-import { useState } from 'react';
 import { Link, useForm } from '@inertiajs/react';
-import {
-    PageHeader,
-    Card,
-    Button,
-    FormField,
-    inputClass,
-    StatusBadge,
-    Modal,
-} from '../../components/ui';
-import { store as registrationStore } from '@/routes/andalas/registrations';
+import { Card, PageHeader, inputClass, StatusBadge } from '../../components/ui';
+import { store } from '@/routes/andalas/registrations';
 import { tagihan } from '@/routes/mahasiswa';
 import { formatRupiah } from '../../lib/format';
-
 type Room = {
     id: string;
     nomor_kamar: string;
-    tipe_kamar?: string;
+    tipe_kamar: string;
     tarif_per_periode: string;
-    lantai?: { gedung?: { id: string; nama_gedung: string } };
-};
-type Registration = {
-    id: string;
-    status: string;
-    periode_id?: string;
-    completed_at?: string;
-    periode?: { id?: string; nama_periode: string };
-    tagihan?: { total: string; total_dibayar: string; status: string };
+    lantai?: { gedung_id: string; gedung?: { nama_gedung: string } };
 };
 type Props = {
-    periode?: Array<{ id: string; nama_periode: string; status?: string }>;
-    rooms?: Room[];
-    gedung?: Array<{ id: string; nama_gedung: string }>;
-    registration?: Registration[];
     initialUser?: {
-        client_profile_category?: string;
-        nama?: string;
-        nim?: string;
+        is_kipk?: boolean;
+        can_use_sponsor?: boolean;
         status_huni?: string;
+        student_stage?: string;
+        inactive_reason?: string;
     };
+    periode?: Array<{
+        id: string;
+        nama_periode: string;
+        status: string;
+        reservation_hours?: number;
+    }>;
+    rooms?: Room[];
+    rates?: Array<{
+        gedung_id: string;
+        tipe_kamar: string;
+        unit: string;
+        amount: string;
+    }>;
+    registration?: Array<{
+        id: string;
+        status: string;
+        completed_at?: string;
+        reservation_expires_at?: string;
+        periode?: { nama_periode: string };
+    }>;
 };
-
 export default function Registration({
+    initialUser,
     periode = [],
     rooms = [],
-    gedung = [],
+    rates = [],
     registration = [],
-    initialUser,
 }: Props) {
-    const periods = periode.filter((period) => period.status === 'aktif');
-    const category = initialUser?.client_profile_category;
+    const periods = periode.filter((p) => p.status === 'aktif');
+    const kipk = initialUser?.is_kipk === true;
+    const pending = registration.some(
+        (r) => !r.completed_at && !['draft', 'rejected'].includes(r.status),
+    );
     const form = useForm({
         periode_id: periods[0]?.id ?? '',
-        is_kipk: category === 'local_kipk',
-        preferences: [] as Array<{ kamar_id: string }>,
+        is_kipk: kipk,
+        preferences: [{ kamar_id: '', notes: '' }],
+        rate_unit: 'period',
+        starts_at: '',
+        ends_at: '',
+        funding: 'personal',
+        sponsor_name: '',
         notes: '',
     });
-    const [buildingId, setBuildingId] = useState('');
-    const [confirming, setConfirming] = useState(false);
-    const selectedRoom = rooms.find(
-        (room) => room.id === form.data.preferences[0]?.kamar_id,
+    const room = rooms.find((r) => r.id === form.data.preferences[0].kamar_id);
+    const rate = rates.find(
+        (r) =>
+            r.gedung_id === room?.lantai?.gedung_id &&
+            r.tipe_kamar === room?.tipe_kamar &&
+            r.unit === form.data.rate_unit,
     );
-    const buildingRooms = rooms.filter(
-        (room) => room.lantai?.gedung?.id === buildingId,
+    const price = Number(
+        rate?.amount ??
+            (form.data.rate_unit === 'period' ? room?.tarif_per_periode : 0) ??
+            0,
     );
-    const [roomType, setRoomType] = useState('');
-    const types = [
-        ...new Set(
-            buildingRooms.map((room) => room.tipe_kamar).filter(Boolean),
-        ),
-    ];
-    const hasOpenRegistration = registration.some(
-        (item) =>
-            ['submitted', 'verified', 'accepted'].includes(item.status) &&
-            (item.periode_id ?? item.periode?.id) === form.data.periode_id,
-    );
-    const currentRegistration = registration.find(
-        (item) =>
-            (item.periode_id ?? item.periode?.id) === form.data.periode_id,
-    );
-    const currentStep =
-        initialUser?.status_huni === 'aktif'
-            ? 3
-            : currentRegistration &&
-                ['submitted', 'verified', 'accepted'].includes(
-                    currentRegistration.status,
-                )
-              ? 2
-              : 1;
+    const days =
+        form.data.starts_at && form.data.ends_at
+            ? Math.max(
+                  1,
+                  Math.ceil(
+                      (Date.parse(form.data.ends_at) -
+                          Date.parse(form.data.starts_at)) /
+                          86400000,
+                  ),
+              )
+            : 1;
     return (
-        <div className="max-w-3xl space-y-4">
+        <div className="space-y-5">
             <PageHeader
                 title="Pendaftaran Asrama"
-                subtitle="Pilih kamar, selesaikan tagihan, lalu terima kwitansi hunian. Check-in tercatat otomatis."
+                subtitle="Pilih hunian dan selesaikan pembayaran untuk mengaktifkan masa tinggal."
             />
-            <RegistrationSteps current={currentStep} />
-            <Card className="p-6">
-                <form
-                    onSubmit={(event) => {
-                        event.preventDefault();
-                        setConfirming(true);
-                    }}
-                    className="space-y-4"
-                >
-                    {!category || category === 'student' ? (
-                        <label className="flex gap-2">
-                            <input
-                                type="checkbox"
-                                checked={form.data.is_kipk}
-                                onChange={(event) => {
-                                    form.setData(
-                                        'is_kipk',
-                                        event.target.checked,
-                                    );
-                                    form.setData('preferences', []);
-                                }}
-                            />{' '}
-                            Peserta KIPK (penempatan oleh admin)
-                        </label>
-                    ) : (
-                        <p className="text-sm">
-                            {category === 'local_kipk'
-                                ? 'Anda terdaftar sebagai peserta KIPK. Kamar akan ditentukan oleh admin.'
-                                : 'Kategori akun Anda bukan peserta KIPK. Silakan pilih kamar yang tersedia.'}{' '}
-                            Status KIPK mengikuti kategori akun. Jika tidak
-                            sesuai, hubungi admin layanan untuk memperbaiki
-                            data.
-                        </p>
-                    )}
-                    {!form.data.is_kipk && (
-                        <>
-                            <FormField label="Gedung asrama">
-                                <select
-                                    required
-                                    aria-label="Gedung asrama"
-                                    className={inputClass}
-                                    value={buildingId}
-                                    onChange={(event) => {
-                                        setBuildingId(event.target.value);
-                                        setRoomType('');
-                                        form.setData('preferences', []);
-                                    }}
-                                >
-                                    <option value="">Pilih gedung</option>
-                                    {gedung.map((building) => (
-                                        <option
-                                            key={building.id}
-                                            value={building.id}
-                                        >
-                                            {building.nama_gedung}
+            <Card className="space-y-4 p-5">
+                <p>
+                    {initialUser?.student_stage}.{' '}
+                    {kipk
+                        ? 'Terdaftar sebagai penerima KIP-K. Kamar ditempatkan Admin Layanan.'
+                        : 'Pilih kamar yang tersedia sesuai kategori Anda.'}
+                </p>
+                {initialUser?.inactive_reason === 'letter_issued' && (
+                    <p>
+                        Arsip surat tetap tersedia. Anda dapat mendaftar hunian
+                        kembali dari akun ini.
+                    </p>
+                )}
+                {initialUser?.status_huni === 'aktif' ? (
+                    <p>
+                        Anda masih menghuni asrama. Selesaikan check-out sebelum
+                        mendaftar lagi.
+                    </p>
+                ) : pending ? (
+                    <p>
+                        Pendaftaran sedang diproses.{' '}
+                        <Link className="link" href={tagihan.url()}>
+                            Lihat tagihan dan bayar
+                        </Link>
+                        .
+                    </p>
+                ) : (
+                    <form
+                        className="space-y-4"
+                        onSubmit={(e) => {
+                            e.preventDefault();
+                            form.transform((d) => ({
+                                ...d,
+                                starts_at: d.starts_at || null,
+                                ends_at: d.ends_at || null,
+                                preferences: kipk ? [] : d.preferences,
+                            }));
+                            form.post(store.url());
+                        }}
+                    >
+                        <div>
+                            <p className="text-sm">Periode penerimaan aktif</p>
+                            <p className="font-semibold">
+                                {periods[0]?.nama_periode ??
+                                    'Belum ada periode aktif'}
+                            </p>
+                            <p className="text-base-content/60 text-sm">
+                                {periods.length
+                                    ? 'Ditetapkan oleh admin untuk pendaftaran saat ini. Periode hunian berbeda dengan angkatan kuliah.'
+                                    : 'Pendaftaran belum dibuka. Hubungi admin layanan untuk informasi periode berikutnya.'}
+                            </p>
+                        </div>
+                        {!kipk && (
+                            <>
+                                <label className="block text-sm">
+                                    Satuan tarif
+                                    <select
+                                        className={inputClass}
+                                        value={form.data.rate_unit}
+                                        onChange={(e) =>
+                                            form.setData(
+                                                'rate_unit',
+                                                e.target.value,
+                                            )
+                                        }
+                                    >
+                                        <option value="period">
+                                            Per periode
                                         </option>
-                                    ))}
-                                </select>
-                                <p className="text-muted mt-1 text-xs">
-                                    A–E untuk perempuan, F–H untuk laki-laki.
-                                    Nakes dan ASN untuk keduanya. Hanya kamar
-                                    yang masih tersedia yang dapat dipilih.
-                                </p>
-                            </FormField>
-                            <FormField label="Tipe kamar">
-                                <select
-                                    className={inputClass}
-                                    required
-                                    disabled={!buildingId}
-                                    value={roomType}
-                                    onChange={(event) => {
-                                        setRoomType(event.target.value);
-                                        form.setData('preferences', []);
-                                    }}
-                                >
-                                    <option value="">Pilih tipe kamar</option>
-                                    {types.map((type) => (
-                                        <option key={type} value={type}>
-                                            {type === 'vip'
-                                                ? 'VIP'
-                                                : type
-                                                  ? type
-                                                        .charAt(0)
-                                                        .toUpperCase() +
-                                                    type.slice(1)
-                                                  : ''}
-                                        </option>
-                                    ))}
-                                </select>
-                            </FormField>
-                            <FormField label="Nomor kamar">
-                                <select
-                                    required
-                                    disabled={!roomType}
-                                    className={inputClass}
-                                    value={
-                                        form.data.preferences[0]?.kamar_id ?? ''
-                                    }
-                                    onChange={(event) =>
-                                        form.setData(
-                                            'preferences',
-                                            event.target.value
-                                                ? [
-                                                      {
-                                                          kamar_id:
-                                                              event.target
-                                                                  .value,
-                                                      },
-                                                  ]
-                                                : [],
-                                        )
-                                    }
-                                >
-                                    <option value="">Pilih kamar</option>
-                                    {buildingRooms
-                                        .filter(
-                                            (room) =>
-                                                !roomType ||
-                                                room.tipe_kamar === roomType,
-                                        )
-                                        .map((room) => (
-                                            <option
-                                                key={room.id}
-                                                value={room.id}
-                                            >
+                                        <option value="day">Per hari</option>
+                                    </select>
+                                </label>
+                                {form.data.rate_unit === 'day' && (
+                                    <div className="grid gap-3 sm:grid-cols-2">
+                                        <label>
+                                            Masuk
+                                            <input
+                                                className={inputClass}
+                                                type="date"
+                                                required
+                                                value={form.data.starts_at}
+                                                onChange={(e) =>
+                                                    form.setData(
+                                                        'starts_at',
+                                                        e.target.value,
+                                                    )
+                                                }
+                                            />
+                                        </label>
+                                        <label>
+                                            Keluar
+                                            <input
+                                                className={inputClass}
+                                                type="date"
+                                                required
+                                                value={form.data.ends_at}
+                                                onChange={(e) =>
+                                                    form.setData(
+                                                        'ends_at',
+                                                        e.target.value,
+                                                    )
+                                                }
+                                            />
+                                        </label>
+                                    </div>
+                                )}
+                                <label className="block text-sm">
+                                    Gedung / tipe / nomor kamar
+                                    <select
+                                        className={inputClass}
+                                        required
+                                        value={
+                                            form.data.preferences[0].kamar_id
+                                        }
+                                        onChange={(e) =>
+                                            form.setData('preferences', [
                                                 {
-                                                    room.lantai?.gedung
-                                                        ?.nama_gedung
-                                                }{' '}
-                                                / {room.nomor_kamar} /{' '}
-                                                {formatRupiah(
-                                                    Number(
-                                                        room.tarif_per_periode,
-                                                    ),
-                                                )}
+                                                    kamar_id: e.target.value,
+                                                    notes: '',
+                                                },
+                                            ])
+                                        }
+                                    >
+                                        <option value="">Pilih kamar</option>
+                                        {rooms.map((r) => (
+                                            <option value={r.id} key={r.id}>
+                                                {r.lantai?.gedung?.nama_gedung}{' '}
+                                                / {r.tipe_kamar} /{' '}
+                                                {r.nomor_kamar}
                                             </option>
                                         ))}
-                                </select>
-                            </FormField>
-                        </>
-                    )}
-                    <FormField label="Periode tinggal">
-                        <select
-                            required
-                            className={inputClass}
-                            value={form.data.periode_id}
-                            onChange={(event) =>
-                                form.setData('periode_id', event.target.value)
-                            }
+                                    </select>
+                                </label>
+                                {rooms.length === 0 && (
+                                    <p>
+                                        Belum ada kamar tersedia untuk kategori
+                                        Anda.
+                                    </p>
+                                )}
+                                {initialUser?.can_use_sponsor && (
+                                    <>
+                                        <label>
+                                            Penanggung biaya
+                                            <select
+                                                className={inputClass}
+                                                value={form.data.funding}
+                                                onChange={(e) =>
+                                                    form.setData(
+                                                        'funding',
+                                                        e.target.value,
+                                                    )
+                                                }
+                                            >
+                                                <option value="personal">
+                                                    Bayar pribadi
+                                                </option>
+                                                <option value="sponsor">
+                                                    Beasiswa / kampus
+                                                </option>
+                                            </select>
+                                        </label>
+                                        {form.data.funding === 'sponsor' && (
+                                            <label>
+                                                Nama penanggung biaya
+                                                <input
+                                                    className={inputClass}
+                                                    required
+                                                    value={
+                                                        form.data.sponsor_name
+                                                    }
+                                                    onChange={(e) =>
+                                                        form.setData(
+                                                            'sponsor_name',
+                                                            e.target.value,
+                                                        )
+                                                    }
+                                                />
+                                                <span className="text-sm">
+                                                    Perlu pengesahan Admin
+                                                    Layanan.
+                                                </span>
+                                            </label>
+                                        )}
+                                    </>
+                                )}
+                                <p>
+                                    Biaya hunian:{' '}
+                                    <strong>
+                                        {formatRupiah(
+                                            price *
+                                                (form.data.rate_unit === 'day'
+                                                    ? days
+                                                    : 1),
+                                        )}
+                                    </strong>
+                                    {form.data.rate_unit === 'day'
+                                        ? ` untuk ${days} hari`
+                                        : ' per periode'}
+                                    .
+                                </p>
+                                <p className="text-sm">
+                                    Kamar ditahan{' '}
+                                    {periods.find(
+                                        (p) => p.id === form.data.periode_id,
+                                    )?.reservation_hours ?? 24}{' '}
+                                    jam. Bukti pembayaran yang menunggu
+                                    verifikasi tetap menahan kamar.
+                                </p>
+                            </>
+                        )}
+                        {Object.values(form.errors).map((e, i) => (
+                            <p role="alert" className="text-error" key={i}>
+                                {e}
+                            </p>
+                        ))}
+                        <button
+                            className="btn btn-primary"
+                            disabled={form.processing || !form.data.periode_id}
                         >
-                            <option value="">Pilih periode</option>
-                            {periods.map((period) => (
-                                <option key={period.id} value={period.id}>
-                                    {period.nama_periode}
-                                </option>
-                            ))}
-                        </select>
-                        <p className="text-muted mt-1 text-xs">
-                            Pilih masa tinggal yang ingin didaftarkan, bukan
-                            tahun masuk kuliah. Mahasiswa angkatan lama tetap
-                            dapat memilih periode tinggal yang sedang dibuka.
-                        </p>
-                    </FormField>
-                    <FormField label="Catatan">
-                        <textarea
-                            className={inputClass}
-                            value={form.data.notes}
-                            onChange={(event) =>
-                                form.setData('notes', event.target.value)
-                            }
-                        />
-                    </FormField>
-                    {Object.entries(form.errors).map(([key, error]) => (
-                        <p
-                            role="alert"
-                            className="text-error text-sm"
-                            key={key}
-                        >
-                            {error}
-                        </p>
-                    ))}
-                    {hasOpenRegistration && (
-                        <p className="text-sm">
-                            Pendaftaran periode ini sudah tercatat. Pantau
-                            status dan pembayaran di bawah.
-                        </p>
-                    )}
-                    <Button
-                        type="submit"
-                        disabled={
-                            form.processing ||
-                            !form.data.periode_id ||
-                            hasOpenRegistration
-                        }
-                    >
-                        {form.processing ? 'Mengirim...' : 'Daftar Asrama'}
-                    </Button>
-                </form>
+                            {kipk
+                                ? 'Daftar KIP-K'
+                                : 'Pilih kamar dan terbitkan invoice'}
+                        </button>
+                    </form>
+                )}
             </Card>
-            <Modal
-                open={confirming}
-                onClose={() => {
-                    if (!form.processing) setConfirming(false);
-                }}
-                title="Konfirmasi pendaftaran asrama"
-            >
-                <div className="space-y-4">
-                    <p className="text-sm">
-                        Periksa pilihan berikut sebelum mengirim pendaftaran.
-                    </p>
-                    <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
-                        <dt>Nama / NIM</dt>
-                        <dd>
-                            {initialUser?.nama ?? '-'} /{' '}
-                            {initialUser?.nim ?? '-'}
-                        </dd>
-                        <dt>Periode tinggal</dt>
-                        <dd>
-                            {
-                                periods.find(
-                                    (period) =>
-                                        period.id === form.data.periode_id,
-                                )?.nama_periode
-                            }
-                        </dd>
-                        <dt>Kamar</dt>
-                        <dd>
-                            {form.data.is_kipk
-                                ? 'Penempatan oleh admin (KIPK)'
-                                : `${selectedRoom?.lantai?.gedung?.nama_gedung ?? ''} / ${selectedRoom?.nomor_kamar ?? ''} / ${selectedRoom?.tipe_kamar ?? ''}`}
-                        </dd>
-                        <dt>Tagihan</dt>
-                        <dd>
-                            {form.data.is_kipk ||
-                            category === 'international_free_facility'
-                                ? 'Rp 0 (subsidi)'
-                                : formatRupiah(
-                                      Number(
-                                          selectedRoom?.tarif_per_periode ?? 0,
-                                      ),
-                                  )}
-                        </dd>
-                    </dl>
-                    <div className="flex justify-end gap-2">
-                        <Button
-                            variant="secondary"
-                            disabled={form.processing}
-                            onClick={() => setConfirming(false)}
+            <Card className="p-5">
+                <h2 className="font-semibold">Riwayat pendaftaran</h2>
+                {registration.length === 0 ? (
+                    <p>Belum ada pendaftaran.</p>
+                ) : (
+                    registration.map((r) => (
+                        <div
+                            className="border-base-300 flex justify-between border-b py-3"
+                            key={r.id}
                         >
-                            Periksa kembali
-                        </Button>
-                        <Button
-                            disabled={form.processing || hasOpenRegistration}
-                            onClick={() =>
-                                form.post(registrationStore.url(), {
-                                    onSuccess: () => setConfirming(false),
-                                    onError: () => setConfirming(false),
-                                })
-                            }
-                        >
-                            {form.processing
-                                ? 'Mengirim...'
-                                : 'Ya, kirim pendaftaran'}
-                        </Button>
-                    </div>
-                </div>
-            </Modal>
-            {registration.map((item) => (
-                <Card key={item.id} className="space-y-2 p-6">
-                    <div className="flex justify-between gap-3">
-                        <strong>{item.periode?.nama_periode}</strong>
-                        <StatusBadge
-                            status={item.completed_at ? 'aktif' : item.status}
-                        />
-                    </div>
-                    <p className="text-sm">
-                        {item.completed_at
-                            ? 'Pendaftaran selesai. Anda aktif sebagai penghuni; tidak perlu check-in ulang.'
-                            : item.status === 'draft'
-                              ? 'Draft belum dikirim. Lengkapi form di atas lalu klik Daftar Asrama.'
-                              : item.status === 'rejected'
-                                ? 'Pendaftaran ditolak. Perbaiki data dan ajukan kembali melalui form di atas.'
-                                : 'Pendaftaran menunggu verifikasi, penempatan, atau penyelesaian pembayaran.'}
-                    </p>
-                    {item.tagihan && (
-                        <p className="text-sm">
-                            Tagihan: {formatRupiah(Number(item.tagihan.total))}{' '}
-                            / Dibayar:{' '}
-                            {formatRupiah(Number(item.tagihan.total_dibayar))}
-                        </p>
-                    )}
-                    <Link
-                        className="text-primary underline"
-                        href={tagihan.url()}
-                    >
-                        Lihat invoice, pembayaran, dan kwitansi
-                    </Link>
-                </Card>
-            ))}
+                            <span>
+                                {r.periode?.nama_periode}
+                                {r.reservation_expires_at &&
+                                    !r.completed_at && (
+                                        <small className="block">
+                                            Batas reservasi:{' '}
+                                            {new Date(
+                                                r.reservation_expires_at,
+                                            ).toLocaleString('id-ID')}
+                                        </small>
+                                    )}
+                            </span>
+                            <StatusBadge
+                                status={r.completed_at ? 'aktif' : r.status}
+                            />
+                        </div>
+                    ))
+                )}
+            </Card>
         </div>
     );
 }

@@ -9,8 +9,12 @@ use App\Models\ActivityAttendance;
 use App\Models\AttendanceSession;
 use App\Models\FasilitatorWilayah;
 use App\Models\Gedung;
+use App\Models\Kamar;
 use App\Models\Kegiatan;
+use App\Models\Lantai;
 use App\Models\MahasiswaProfil;
+use App\Models\PenempatanKamar;
+use App\Models\Periode;
 use App\Models\ResidenceHistory;
 use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
@@ -18,17 +22,25 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Spatie\Permission\Models\Permission;
 
-function attendanceStudent(array $overrides = []): MahasiswaProfil
+function attendanceStudent(array $overrides = [], int $periodCohort = 2026): MahasiswaProfil
 {
     $user = User::factory()->student()->create();
-
-    return MahasiswaProfil::create(array_merge([
+    $student = MahasiswaProfil::create(array_merge([
         'user_id' => $user->id,
         'barcode_code' => Str::random(32),
         'angkatan' => '2026',
         'status_huni' => 'aktif',
         'tanggal_masuk' => now()->subMonths(3)->toDateString(),
     ], $overrides));
+
+    Periode::where('status', 'aktif')->update(['status' => 'nonaktif']);
+    Periode::create(['nama_periode' => 'Periode '.$periodCohort, 'status' => 'aktif', 'angkatan_maba' => $periodCohort, 'tanggal_mulai' => now()->startOfYear(), 'tanggal_selesai' => now()->endOfYear()]);
+    $building = Gedung::create(['kode_gedung' => 'ATT-'.Str::random(6), 'nama_gedung' => 'Asrama Uji']);
+    $floor = Lantai::create(['gedung_id' => $building->id, 'nomor_lantai' => 1, 'nama_lantai' => 'Lantai 1']);
+    $room = Kamar::create(['lantai_id' => $floor->id, 'nomor_kamar' => Str::random(6), 'kapasitas' => 2, 'status' => 'terisi_sebagian']);
+    PenempatanKamar::create(['mahasiswa_id' => $student->id, 'kamar_id' => $room->id, 'tanggal_mulai' => now()->subMonth(), 'status' => 'aktif']);
+
+    return $student;
 }
 
 function attendanceSession(array $overrides = []): array
@@ -90,7 +102,7 @@ it('rejects a location outside the radius', function () {
 
 it('accepts later cohorts during their first residence year', function () {
     $this->travelTo(Carbon::parse('2027-09-15 09:00:00'));
-    $student = attendanceStudent(['angkatan' => '2027', 'tanggal_masuk' => '2027-08-01']);
+    $student = attendanceStudent(['angkatan' => '2027', 'tanggal_masuk' => '2027-08-01'], 2027);
 
     expect(recordAttendance(attendanceSession(), $student)->rejection_reason)->toBeNull();
     $this->assertDatabaseHas('activity_attendances', ['mahasiswa_id' => $student->id]);
@@ -173,9 +185,9 @@ it('stops accepting attempts after an early close', function () {
         ->and($sessionData['session']->refresh()->closed_at)->not->toBeNull();
 });
 
-it('rejects residents after their first residence year', function () {
+it('rejects a resident whose cohort predates the active admission period', function () {
     $this->travelTo(Carbon::parse('2026-09-15 09:00:00'));
-    $student = attendanceStudent(['tanggal_masuk' => '2025-09-14']);
+    $student = attendanceStudent(['angkatan' => '2025', 'tanggal_masuk' => '2025-09-14']);
     $sessionData = attendanceSession();
 
     $attempt = recordAttendance($sessionData, $student);

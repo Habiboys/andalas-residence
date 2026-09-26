@@ -1,253 +1,289 @@
 <?php
 
-use App\Actions\ApproveFreeResidenceLetter;
 use App\Actions\Billing\PostPayment;
 use App\Actions\Checkout\CompleteCheckout;
 use App\Actions\Checkout\CreateCheckoutRequest;
-use App\Enums\CheckoutRequestStatus;
 use App\Enums\FreeResidenceLetterStatus;
 use App\Enums\LegacyFreeResidenceVerificationPath;
 use App\Enums\RoomInspectionStatus;
 use App\Enums\TagihanStatus;
 use App\Jobs\GenerateFreeResidenceLetter;
+use App\Models\CheckoutRequest;
 use App\Models\Gedung;
 use App\Models\Kamar;
 use App\Models\Lantai;
+use App\Models\LegacyResidenceRate;
+use App\Models\LegacyResident;
 use App\Models\MahasiswaProfil;
 use App\Models\PenempatanKamar;
 use App\Models\PengajuanBebasAsrama;
 use App\Models\Tagihan;
 use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Queue;
-use Illuminate\Validation\ValidationException;
-use Spatie\Permission\Models\Permission;
+use Illuminate\Support\Facades\Storage;
 
 function freeResidenceLetterFixture(): array
 {
     Queue::fake([GenerateFreeResidenceLetter::class]);
-    $studentUser = User::factory()->create();
-    $approver = User::factory()->create();
+    $studentUser = User::factory()->create(['client_profile_category' => 'local_non_kipk']);
+    $studentUser->assignRole('mahasiswa');
+    $approver = User::factory()->create()->assignRole('admin_layanan');
     $student = MahasiswaProfil::create([
         'user_id' => $studentUser->id,
         'barcode_code' => 'BA-'.$studentUser->id,
         'status_huni' => 'aktif',
     ]);
-
-    return compact('student', 'approver');
-}
-
-function placeFreeResidenceStudent(MahasiswaProfil $student): void
-{
     $building = Gedung::create(['kode_gedung' => 'BA-'.fake()->unique()->numerify('###'), 'nama_gedung' => 'Gedung Bebas Asrama']);
     $floor = Lantai::create(['gedung_id' => $building->id, 'nomor_lantai' => 1, 'nama_lantai' => 'Lantai 1']);
-    $room = Kamar::create(['lantai_id' => $floor->id, 'nomor_kamar' => fake()->unique()->numerify('BA-###'), 'kapasitas' => 1, 'status' => 'penuh']);
+    $room = Kamar::create(['lantai_id' => $floor->id, 'nomor_kamar' => fake()->unique()->numerify('BA-###'), 'kapasitas' => 1, 'status' => 'penuh', 'tipe_kamar' => 'standar', 'tarif_per_periode' => 2100000]);
+
+    return compact('student', 'studentUser', 'approver', 'building', 'room');
+}
+
+function legacyLetterFixture(string $nim = '2110000001'): array
+{
+    $fixture = freeResidenceLetterFixture();
+    $fixture['studentUser']->update(['nim_nip' => $nim]);
+    $fixture['student']->update(['angkatan' => '2021', 'status_huni' => 'keluar']);
+    LegacyResident::create([
+        'nim' => $nim,
+        'nama' => $fixture['studentUser']->nama,
+        'angkatan' => 2021,
+        'gedung_id' => $fixture['building']->id,
+        'recorded_by' => $fixture['approver']->id,
+    ]);
+    LegacyResidenceRate::create(['angkatan' => 2021, 'gedung_id' => $fixture['building']->id, 'jumlah' => 2100000]);
+
+    return $fixture;
+}
+
+function checkoutFreeResidenceStudent(array $fixture): void
+{
+    $fixture['student']->update(['angkatan' => '2026']);
     PenempatanKamar::create([
-        'mahasiswa_id' => $student->id,
-        'kamar_id' => $room->id,
+        'mahasiswa_id' => $fixture['student']->id,
+        'kamar_id' => $fixture['room']->id,
         'tanggal_mulai' => now()->toDateString(),
         'status' => 'aktif',
     ]);
-}
-
-it('approves each legacy 2025 verification path', function (LegacyFreeResidenceVerificationPath $path) {
-    $fixture = freeResidenceLetterFixture();
-    $application = PengajuanBebasAsrama::create([
-        'nomor_pengajuan' => 'BA-2025-'.fake()->unique()->numerify('###'),
-        'mahasiswa_id' => $fixture['student']->id,
-        'alasan' => 'Legacy',
-        'status' => FreeResidenceLetterStatus::Diverifikasi,
-        'lifecycle_year' => 2025,
-        'legacy_verification_path' => $path,
-        'bank_statement_path' => $path === LegacyFreeResidenceVerificationPath::AlumniPaid ? 'private/evidence/bank.pdf' : null,
-        'payment_evidence_path' => $path === LegacyFreeResidenceVerificationPath::AlumniPaid ? 'private/evidence/payment.pdf' : null,
-    ]);
-
-    if ($path === LegacyFreeResidenceVerificationPath::AlumniUnpaid) {
-        $invoice = Tagihan::create(['nomor' => 'LEGACY-PAID', 'mahasiswa_id' => $fixture['student']->id, 'total' => 1000000, 'total_dibayar' => 1000000, 'status' => TagihanStatus::Lunas]);
-        $application->update(['tagihan_id' => $invoice->id]);
-    }
-
-    $approved = (new ApproveFreeResidenceLetter)->handle($application, $fixture['approver']);
-    $repeated = (new ApproveFreeResidenceLetter)->handle($approved, $fixture['approver']);
-
-    expect($approved->status)->toBe(FreeResidenceLetterStatus::Disetujui)
-        ->and($repeated->id)->toBe($approved->id);
-    $this->assertDatabaseCount('free_residence_letter_document_intents', 1);
-    $this->assertDatabaseCount('pengajuan_bebas_asrama_status_histories', 1);
-})->with(LegacyFreeResidenceVerificationPath::cases());
-
-it('approves a 2026 application only after checkout and settling invoices', function () {
-    $fixture = freeResidenceLetterFixture();
-    placeFreeResidenceStudent($fixture['student']);
-    $checkout = (new CreateCheckoutRequest)->handle($fixture['student']);
-    $checkout->update(['status' => CheckoutRequestStatus::Selesai, 'selesai_at' => now()]);
-    $checkout->placement->update(['status' => 'berakhir']);
-    $application = PengajuanBebasAsrama::create([
-        'nomor_pengajuan' => 'BA-2026-001',
-        'mahasiswa_id' => $fixture['student']->id,
-        'alasan' => 'Modern',
-        'status' => FreeResidenceLetterStatus::Diverifikasi,
-        'lifecycle_year' => 2026,
-        'checkout_request_id' => $checkout->id,
-    ]);
-
-    $approved = (new ApproveFreeResidenceLetter)->handle($application, $fixture['approver']);
-
-    expect($approved->status)->toBe(FreeResidenceLetterStatus::Disetujui);
-    $this->assertDatabaseHas('free_residence_letter_document_intents', ['pengajuan_id' => $application->id, 'status' => 'pending']);
-});
-
-it('rejects illegal 2026 approval atomically', function () {
-    $fixture = freeResidenceLetterFixture();
-    placeFreeResidenceStudent($fixture['student']);
-    $checkout = (new CreateCheckoutRequest)->handle($fixture['student']);
-    $application = PengajuanBebasAsrama::create([
-        'nomor_pengajuan' => 'BA-2026-002',
-        'mahasiswa_id' => $fixture['student']->id,
-        'alasan' => 'Belum selesai checkout',
-        'status' => FreeResidenceLetterStatus::Diverifikasi,
-        'lifecycle_year' => 2026,
-        'checkout_request_id' => $checkout->id,
-    ]);
-
-    expect(fn () => (new ApproveFreeResidenceLetter)->handle($application, $fixture['approver']))
-        ->toThrow(ValidationException::class);
-
-    $this->assertDatabaseHas('pengajuan_bebas_asrama', ['id' => $application->id, 'status' => 'diverifikasi']);
-    $this->assertDatabaseCount('pengajuan_bebas_asrama_status_histories', 0);
-    $this->assertDatabaseCount('free_residence_letter_document_intents', 0);
-});
-
-it('automatically approves a modern application from the students completed checkout', function () {
-    $fixture = freeResidenceLetterFixture();
-    $student = $fixture['student'];
-    $student->update(['angkatan' => '2026']);
-    placeFreeResidenceStudent($student);
-    $checkout = (new CreateCheckoutRequest)->handle($student);
+    $checkout = (new CreateCheckoutRequest)->handle($fixture['student']->fresh());
     $checkout->inspection->update(['status' => RoomInspectionStatus::Selesai]);
     (new CompleteCheckout)->handle($checkout);
-    $student->user->givePermissionTo(Permission::findOrCreate('pengajuan.submit'));
+}
 
-    $this->actingAs($student->user)->post(route('andalas.pengajuan.bebas'), ['alasan' => 'Syarat administrasi'])
-        ->assertSessionHasNoErrors();
+it('invoices an unpaid legacy alumnus at the cohort rate and issues the letter after payment', function () {
+    $this->seed(RolePermissionSeeder::class);
+    $fixture = legacyLetterFixture();
+
+    $this->actingAs($fixture['studentUser'])->post(route('andalas.pengajuan.bebas'), [
+        'alasan' => 'Kliring',
+    ])->assertSessionHasNoErrors();
 
     $application = PengajuanBebasAsrama::sole();
-    expect($application->status)->toBe(FreeResidenceLetterStatus::Disetujui)
-        ->and($application->checkout_request_id)->toBe($checkout->id)
-        ->and($application->disetujui_oleh)->toBeNull();
+    expect($application->status)->toBe(FreeResidenceLetterStatus::Diverifikasi)
+        ->and((float) $application->tagihan->total)->toBe(2100000.0)
+        ->and($fixture['studentUser']->fresh()->status)->toBe('aktif');
+    Queue::assertNotPushed(GenerateFreeResidenceLetter::class);
+
+    app(PostPayment::class)->handle('LEGACY-PAY', $fixture['student']->id, now()->toDateTimeString(), [
+        ['tagihan_id' => $application->tagihan_id, 'jumlah' => 2100000],
+    ]);
+
+    expect($application->fresh()->status)->toBe(FreeResidenceLetterStatus::Disetujui)
+        ->and($fixture['studentUser']->fresh()->status)->toBe('nonaktif')
+        ->and($fixture['studentUser']->fresh()->inactive_reason)->toBe('letter_issued')
+        ->and($application->fresh()->document_snapshot['nama'])->toBe($fixture['studentUser']->nama);
     Queue::assertPushed(GenerateFreeResidenceLetter::class);
 });
 
-it('refuses a modern letter with outstanding debt without leaving a partial application', function () {
+it('refuses to invoice a legacy alumnus until the building cohort tariff exists', function () {
+    $this->seed(RolePermissionSeeder::class);
     $fixture = freeResidenceLetterFixture();
-    $student = $fixture['student'];
-    $student->update(['angkatan' => '2026']);
-    placeFreeResidenceStudent($student);
-    $checkout = (new CreateCheckoutRequest)->handle($student);
-    $checkout->inspection->update(['status' => RoomInspectionStatus::Selesai]);
-    (new CompleteCheckout)->handle($checkout);
-    Tagihan::create(['nomor' => 'UNPAID', 'mahasiswa_id' => $student->id, 'total' => 100000, 'status' => 'terbit']);
-    $student->user->givePermissionTo(Permission::findOrCreate('pengajuan.submit'));
+    $fixture['studentUser']->update(['nim_nip' => '2110000009']);
+    $fixture['student']->update(['angkatan' => '2021', 'status_huni' => 'keluar']);
+    LegacyResident::create([
+        'nim' => '2110000009', 'nama' => $fixture['studentUser']->nama, 'angkatan' => 2021,
+        'gedung_id' => $fixture['building']->id, 'recorded_by' => $fixture['approver']->id,
+    ]);
 
-    $this->actingAs($student->user)->post(route('andalas.pengajuan.bebas'), ['alasan' => 'Surat'])
-        ->assertSessionHasErrors('checkout_request_id');
+    $this->actingAs($fixture['studentUser'])->post(route('andalas.pengajuan.bebas'), [
+        'alasan' => 'Kliring', 'legacy_verification_path' => 'alumni_unpaid',
+    ])->assertSessionHasErrors('legacy');
 
     $this->assertDatabaseCount('pengajuan_bebas_asrama', 0);
     Queue::assertNothingPushed();
 });
 
-it('invoices an unpaid legacy alumnus at the cohort rate and issues the letter after payment', function () {
-    $fixture = freeResidenceLetterFixture();
-    $student = $fixture['student'];
-    $student->update(['angkatan' => '2024', 'status_huni' => 'keluar']);
-    $application = PengajuanBebasAsrama::create(['nomor_pengajuan' => 'BA-LEGACY-HTTP', 'mahasiswa_id' => $student->id, 'alasan' => 'Surat', 'lifecycle_year' => 2024, 'status' => FreeResidenceLetterStatus::Diajukan]);
-    $admin = $fixture['approver'];
-    $admin->givePermissionTo(Permission::findOrCreate('free-residence.review'));
+it('settles a paid legacy claim and issues the letter after administrator verification', function () {
+    $this->seed(RolePermissionSeeder::class);
+    Storage::fake('local');
+    $fixture = legacyLetterFixture();
 
-    $this->actingAs($admin)->post(route('andalas.pengajuan.bebas.approve', $application), [
-        'status' => 'disetujui', 'legacy_verification_path' => 'alumni_unpaid', 'jumlah_tagihan_angkatan' => 800000,
+    $this->actingAs($fixture['studentUser'])->post(route('andalas.pengajuan.bebas'), [
+        'alasan' => 'Sudah lunas',
+        'payment_evidence' => UploadedFile::fake()->create('bayar.pdf', 10, 'application/pdf'),
+        'bank_statement' => UploadedFile::fake()->create('rekening.pdf', 10, 'application/pdf'),
     ])->assertSessionHasNoErrors();
-    $application->refresh();
-    expect($application->status)->toBe(FreeResidenceLetterStatus::Diverifikasi)->and($application->tagihan->total)->toBe('800000.00');
-    Queue::assertNotPushed(GenerateFreeResidenceLetter::class);
 
-    app(PostPayment::class)->handle('LEGACY-PAY', $student->id, now()->toDateTimeString(), [['tagihan_id' => $application->tagihan_id, 'jumlah' => 800000]]);
+    $application = PengajuanBebasAsrama::sole();
+    expect($application->status)->toBe(FreeResidenceLetterStatus::Diajukan)
+        ->and($application->tagihan_id)->toBeNull();
 
-    expect($application->fresh()->status)->toBe(FreeResidenceLetterStatus::Disetujui);
-    $this->assertDatabaseHas('legacy_residence_rates', ['angkatan' => 2024, 'jumlah' => 800000]);
+    $this->actingAs($fixture['approver'])->post(route('andalas.pengajuan.bebas.approve', $application), ['status' => 'disetujui'])
+        ->assertSessionHasNoErrors();
+
+    expect($application->fresh()->status)->toBe(FreeResidenceLetterStatus::Disetujui)
+        ->and($application->fresh()->tagihan->status)->toBe(TagihanStatus::Lunas)
+        ->and((float) $application->fresh()->tagihan->total_dibayar)->toBe(2100000.0)
+        ->and($fixture['studentUser']->fresh()->inactive_reason)->toBe('letter_issued');
     Queue::assertPushed(GenerateFreeResidenceLetter::class);
 });
 
-it('rejects the non alumnus path when residence history exists', function () {
-    $fixture = freeResidenceLetterFixture();
-    placeFreeResidenceStudent($fixture['student']);
-    $application = PengajuanBebasAsrama::create(['nomor_pengajuan' => 'BA-NOT-ALUMNI', 'mahasiswa_id' => $fixture['student']->id, 'alasan' => 'Surat', 'lifecycle_year' => 2025, 'status' => FreeResidenceLetterStatus::Diverifikasi, 'legacy_verification_path' => LegacyFreeResidenceVerificationPath::NotAlumni]);
+it('requires payment evidence and a bank statement for a paid legacy claim', function () {
+    $this->seed(RolePermissionSeeder::class);
+    $fixture = legacyLetterFixture();
 
-    expect(fn () => (new ApproveFreeResidenceLetter)->handle($application, $fixture['approver']))->toThrow(ValidationException::class);
-    Queue::assertNothingPushed();
+    $this->actingAs($fixture['studentUser'])->post(route('andalas.pengajuan.bebas'), [
+        'alasan' => 'Sudah lunas',
+        'bank_statement' => UploadedFile::fake()->create('rekening.pdf', 10, 'application/pdf'),
+    ])->assertSessionHasErrors('payment_evidence');
+
+    $this->assertDatabaseCount('pengajuan_bebas_asrama', 0);
 });
 
-it('requires both payment evidence and bank statement for a paid legacy alumnus', function () {
-    $fixture = freeResidenceLetterFixture();
-    $application = PengajuanBebasAsrama::create(['nomor_pengajuan' => 'BA-EVIDENCE', 'mahasiswa_id' => $fixture['student']->id, 'alasan' => 'Surat', 'lifecycle_year' => 2025, 'status' => FreeResidenceLetterStatus::Diverifikasi, 'legacy_verification_path' => LegacyFreeResidenceVerificationPath::AlumniPaid, 'payment_evidence_path' => 'payment.pdf']);
+it('ignores a submitted nonresident classification and uses the alumnus archive to create the invoice', function () {
+    $this->seed(RolePermissionSeeder::class);
+    $fixture = legacyLetterFixture();
 
-    expect(fn () => (new ApproveFreeResidenceLetter)->handle($application, $fixture['approver']))->toThrow(ValidationException::class);
-    Queue::assertNothingPushed();
+    $this->actingAs($fixture['studentUser'])->post(route('andalas.pengajuan.bebas'), [
+        'alasan' => 'Tidak pernah tinggal', 'legacy_verification_path' => 'not_alumni',
+    ])->assertSessionHasNoErrors();
+
+    $application = PengajuanBebasAsrama::sole();
+    expect($application->status)->toBe(FreeResidenceLetterStatus::Diverifikasi)
+        ->and($application->legacy_verification_path)->toBe(LegacyFreeResidenceVerificationPath::AlumniUnpaid)
+        ->and($application->document_kind)->toBe('free_residence')
+        ->and($application->tagihan_id)->not->toBeNull();
+    $this->assertDatabaseCount('tagihan', 1);
+    Queue::assertNotPushed(GenerateFreeResidenceLetter::class);
 });
 
-it('saves paid alumni classification before requesting evidence and permits only service administrators', function () {
+it('uses completed checkout even if a client submits a nonresident classification', function () {
     $this->seed(RolePermissionSeeder::class);
     $fixture = freeResidenceLetterFixture();
+    checkoutFreeResidenceStudent($fixture);
+
+    $this->actingAs($fixture['studentUser'])->post(route('andalas.pengajuan.bebas'), [
+        'alasan' => 'Tidak pernah tinggal', 'legacy_verification_path' => 'not_alumni',
+    ])->assertSessionHasNoErrors();
+
+    expect(PengajuanBebasAsrama::sole()->status)->toBe(FreeResidenceLetterStatus::Disetujui)
+        ->and(PengajuanBebasAsrama::sole()->document_kind)->toBe('free_residence');
+    $this->assertDatabaseCount('tagihan', 0);
+    Queue::assertPushed(GenerateFreeResidenceLetter::class);
+});
+
+it('automatically issues a former residents letter after checkout and settling personal debt', function () {
+    $this->seed(RolePermissionSeeder::class);
+    $fixture = freeResidenceLetterFixture();
+    checkoutFreeResidenceStudent($fixture);
+
+    $checkout = CheckoutRequest::where('mahasiswa_id', $fixture['student']->id)->sole();
+    $this->actingAs($fixture['studentUser'])->post(route('andalas.pengajuan.bebas'), [
+        'alasan' => 'Administrasi',
+    ])->assertSessionHasNoErrors();
+
+    $application = PengajuanBebasAsrama::sole();
+    expect($application->status)->toBe(FreeResidenceLetterStatus::Disetujui)
+        ->and($application->checkout_request_id)->toBe($checkout->id)
+        ->and($application->document_kind)->toBe('free_residence');
+    Queue::assertPushed(GenerateFreeResidenceLetter::class);
+});
+
+it('refuses a former residents letter while a personal invoice is unpaid without leaving a partial application', function () {
+    $this->seed(RolePermissionSeeder::class);
+    $fixture = freeResidenceLetterFixture();
+    checkoutFreeResidenceStudent($fixture);
+    Tagihan::create(['nomor' => 'UNPAID-X', 'mahasiswa_id' => $fixture['student']->id, 'total' => 100000, 'status' => 'terbit']);
+
+    $this->actingAs($fixture['studentUser'])->post(route('andalas.pengajuan.bebas'), [
+        'alasan' => 'Surat', 'legacy_verification_path' => 'alumni_unpaid',
+    ])->assertSessionHasErrors('status');
+
+    $this->assertDatabaseCount('pengajuan_bebas_asrama', 0);
+    Queue::assertNothingPushed();
+});
+
+it('restricts legacy verification decisions to service administrators', function () {
+    $this->seed(RolePermissionSeeder::class);
+    $fixture = legacyLetterFixture();
     $application = PengajuanBebasAsrama::create([
-        'mahasiswa_id' => $fixture['student']->id, 'nomor_pengajuan' => 'CLASSIFY-PAID',
-        'alasan' => 'Surat', 'status' => FreeResidenceLetterStatus::Diajukan, 'lifecycle_year' => 2025,
+        'mahasiswa_id' => $fixture['student']->id, 'nomor_pengajuan' => 'CLASSIFY-UNPAID',
+        'alasan' => 'Surat', 'status' => FreeResidenceLetterStatus::Diajukan, 'lifecycle_year' => 2021,
+        'legacy_verification_path' => LegacyFreeResidenceVerificationPath::AlumniUnpaid,
     ]);
     $facilitator = User::factory()->create()->assignRole('fasilitator');
-    $payload = ['status' => 'disetujui', 'legacy_verification_path' => 'alumni_paid'];
-    $this->actingAs($facilitator)->post(route('andalas.pengajuan.bebas.approve', $application), $payload)->assertForbidden();
-    $admin = $fixture['approver']->assignRole('admin_layanan');
-    $this->actingAs($admin)->post(route('andalas.pengajuan.bebas.approve', $application), $payload)->assertSessionHasNoErrors();
+
+    $this->actingAs($facilitator)->post(route('andalas.pengajuan.bebas.approve', $application), ['status' => 'disetujui'])
+        ->assertForbidden();
+
+    $this->actingAs($fixture['approver'])->post(route('andalas.pengajuan.bebas.approve', $application), ['status' => 'disetujui'])
+        ->assertSessionHasNoErrors();
 
     expect($application->fresh()->status)->toBe(FreeResidenceLetterStatus::Diverifikasi)
-        ->and($application->fresh()->legacy_verification_path)->toBe(LegacyFreeResidenceVerificationPath::AlumniPaid);
+        ->and((float) $application->fresh()->tagihan->total)->toBe(2100000.0);
     Queue::assertNotPushed(GenerateFreeResidenceLetter::class);
 });
 
-it('shows a rejection to legacy applicants incorrectly classified as non alumni', function () {
+it('automatically issues a nonresident letter without a classification field', function () {
+    $this->seed(RolePermissionSeeder::class);
     $fixture = freeResidenceLetterFixture();
-    placeFreeResidenceStudent($fixture['student']);
-    $application = PengajuanBebasAsrama::create([
-        'mahasiswa_id' => $fixture['student']->id, 'nomor_pengajuan' => 'NOT-ALUMNI-REJECT',
-        'alasan' => 'Surat', 'status' => FreeResidenceLetterStatus::Diajukan, 'lifecycle_year' => 2025,
-    ]);
-    $fixture['approver']->givePermissionTo(Permission::findOrCreate('free-residence.review'));
+    $fixture['student']->update(['angkatan' => 2025, 'status_huni' => 'calon']);
 
-    $this->actingAs($fixture['approver'])->post(route('andalas.pengajuan.bebas.approve', $application), [
-        'status' => 'disetujui', 'legacy_verification_path' => 'not_alumni',
-    ])->assertSessionHasNoErrors()->assertSessionHas('toast.type', 'error');
+    $this->actingAs($fixture['studentUser'])->post(route('andalas.pengajuan.bebas'), ['alasan' => 'Administrasi'])
+        ->assertSessionHasNoErrors();
 
-    expect($application->fresh()->status)->toBe(FreeResidenceLetterStatus::Ditolak)
-        ->and($application->fresh()->catatan_penolakan)->toContain('tercatat sebagai alumni');
-    Queue::assertNotPushed(GenerateFreeResidenceLetter::class);
-});
-
-it('records a legacy payment without issuing the letter until the remaining debt is settled', function () {
-    $fixture = freeResidenceLetterFixture();
-    $first = Tagihan::create(['nomor' => 'LEGACY-FIRST', 'mahasiswa_id' => $fixture['student']->id, 'total' => 100, 'status' => TagihanStatus::Terbit]);
-    $second = Tagihan::create(['nomor' => 'LEGACY-SECOND', 'mahasiswa_id' => $fixture['student']->id, 'total' => 50, 'status' => TagihanStatus::Terbit]);
-    $application = PengajuanBebasAsrama::create([
-        'mahasiswa_id' => $fixture['student']->id, 'nomor_pengajuan' => 'LEGACY-TWO-INVOICES',
-        'alasan' => 'Surat', 'status' => FreeResidenceLetterStatus::Diverifikasi, 'lifecycle_year' => 2025,
-        'legacy_verification_path' => LegacyFreeResidenceVerificationPath::AlumniUnpaid, 'tagihan_id' => $first->id,
-    ]);
-    app(PostPayment::class)->handle('LEGACY-PAY-FIRST', $fixture['student']->id, now()->toDateTimeString(), [['tagihan_id' => $first->id, 'jumlah' => 100]]);
-    expect($first->fresh()->status)->toBe(TagihanStatus::Lunas)
-        ->and($application->fresh()->status)->toBe(FreeResidenceLetterStatus::Diverifikasi);
-    Queue::assertNotPushed(GenerateFreeResidenceLetter::class);
-
-    app(PostPayment::class)->handle('LEGACY-PAY-SECOND', $fixture['student']->id, now()->toDateTimeString(), [['tagihan_id' => $second->id, 'jumlah' => 50]]);
-    expect($application->fresh()->status)->toBe(FreeResidenceLetterStatus::Disetujui)
-        ->and($fixture['student']->user->fresh()->status)->toBe('nonaktif');
+    expect(PengajuanBebasAsrama::sole()->document_kind)->toBe('not_resident')
+        ->and(PengajuanBebasAsrama::sole()->status)->toBe(FreeResidenceLetterStatus::Disetujui);
     Queue::assertPushed(GenerateFreeResidenceLetter::class);
+});
+
+it('allows historical evidence after invoicing without duplicating or automatically settling the invoice', function () {
+    $this->seed(RolePermissionSeeder::class);
+    Storage::fake('local');
+    $fixture = legacyLetterFixture();
+    $this->actingAs($fixture['studentUser'])->post(route('andalas.pengajuan.bebas'), ['alasan' => 'Administrasi'])
+        ->assertSessionHasNoErrors();
+    $invoiceId = PengajuanBebasAsrama::sole()->tagihan_id;
+    $this->post(route('andalas.pengajuan.bebas'), [
+        'alasan' => 'Pembayaran lama',
+        'payment_evidence' => UploadedFile::fake()->create('bayar.pdf', 10, 'application/pdf'),
+        'bank_statement' => UploadedFile::fake()->create('rekening.pdf', 10, 'application/pdf'),
+    ])->assertSessionHasNoErrors();
+    $this->post(route('andalas.pengajuan.bebas'), ['alasan' => 'Dikirim ulang'])->assertSessionHasNoErrors();
+
+    expect(PengajuanBebasAsrama::sole()->status)->toBe(FreeResidenceLetterStatus::Diajukan)
+        ->and(PengajuanBebasAsrama::sole()->legacy_verification_path)->toBe(LegacyFreeResidenceVerificationPath::AlumniPaid)
+        ->and(PengajuanBebasAsrama::sole()->tagihan_id)->toBe($invoiceId)
+        ->and((float) Tagihan::findOrFail($invoiceId)->total_dibayar)->toBe(0.0);
+    $this->assertDatabaseCount('tagihan', 1);
+    Queue::assertNotPushed(GenerateFreeResidenceLetter::class);
+});
+
+it('sends unrecorded historical payment evidence to admin instead of issuing a nonresident letter', function () {
+    $this->seed(RolePermissionSeeder::class);
+    Storage::fake('local');
+    $fixture = freeResidenceLetterFixture();
+    $fixture['student']->update(['angkatan' => 2021, 'status_huni' => 'calon']);
+    $this->actingAs($fixture['studentUser'])->post(route('andalas.pengajuan.bebas'), [
+        'alasan' => 'Pembayaran lama',
+        'payment_evidence' => UploadedFile::fake()->create('bayar.pdf', 10, 'application/pdf'),
+        'bank_statement' => UploadedFile::fake()->create('rekening.pdf', 10, 'application/pdf'),
+    ])->assertSessionHasNoErrors();
+
+    expect(PengajuanBebasAsrama::sole()->status)->toBe(FreeResidenceLetterStatus::Diajukan)
+        ->and(PengajuanBebasAsrama::sole()->document_kind)->toBe('free_residence');
+    Queue::assertNotPushed(GenerateFreeResidenceLetter::class);
 });

@@ -1,4 +1,6 @@
 import { Form, Head } from '@inertiajs/react';
+import SettingsNav from '@/andalas/components/SettingsNav';
+import { Card } from '@/andalas/components/ui';
 import { useRef } from 'react';
 import SecurityController from '@/actions/App/Http/Controllers/Settings/SecurityController';
 import Heading from '@/components/heading';
@@ -16,12 +18,14 @@ export default function Security(props: Props) {
     const currentPasswordInput = useRef<HTMLInputElement>(null);
 
     return (
-        <>
-            <Head title="Security settings" />
+        <div className="mx-auto w-full max-w-3xl">
+            <Head title="Keamanan & Password" />
 
-            <h1 className="sr-only">Security settings</h1>
+            <h1 className="sr-only">Keamanan & Password</h1>
 
-            <div className="space-y-6">
+            <SettingsNav />
+
+            <Card className="space-y-6 p-5">
                 <Heading
                     variant="small"
                     title="Update password"
@@ -117,8 +121,8 @@ export default function Security(props: Props) {
                         </>
                     )}
                 </Form>
-            </div>
-        </>
+            </Card>
+        </div>
     );
 }
 

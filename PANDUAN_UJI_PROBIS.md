@@ -88,7 +88,7 @@ docker compose exec andalas-app php artisan migrate:fresh --seed --no-interactio
 
 | Peran | Email | Digunakan untuk |
 | --- | --- | --- |
-| Admin layanan | `admin_layanan@example.test` | Review pendaftaran, penempatan, pembayaran, cicilan, surat |
+| Admin layanan | `admin_layanan@example.test` | Pengaturan layanan, penempatan KIPK/sponsor, verifikasi pembayaran, invoice gabungan, surat |
 | Admin aset | `admin_aset@example.test` | Gedung/kamar, stok dan aset |
 | Fasilitator W | `fasilitator@example.test` | Aset, kegiatan/QR, izin dan checkout DEMO-W |
 | Fasilitator P | `fasilitator@unand.ac.id` | Aset, kegiatan/QR, izin dan checkout DEMO-P |
@@ -104,7 +104,7 @@ Fasilitator **`fasilitator@example.test` ditugaskan ke DEMO-W**, sedangkan **`fa
 Urutan perjalanan lengkap:
 
 1. Periksa gedung, kamar, periode dan aset.
-2. Client mendaftar → admin mereview dan menempatkan → pembayaran atau subsidi → penghuni aktif.
+2. Client memilih kamar dan mengirim pendaftaran → reservasi dan invoice terbentuk otomatis → pembayaran pribadi (atau pengesahan sponsor/KIPK oleh admin) → penghuni aktif.
 3. Selama masih aktif: uji kerusakan, izin, kegiatan/absensi, dan pemantauan.
 4. Client mengajukan checkout → GO memeriksa → fasilitator menyelesaikan.
 5. Lunasi kewajiban → client mengajukan surat bebas asrama → PDF terbit → akun nonaktif.
@@ -115,14 +115,14 @@ Urutan perjalanan lengkap:
 
 | Langkah | Akun dan tindakan | Hasil yang diperiksa |
 | --- | --- | --- |
-| 1 | Jika menguji dari nol, buka Daftar tanpa login; isi identitas, email, password, kategori lokal non-KIPK, NIM, fakultas/departemen/prodi, dan data wajib lainnya | Akun dibuat sebagai calon penghuni; belum langsung aktif |
-| 2 | Login client, buka Pendaftaran Asrama | Pilihan gedung, tipe, nomor kamar dan periode tinggal tersedia bagi non-KIPK |
-| 3 | Pilih gedung DEMO-P/W sesuai jenis kelamin, tipe dan nomor kamar serta periode aktif; periksa modal konfirmasi lalu kirim | Pengajuan masuk untuk direview dan invoice tersedia |
-| 4 | Login admin layanan → Review Pendaftaran → cari nama/NIM → ikon detail | Identitas, kategori, periode, preferensi kamar dan data tagihan sesuai client |
-| 5 | Verifikasi pengajuan, kemudian terima dengan kamar sesuai preferensi | Status pendaftaran diterima dan penempatan tercatat; client berbayar belum aktif sebelum pembayaran yang memenuhi syarat |
-| 6 | Login client → Tagihan → buka invoice; unggah bukti pembayaran sejumlah tagihan | Bukti masuk sebagai pembayaran menunggu verifikasi, bukan langsung lunas |
-| 7 | Login admin → Verifikasi Pembayaran → tab menunggu → detail pembayaran → setujui | Invoice menjadi lunas, status hunian aktif dan kwitansi diproses |
-| 8 | Login client; periksa hunian, menu layanan dan unduh kwitansi setelah worker selesai | Kwitansi berisi nama, jumlah bayar, gedung, nomor/tipe kamar dan masa tinggal |
+| 1 | Jika menguji dari nol, buka Daftar tanpa login; isi identitas, email, password, jenis pendaftar mahasiswa lokal, NIM, fakultas/departemen/prodi, dan data wajib lainnya | Akun dibuat sebagai calon penghuni; KIP-K ditentukan sistem dari daftar admin, bukan pilihan pendaftar |
+| 2 | Login client, buka Pendaftaran Asrama | Pilihan gedung, tipe dan nomor kamar tersedia bagi non-KIPK; periode mengikuti satu periode aktif yang ditetapkan admin |
+| 3 | Pilih gedung DEMO-P/W sesuai jenis kelamin, tipe dan nomor kamar serta periode aktif; periksa modal konfirmasi lalu kirim | Reservasi kamar berlaku 24 jam (sesuai jam reservasi periode) dan invoice terbentuk otomatis; status menunggu pembayaran, tanpa persetujuan admin tambahan untuk pembayar pribadi |
+| 4 | Login admin layanan → Invoice → cari tagihan client | Identitas, gedung/tipe/nomor kamar, durasi dan tarif sesuai pilihan; total, dibayar, sisa dan nominal sekarang tampil terpisah |
+| 5 | (Opsional cicilan) Tetapkan nominal pembayaran berikutnya beserta VA pada tagihan tersebut | Client hanya dapat mengunggah bukti sebesar nominal yang ditetapkan |
+| 6 | Login client → Tagihan → buka invoice; unggah bukti pembayaran sejumlah tagihan (atau nominal berikutnya bila ditetapkan) | Bukti masuk sebagai pembayaran menunggu verifikasi, bukan langsung lunas |
+| 7 | Login admin → Verifikasi Pembayaran → tab menunggu → detail pembayaran → setujui | Invoice lunas/cicilan pertama terpenuhi; pendaftaran selesai otomatis: penempatan tercatat, status hunian aktif, kwitansi diproses |
+| 8 | Login client; periksa hunian, menu layanan dan unduh kwitansi setelah worker selesai | Kwitansi berisi nama, jumlah benar-benar dibayar, gedung, nomor/tipe kamar dan masa tinggal |
 
 Tidak ada langkah check-in terpisah yang harus dilakukan penghuni setelah proses ini.
 
@@ -130,34 +130,73 @@ Angkatan kini dihitung otomatis dari dua digit awal NIM, misalnya `26` untuk 202
 
 Saat membuat akun mahasiswa, pilih **fakultas → departemen → program studi/jenjang**. Mengubah fakultas mengosongkan departemen dan prodi; mengubah departemen mengosongkan prodi. Coba mengirim prodi dari departemen lain: server harus menolak. Tombol mata tersedia pada kedua input password.
 
-Setelah login, calon penghuni mendapat popup pilihan **Pilih kamar / daftar asrama** atau **Layanan bebas asrama**. Tombol layanan tetap tersedia di dashboard setelah popup ditutup. Pada pendaftaran non-KIPK, pilih **gedung → tipe kamar → nomor kamar**, pilih periode tinggal lalu periksa modal konfirmasi sebelum mengirim. A–E untuk perempuan, F–H untuk laki-laki, Nakes dan ASN untuk keduanya. Tipe Medium tersedia setelah admin membuat kamar dengan tipe tersebut. Peserta KIPK melewati pemilihan kamar dan ditempatkan admin.
+Setelah login, calon penghuni mendapat popup pilihan **Pilih kamar / daftar asrama** atau **Layanan bebas asrama**. Tombol layanan tetap tersedia di dashboard setelah popup ditutup. Pada pendaftaran non-KIPK, pilih **gedung → tipe kamar → nomor kamar**, periksa periode aktif yang ditampilkan lalu periksa modal konfirmasi sebelum mengirim. A–E untuk perempuan, F–H untuk laki-laki, Nakes dan ASN untuk keduanya. Tipe Medium tersedia setelah admin membuat kamar dengan tipe tersebut. Peserta KIPK melewati pemilihan kamar dan ditempatkan admin.
 
-**Periode tinggal berbeda dengan angkatan.** Mahasiswa angkatan lama yang ingin tinggal sekarang memilih periode hunian yang sedang dibuka, bukan tahun masuk kuliahnya. Stepper menunjukkan tahapan akun, pilihan kamar, pembayaran, dan penghuni aktif.
+**Periode tinggal berbeda dengan angkatan.** Semua pendaftaran baru mengikuti satu periode hunian aktif yang ditetapkan admin, termasuk mahasiswa angkatan lama. Bila tidak ada periode aktif, pendaftaran belum dapat dikirim. Nama periode dapat memuat tahun akademik dan semester; sistem mengikuti pengaturan admin.
+
+**Stepper hanya muncul setelah login pada layanan yang dipilih**, dengan langkah Buat akun sudah selesai. Halaman daftar akun tidak menampilkan alur hunian. Tahap berikutnya menyesuaikan kategori:
+
+- Hunian berbayar: pilih kamar → pembayaran → penghuni aktif.
+- KIPK: ajukan hunian → penempatan admin → penghuni aktif; tanpa pilih kamar atau pembayaran pribadi.
+- Internasional fasilitas gratis: pilih kamar → verifikasi dan penempatan → penghuni aktif; tanpa pembayaran pribadi.
+- Surat bebas asrama: ajukan surat → verifikasi admin untuk riwayat lama atau pemeriksaan sistem untuk riwayat modern → surat terbit. Pelunasan ditampilkan bila alumni diverifikasi belum lunas.
+
+Alumni yang hanya membutuhkan surat langsung memilih **Layanan bebas asrama**, tanpa mendaftar hunian atau memilih kamar kembali. Dashboard akun yang sudah checkout menyediakan tautan layanan tersebut. Angkatan lama sendiri tidak otomatis mengubah status hunian menjadi checkout; admin tetap memverifikasi riwayat sebelum sistem.
 
 **Jalur cepat dan penolakan:**
 
 | Akun client | Mulai dari | Pengujian |
 | --- | --- | --- |
-| `daftar-review@example.test` | Pengajuan sudah dikirim | Admin memverifikasi, menerima dan menempatkan |
-| `daftar-ditolak@example.test` | Pengajuan ditolak | Baca alasan, perbaiki pilihan lalu ajukan ulang; periksa invoice pengajuan baru |
+| `daftar-review@example.test` | Pengajuan sudah dikirim | Menunggu pembayaran; biarkan reservasi kedaluwarsa untuk melihat pengajuan dibatalkan dan kamar dilepas |
+| `daftar-ditolak@example.test` | Pengajuan ditolak | Baca alasan, perbaiki pilihan lalu ajukan ulang; invoice lama batal dan invoice baru terbit |
 | `tagihan-belum-bayar@example.test` | Tagihan belum dibayar | Periksa informasi jatuh tempo dan lanjutkan pembayaran sesuai form |
-| `bayar-verifikasi@example.test` | Bukti sudah masuk, pendaftaran masih verified | Admin menerima/menempatkan dahulu, kemudian menyetujui pembayaran |
+| `bayar-verifikasi@example.test` | Bukti sudah masuk, menunggu verifikasi | Admin menyetujui pembayaran; pendaftaran selesai otomatis tanpa review pendaftaran |
 | `bayar-ditolak@example.test` | Bukti pembayaran ditolak | Client melihat alasan dan mengunggah bukti pengganti |
 
 Uji bahwa kamar penuh/maintenance tidak dapat dipilih, pembayaran belum diverifikasi tidak mengaktifkan hunian, dan calon penghuni tidak dapat memakai layanan khusus penghuni aktif.
 
-## 5. KIPK, internasional, dan nonmahasiswa
+## 5. Pengaturan layanan dan invoice admin
+
+**Akun:** `admin_layanan@example.test` → menu **Pengaturan Layanan** dan **Invoice**.
+
+### Pengaturan Layanan
+
+Halaman ini menjadi sumber kebenaran kategori, tarif, dan arsip. Uji setiap blok penyimpanan dengan toast sukses dan data yang tampil kembali.
+
+| Blok | Yang diuji |
+| --- | --- |
+| Periode | Aktifkan satu periode penerimaan; isi tahun angkatan maba (mis. 2026/2027 → 2026) dan jam reservasi (default 24). Mengaktifkan periode lain otomatis menonaktifkan sebelumnya; hanya satu periode aktif |
+| Daftar KIP-K | Tambah NIM, nama; angkatan diambil otomatis dari NIM. Pendaftar lokal hanya diperlakukan KIPK bila NIM+angkatannya tercatat di sini dan sesuai angkatan maba periode aktif |
+| Tarif hunian | Tetapkan nominal per gedung–tipe kamar–satuan (`period` atau `day`). Pendaftaran tanpa tarif untuk kombinasi terpilih ditolak, bukan ditagih nol |
+| Kategori gedung | Batasi kategori penghuni yang boleh masuk tiap gedung (lokal KIPK/non-KIPK, internasional, non-mahasiswa) |
+| Arsip alumni | Tambah manual NIM (angkatan ≤2025), nama, gedung terakhir, keterangan, tanggal checkout opsional; dapat dibuat sebelum akun ada dan terhubung otomatis lewat NIM |
+| Impor arsip | Template lima kolom `nim,nama,kode_gedung,checked_out_at,notes`, satu sheet, maksimal 500 baris; duplikat NIM dan baris bermasalah dibatalkan seluruhnya |
+| Tarif historis | Tetapkan nominal per gedung–angkatan untuk alumni lama; kombinasi gedung–angkatan unik |
+
+**Uji gagal:** mengaktifkan dua periode aktif sekaligus (ditolak), tarif historis tanpa gedung (ditolak), impor dengan header/beda kolom (ditolak dengan nomor baris).
+
+### Invoice admin
+
+1. Buka **Invoice**: cari, filter kategori/pembayar/status, urutkan nominal dan tanggal; saldo memperbarui setelah transaksi dan menyegarkan berkala tiap lima detik saat halaman terbuka.
+2. Pilih beberapa tagihan milik beberapa klien, lalu terbitkan **invoice gabungan**: isi nomor, penerima, instansi, perihal, bank, rekening, atas nama, batas pembayaran, penandatangan, dan tanda tangan opsional. PDF tersimpan sebagai arsip tetap dan dapat diunduh ulang.
+3. Catat pembayaran gabungan: masukkan referensi dan alokasi per tagihan asal; saldo tiap tagihan memperbarui tanpa piutang ganda. Pembayaran sponsor tercatat terpisah dari tagihan pribadi klien.
+4. Pada satu tagihan, tetapkan **nominal pembayaran berikutnya** beserta VA (bank, nomor, atas nama) untuk cicilan yang disepakati di luar sistem; nominal ini yang ditagihkan ke klien pada pembayaran berikutnya.
+
+**Uji gagal:** memilih tagihan tanpa sisa tagihan untuk pembayar terpilih, alokasi melebihi sisa, nomor invoice gabungan ganda, VA milik akun lain.
+
+## 6. KIPK, internasional, dan nonmahasiswa
 
 **Petugas:** `admin_layanan@example.test`.
 
 ### KIPK
 
-1. Untuk dari awal, gunakan `mahasiswa.kipk@unand.ac.id` jika belum pernah digunakan, atau buat akun baru kategori KIPK.
-2. Buka Pendaftaran Asrama dan ajukan periode. Pemilihan tipe/nomor kamar dilewati.
-3. Admin membuka Review Pendaftaran, memverifikasi, menerima dan menentukan kamar tersedia.
-4. Periksa invoice: total yang ditagihkan ke client nol dengan penyesuaian subsidi KIPK.
-5. Client tidak perlu mengunggah bukti transfer pribadi untuk invoice nol; setelah diterima dan ditempatkan, hunian aktif dan kwitansi diproses.
-6. Untuk melanjutkan langsung dari tahap penempatan, gunakan `kipk-penempatan@example.test`. Untuk melihat kondisi sudah aktif, gunakan `kipk-aktif@example.test`.
+1. Pastikan NIM pendaftar tercatat di **Pengaturan Layanan → Daftar KIP-K** (bagian 5). Pendaftar lokal yang mengaku KIPK tanpa tercatat di daftar diperlakukan non-KIPK: memilih kamar sendiri dan membayar.
+2. Untuk dari awal, gunakan `mahasiswa.kipk@unand.ac.id` jika belum pernah digunakan, atau buat akun baru dengan jenis **Mahasiswa lokal** dan NIM yang tercatat pada daftar KIP-K admin. Tidak ada pilihan KIP-K manual pada Daftar.
+3. Buka Pendaftaran Asrama dan ajukan periode. Pemilihan tipe/nomor kamar dilewati; invoice nol menunggu penempatan.
+4. Admin membuka Review Pendaftaran, memilih kamar KIP-K yang tersedia lalu menekan **sahkan dan selesaikan penempatan**. Pendaftaran selesai tanpa pembayaran pribadi dan tanpa persetujuan ganda.
+5. Periksa invoice: total yang ditagihkan ke klien nol, biaya tercatat sebagai piutang penanggung biaya (kolom sponsor), bukan hilang.
+6. Klien tidak mengunggah bukti transfer pribadi dan tidak menerima kwitansi pembayaran fiktif; hunian aktif segera setelah pengesahan.
+7. Untuk melanjutkan langsung dari tahap penempatan, gunakan `kipk-penempatan@example.test`. Untuk melihat kondisi sudah aktif, gunakan `kipk-aktif@example.test`.
 
 Tagihan nol KIPK bukan bukti dana sponsor sudah diterima bank. Integrasi pembayaran sponsor/bank belum tersedia.
 
@@ -165,29 +204,29 @@ Tagihan nol KIPK bukan bukti dana sponsor sudah diterima bank. Integrasi pembaya
 
 | Kategori | Akun dari tahap awal | Akun untuk melihat hasil aktif | Alur yang diperiksa |
 | --- | --- | --- | --- |
-| Internasional fasilitas gratis | `international@unand.ac.id` jika belum dipakai, atau akun baru kategori tersebut | `internasional-gratis@example.test` | Tetap memilih kamar; invoice nol karena subsidi; aktif setelah diterima dan ditempatkan |
-| Internasional berbayar | Buat akun baru kategori internasional berbayar | `internasional-bayar@example.test` | Pilih kamar, bayar, verifikasi, kwitansi seperti alur berbayar |
+| Internasional fasilitas gratis | `international@unand.ac.id` jika belum dipakai, atau akun baru kategori tersebut | `internasional-gratis@example.test` | Tetap memilih kamar; invoice pribadi nol dengan piutang sponsor tercatat; aktif setelah admin mengesahkan penanggung biaya, tanpa menunggu sponsor membayar |
+| Internasional berbayar | Buat akun baru kategori internasional berbayar | `internasional-bayar@example.test` | Pilih kamar, bayar, verifikasi, kwitansi seperti alur berbayar; atau pilih penanggung biaya dan tunggu pengesahan admin |
 | Nonmahasiswa | `nonmahasiswa@unand.ac.id` jika belum dipakai, atau akun baru nonmahasiswa | `nonmahasiswa-aktif@example.test` | Pilih kamar dan selesaikan pembayaran; tidak menjadi mahasiswa binaan |
-| Penghuni lokal lama | `mahasiswa.penghuni@unand.ac.id` jika belum dipakai | `penghuni-lama@example.test` | Hunian dapat aktif tetapi riwayat kembali tinggal tidak menjadikannya binaan lagi |
+| Penghuni lokal lama | `mahasiswa.penghuni@unand.ac.id` jika belum dipakai | `penghuni-lama@example.test` | Hunian dapat aktif tetapi kategori hunian biasa: tanpa absensi/perizinan binaan |
 
 Akun dengan kondisi aktif bukan akun kosong untuk mengulang pendaftaran pertama.
 
-## 6. Pengajuan cicilan sampai pelunasan
+## 7. Cicilan yang ditetapkan admin sampai pelunasan
 
-**Akun:** `cicilan-pengajuan@example.test` atau client berbayar baru; `admin_layanan@example.test`. Jalur cepat termin kedua: `cicilan-aktif@example.test`.
+Pengajuan cicilan oleh mahasiswa sudah dihapus dari sistem. Kesepakatan cicilan dibuat di luar aplikasi; admin yang menetapkan nominal pembayaran berikutnya beserta VA. UI selalu membedakan **total**, **sudah dibayar**, **sisa utang**, dan **harus dibayar sekarang**.
 
-1. Client membuka Tagihan dan mengajukan cicilan sebelum pembayaran pertama; isi alasan. Akun `cicilan-pengajuan` sudah memiliki permintaan ini.
-2. Admin membuka Verifikasi Pembayaran → **Cicilan**, mencari client dan membuka detail.
-3. Periksa identitas, jumlah invoice dan alasan. Tetapkan nominal serta jatuh tempo setiap termin. Jumlah seluruh termin harus sama dengan total invoice; gunakan nilai invoice yang tampil, jangan mengasumsikan semua kamar bertarif sama.
-4. Pastikan pendaftaran client juga sudah diterima dan ditempatkan melalui Review Pendaftaran.
-5. Client melihat jadwal cicilan dan membayar termin pertama melalui unggah bukti.
-6. Admin memverifikasi pembayaran pertama. Client menjadi penghuni aktif setelah syarat penempatan dan pembayaran pertama terpenuhi; invoice masih memiliki sisa kewajiban.
-7. Client membayar termin berikutnya, admin memverifikasi, sampai invoice lunas.
-8. Periksa jumlah tagihan, jumlah dibayar, sisa tagihan dan kwitansi sesuai pembayaran yang disetujui.
+**Akun:** `tagihan-belum-bayar@example.test` atau client berbayar baru; `admin_layanan@example.test`. Jalur cepat termin berjalan: `cicilan-aktif@example.test` (termin pertama lunas).
 
-**Uji gagal:** jumlah termin tidak sesuai invoice, bukti ditolak, dan permintaan surat saat masih ada tunggakan. Jangan melakukan transfer sungguhan ke VA demo; pengujian saat ini memakai bukti dan verifikasi manual.
+1. Admin membuka **Invoice**, mencari tagihan klien, lalu menetapkan nominal pembayaran berikutnya dan VA (bank, nomor, atas nama). Belum ada API bank: sinkronisasi ke bank dan konfirmasi otomatis adalah tahap integrasi berikutnya.
+2. Client membuka Tagihan: nominal yang diminta kini mengikuti penetapan admin, bukan seluruh sisa.
+3. Client mengunggah bukti sebesar nominal tersebut; nominal lain ditolak form dengan pesan mengikuti tagihan/ajukan jadwal ke admin layanan.
+4. Admin memverifikasi pembayaran. Penempatan dan status hunian aktif terjadi otomatis setelah nominal berikutnya terpenuhi; invoice masih menyimpan sisa utang.
+5. Admin menetapkan nominal berikutnya, klien membayar, verifikasi ulang, sampai invoice lunas.
+6. Periksa total, dibayar, sisa utang, kwitansi sesuai pembayaran yang disetujui, dan piutang sponsor yang tetap terpisah dari tagihan pribadi.
 
-## 7. Pendataan stok dan aset per kamar
+**Uji gagal:** nominal di luar penetapan admin, VA milik akun lain, bukti ditolak, dan permintaan surat saat masih ada tunggakan. Jangan melakukan transfer sungguhan ke VA demo; pengujian memakai bukti dan verifikasi manual.
+
+## 8. Pendataan stok dan aset per kamar
 
 **Akun:** `admin_aset@example.test` → `fasilitator@example.test` (W) atau `fasilitator@unand.ac.id` (P) → penghuni/GO pada pengujian berikutnya.
 
@@ -211,7 +250,7 @@ DEMO-P,1,101,UJI-KURSI,2,UJI-P101-KURSI,baik
 
 Untuk contoh import DEMO-P, gunakan `fasilitator@unand.ac.id`. Buat stok `UJI-KURSI` terlebih dahulu; pastikan kamar dan kode inventaris belum konflik. Format yang diterima: XLSX, XLS atau CSV, maksimal 5 MB, satu sheet, maksimal 500 baris data. Kondisi: `baik`, `rusak_ringan`, `rusak_berat`, atau `hilang`. Uji juga kode stok/kamar tidak dikenal, duplikasi kode inventaris, dan gedung di luar tugas fasilitator.
 
-## 8. Pelaporan kerusakan sampai selesai
+## 9. Pelaporan kerusakan sampai selesai
 
 **Akun:** `binaan-aktif@example.test` atau client baru yang sudah aktif → `teknisi@example.test` → `pimpinan@example.test`.
 
@@ -232,7 +271,7 @@ Untuk contoh import DEMO-P, gunakan `fasilitator@unand.ac.id`. Buat stok `UJI-KU
 
 **Uji gagal:** calon/nonpenghuni mengirim laporan, memilih aset yang tidak boleh diakses, menyelesaikan tanpa foto/deskripsi, atau teknisi yang tidak berhak mengubah tiket.
 
-## 9. Monitoring perizinan
+## 10. Monitoring perizinan
 
 **Akun:** penghuni aktif → `fasilitator@example.test` jika perlu persetujuan → penghuni.
 
@@ -262,7 +301,7 @@ Untuk contoh import DEMO-P, gunakan `fasilitator@unand.ac.id`. Buat stok `UJI-KU
 
 Batas dihitung dari pengajuan **sebelumnya**: izin ketujuh masih otomatis bila sebelumnya tepat enam; izin kedelapan memerlukan verifikasi bila sebelumnya tujuh. Bukti kembali sebelum bukti sampai dan pengajuan baru saat masih ada izin terbuka harus ditolak. Waktu/lokasi dicatat saat unggah; proses ini bukan pengenalan otomatis isi foto atau pembuktian lokasi dari EXIF foto.
 
-## 10. Kegiatan dan QR dalam satu alur
+## 11. Kegiatan dan QR dalam satu alur
 
 **Akun:** `fasilitator@example.test` untuk **DEMO-W** dengan peserta `binaan-aktif@example.test`. Untuk **DEMO-P**, gunakan `fasilitator@unand.ac.id` dengan peserta `kipk-aktif@example.test`. Password awal tetap `password`.
 
@@ -320,7 +359,7 @@ Peta Leaflet menampilkan layer Google Maps hybrid tanpa API key, mengikuti pende
 
 Pengujian endpoint otomatis tidak menggantikan percobaan kamera/GPS perangkat nyata; gunakan HTTPS untuk akses lintas perangkat.
 
-## 11. Checkout: penghuni → GO → fasilitator
+## 12. Checkout: penghuni → GO → fasilitator
 
 **Dari awal:** client baru yang sudah aktif. **Jalur cepat:** `checkout-pengajuan@example.test` (DEMO-P), diselesaikan oleh `fasilitator@unand.ac.id`. Akun `checkout-siap` juga di P; `checkout-rusak` di W memakai `fasilitator@example.test`.
 
@@ -337,7 +376,7 @@ Kamar tidak selalu menjadi kosong jika masih ada penghuni lain. Kamar berstatus 
 
 Gunakan `checkout-siap@example.test` untuk langsung menyelesaikan checkout, atau `checkout-rusak@example.test` untuk memeriksa temuan kerusakan dan tiketnya. Coba menyelesaikan sebelum inspeksi lengkap: harus ditolak. Setelah checkout, layanan penghuni aktif dan absensi tidak lagi boleh dipakai.
 
-## 12. Surat bebas asrama angkatan 2026 ke atas
+## 13. Surat bebas asrama angkatan 2026 ke atas
 
 **Akun:** client perjalanan lengkap setelah checkout, atau `checkout-selesai@example.test`.
 
@@ -346,48 +385,46 @@ Gunakan `checkout-siap@example.test` untuk langsung menyelesaikan checkout, atau
 3. Sistem memeriksa riwayat hunian/checkout dan tagihan, lalu menyetujui bila syarat terpenuhi. Jalur modern tidak memerlukan verifikasi manual ulang oleh admin.
 4. Tunggu worker menyelesaikan PDF; periksa notifikasi dan unduh surat dari akun.
 5. Periksa identitas, nomor, logo UNAND dan judul surat. Format mengikuti contoh pengelola: surat telah membayar untuk alumni berbayar; surat tidak tinggal untuk klasifikasi bukan alumni; format bebas asrama umum sementara bagi kategori subsidi. Penandatangan mengikuti `RESIDENCE_LETTER_SIGNER`; tanda tangan tidak dibuat otomatis. Nomor resmi mengikuti input admin bila tersedia, bukan menyalin nomor contoh PDF.
-6. Periksa status akun nonaktif setelah persetujuan; tidak dapat memulai transaksi penghuni baru.
+6. Periksa status akun nonaktif setelah persetujuan: transaksi penghuni ditutup, tetapi akun masih dapat login, membaca arsip surat, dan memulai pendaftaran hunian kembali secara mandiri. Surat lama tetap terunduh dan pengiriman ulang tidak menonaktifkan kembali akun yang sudah daftar ulang.
 
 `surat-modern@example.test` sudah memiliki surat terbit; gunakan untuk melihat hasil, bukan mengulang perjalanan penghuni aktif. Coba mengajukan dari penghuni yang belum checkout atau masih berutang: tidak boleh menerbitkan surat.
 
-## 13. Surat bebas asrama angkatan 2025 ke bawah
+## 14. Surat bebas asrama angkatan 2025 ke bawah
 
-**Petugas seluruh cabang:** `admin_layanan@example.test` → Bebas Asrama → tab status → detail pengajuan.
+**Persiapan admin (bagian 5):** lengkapi **Pengaturan Layanan** terlebih dahulu — arsip alumni (NIM, nama, angkatan, gedung terakhir) dan tarif historis per gedung–angkatan. Arsip dapat dibuat sebelum akun client ada; koneksi terjadi otomatis lewat NIM. Tarif yang belum tersedia tidak dianggap nol: pengajuan alumni ditolak sampai admin melengkapinya.
 
-Untuk menguji dari akun kosong, daftar client dengan angkatan 2025 atau sebelumnya, kemudian buka Pengajuan Bebas Asrama. Klasifikasi lama harus diverifikasi admin karena riwayat sebelum sistem tidak selalu tersedia; jangan menganggap pilihan client sebagai bukti status alumni.
+**Client:** daftar/akses dengan angkatan 2025 atau sebelumnya, lalu buka Pengajuan Bebas Asrama. Jenis surat dan jalur pemeriksaan mengikuti riwayat hunian, arsip alumni, serta tagihan; tidak ada dropdown klasifikasi. Alumni yang sudah membayar di luar sistem dapat mengunggah bukti pembayaran beserta rekening koran untuk diperiksa admin.
 
 ### A. Alumni sudah lunas
 
-1. Gunakan `legacy-lunas@example.test` untuk pengajuan yang bukti pembayaran dan rekening korannya sudah tersedia.
-2. Admin membuka detail, memeriksa identitas, menetapkan/memastikan klasifikasi alumni lunas, dan membuka kedua dokumen.
-3. Jika sesuai, setujui. Sistem menerbitkan PDF dan menonaktifkan akun.
-4. Client memeriksa surat/notifikasi. Untuk jalur gagal, gunakan pengajuan terpisah dan tolak dengan alasan dokumen tidak sesuai.
-5. `legacy-ditolak@example.test` dipakai untuk melihat alasan, memperbaiki bukti dan mengajukan ulang sebelum direview admin lagi.
+1. Client mengunggah **bukti pembayaran** dan **rekening koran** sebagai bukti pelunasan lama; keduanya wajib diunggah bersama. Jalur cepat bukti tersedia: `legacy-lunas@example.test`.
+2. Pengajuan berstatus diajukan; tidak ada invoice yang terbit otomatis sebelum admin memutuskan.
+3. Admin membuka Approval Bebas Asrama, membuka kedua dokumen, memeriksa identitas, lalu menyetujui.
+4. Sistem menerbitkan invoice historis sesuai tarif gedung–angkatan arsip, mencatat pelunasan historis (sisa tagihan menjadi nol, nilai invoice dan riwayat tetap), menerbitkan PDF dan menonaktifkan akun.
+5. Client memeriksa surat/notifikasi. Untuk jalur gagal, admin menolak dengan alasan dokumen tidak sesuai; `legacy-ditolak@example.test` dipakai untuk melihat alasan, memperbaiki bukti dan mengajukan ulang.
 
 ### B. Alumni belum lunas
 
-1. Untuk dari awal, admin mengklasifikasikan pengajuan legacy baru sebagai alumni belum lunas dan menetapkan tarif angkatan pada detail review bila belum tersedia.
-2. Sistem membuat invoice sesuai tarif tersebut. Status diverifikasi belum berarti surat terbit.
-3. Jalur cepat: login `legacy-belum-lunas@example.test`, yang sudah mempunyai klasifikasi dan invoice.
-4. Client membuka Tagihan dan mengunggah bukti pembayaran.
-5. Admin membuka Verifikasi Pembayaran dan menyetujui bukti yang sesuai.
+1. Alumni mengajukan tanpa bukti pelunasan lama; sistem membuat invoice dari tarif gedung–angkatan arsipnya. Jika arsip atau tarif belum lengkap, pengajuan ditolak dengan pesan melengkapi arsip/tarif — lengkapi di Pengaturan Layanan, jangan menagih nol.
+2. Invoice menyimpan salinan tarif saat terbit; perubahan tarif berikutnya hanya berlaku untuk tagihan baru.
+3. Jalur cepat: login `legacy-belum-lunas@example.test`, yang sudah mempunyai invoice historis.
+4. Client membuka Tagihan dan mengunggah bukti pembayaran; pembayaran sebagian diizinkan.
+5. Admin membuka Verifikasi Pembayaran dan menyetujui bukti yang sesuai. Status surat tetap diverifikasi sampai sisa tagihan nol.
 6. Setelah seluruh kewajiban lunas dan tidak ada hunian aktif, surat diproses otomatis; client mengunduh PDF dan akun nonaktif.
 
-### C. Bukan alumni asrama
+### C. Tidak pernah tinggal
 
-1. Gunakan `legacy-bukan-alumni@example.test`.
-2. Admin memeriksa identitas dan menetapkan klasifikasi bukan alumni.
-3. Sistem memeriksa riwayat hunian. Jika tidak ada riwayat yang bertentangan dan syarat terpenuhi, surat disetujui dan diproses.
-4. Akun menjadi nonaktif; `legacy-surat-terbit@example.test` adalah contoh kondisi akhir.
-5. Pada pengajuan terpisah yang memiliki riwayat hunian, coba klasifikasi bukan alumni: sistem harus menolak dengan alasan riwayat ditemukan.
+1. Gunakan client yang tidak punya riwayat hunian maupun arsip, atau `legacy-bukan-alumni@example.test`.
+2. Client mengajukan surat; sistem memeriksa riwayat dan arsip alumni. Bila benar tidak ada dan tidak ada tunggakan, **Surat Keterangan Tidak Tinggal di Asrama** terbit otomatis tanpa verifikasi admin dan akun nonaktif.
+3. Bila ditemukan dalam arsip/riwayat, sistem mengikuti jalur alumni dan kewajiban terkait; tidak menerbitkan surat tidak tinggal. Pengiriman klasifikasi palsu dari browser tidak boleh mengubah hasil klasifikasi server. `legacy-surat-terbit@example.test` adalah contoh kondisi akhir.
 
 ### Pemeriksaan halaman admin dan dokumen
 
-Uji tab Semua, Menunggu verifikasi, Diverifikasi, Disetujui, dan Ditolak; jumlah/list harus sesuai status. Buka detail untuk identitas, bukti, alasan penolakan, tagihan dan PDF. Surat yang sudah terbit tidak boleh diedit menjadi keputusan lain.
+Uji tab Semua, Menunggu verifikasi, Diverifikasi, Disetujui, dan Ditolak; jumlah/list harus sesuai status. Buka detail untuk identitas, bukti (tautan unggahan), alasan penolakan, tagihan dan PDF. Surat yang sudah terbit tidak boleh diedit menjadi keputusan lain; admin tetap dapat menolak dengan catatan sebelum surat terbit.
 
 Pengiriman email pada konfigurasi sekarang memakai `MAIL_MAILER=log`: periksa log aplikasi, bukan inbox sungguhan. Notifikasi akun dan PDF tetap dapat diuji. Email nyata memerlukan konfigurasi SMTP tersendiri.
 
-## 14. Keuangan dan pemantauan pimpinan
+## 15. Keuangan dan pemantauan pimpinan
 
 **Akun:** `staff_admin@example.test` atau `superadmin@example.test` untuk buku kas; `pimpinan@example.test` untuk pemantauan.
 
@@ -397,7 +434,7 @@ Pengiriman email pada konfigurasi sekarang memakai `MAIL_MAILER=log`: periksa lo
 4. Cari transaksi manual tersebut, buka detail, edit lalu hapus untuk menguji CRUD transaksi manual.
 5. Login pimpinan untuk memeriksa ringkasan keuangan, aset dan progres kerusakan berdasarkan data yang baru diuji.
 
-## 15. Orang tua, superadmin dan konten landing
+## 16. Orang tua, superadmin dan konten landing
 
 ### Orang tua
 
@@ -411,13 +448,26 @@ Login `superadmin@example.test`, periksa Akun & Role dan Audit Log. Gunakan akun
 
 Login `staff_admin@example.test`, buka pengelolaan profil, informasi, program dan testimoni. Uji tambah/edit konten pada halaman editor, pemformatan rich text yang tersedia, simpan lalu periksa hasil di halaman publik tanpa login. Gunakan konten berlabel uji; periksa gambar dan slider testimoni. Hapus hanya konten percobaan yang Anda buat.
 
-## 16. Laundry dan galon
+## 17. Hunian sementara, laundry dan galon
+
+### Hunian sementara: Summer Course dan nonmahasiswa
+
+Admin layanan membuka **Hunian Sementara** untuk Summer Course; fasilitator memakai menu yang sama untuk nonmahasiswa di gedung penugasannya. Siapkan periode aktif dan tarif **per hari** untuk gedung–tipe kamar yang diuji.
+
+1. Isi identitas, email, jenis kelamin, kamar, tanggal masuk dan tanggal keluar. Tanggal keluar harus setelah tanggal masuk; tanggal keluar tidak dihitung sebagai malam menginap.
+2. Simpan: kamar langsung dialokasikan dan invoice pribadi dibuat. Akun yang sudah ada harus memakai identitas yang sesuai dan tidak sedang memiliki hunian aktif. Peserta Summer Course tidak memperoleh layanan binaan.
+3. Pada tanggal keluar, scheduler mengakhiri hunian dan mengirim notifikasi dalam aplikasi kepada fasilitator gedung. Kamar masih terisi bila ada penghuni lain; maintenance tetap maintenance. Sisa utang tidak dihapus.
+4. Uji tarif belum tersedia, kamar penuh/maintenance, dan fasilitator lintas gedung: penyimpanan ditolak tanpa meninggalkan invoice atau akun baru sebagian.
+
+Docker menjalankan scheduler. Untuk pengujian lokal, jalankan `php artisan schedule:work` di terminal tersendiri. Akun yang dibuat petugas memakai password acak; pengaturan password dilakukan melalui Lupa password, dengan email mengikuti konfigurasi mailer aplikasi.
+
+### Laundry dan galon
 
 Belum ada langkah transaksi yang harus diuji karena proses bisnis belum ditentukan. Tidak adanya pemesanan laundry/galon saat ini memang sesuai ruang lingkup; jangan menganggapnya sebagai transaksi yang seharusnya aktif.
 
-## 17. Pemeriksaan tabel pada setiap modul
+## 18. Pemeriksaan tabel pada setiap modul
 
-Gunakan daftar dengan banyak data, misalnya Data Mahasiswa, Review Pendaftaran, Verifikasi Pembayaran dan Bebas Asrama.
+Gunakan daftar dengan banyak data, misalnya Data Mahasiswa, Review Pendaftaran, Verifikasi Pembayaran, Invoice, Pengaturan Layanan dan Bebas Asrama.
 
 - Cari berdasarkan identitas yang relevan dan coba kata yang tidak ditemukan.
 - Gunakan dropdown filter yang tersedia, lalu kembalikan ke semua data.
@@ -428,13 +478,16 @@ Gunakan daftar dengan banyak data, misalnya Data Mahasiswa, Review Pendaftaran, 
 - Periksa detail menampilkan identitas dan informasi transaksi yang tepat.
 - Aksi harus mengikuti status serta hak akses; transaksi selesai/terkunci tidak selalu memiliki tombol edit/hapus.
 
-## 18. Jika hasil berbeda atau proses berhenti
+## 19. Jika hasil berbeda atau proses berhenti
 
 | Gejala | Yang diperiksa |
 | --- | --- |
 | Akun demo sudah berada di tahap berikutnya | Akun pernah diuji; seeding ulang tidak mereset. Gunakan client baru atau database uji bersih |
 | Login tidak sama dengan panduan | Password mungkin sudah diganti; `password` hanya nilai awal seeder |
-| Menu penghuni belum muncul | Pendaftaran diterima, kamar ditempatkan, pembayaran memenuhi syarat dan status hunian aktif |
+| Menu penghuni belum muncul | Pembayaran memenuhi syarat/cicilan pertama yang ditetapkan admin telah terverifikasi dan status hunian aktif |
+| Menu absensi/perizinan tidak ada untuk penghuni | Memang tersembunyi bagi yang bukan binaan: hanya mahasiswa lokal angkatan maba periode aktif pada hunian pertama |
+| Akun nonaktif setelah surat | Masih dapat login, membaca arsip surat, dan mendaftar kembali; blokir penuh hanya dari status nonaktif oleh admin |
+| Pengajuan alumni ditolak minta arsip/tarif | Lengkapi arsip alumni dan tarif historis di Pengaturan Layanan; invoice tidak boleh terbit nol |
 | Fasilitator tidak melihat data | Gedung harus sesuai penugasan: `fasilitator@example.test` W, `fasilitator@unand.ac.id` P |
 | QR tidak tersedia | Buka detail Kegiatan & Absensi sebagai pembuat; periksa gedung, GPS, durasi dan status sesi |
 | Scan ditolak | Kelayakan binaan, lokasi/akurasi kedua pihak, pembaruan lokasi fasilitator, waktu, dan scan duplikat |
@@ -445,7 +498,7 @@ Gunakan daftar dengan banyak data, misalnya Data Mahasiswa, Review Pendaftaran, 
 | Gagal import aset | Header/format file, stok, kamar, kode inventaris, jumlah tersedia dan akses gedung |
 | Tampilan lama masih muncul | Refresh browser; pastikan build terbaru dijalankan pada server/container yang sedang dibuka |
 
-## 19. Catatan hasil uji
+## 20. Catatan hasil uji
 
 Salin tabel berikut untuk setiap percobaan. Catat hasil nyata, bukan hanya status akhir yang diharapkan.
 

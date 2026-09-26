@@ -7,6 +7,8 @@ use App\Jobs\GenerateBillingDocument;
 use App\Jobs\GenerateFreeResidenceLetter;
 use App\Models\Aset;
 use App\Models\CheckoutRequest;
+use App\Models\Departemen;
+use App\Models\Faculty;
 use App\Models\FasilitatorWilayah;
 use App\Models\Gedung;
 use App\Models\Kamar;
@@ -15,6 +17,7 @@ use App\Models\LaporanKerusakan;
 use App\Models\Pembayaran;
 use App\Models\PengajuanBebasAsrama;
 use App\Models\Periode;
+use App\Models\Prodi;
 use App\Models\ResidenceRegistration;
 use App\Models\User;
 use App\Notifications\DocumentReadyNotification;
@@ -39,11 +42,15 @@ it('connects account registration payment damage reporting checkout and the mode
     $floor = Lantai::create(['gedung_id' => $building->id, 'nomor_lantai' => 1, 'nama_lantai' => 'Lantai 1']);
     $room = Kamar::create(['lantai_id' => $floor->id, 'nomor_kamar' => '101', 'kapasitas' => 1, 'status' => 'kosong', 'tipe_kamar' => 'single', 'tarif_per_periode' => 1500000]);
     $asset = Aset::create(['kamar_id' => $room->id, 'kode_inventaris' => 'JOURNEY-ASSET', 'nama_aset' => 'Lampu belajar', 'kategori' => 'Elektronik', 'kondisi' => 'baik']);
+    $faculty = Faculty::create(['name' => 'Teknologi Informasi']);
+    $department = Departemen::create(['name' => 'Informatika', 'faculty_id' => $faculty->id]);
+    $program = Prodi::create(['name' => 'Informatika', 'jenjang' => 'S1', 'departemen_id' => $department->id]);
 
     $this->post(route('register.store'), [
-        'nama' => 'Penghuni Perjalanan', 'nim_nip' => 'JOURNEY-2026', 'email' => 'journey@example.test',
+        'nama' => 'Penghuni Perjalanan', 'nim_nip' => '2699009999', 'email' => 'journey@example.test',
         'password' => 'password123', 'password_confirmation' => 'password123',
-        'client_profile_category' => 'local_non_kipk', 'angkatan' => 2026, 'gender' => 'perempuan',
+        'client_profile_category' => 'local_non_kipk', 'gender' => 'perempuan',
+        'faculty_id' => $faculty->id, 'departemen_id' => $department->id, 'prodi_id' => $program->id,
     ])->assertSessionHasNoErrors();
     $resident = User::where('email', 'journey@example.test')->sole();
     $student = $resident->mahasiswaProfil;
@@ -54,8 +61,6 @@ it('connects account registration payment damage reporting checkout and the mode
     $invoice = $registration->tagihan;
     Queue::assertPushed(GenerateBillingDocument::class, fn ($job) => $job->jenis === 'invoice');
 
-    $this->actingAs($admin)->patch(route('andalas.registrations.update', $registration), ['status' => 'verified'])->assertSessionHasNoErrors();
-    $this->patch(route('andalas.registrations.update', $registration), ['status' => 'accepted', 'kamar_id' => $room->id])->assertSessionHasNoErrors();
     expect($student->fresh()->status_huni)->toBe('calon');
     $this->actingAs($resident)->post(route('andalas.pembayaran.store'), [
         'tagihan_id' => $invoice->id, 'jenis_pembayaran' => 'sewa_asrama', 'nominal' => 1500000,
@@ -101,12 +106,14 @@ it('connects account registration payment damage reporting checkout and the mode
         ->and($checkout->fresh()->diproses_oleh)->toBe($facilitator->id)
         ->and($room->fresh()->status)->toBe('kosong');
 
-    $this->actingAs($resident)->post(route('andalas.pengajuan.bebas'), ['alasan' => 'Bebas kewajiban asrama'])->assertSessionHasNoErrors();
+    $this->actingAs($resident)->post(route('andalas.pengajuan.bebas'), [
+        'alasan' => 'Bebas kewajiban asrama', 'legacy_verification_path' => 'alumni_unpaid',
+    ])->assertSessionHasNoErrors();
     $application = PengajuanBebasAsrama::where('mahasiswa_id', $student->id)->sole();
     expect($application->status)->toBe(FreeResidenceLetterStatus::Disetujui)
         ->and($resident->fresh()->status)->toBe('nonaktif');
     Queue::assertPushed(GenerateFreeResidenceLetter::class);
     (new GenerateFreeResidenceLetter($application->documentIntent->id))->handle();
     $this->get(route('andalas.pengajuan.bebas.surat', $application))->assertDownload();
-    Notification::assertSentTo($resident, DocumentReadyNotification::class, fn ($notification) => $notification->documentType === 'surat_bebas_asrama');
+    Notification::assertSentTo($resident, DocumentReadyNotification::class, fn ($notification) => $notification->documentType === 'free_residence');
 });

@@ -43,7 +43,20 @@ it('paginates records and keeps allowed row actions visible', () => {
     expect(html).not.toContain('Hapus</button>');
     expect(html).not.toContain('Filter Aksi');
 });
-it('shows the scan menu for residents even when attendance is not available to them', () => {
+it('shows the scan and permit menus for binaan residents', () => {
+    const html = renderToStaticMarkup(
+        <Sidebar
+            role="mahasiswa"
+            activeResident
+            attendanceEligible
+            currentPage="dashboard"
+            setPage={() => {}}
+        />,
+    );
+    expect(html).toContain('Scan QR / Absensi');
+    expect(html).toContain('Perizinan');
+});
+it('hides binaan menus from residents outside the admission cohort', () => {
     const html = renderToStaticMarkup(
         <Sidebar
             role="mahasiswa"
@@ -53,7 +66,8 @@ it('shows the scan menu for residents even when attendance is not available to t
             setPage={() => {}}
         />,
     );
-    expect(html).toContain('Scan QR / Absensi');
+    expect(html).not.toContain('Scan QR / Absensi');
+    expect(html).not.toContain('Perizinan</button>');
 });
 it('keeps residence-only menus hidden for applicants', () => {
     const html = renderToStaticMarkup(

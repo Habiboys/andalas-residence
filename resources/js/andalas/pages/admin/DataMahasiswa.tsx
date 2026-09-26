@@ -3,6 +3,9 @@ import AcademicFields, {
     type AcademicOptions,
 } from '../../components/AcademicFields';
 import PasswordInput from '@/components/password-input';
+import UserProfileDetails, {
+    type ProfileSummary,
+} from '../../components/UserProfileDetails';
 import { useState } from 'react';
 import { useForm, router } from '@inertiajs/react';
 import {
@@ -24,6 +27,7 @@ import {
 } from '@/routes/andalas/mahasiswa';
 
 type MhsRow = {
+    profile_summary?: ProfileSummary;
     id: string;
     angkatan?: string;
     status_huni?: string;
@@ -31,6 +35,7 @@ type MhsRow = {
         nim_nip?: string;
         nama?: string;
         email?: string;
+        no_hp?: string;
         gender?: string;
         client_profile_category?: string;
     };
@@ -62,6 +67,7 @@ export default function DataMahasiswa({
     departemen = [],
 }: Props) {
     const [open, setOpen] = useState(false);
+    const [viewing, setViewing] = useState<MhsRow | null>(null);
     const [editing, setEditing] = useState<MhsRow | null>(null);
     const [deleting, setDeleting] = useState<MhsRow | null>(null);
     const [deletingBusy, setDeletingBusy] = useState(false);
@@ -93,7 +99,7 @@ export default function DataMahasiswa({
             nama: row.user?.nama ?? '',
             email: row.user?.email ?? '',
             password: '',
-            no_hp: '',
+            no_hp: row.user?.no_hp ?? '',
             prodi_id: row.prodi?.id ?? '',
             faculty_id: selectedDept?.faculty_id ?? '',
             departemen_id: selectedProdi?.departemen_id ?? '',
@@ -136,6 +142,26 @@ export default function DataMahasiswa({
             label: 'Nama',
             render: (r: MhsRow) => r.user?.nama ?? '-',
         },
+        ...(['category', 'residence', 'account'] as const).map((key) => ({
+            key,
+            label: {
+                category: 'Kategori akun',
+                residence: 'Status hunian',
+                account: 'Status akun',
+            }[key],
+            value: (row: MhsRow) => row.profile_summary?.[key] ?? '',
+            render: (row: MhsRow) => row.profile_summary?.[key] ?? '-',
+            filter: {
+                type: 'select' as const,
+                options: [
+                    ...new Set(
+                        mahasiswa
+                            .map((row) => row.profile_summary?.[key] ?? '')
+                            .filter(Boolean),
+                    ),
+                ],
+            },
+        })),
         {
             key: 'prodi',
             label: 'Prodi',
@@ -166,7 +192,7 @@ export default function DataMahasiswa({
         },
         {
             key: 'status_huni',
-            label: 'Status Huni',
+            label: 'Status administrasi',
             filter: {
                 type: 'select',
                 options: [
@@ -193,6 +219,7 @@ export default function DataMahasiswa({
             label: 'Aksi',
             render: (r: MhsRow) => (
                 <RowActions
+                    onDetail={() => setViewing(r)}
                     onEdit={() => openEdit(r)}
                     onDelete={() => setDeleting(r)}
                 />
@@ -204,7 +231,7 @@ export default function DataMahasiswa({
         <div className="space-y-4">
             <PageHeader
                 title="Data Mahasiswa"
-                subtitle="Kelola data mahasiswa penghuni asrama"
+                subtitle="Identitas, kategori akun, dan status hunian mahasiswa maupun nonmahasiswa"
                 actions={<Button onClick={openCreate}>Tambah Mahasiswa</Button>}
             />
             <Card className="p-4">
@@ -214,6 +241,15 @@ export default function DataMahasiswa({
                     searchKeys={['angkatan', 'status_huni']}
                 />
             </Card>
+
+            <Drawer
+                open={!!viewing}
+                onClose={() => setViewing(null)}
+                title={`Profil ${viewing?.user?.nama ?? ''}`}
+                width="w-full max-w-3xl"
+            >
+                <UserProfileDetails summary={viewing?.profile_summary} />
+            </Drawer>
 
             <Drawer
                 open={open}

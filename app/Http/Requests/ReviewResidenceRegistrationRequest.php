@@ -13,16 +13,14 @@ class ReviewResidenceRegistrationRequest extends FormRequest
         return $this->user()?->can('registration.review') ?? false;
     }
 
+    /** @return array<string, mixed> */
     public function rules(): array
     {
         return [
             'status' => ['required', Rule::enum(ResidenceRegistrationStatus::class)->only([
-                ResidenceRegistrationStatus::Verified,
-                ResidenceRegistrationStatus::Accepted,
                 ResidenceRegistrationStatus::Rejected,
             ])],
             'notes' => ['nullable', 'string', 'max:2000'],
-            'kamar_id' => ['nullable', 'required_if:status,accepted', 'uuid', 'exists:kamar,id'],
         ];
     }
 }

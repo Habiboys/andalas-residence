@@ -60,6 +60,13 @@ test('seeder supplies every domain model with linked and financially consistent 
         expect(hash('sha256', $contents))->toBe($document->checksum_sha256);
     }
     expect(Models\VirtualAccount::where('aktif', true)->count())->toBe(0);
+    expect(Models\Periode::where('status', 'aktif')->count())->toBe(1);
+    expect(Models\ResidenceRate::where('unit', 'day')->count())->toBe(6);
+    expect(Models\LegacyResidenceRate::whereNull('gedung_id')->count())->toBe(0);
+    foreach (['kipk-aktif', 'internasional-gratis'] as $name) {
+        expect(ResidenceScenarioSeeder::student($name)->residenceRegistrations()->firstOrFail()->tagihan->dokumen()->where('jenis', 'residence_receipt')->exists())->toBeFalse();
+    }
+    expect(Models\LegacyResident::where('nim', ResidenceScenarioSeeder::student('legacy-surat-terbit')->user->nim_nip)->exists())->toBeFalse();
     expect((float) Models\PenilaianTeknisi::firstOrFail()->total_skor)->toBe(4.0);
     expect((float) Models\PenilaianTeknisi::firstOrFail()->skor_persentase)->toBe(75.0);
     Notification::assertNothingSent();
@@ -78,11 +85,8 @@ test('seeded accounts can continue payment checkout permit and attendance journe
 
     $student = ResidenceScenarioSeeder::student('bayar-verifikasi');
     $registration = $student->residenceRegistrations()->firstOrFail();
-    $this->actingAs($admin)->patch(route('andalas.registrations.update', $registration), [
-        'status' => 'accepted', 'kamar_id' => $registration->roomPreferences()->firstOrFail()->kamar_id,
-    ])->assertSessionHasNoErrors();
     $payment = Models\Pembayaran::where('mahasiswa_id', $student->id)->firstOrFail();
-    $this->post(route('andalas.pembayaran.verify', $payment), ['status' => 'lunas'])->assertSessionHasNoErrors();
+    $this->actingAs($admin)->post(route('andalas.pembayaran.verify', $payment), ['status' => 'lunas'])->assertSessionHasNoErrors();
     expect($student->fresh()->status_huni)->toBe('aktif');
     expect($registration->fresh()->completed_at)->not->toBeNull();
     Queue::assertPushed(GenerateBillingDocument::class);
@@ -92,7 +96,9 @@ test('seeded accounts can continue payment checkout permit and attendance journe
     $checkoutFacilitator = Models\FasilitatorWilayah::where('gedung_id', $checkout->placement->kamar->lantai->gedung_id)->firstOrFail()->user;
     $this->actingAs($checkoutFacilitator)->post(route('andalas.checkout.complete', $checkout))->assertRedirect()->assertSessionHasNoErrors();
     expect($checkoutStudent->fresh()->status_huni)->toBe('keluar');
-    $this->actingAs($checkoutStudent->user)->post(route('andalas.pengajuan.bebas'), ['alasan' => 'Pengujian surat setelah checkout'])->assertSessionHasNoErrors();
+    $this->actingAs($checkoutStudent->user)->post(route('andalas.pengajuan.bebas'), [
+        'alasan' => 'Pengujian surat setelah checkout', 'legacy_verification_path' => 'alumni_unpaid',
+    ])->assertSessionHasNoErrors();
     expect($checkoutStudent->user->fresh()->status)->toBe('nonaktif');
     Queue::assertPushed(GenerateFreeResidenceLetter::class);
 
@@ -148,6 +154,8 @@ test('demo seeding refuses a production environment before creating accounts', f
 
 test('reseeding preserves user changes and does not duplicate demo relationships', function () {
     $this->seed(DatabaseSeeder::class);
+    $unverified = Models\User::factory()->create(['nim_nip' => '2612345678', 'client_profile_category' => 'local_kipk']);
+    Models\MahasiswaProfil::create(['user_id' => $unverified->id, 'angkatan' => '2026', 'barcode_code' => 'UNVERIFIED', 'status_huni' => 'calon']);
     $counts = collect(File::files(app_path('Models')))->mapWithKeys(function ($file) {
         $class = 'App\\Models\\'.$file->getFilenameWithoutExtension();
 
@@ -172,6 +180,7 @@ test('reseeding preserves user changes and does not duplicate demo relationships
 
     $this->seed(DatabaseSeeder::class);
 
+    expect(Models\KipkRecipient::where('nim', $unverified->nim_nip)->exists())->toBeFalse();
     foreach ($counts as $class => $count) {
         expect($class::count(), $class)->toBe($count);
     }
@@ -187,4 +196,11 @@ test('reseeding preserves user changes and does not duplicate demo relationships
     expect($letter->fresh()->checksum_sha256)->toBe(hash('sha256', Storage::disk('local')->get($letter->path)));
     expect(Models\Kamar::where('nomor_kamar', '101')->firstOrFail()->status)->toBe('maintenance');
     Notification::assertNothingSent();
+});
+
+test('first demo seed preserves an admission period already activated by admin', function () {
+    $period = Models\Periode::create(['nama_periode' => 'Penerimaan admin', 'status' => 'aktif', 'angkatan_maba' => 2026, 'tanggal_mulai' => '2026-08-01', 'tanggal_selesai' => '2027-07-31']);
+    $this->seed(DatabaseSeeder::class);
+    expect(Models\Periode::where('status', 'aktif')->sole()->id)->toBe($period->id);
+    expect(Models\Periode::where('nama_periode', 'DEMO 2026/2027')->sole()->status)->toBe('nonaktif');
 });

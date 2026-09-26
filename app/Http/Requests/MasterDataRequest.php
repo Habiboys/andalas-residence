@@ -39,6 +39,8 @@ class MasterDataRequest extends FormRequest
             ],
             PeriodeController::class => [
                 'nama_periode' => [$required, 'string', 'max:150'],
+                'angkatan_maba' => [$required, 'integer', 'min:2026', 'max:2099'],
+                'reservation_hours' => ['sometimes', 'integer', 'min:1', 'max:720'],
                 'status' => [$required, Rule::in(['aktif', 'nonaktif'])],
                 'tanggal_mulai' => [$required, 'date'],
                 'tanggal_selesai' => [$required, 'date', 'after_or_equal:tanggal_mulai'],

@@ -4,25 +4,36 @@ namespace App\Services;
 
 use App\Enums\ClientProfileCategory;
 use App\Enums\LegacyFreeResidenceVerificationPath;
+use App\Models\Gedung;
 use App\Models\PengajuanBebasAsrama;
-use App\Models\Tagihan;
+use Illuminate\Support\Carbon;
 
 class FreeResidenceLetterFormat
 {
-    public const VERSION = 'free-residence-categories-v2';
+    public const VERSION = 'residence-snapshot-v3';
 
     /** @return array<string, mixed> */
     public function data(PengajuanBebasAsrama $application): array
     {
+        if ($application->document_snapshot) {
+            return [...$application->document_snapshot, 'issuedAt' => Carbon::parse($application->document_snapshot['issuedAt'])->timezone('Asia/Jakarta')->locale('id')];
+        }
         $student = $application->mahasiswa;
         $student->loadMissing(['user', 'prodi.departemen.faculty']);
         $category = $student->user->client_profile_category;
         $notResident = $application->legacy_verification_path === LegacyFreeResidenceVerificationPath::NotAlumni;
-        $subsidized = in_array($category, [ClientProfileCategory::LocalKipk, ClientProfileCategory::InternationalFreeFacility], true);
+        $checkoutPlacement = $application->checkoutRequest?->placement;
+        $registrationTagihan = $checkoutPlacement?->registration?->tagihan;
+        $subsidized = $checkoutPlacement?->registration?->funding === 'sponsor'
+            || in_array($category, [ClientProfileCategory::LocalKipk, ClientProfileCategory::InternationalFreeFacility], true);
         $variant = $notResident ? 'not_resident' : ($subsidized ? 'general' : 'paid');
-        $placement = $notResident ? null : ($application->checkoutRequest?->placement
+        $placement = $notResident ? null : ($checkoutPlacement
             ?? $student->penempatanKamar()->with('kamar.lantai.gedung')->latest('tanggal_mulai')->first());
-        $paid = (float) Tagihan::where('mahasiswa_id', $student->id)->where('status', '!=', 'batal')->sum('total_dibayar');
+        $legacy = app(ResidenceLifecycle::class)->legacy($student);
+        $paidSource = $application->tagihan ?? $registrationTagihan;
+        $paid = $paidSource === null ? 0.0 : (float) $paidSource->total_dibayar;
+        $faculty = $student->prodi?->departemen?->faculty;
+        $prodi = $student->prodi;
 
         return [
             'variant' => $variant,
@@ -39,11 +50,11 @@ class FreeResidenceLetterFormat
                 ClientProfileCategory::NonStudent => 'Non-mahasiswa',
                 default => 'Mahasiswa',
             },
-            'faculty' => $student->prodi?->departemen?->faculty?->name ?? '-',
-            'program' => $student->prodi?->name ?? '-',
-            'room' => $placement?->kamar ? $placement->kamar->lantai->gedung->nama_gedung.' / '.$placement->kamar->nomor_kamar : '-',
+            'faculty' => $faculty === null ? '-' : $faculty->name,
+            'program' => $prodi === null ? '-' : $prodi->name,
+            'room' => $placement?->kamar ? $placement->kamar->lantai->gedung->nama_gedung.' / '.$placement->kamar->nomor_kamar : ($legacy ? Gedung::find($legacy->gedung_id)?->nama_gedung : '-'),
             'amount' => $paid > 0 ? 'Rp '.number_format($paid, 0, ',', '.') : '-',
-            'issuedAt' => ($application->approved_at ?? now())->copy()->timezone('Asia/Jakarta')->locale('id'),
+            'issuedAt' => Carbon::parse($application->approved_at ?? now())->timezone('Asia/Jakarta')->locale('id'),
         ];
     }
 }

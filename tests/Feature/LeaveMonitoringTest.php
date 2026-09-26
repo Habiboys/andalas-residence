@@ -7,6 +7,7 @@ use App\Models\Lantai;
 use App\Models\MahasiswaProfil;
 use App\Models\PenempatanKamar;
 use App\Models\PengajuanIzinPulang;
+use App\Models\Periode;
 use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Http\UploadedFile;
@@ -21,9 +22,10 @@ beforeEach(function () {
 
 function leaveResident(): PenempatanKamar
 {
-    $user = User::factory()->create();
+    $user = User::factory()->student()->create(['client_profile_category' => 'local_non_kipk']);
     $user->assignRole('mahasiswa');
-    $student = MahasiswaProfil::create(['user_id' => $user->id, 'barcode_code' => 'IZ-'.$user->id, 'status_huni' => 'aktif']);
+    $student = MahasiswaProfil::create(['user_id' => $user->id, 'barcode_code' => 'IZ-'.$user->id, 'status_huni' => 'aktif', 'angkatan' => '2026']);
+    Periode::create(['nama_periode' => '2026/2027', 'status' => 'aktif', 'angkatan_maba' => 2026, 'tanggal_mulai' => now()->startOfYear(), 'tanggal_selesai' => now()->endOfYear()]);
     $building = Gedung::create(['kode_gedung' => fake()->unique()->numerify('IZ-###'), 'nama_gedung' => 'Gedung Izin']);
     $floor = Lantai::create(['gedung_id' => $building->id, 'nomor_lantai' => 1, 'nama_lantai' => 'Lantai 1']);
     $room = Kamar::create(['lantai_id' => $floor->id, 'nomor_kamar' => '101', 'kapasitas' => 2, 'status' => 'terisi_sebagian']);

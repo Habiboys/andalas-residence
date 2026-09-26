@@ -6,8 +6,10 @@ use App\Actions\Fortify\CreateNewUser;
 use App\Models\MahasiswaProfil;
 use App\Models\Tagihan;
 use App\Services\AuditLogService;
+use App\Services\StudentCohort;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
@@ -54,12 +56,12 @@ class MahasiswaController extends Controller
             'periode_id' => 'prohibited',
             'client_profile_category' => ['sometimes', Rule::in(['student', 'local_kipk', 'local_non_kipk', 'international_student', 'international_free_facility', 'non_student'])],
             'gender' => 'sometimes|in:laki_laki,perempuan',
-            
+
             'status_huni' => 'prohibited',
         ]);
 
         $category = $validated['client_profile_category'] ?? $mahasiswa->user->client_profile_category?->value;
-        $validated['angkatan'] = $category === 'non_student' ? null : \App\Services\StudentCohort::fromNim($validated['nim_nip'] ?? $mahasiswa->user->nim_nip);
+        $validated['angkatan'] = $category === 'non_student' ? null : StudentCohort::fromNim($validated['nim_nip'] ?? $mahasiswa->user->nim_nip);
         if ($isNonStudent) {
             $validated['prodi_id'] = null;
         }
@@ -70,7 +72,7 @@ class MahasiswaController extends Controller
                 && $mahasiswa->residenceRegistrations()->whereIn('status', ['submitted', 'verified', 'accepted'])->exists()) {
                 throw ValidationException::withMessages(['client_profile_category' => 'Kategori tidak dapat diubah saat pendaftaran sedang diproses atau sudah diterima.']);
             }
-            $userData = collect($validated)->only(['nim_nip', 'nama', 'email', 'no_hp', 'client_profile_category', 'gender'])->filter()->all();
+            $userData = array_filter(Arr::only($validated, ['nim_nip', 'nama', 'email', 'no_hp', 'client_profile_category', 'gender']));
             if (! empty($validated['password'])) {
                 $userData['password'] = Hash::make($validated['password']);
             }
@@ -78,7 +80,7 @@ class MahasiswaController extends Controller
                 $mahasiswa->user->update($userData);
             }
 
-            $profilData = collect($validated)->only(['prodi_id', 'angkatan'])->all();
+            $profilData = Arr::only($validated, ['prodi_id', 'angkatan']);
             if ($profilData) {
                 $mahasiswa->update($profilData);
             }

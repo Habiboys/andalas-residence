@@ -1,0 +1,43 @@
+name: Deploy to Dev Server
+
+on:
+  push:
+    branches:
+      - main # Ganti dengan branch dev Anda jika bukan main (misal: development / staging)
+  workflow_dispatch: # Memungkinkan trigger manual lewat tombol 'Run workflow' di GitHub
+
+jobs:
+  deploy:
+    name: Deploy & Refresh Database
+    runs-on: self-hosted # Dijalankan langsung oleh server dev Anda
+
+    steps:
+      - name: Deploy new code & Rebuild Docker
+        run: |
+          echo "🚀 Menjalankan deployment di server development..."
+          
+          # Masuk ke folder proyek andalas-residence di server
+          cd /home/docker/andalas-residence
+          
+          # 1. Update kode terbaru dari git
+          git fetch origin ${{ github.ref_name }}
+          git reset --hard origin/${{ github.ref_name }}
+
+          # 2. Build ulang container dengan image terbaru
+          docker compose up -d --build --remove-orphans
+
+          # 3. Tunggu container aplikasi running dan siap
+          echo "⏳ Menunggu container andalas-app siap..."
+          docker compose exec -T andalas-app php artisan wait:db 2>/dev/null || sleep 5
+
+          # 4. Reset database dan jalankan seeder baru
+          echo "🔄 Mereset database dan menjalankan seeder..."
+          docker compose exec -T andalas-app php artisan migrate:fresh --seed --force
+
+          # 5. Bersihkan cache aplikasi
+          docker compose exec -T andalas-app php artisan optimize:clear
+          docker compose exec -T andalas-app php artisan config:cache
+          docker compose exec -T andalas-app php artisan route:cache
+          docker compose exec -T andalas-app php artisan view:cache
+
+          echo "✅ Deployment selesai! Kode, database, dan seeder sudah diperbarui."

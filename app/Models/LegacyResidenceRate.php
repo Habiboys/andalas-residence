@@ -4,7 +4,7 @@ namespace App\Models;
 
 class LegacyResidenceRate extends BaseModel
 {
-    protected $fillable = ['angkatan', 'jumlah'];
+    protected $fillable = ['angkatan', 'jumlah', 'gedung_id'];
 
     protected function casts(): array
     {

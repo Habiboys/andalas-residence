@@ -12,7 +12,6 @@ import {
 import { store as pembayaranStore } from '@/routes/andalas/pembayaran';
 import {
     document as billingDocument,
-    requestInstallments,
 } from '@/routes/andalas/tagihan';
 import { formatRupiah, mapPaymentStatus } from '../../lib/format';
 
@@ -22,8 +21,7 @@ type Invoice = {
     status: string;
     total: string;
     total_dibayar: string;
-    cicilan_diminta_at?: string;
-    alasan_cicilan?: string;
+    amount_due_now?: string;
     jadwal_cicilan: Array<{
         termin_ke: number;
         jumlah: string;
@@ -40,6 +38,7 @@ type Payment = {
 };
 
 function amountDue(invoice: Invoice): number {
+    if (invoice.amount_due_now !== null && invoice.amount_due_now !== undefined) return Math.min(Number(invoice.amount_due_now), Number(invoice.total) - Number(invoice.total_dibayar));
     let cumulative = 0;
     for (const term of invoice.jadwal_cicilan
         .slice()
@@ -54,9 +53,11 @@ function amountDue(invoice: Invoice): number {
 export default function Tagihan({
     pembayaran = [],
     billing = [],
+    virtual_accounts = [],
 }: {
     pembayaran?: Payment[];
     billing?: Invoice[];
+    virtual_accounts?: Array<{bank:string;nomor:string;atas_nama:string}>;
 }) {
     const [selected, setSelected] = useState<Invoice | null>(null);
     const form = useForm({
@@ -94,6 +95,7 @@ export default function Tagihan({
                 title="Tagihan & Pembayaran"
                 subtitle="Invoice dan sisa kewajiban Anda, termasuk jadwal cicilan yang disetujui admin."
             />
+            {virtual_accounts.map(a => <Card key={a.nomor} className="p-5">Bayar ke VA {a.bank}: <strong>{a.nomor}</strong> / {a.atas_nama}</Card>)}
             <div className="grid gap-4 sm:grid-cols-3">
                 <Card className="p-5">
                     <p>Total tagihan</p>
@@ -148,17 +150,6 @@ export default function Tagihan({
                             </a>
                         ))}
                     </div>
-                    {invoice.status !== 'batal' && amountDue(invoice) > 0 && (
-                        <Button onClick={() => pay(invoice)}>
-                            Bayar {formatRupiah(amountDue(invoice))}
-                        </Button>
-                    )}
-                    {invoice.status !== 'batal' &&
-                        Number(invoice.total) > 0 &&
-                        Number(invoice.total_dibayar) === 0 &&
-                        invoice.jadwal_cicilan.length === 0 && (
-                            <InstallmentRequest invoice={invoice} />
-                        )}
                 </Card>
             ))}
             {selected && (
@@ -273,37 +264,3 @@ export default function Tagihan({
     );
 }
 
-function InstallmentRequest({ invoice }: { invoice: Invoice }) {
-    const form = useForm({ alasan: invoice.alasan_cicilan ?? '' });
-    return (
-        <form
-            className="space-y-2 border-t pt-3"
-            onSubmit={(event) => {
-                event.preventDefault();
-                form.post(requestInstallments.url({ tagihan: invoice.id }));
-            }}
-        >
-            <p>
-                {invoice.cicilan_diminta_at
-                    ? 'Pengajuan cicilan menunggu keputusan admin layanan.'
-                    : 'Perlu mencicil? Ajukan sebelum pembayaran pertama.'}
-            </p>
-            <textarea
-                required
-                className="textarea w-full"
-                aria-label="Alasan pengajuan cicilan"
-                placeholder="Alasan mengajukan cicilan"
-                value={form.data.alasan}
-                onChange={(event) => form.setData('alasan', event.target.value)}
-            />
-            {form.errors.alasan && (
-                <p className="text-error">{form.errors.alasan}</p>
-            )}
-            <Button type="submit" disabled={form.processing}>
-                {invoice.cicilan_diminta_at
-                    ? 'Perbarui pengajuan cicilan'
-                    : 'Ajukan cicilan'}
-            </Button>
-        </form>
-    );
-}

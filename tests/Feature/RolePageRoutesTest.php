@@ -7,6 +7,7 @@ use App\Models\Lantai;
 use App\Models\MahasiswaProfil;
 use App\Models\Pembayaran;
 use App\Models\PenempatanKamar;
+use App\Models\Periode;
 use App\Models\User;
 use Illuminate\Support\Facades\Schema;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -65,6 +66,7 @@ test('building management only receives the hierarchy needed by its page', funct
 function mahasiswaUser(): User
 {
     $user = userWithRole('mahasiswa');
+    $user->update(['client_profile_category' => 'local_non_kipk']);
     MahasiswaProfil::create([
         'user_id' => $user->id,
         'barcode_code' => (string) fake()->unique()->numberBetween(100000, 999999),
@@ -75,6 +77,13 @@ function mahasiswaUser(): User
 
 test('mahasiswa pages receive their server-side data via inertia props', function () {
     $user = mahasiswaUser();
+    $profile = $user->mahasiswaProfil;
+    $profile->update(['angkatan' => '2026', 'status_huni' => 'aktif']);
+    Periode::create(['nama_periode' => '2026/2027', 'status' => 'aktif', 'angkatan_maba' => 2026, 'tanggal_mulai' => now()->startOfYear(), 'tanggal_selesai' => now()->endOfYear()]);
+    $building = Gedung::create(['kode_gedung' => 'PAGE-01', 'nama_gedung' => 'Asrama Halaman']);
+    $floor = Lantai::create(['gedung_id' => $building->id, 'nomor_lantai' => 1, 'nama_lantai' => 'Lantai 1']);
+    $room = Kamar::create(['lantai_id' => $floor->id, 'nomor_kamar' => 'P-101', 'kapasitas' => 2, 'status' => 'terisi_sebagian']);
+    PenempatanKamar::create(['mahasiswa_id' => $profile->id, 'kamar_id' => $room->id, 'tanggal_mulai' => now()->subMonth(), 'status' => 'aktif']);
 
     $this->actingAs($user)->get('/mahasiswa/tagihan')
         ->assertOk()
@@ -112,7 +121,7 @@ test('bebas-asrama submission via inertia follows PRG with a flash toast', funct
 
     $this->actingAs($user)
         ->withHeaders(['X-Inertia' => 'true', 'Referer' => route('mahasiswa.bebas-asrama')])
-        ->post(route('andalas.pengajuan.bebas'), ['alasan' => 'Mau pulang kampung'])
+        ->post(route('andalas.pengajuan.bebas'), ['alasan' => 'Mau pulang kampung', 'legacy_verification_path' => 'alumni_unpaid'])
         ->assertRedirect(route('mahasiswa.bebas-asrama'))
         ->assertSessionHas('toast.type', 'success');
 });
@@ -176,16 +185,10 @@ test('staff room map carries room assets, prodi and the resident billing status'
             ->where('gedung.0.lantai.0.kamar.0.penempatan_kamar.0.mahasiswa.pembayaran.0.status', 'lunas'));
 });
 
-test('mahasiswa room map never exposes assets or billing of other residents', function () {
+test('mahasiswa room map is not available to residents', function () {
     $student = mahasiswaUser();
-    occupyMappedRoom(mappedBuilding(), $student);
 
-    $this->actingAs($student)->get('/mahasiswa/pemetaan-kamar')
-        ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->component('mahasiswa/pemetaan-kamar')
-            ->missing('gedung.0.lantai.0.kamar.0.aset')
-            ->missing('gedung.0.lantai.0.kamar.0.penempatan_kamar.0.mahasiswa.pembayaran'));
+    $this->actingAs($student)->get('/mahasiswa/pemetaan-kamar')->assertNotFound();
 });
 
 test('placement log feeds its resident detail with complete billing context', function () {

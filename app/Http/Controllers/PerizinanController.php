@@ -6,6 +6,7 @@ use App\Enums\StatusIzinPulang;
 use App\Models\MahasiswaProfil;
 use App\Models\PengajuanIzinPulang;
 use App\Services\ResidenceBuildingAccess;
+use App\Services\ResidenceLifecycle;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -28,11 +29,11 @@ class PerizinanController extends Controller
             'dokumen' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:5120'],
         ]);
         $student = $request->user()->mahasiswaProfil;
-        abort_unless($student, 403);
+        abort_unless($student !== null, 403);
         DB::transaction(function () use ($student, $request, $validated): void {
-            $student = MahasiswaProfil::lockForUpdate()->findOrFail($student->id);
+            $student = MahasiswaProfil::query()->lockForUpdate()->findOrFail($student->id);
             $placement = $student->penempatanKamar()->with('kamar.lantai')->where('status', 'aktif')->latest('tanggal_mulai')->first();
-            if (! $placement || $student->status_huni !== 'aktif') {
+            if (! $placement || $student->status_huni !== 'aktif' || ! app(ResidenceLifecycle::class)->isBinaan($student)) {
                 throw ValidationException::withMessages(['jenis' => 'Perizinan hanya tersedia bagi mahasiswa penghuni aktif.']);
             }
             if (PengajuanIzinPulang::where('mahasiswa_id', $student->id)->whereNotIn('status', ['ditolak', 'selesai_kembali'])->exists()) {
@@ -60,7 +61,7 @@ class PerizinanController extends Controller
         abort_unless(ResidenceBuildingAccess::allows($request->user(), $perizinan->gedung_id), 403);
         $validated = $request->validate(['status' => ['required', 'in:disetujui,ditolak'], 'catatan_verifikasi' => ['required_if:status,ditolak', 'nullable', 'string', 'max:2000']]);
         DB::transaction(function () use ($request, $perizinan, $validated): void {
-            $perizinan = PengajuanIzinPulang::lockForUpdate()->findOrFail($perizinan->id);
+            $perizinan = PengajuanIzinPulang::query()->lockForUpdate()->findOrFail($perizinan->id);
             if ($perizinan->status !== StatusIzinPulang::Diajukan) {
                 throw ValidationException::withMessages(['status' => 'Hanya izin yang menunggu verifikasi yang dapat diputuskan.']);
             }
@@ -87,11 +88,10 @@ class PerizinanController extends Controller
             'accuracy' => ['required', 'numeric', 'min:0', 'max:100000'],
         ]);
         DB::transaction(function () use ($request, $perizinan, $kind, $validated): void {
-            $perizinan = PengajuanIzinPulang::lockForUpdate()->findOrFail($perizinan->id);
-            $allowed = $kind === 'sampai'
-                ? [StatusIzinPulang::SedangIzin]
-                : [StatusIzinPulang::SudahSampai];
-            if (! in_array($perizinan->status, $allowed, true) || $perizinan->{$kind.'_foto_path'}) {
+            $perizinan = PengajuanIzinPulang::query()->lockForUpdate()->findOrFail($perizinan->id);
+            $allowed = $kind === 'sampai' ? StatusIzinPulang::SedangIzin : StatusIzinPulang::SudahSampai;
+            $alreadyUploaded = $kind === 'sampai' ? $perizinan->sampai_foto_path !== null : $perizinan->kembali_foto_path !== null;
+            if ($perizinan->status !== $allowed || $alreadyUploaded) {
                 throw ValidationException::withMessages(['foto' => 'Bukti tidak dapat diunggah pada status izin ini. Unggah bukti sampai sebelum bukti kembali.']);
             }
             if ($perizinan->tanggal_mulai->isFuture()) {

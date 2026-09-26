@@ -31,7 +31,7 @@ Password awal semua akun adalah **`password`**. Akun petugas dan daftar kredensi
 | 4 | `tagihan-belum-bayar@example.test` | Tagihan belum dibayar dan sudah melewati jatuh tempo saat seed |
 | 5 | `bayar-verifikasi@example.test` | Bukti pembayaran menunggu verifikasi admin; pendaftaran masih verified |
 | 6 | `bayar-ditolak@example.test` | Pembayaran ditolak; baca alasan dan unggah pembayaran yang sesuai |
-| 7 | `cicilan-pengajuan@example.test` | Permohonan cicilan menunggu penetapan jadwal oleh admin |
+| 7 | `cicilan-pengajuan@example.test` | Tagihan terbit menunggu penetapan nominal berikutnya oleh admin |
 | 8 | `cicilan-aktif@example.test` | Penghuni aktif; termin pertama lunas, termin kedua belum dibayar |
 
 ## Kategori penghuni dan kelayakan binaan
@@ -114,9 +114,9 @@ Password awal semua akun adalah **`password`**. Akun petugas dan daftar kredensi
 
 | Alur | Urutan peran | Hasil yang diperiksa |
 | --- | --- | --- |
-| Pendaftaran berbayar | Client → Admin Layanan → Client → Admin Layanan | Penempatan sesuai preferensi, invoice, pembayaran, status penghuni aktif, dan kwitansi |
-| KIPK / internasional gratis | Client → Admin Layanan | Penyesuaian subsidi, tagihan nol, penempatan, dan aktivasi hunian |
-| Cicilan | Client → Admin Layanan → Client | Jadwal termin, pembayaran pertama, aktivasi hunian, dan sisa kewajiban |
+| Pendaftaran berbayar | Client → Admin Layanan → Client → Admin Layanan | Reservasi 24 jam, invoice otomatis, pembayaran tanpa approval pendaftaran, aktivasi otomatis, dan kwitansi |
+| KIPK / internasional gratis | Client → Admin Layanan | Tagihan pribadi nol dengan piutang sponsor tercatat, pengesahan dan penempatan admin, aktivasi hunian |
+| Cicilan | Admin Layanan → Client → Admin Layanan | Nominal berikutnya + VA di halaman Invoice, pembayaran sesuai nominal, aktivasi otomatis, dan sisa utang |
 | Kerusakan | Penghuni → Teknisi → Pimpinan | Aset/lokasi spesifik, foto awal, proses pengerjaan, foto akhir, dan laporan |
 | Checkout | Penghuni → GO → Fasilitator | Pemeriksaan seluruh aset, temuan kerusakan, akhir penempatan, dan kapasitas kamar |
 | Surat bebas asrama modern | Penghuni setelah checkout → Sistem | Tidak ada kewajiban tersisa, surat dapat diunduh, dan akun nonaktif |

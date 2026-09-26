@@ -11,11 +11,13 @@ class Departemen extends BaseModel
 
     protected $fillable = ['faculty_id', 'name', 'code'];
 
+    /** @return BelongsTo<Faculty, $this> */
     public function faculty(): BelongsTo
     {
         return $this->belongsTo(Faculty::class);
     }
 
+    /** @return HasMany<Prodi, $this> */
     public function prodi(): HasMany
     {
         return $this->hasMany(Prodi::class);

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { usePage, router } from '@inertiajs/react';
+import { Link, usePage, router } from '@inertiajs/react';
+import { edit as profileEdit } from '@/routes/profile';
 import { ChevronDown, LogOut, Menu, Search } from 'lucide-react';
 import * as adminRoutes from '@/routes/admin';
 import * as adminLayananRoutes from '@/routes/admin_layanan';
@@ -315,6 +316,15 @@ function ShellInner({
                                     <span className="text-muted truncate text-xs">
                                         {currentUser.nim}
                                     </span>
+                                </li>
+                                <li>
+                                    <Link
+                                        href={profileEdit()}
+                                        role="menuitem"
+                                        onClick={() => setUserMenuOpen(false)}
+                                    >
+                                        Profil Saya
+                                    </Link>
                                 </li>
                                 <li className="pointer-events-none px-3 pb-2">
                                     <span className="badge badge-sm badge-outline badge-neutral">

@@ -5,9 +5,9 @@ use App\Http\Controllers\RolePageController;
 use Illuminate\Support\Facades\Route;
 
 $pages = [
-    'mahasiswa' => ['dashboard', 'registration', 'detail-kamar', 'pemetaan-kamar', 'tagihan', 'checkout', 'bebas-asrama', 'perizinan', 'jadwal', 'absensi', 'lapor-kerusakan'],
-    'admin' => ['dashboard', 'registration-review', 'mahasiswa', 'verifikasi-pembayaran', 'penempatan-kamar', 'pemetaan-kamar', 'kelola-bangunan', 'kelola-aset', 'approval-bebas-asrama', 'keuangan', 'kelola-profil', 'kelola-informasi', 'kelola-program', 'kelola-testimoni', 'jadwal-kegiatan', 'penilaian-teknisi', 'stok-aset', 'perizinan'],
-    'admin_layanan' => ['dashboard', 'mahasiswa', 'registration-review', 'verifikasi-pembayaran', 'penempatan-kamar', 'approval-bebas-asrama', 'keuangan', 'jadwal-kegiatan'],
+    'mahasiswa' => ['dashboard', 'registration', 'detail-kamar', 'tagihan', 'checkout', 'bebas-asrama', 'perizinan', 'jadwal', 'absensi', 'lapor-kerusakan'],
+    'admin' => ['residence-management', 'invoices', 'dashboard', 'registration-review', 'mahasiswa', 'verifikasi-pembayaran', 'penempatan-kamar', 'pemetaan-kamar', 'kelola-bangunan', 'kelola-aset', 'approval-bebas-asrama', 'keuangan', 'kelola-profil', 'kelola-informasi', 'kelola-program', 'kelola-testimoni', 'jadwal-kegiatan', 'penilaian-teknisi', 'stok-aset', 'perizinan'],
+    'admin_layanan' => ['residence-management', 'invoices', 'dashboard', 'mahasiswa', 'registration-review', 'verifikasi-pembayaran', 'penempatan-kamar', 'approval-bebas-asrama', 'keuangan', 'jadwal-kegiatan'],
     'fasilitator' => ['dashboard', 'jadwal-kegiatan', 'monitoring-kamar', 'checkout-approval', 'perizinan', 'kelola-aset'],
     'go' => ['dashboard', 'monitoring-kamar', 'checkout-inspection'],
     'admin_aset' => ['dashboard', 'pemetaan-kamar', 'kelola-bangunan', 'kelola-aset', 'stok-aset'],
@@ -34,6 +34,10 @@ Route::get('admin/master-data', MasterDataPageController::class)
     ->name('admin.master-data');
 
 $componentAliases = [
+    'admin_layanan.temporary-stays' => 'admin/temporary-stays',
+    'fasilitator.temporary-stays' => 'admin/temporary-stays',
+    'admin_layanan.residence-management' => 'admin/residence-management',
+    'admin_layanan.invoices' => 'admin/invoices',
     'fasilitator.kelola-aset' => 'admin/kelola-aset',
     'admin_aset.stok-aset' => 'admin/stok-aset',
     'admin_layanan.dashboard' => 'admin/dashboard',
@@ -56,6 +60,9 @@ $componentAliases = [
 ];
 
 foreach ($pages as $role => $rolePages) {
+    if (in_array($role, ['admin', 'admin_layanan', 'fasilitator'], true)) {
+        $rolePages[] = 'temporary-stays';
+    }
     $middlewareRole = $role === 'admin' ? 'staff_admin|superadmin' : $role;
 
     Route::prefix($role)->name($role.'.')->middleware('role:'.$middlewareRole)->group(function () use ($role, $rolePages, $componentAliases) {

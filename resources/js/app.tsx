@@ -4,7 +4,6 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { initializeTheme } from '@/hooks/use-appearance';
 import AppLayout from '@/layouts/app-layout';
 import AuthLayout from '@/layouts/auth-layout';
-import SettingsLayout from '@/layouts/settings/layout';
 import AndalasShellLayout from '@/andalas/ShellLayout';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
@@ -23,12 +22,11 @@ void createInertiaApp({
             case name.startsWith('admin_aset/'):
             case name.startsWith('go/'):
             case name.startsWith('orang_tua/'):
+            case name.startsWith('settings/'):
                 return [AndalasShellLayout];
             case name.startsWith('landing/'):
             case name.startsWith('auth/'):
                 return null;
-            case name.startsWith('settings/'):
-                return [AppLayout, SettingsLayout];
             default:
                 return AppLayout;
         }

@@ -48,8 +48,8 @@
             telah diselesaikan proses kliring asrama dan permohonan penerbitan Surat Keterangan Asrama melalui sistem Andalas Residence.
             Adapun identitas pemohon tersebut adalah sebagai berikut:</p>
         <table class="identity">
-            <tr><td class="label"><strong>Nama</strong></td><td class="colon">:</td><td><strong>{{ $mahasiswa->user->nama }}</strong></td></tr>
-            <tr><td><strong>NIM</strong></td><td>:</td><td><strong>{{ $mahasiswa->user->nim_nip }}</strong></td></tr>
+            <tr><td class="label"><strong>Nama</strong></td><td class="colon">:</td><td><strong>{{ $letter['nama'] ?? $mahasiswa->user->nama }}</strong></td></tr>
+            <tr><td><strong>NIM</strong></td><td>:</td><td><strong>{{ $letter['nim'] ?? $mahasiswa->user->nim_nip }}</strong></td></tr>
             <tr><td>Fakultas</td><td>:</td><td>{{ $letter['faculty'] }} / {{ $letter['program'] }}</td></tr>
             <tr><td>Status</td><td>:</td><td>{{ $letter['categoryLabel'] }} / {{ $letter['variant'] === 'not_resident' ? 'Tidak Tinggal Di Asrama' : ($letter['variant'] === 'paid' ? $letter['amount'] : 'Bebas Asrama') }}</td></tr>
             <tr><td>Kamar</td><td>:</td><td>{{ $letter['room'] }}</td></tr>
@@ -67,7 +67,7 @@
     <div class="signature">
         <p>Padang, {{ $letter['issuedAt']->translatedFormat('d F Y') }}</p>
         <p>Pengelola Asrama<br>Universitas Andalas</p>
-        <p class="signer">{{ config('residence.letter_signer') }}</p>
+        <p class="signer">{{ $letter['signer'] ?? config('residence.letter_signer') }}</p>
     </div>
     <div class="notice">
         Dilarang memalsukan dokumen. Jika terbukti melanggar, tindakan tersebut akan diproses sesuai dengan sanksi yang berlaku.<br>

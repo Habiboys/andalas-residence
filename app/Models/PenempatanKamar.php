@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class PenempatanKamar extends BaseModel
 {
@@ -13,6 +14,12 @@ class PenempatanKamar extends BaseModel
         'mahasiswa_id', 'kamar_id', 'periode_id', 'tanggal_mulai',
         'tanggal_selesai', 'status', 'diproses_oleh', 'catatan',
     ];
+
+    /** @return HasOne<ResidenceRegistration, $this> */
+    public function registration(): HasOne
+    {
+        return $this->hasOne(ResidenceRegistration::class, 'penempatan_kamar_id');
+    }
 
     protected function casts(): array
     {

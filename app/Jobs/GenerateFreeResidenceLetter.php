@@ -41,7 +41,7 @@ class GenerateFreeResidenceLetter implements ShouldBeUnique, ShouldQueue
 
         $application = $intent->pengajuan;
         $number = $application->nomor_surat_resmi ?: 'SBA-'.$application->nomor_pengajuan;
-        $path = 'documents/free-residence/'.strtolower($number).'.pdf';
+        $path = 'documents/free-residence/'.$intent->id.'.pdf';
         $contents = Pdf::loadView('pdf.surat-bebas-asrama', [
             'pengajuan' => $application,
             'mahasiswa' => $application->mahasiswa,
@@ -59,10 +59,8 @@ class GenerateFreeResidenceLetter implements ShouldBeUnique, ShouldQueue
             'failure_reason' => null,
         ]);
         $application->update(['file_surat_path' => $path]);
-        $application->mahasiswa->update(['status_huni' => 'keluar']);
-        $application->mahasiswa->user->update(['status' => 'nonaktif']);
 
-        $application->mahasiswa->user->notify(new DocumentReadyNotification('surat_bebas_asrama', $number, $path));
+        $application->mahasiswa->user->notify(new DocumentReadyNotification($application->document_kind ?? 'surat_bebas_asrama', $number, $path));
     }
 
     public function failed(?Throwable $exception): void

@@ -27,7 +27,6 @@ class ResidenceRegistrationController extends Controller
             $request->user(),
             ResidenceRegistrationStatus::from($validated['status']),
             $validated['notes'] ?? null,
-            $validated['kamar_id'] ?? null,
         );
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Status pendaftaran berhasil diperbarui.']);

@@ -30,16 +30,28 @@ export default function MahasiswaDashboard({
 }) {
     const { currentUser } = useAuth();
     const [welcomeOpen, setWelcomeOpen] = useState(true);
+    const hasLeft = currentUser?.status_huni === 'keluar';
+    const legacyCandidate =
+        currentUser?.status_huni === 'calon' &&
+        Boolean(currentUser?.angkatan) &&
+        Number(currentUser?.angkatan) <= 2025;
+    const letterPriority = hasLeft || legacyCandidate;
+    const showServices = currentUser?.needs_service_selection || hasLeft;
     const services = (
         <div className="grid gap-3 sm:grid-cols-2">
             <Link
-                className="border-base-300 hover:border-primary rounded-lg border p-4"
+                className={`border-base-300 hover:border-primary rounded-lg border p-4 ${letterPriority ? 'order-2' : ''}`}
                 href={registration.url()}
             >
-                <h3 className="font-semibold">Pilih kamar / daftar asrama</h3>
+                <h3 className="font-semibold">
+                    {letterPriority
+                        ? 'Daftar hunian kembali'
+                        : 'Pilih kamar / daftar asrama'}
+                </h3>
                 <p className="text-muted mt-1 text-sm">
-                    Ajukan hunian, pantau pendaftaran dan lanjutkan pembayaran.
-                    Peserta KIPK ditempatkan oleh admin.
+                    {letterPriority
+                        ? 'Gunakan hanya jika ingin tinggal di asrama lagi. Tidak diperlukan untuk mengurus surat.'
+                        : 'Ajukan hunian, pantau pendaftaran dan lanjutkan pembayaran. Peserta KIPK ditempatkan oleh admin.'}
                 </p>
             </Link>
             <Link
@@ -48,8 +60,9 @@ export default function MahasiswaDashboard({
             >
                 <h3 className="font-semibold">Layanan bebas asrama</h3>
                 <p className="text-muted mt-1 text-sm">
-                    Ajukan surat sesuai riwayat hunian dan status pembayaran
-                    Anda.
+                    {letterPriority
+                        ? 'Urus surat sesuai riwayat hunian dan pelunasan, tanpa mendaftar kamar kembali.'
+                        : 'Ajukan surat sesuai riwayat hunian dan status pembayaran Anda.'}
                 </p>
             </Link>
         </div>
@@ -69,7 +82,11 @@ export default function MahasiswaDashboard({
         <div className="space-y-6">
             <PageHeader
                 title={`Halo, ${currentUser?.nama?.split(' ')[0] ?? 'Mahasiswa'}`}
-                subtitle="Ringkasan hunian dan tagihan Anda"
+                subtitle={
+                    letterPriority
+                        ? 'Layanan surat bebas asrama dan sisa kewajiban Anda'
+                        : 'Ringkasan hunian dan tagihan Anda'
+                }
             />
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <StatCard
@@ -88,18 +105,22 @@ export default function MahasiswaDashboard({
                     color="green"
                 />
             </div>
-            {currentUser?.needs_service_selection && (
+            {showServices && (
                 <>
                     <section aria-label="Pilihan layanan">{services}</section>
                     <Modal
-                        open={welcomeOpen}
+                        open={
+                            welcomeOpen &&
+                            Boolean(currentUser?.needs_service_selection)
+                        }
                         onClose={() => setWelcomeOpen(false)}
                         title="Selamat datang di Andalas Residence"
                     >
                         <p className="text-muted mb-4 text-sm">
                             Akun Anda sudah siap. Silakan pilih layanan yang
-                            ingin digunakan. Pilihan ini tetap tersedia di
-                            dashboard sampai Anda menjadi penghuni aktif.
+                            ingin digunakan. Jika hanya membutuhkan surat bebas
+                            asrama, langsung pilih layanan surat tanpa mendaftar
+                            hunian kembali.
                         </p>
                         {services}
                     </Modal>
@@ -119,7 +140,7 @@ export default function MahasiswaDashboard({
                         description: 'Detail penempatan dan masa tinggal',
                         href: detailKamar.url(),
                         icon: BedDouble,
-                        visible: true,
+                        visible: currentUser?.status_huni === 'aktif',
                     },
                     {
                         title: 'Scan QR / Absensi',
@@ -129,7 +150,6 @@ export default function MahasiswaDashboard({
                         href: absensi.url(),
                         icon: QrCode,
                         visible:
-                            currentUser?.status_huni === 'aktif' ||
                             currentUser?.attendance_eligible,
                     },
                     {
@@ -158,7 +178,7 @@ export default function MahasiswaDashboard({
                     ))}
             </div>
             <Card className="p-5">
-                <h3 className="mb-2 font-semibold">Info Kamar</h3>
+                <h3 className="mb-2 font-semibold">Info akun</h3>
                 <p className="text-muted text-sm">
                     Prodi: {currentUser?.prodi ?? '-'} | Angkatan:{' '}
                     {currentUser?.angkatan ?? '-'}
@@ -166,10 +186,12 @@ export default function MahasiswaDashboard({
                         ? ` | ${currentUser.student_stage}`
                         : ''}
                 </p>
-                <p className="text-muted mt-1 text-sm">
-                    Okupansi asrama: {stats?.okupansi.total_kamar ?? 0} kamar
-                    total
-                </p>
+                {currentUser?.status_huni === 'aktif' && (
+                    <p className="text-muted mt-1 text-sm">
+                        Okupansi asrama: {stats?.okupansi.total_kamar ?? 0}{' '}
+                        kamar total
+                    </p>
+                )}
             </Card>
         </div>
     );

@@ -74,10 +74,7 @@ const MAHASISWA_NAV: NavGroup[] = [
     },
     {
         group: 'Hunian',
-        items: [
-            { label: 'Kamar Saya', page: 'detail-kamar', icon: BedDouble },
-            { label: 'Pemetaan', page: 'pemetaan-kamar', icon: Map },
-        ],
+        items: [{ label: 'Kamar Saya', page: 'detail-kamar', icon: BedDouble }],
     },
     {
         group: 'Keuangan',
@@ -93,7 +90,11 @@ const MAHASISWA_NAV: NavGroup[] = [
     {
         group: 'Pengajuan',
         items: [
-            { label: 'Bebas Asrama', page: 'bebas-asrama', icon: FileText },
+            {
+                label: 'Surat Keterangan Asrama',
+                page: 'bebas-asrama',
+                icon: FileText,
+            },
             { label: 'Perizinan', page: 'perizinan', icon: ArrowRightLeft },
         ],
     },
@@ -116,6 +117,25 @@ const MAHASISWA_NAV: NavGroup[] = [
 ];
 
 const ADMIN_LAYANAN_NAV: NavGroup[] = [
+    {
+        items: [
+            {
+                label: 'Hunian Sementara',
+                page: 'temporary-stays',
+                icon: BedDouble,
+            },
+        ],
+    },
+    {
+        items: [
+            {
+                label: 'Pengaturan Layanan',
+                page: 'residence-management',
+                icon: Building2,
+            },
+            { label: 'Invoice', page: 'invoices', icon: CreditCard },
+        ],
+    },
     { items: [{ label: 'Dashboard Layanan', page: 'dashboard', icon: Home }] },
     {
         group: 'Layanan',
@@ -183,6 +203,15 @@ const GO_NAV: NavGroup[] = [
 ];
 
 const FASILITATOR_NAV: NavGroup[] = [
+    {
+        items: [
+            {
+                label: 'Hunian Sementara',
+                page: 'temporary-stays',
+                icon: BedDouble,
+            },
+        ],
+    },
     { items: [{ label: 'Beranda', page: 'dashboard', icon: Home }] },
     {
         group: 'Absensi',
@@ -209,6 +238,25 @@ const FASILITATOR_NAV: NavGroup[] = [
 ];
 
 const ADMIN_NAV: NavGroup[] = [
+    {
+        items: [
+            {
+                label: 'Hunian Sementara',
+                page: 'temporary-stays',
+                icon: BedDouble,
+            },
+        ],
+    },
+    {
+        items: [
+            {
+                label: 'Pengaturan Layanan',
+                page: 'residence-management',
+                icon: Building2,
+            },
+            { label: 'Invoice', page: 'invoices', icon: CreditCard },
+        ],
+    },
     { items: [{ label: 'Dashboard', page: 'dashboard', icon: Home }] },
     { items: [{ label: 'Data Master', page: 'master-data', icon: Database }] },
     {
@@ -380,9 +428,8 @@ export default function Sidebar({
                     (item.page !== 'perizinan' ||
                         !['staff_admin', 'admin_layanan'].includes(role)) &&
                     (role !== 'mahasiswa' ||
-                        ((item.page !== 'absensi' ||
-                            attendanceEligible ||
-                            activeResident) &&
+                        ((!['absensi', 'perizinan'].includes(item.page) ||
+                            attendanceEligible) &&
                             (!['lapor-kerusakan', 'checkout'].includes(
                                 item.page,
                             ) ||

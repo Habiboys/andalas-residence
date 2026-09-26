@@ -21,6 +21,9 @@ class ResidenceScenarioSeeder extends Seeder
             foreach (self::scenarios() as $index => $scenario) {
                 $this->resident($index + 1, ...$scenario);
             }
+            $this->kipkRoster();
+            $this->legacyArchives();
+            $this->invoiceGroups();
         });
 
         $this->command?->info('Akun skenario: <nama-skenario>@example.test; password: password. VA DEMO tidak dapat digunakan membayar.');
@@ -110,7 +113,7 @@ class ResidenceScenarioSeeder extends Seeder
         }
         $year = max(2026, now()->year);
         Models\Periode::firstOrCreate(['nama_periode' => 'DEMO '.$year.'/'.($year + 1)], [
-            'status' => 'aktif', 'tanggal_mulai' => now()->subMonths(2)->toDateString(), 'tanggal_selesai' => now()->addMonths(10)->toDateString(),
+            'status' => Models\Periode::where('status', 'aktif')->exists() ? 'nonaktif' : 'aktif', 'angkatan_maba' => $year, 'tanggal_mulai' => now()->subMonths(2)->toDateString(), 'tanggal_selesai' => now()->addMonths(10)->toDateString(),
         ]);
         foreach (['superadmin', 'pimpinan', 'staff_admin', 'admin_layanan', 'admin_aset', 'fasilitator', 'teknisi', 'go', 'orang_tua'] as $index => $role) {
             $user = Models\User::firstOrCreate(['email' => $role.'@example.test'], [
@@ -157,9 +160,55 @@ class ResidenceScenarioSeeder extends Seeder
                 Models\FasilitatorWilayah::firstOrCreate(['user_id' => $facilitator->id], ['gedung_id' => $building->id]);
             }
         }
-        foreach ([2023 => 1200000, 2024 => 1350000, 2025 => 1500000] as $year => $amount) {
-            Models\LegacyResidenceRate::firstOrCreate(['angkatan' => $year], ['jumlah' => $amount]);
+        foreach (['P', 'W', 'T'] as $code) {
+            $building = Models\Gedung::where('kode_gedung', 'DEMO-'.$code)->firstOrFail();
+            foreach (['reguler' => 1500000, 'premium' => 2000000] as $type => $amount) {
+                Models\ResidenceRate::firstOrCreate(['gedung_id' => $building->id, 'tipe_kamar' => $type, 'unit' => 'period'], ['amount' => $amount]);
+                Models\ResidenceRate::firstOrCreate(['gedung_id' => $building->id, 'tipe_kamar' => $type, 'unit' => 'day'], ['amount' => $type === 'premium' ? 100000 : 75000]);
+            }
         }
+        foreach ([2023 => 1200000, 2024 => 1350000, 2025 => 1500000] as $year => $amount) {
+            Models\LegacyResidenceRate::firstOrCreate(['angkatan' => $year, 'gedung_id' => Models\Gedung::where('kode_gedung', 'DEMO-P')->value('id')], ['jumlah' => $amount]);
+        }
+    }
+
+    private function kipkRoster(): void
+    {
+        Models\MahasiswaProfil::with('user')->whereHas('user', fn ($query) => $query->where('client_profile_category', 'local_kipk')
+            ->whereIn('email', ['mahasiswa.kipk@unand.ac.id', 'kipk-penempatan@example.test', 'kipk-aktif@example.test']))->get()
+            ->each(fn (Models\MahasiswaProfil $student) => Models\KipkRecipient::firstOrCreate(
+                ['nim' => $student->user->nim_nip, 'angkatan' => (int) $student->angkatan],
+                ['nama' => $student->user->nama],
+            ));
+    }
+
+    private function legacyArchives(): void
+    {
+        $building = Models\Gedung::where('kode_gedung', 'DEMO-P')->firstOrFail();
+        foreach (['legacy-lunas', 'legacy-belum-lunas', 'legacy-ditolak'] as $name) {
+            $student = self::student($name);
+            Models\LegacyResident::firstOrCreate(['nim' => $student->user->nim_nip], [
+                'nama' => $student->user->nama, 'angkatan' => (int) $student->angkatan, 'gedung_id' => $building->id,
+                'checked_out_at' => now()->subMonths(6)->toDateString(), 'notes' => 'Arsip alumni demonstrasi.',
+                'recorded_by' => self::staff('admin_layanan')->id,
+            ]);
+        }
+    }
+
+    private function invoiceGroups(): void
+    {
+        $student = self::student('tagihan-belum-bayar');
+        $invoice = $student->residenceRegistrations()->firstOrFail()->tagihan;
+        $remaining = (float) $invoice->total - (float) $invoice->total_dibayar;
+        $group = Models\InvoiceGroup::firstOrCreate(['nomor' => 'DEMO-INV-GAB-01'], [
+            'payer_type' => 'personal', 'invoice_ids' => [$invoice->id],
+            'snapshot' => ['recipient' => 'Penerima Demo', 'institution' => 'Universitas Andalas', 'date' => now()->toDateString(), 'total' => $remaining, 'rows' => []],
+            'created_by' => self::staff('admin_layanan')->id,
+        ]);
+        Models\SponsorPayment::firstOrCreate(['reference' => 'DEMO-SPONSOR-PAY-01'], [
+            'invoice_group_id' => $group->id, 'allocations' => [['tagihan_id' => $invoice->id, 'jumlah' => $remaining]],
+            'payer_type' => 'personal', 'recorded_by' => self::staff('admin_layanan')->id,
+        ]);
     }
 
     private function resident(int $index, string $name, string $category, string $state): void
@@ -203,11 +252,18 @@ class ResidenceScenarioSeeder extends Seeder
             throw new \LogicException('Kapasitas kamar demo tidak mencukupi.');
         }
         $status = in_array($state, ['draft', 'submitted', 'rejected']) ? $state : ($active ? 'accepted' : 'verified');
+        $sponsored = in_array($category, ['local_kipk', 'international_free_facility'], true);
+        $reserved = ! $active && ! in_array($status, ['draft', 'rejected'], true);
         $registration = Models\ResidenceRegistration::create([
             'student_profile_id' => $student->id, 'periode_id' => $period->id, 'status' => $status, 'is_kipk' => $category === 'local_kipk',
             'submitted_at' => $status !== 'draft' ? now()->subDays(35) : null,
             'reviewed_by' => in_array($status, ['verified', 'accepted', 'rejected']) ? self::staff('admin_layanan')->id : null,
             'reviewed_at' => in_array($status, ['verified', 'accepted', 'rejected']) ? now()->subDays(34) : null,
+            'reserved_room_id' => $reserved ? $room->id : null,
+            'reservation_expires_at' => $reserved ? now()->addDay() : null,
+            'starts_at' => $period->tanggal_mulai, 'ends_at' => $period->tanggal_selesai, 'rate_unit' => 'period',
+            'funding' => $sponsored ? 'sponsor' : 'personal', 'sponsor_name' => $sponsored ? 'Demo Penanggung Biaya' : null,
+            'sponsor_approved_at' => $sponsored && $status === 'accepted' ? now()->subDays(34) : null,
             'notes' => $status === 'rejected' ? 'DEMO: bukti kelulusan tidak terbaca, silakan lengkapi dokumen.' : 'Skenario pengujian '.$name,
         ]);
         if ($category !== 'local_kipk') {
@@ -258,7 +314,7 @@ class ResidenceScenarioSeeder extends Seeder
         foreach (Models\PembayaranTagihan::where('mahasiswa_id', $student->id)->get() as $payment) {
             self::billingDocument($invoice, 'receipt', $payment);
         }
-        if ($active) {
+        if ($active && ! $sponsored) {
             self::billingDocument($invoice, 'residence_receipt');
         }
     }
@@ -272,8 +328,6 @@ class ResidenceScenarioSeeder extends Seeder
             'nomor' => 'DEMO-INV-'.$name, 'mahasiswa_id' => $student->id, 'status' => $total === $paid ? 'lunas' : ($paid > 0 ? 'sebagian' : 'terbit'),
             'mata_uang' => 'IDR', 'tanggal_terbit' => now()->subDays(34), 'jatuh_tempo' => $state === 'unpaid' ? now()->subDays(3) : now()->addMonth(),
             'subtotal' => $amount, 'total_penyesuaian' => $subsidized ? -$amount : 0, 'total' => $total, 'total_dibayar' => $paid,
-            'cicilan_diminta_at' => in_array($state, ['partial', 'installment_requested']) ? now()->subDays(32) : null,
-            'alasan_cicilan' => in_array($state, ['partial', 'installment_requested']) ? 'DEMO: permohonan pembayaran dua termin.' : null,
         ]);
         Models\TagihanItem::create(['tagihan_id' => $invoice->id, 'deskripsi' => 'Biaya hunian satu periode (demo)', 'kuantitas' => 1, 'harga_satuan' => $amount, 'jumlah' => $amount]);
         if ($subsidized) {

@@ -10,6 +10,8 @@ use App\Jobs\GenerateFreeResidenceLetter;
 use App\Models\PengajuanBebasAsrama;
 use App\Models\Tagihan;
 use App\Models\User;
+use App\Services\FreeResidenceLetterFormat;
+use App\Services\ResidenceLifecycle;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -31,9 +33,30 @@ class ApproveFreeResidenceLetter
                 throw ValidationException::withMessages(['status' => 'Pengajuan harus diverifikasi sebelum disetujui.']);
             }
 
-            $application->lifecycle_year <= 2025
-                ? $this->validateLegacy($application)
-                : $this->validateModern($application);
+            $student = $application->mahasiswa()->lockForUpdate()->firstOrFail();
+            $life = app(ResidenceLifecycle::class);
+            if ($student->penempatanKamar()->where('status', 'aktif')->exists() || $life->hasDebt($student)) {
+                throw ValidationException::withMessages(['status' => 'Hunian harus berakhir dan seluruh tagihan pribadi harus lunas.']);
+            }
+            if ($application->legacy_verification_path === LegacyFreeResidenceVerificationPath::NotAlumni) {
+                if ($life->hasStayed($student)) {
+                    throw ValidationException::withMessages(['status' => 'Riwayat hunian ditemukan. Gunakan jalur alumni.']);
+                }
+                $application->document_kind = 'not_resident';
+            } elseif ($application->checkout_request_id) {
+                $this->validateModern($application);
+                $application->document_kind = 'free_residence';
+            } else {
+                $this->validateLegacy($application);
+                $application->document_kind = 'free_residence';
+            }
+            $application->approved_at = now();
+            $snapshot = app(FreeResidenceLetterFormat::class)->data($application);
+            $snapshot['issuedAt'] = $snapshot['issuedAt']->toIso8601String();
+            $snapshot['nama'] = $student->user->nama;
+            $snapshot['nim'] = $student->user->nim_nip;
+            $snapshot['signer'] = config('residence.letter_signer');
+            $application->document_snapshot = $snapshot;
 
             $application->update([
                 'status' => FreeResidenceLetterStatus::Disetujui,
@@ -44,7 +67,7 @@ class ApproveFreeResidenceLetter
                 'status' => FreeResidenceLetterStatus::Disetujui,
                 'changed_by' => $approver?->id,
             ]);
-            $application->mahasiswa->user->update(['status' => 'nonaktif']);
+            $application->mahasiswa->user->update(['status' => 'nonaktif', 'inactive_reason' => 'letter_issued']);
             $intent = $application->documentIntent()->firstOrCreate([], [
                 'status' => 'pending',
                 'requested_at' => now(),
@@ -57,28 +80,15 @@ class ApproveFreeResidenceLetter
 
     private function validateLegacy(PengajuanBebasAsrama $application): void
     {
-        if ($application->mahasiswa->penempatanKamar()->where('status', 'aktif')->exists()
-            || Tagihan::where('mahasiswa_id', $application->mahasiswa_id)->where('status', '!=', TagihanStatus::Batal)->whereColumn('total', '>', 'total_dibayar')->exists()) {
-            throw ValidationException::withMessages(['status' => 'Hunian harus berakhir dan semua tagihan dalam sistem harus lunas sebelum surat diterbitkan.']);
+        if (! app(ResidenceLifecycle::class)->legacy($application->mahasiswa)) {
+            throw ValidationException::withMessages(['legacy' => 'Lengkapi arsip alumni lama terlebih dahulu.']);
         }
-
-        if (! $application->legacy_verification_path) {
-            throw ValidationException::withMessages(['legacy_verification_path' => 'Jalur verifikasi admin wajib dipilih.']);
+        if (! $application->tagihan || $application->tagihan->status !== TagihanStatus::Lunas) {
+            throw ValidationException::withMessages(['tagihan_id' => 'Tagihan alumni harus lunas.']);
         }
-
         if ($application->legacy_verification_path === LegacyFreeResidenceVerificationPath::AlumniPaid
             && (! $application->payment_evidence_path || ! $application->bank_statement_path)) {
             throw ValidationException::withMessages(['payment_evidence_path' => 'Bukti pembayaran dan rekening koran wajib tersedia.']);
-        }
-
-        if ($application->legacy_verification_path === LegacyFreeResidenceVerificationPath::AlumniUnpaid
-            && (! $application->tagihan || $application->tagihan->status !== TagihanStatus::Lunas)) {
-            throw ValidationException::withMessages(['tagihan_id' => 'Tagihan alumni harus dilunasi sebelum surat diterbitkan.']);
-        }
-
-        if ($application->legacy_verification_path === LegacyFreeResidenceVerificationPath::NotAlumni
-            && ($application->mahasiswa->penempatanKamar()->exists() || $application->mahasiswa->residenceHistories()->exists())) {
-            throw ValidationException::withMessages(['legacy_verification_path' => 'Riwayat hunian ditemukan. Mahasiswa tercatat sebagai alumni asrama.']);
         }
     }
 

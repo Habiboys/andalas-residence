@@ -7,6 +7,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
 
 /**
+ * @property StatusIzinPulang $status
+ * @property string|null $dokumen_path
+ * @property string|null $sampai_foto_path
+ * @property string|null $kembali_foto_path
+ * @property Carbon $tanggal_mulai
+ * @property Carbon $tanggal_kembali
  * @property Carbon|null $berangkat_pada
  * @property Carbon|null $kembali_pada
  * @property Carbon|null $rencana_kembali_pada
@@ -43,6 +49,7 @@ class PengajuanIzinPulang extends BaseModel
         return $this->belongsTo(MahasiswaProfil::class, 'mahasiswa_id');
     }
 
+    /** @return BelongsTo<Gedung, $this> */
     public function gedung(): BelongsTo
     {
         return $this->belongsTo(Gedung::class);

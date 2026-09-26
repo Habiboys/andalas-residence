@@ -9,6 +9,7 @@ use App\Models\Aset;
 use App\Models\CheckoutRequest;
 use App\Models\Kamar;
 use App\Models\PenempatanKamar;
+use App\Services\ResidenceLifecycle;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -44,6 +45,10 @@ class CompleteCheckout
 
             if ($placement->status !== 'aktif') {
                 throw ValidationException::withMessages(['placement' => 'Penempatan kamar sudah tidak aktif.']);
+            }
+
+            if (app(ResidenceLifecycle::class)->hasDebt($request->mahasiswa)) {
+                throw ValidationException::withMessages(['checkout' => 'Seluruh tagihan pribadi harus lunas sebelum checkout.']);
             }
 
             $placement->update(['status' => 'berakhir', 'tanggal_selesai' => now()->toDateString()]);

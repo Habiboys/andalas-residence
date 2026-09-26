@@ -43,7 +43,7 @@ Seluruh akun pada tabel ini memakai role sistem `mahasiswa`, termasuk client int
 | 4 | `tagihan-belum-bayar@example.test` | `2699000004` | Lokal non-KIPK | Tagihan belum dibayar dan sudah melewati jatuh tempo saat seed |
 | 5 | `bayar-verifikasi@example.test` | `2699000005` | Lokal non-KIPK | Bukti pembayaran menunggu verifikasi admin; pendaftaran masih verified |
 | 6 | `bayar-ditolak@example.test` | `2699000006` | Lokal non-KIPK | Pembayaran ditolak; baca alasan dan unggah pembayaran yang sesuai |
-| 7 | `cicilan-pengajuan@example.test` | `2699000007` | Lokal non-KIPK | Permohonan cicilan menunggu penetapan jadwal oleh admin |
+| 7 | `cicilan-pengajuan@example.test` | `2699000007` | Lokal non-KIPK | Tagihan terbit menunggu penetapan nominal berikutnya oleh admin |
 | 8 | `cicilan-aktif@example.test` | `2699000008` | Lokal non-KIPK | Penghuni aktif; termin pertama lunas, termin kedua belum dibayar |
 | 9 | `binaan-aktif@example.test` | `2699000009` | Lokal non-KIPK | Penghuni tahun pertama; memenuhi kelayakan absensi saat seed; terhubung ke orang tua demo |
 | 10 | `kipk-penempatan@example.test` | `2699000010` | Lokal KIPK | Tagihan nol dengan subsidi KIPK; menunggu penerimaan dan penempatan admin |
@@ -120,7 +120,7 @@ Akun berikut berasal dari seeder dasar. Akun-akun ini tidak memiliki rangkaian s
 | Pendaftaran | `daftar-draft@example.test` | `admin_layanan@example.test` | Ajukan pendaftaran, review, pilih penempatan yang tersedia, lalu selesaikan pembayaran |
 | Verifikasi pembayaran | `bayar-verifikasi@example.test` | `admin_layanan@example.test` | Terima pendaftaran dan tentukan kamar dari preferensinya, lalu verifikasi pembayaran; periksa status hunian dan kwitansi |
 | Subsidi KIPK | `kipk-penempatan@example.test` | `admin_layanan@example.test` | Terima dan tempatkan penghuni; periksa tagihan nol dan aktivasi hunian |
-| Cicilan | `cicilan-pengajuan@example.test` / `cicilan-aktif@example.test` | `admin_layanan@example.test` | Tetapkan jadwal atau lanjutkan pembayaran termin yang belum lunas |
+| Cicilan | `cicilan-pengajuan@example.test` / `cicilan-aktif@example.test` | `admin_layanan@example.test` | Admin menetapkan nominal pembayaran berikutnya dan VA di halaman Invoice, lalu lanjutkan pembayaran termin yang belum lunas |
 | Kerusakan | `binaan-aktif@example.test` / `penghuni-01@example.test` | `teknisi@example.test` | Laporkan aset tertentu, mulai pengerjaan, unggah foto sesudah dan catatan penyelesaian |
 | Checkout | `checkout-pengajuan@example.test` | `go@example.test`, lalu `fasilitator@unand.ac.id` (DEMO-P) | GO memeriksa seluruh aset kamar; fasilitator menyelesaikan checkout |
 | Surat modern | `checkout-selesai@example.test` | Otomatis berdasarkan data sistem | Ajukan surat setelah checkout selesai dan tagihan lunas |

@@ -6,9 +6,9 @@ use App\Actions\Fortify\CreateNewUser;
 use App\Actions\Fortify\ResetUserPassword;
 use App\Http\Responses\LoginResponse;
 use App\Http\Responses\RegisterResponse;
-use App\Models\Prodi;
-use App\Models\Faculty;
 use App\Models\Departemen;
+use App\Models\Faculty;
+use App\Models\Prodi;
 use App\Models\User;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -63,7 +63,7 @@ class FortifyServiceProvider extends ServiceProvider
                 ->orWhere('nim_nip', $login)
                 ->first();
 
-            if ($user && Hash::check($request->password, $user->password)) {
+            if ($user && ($user->status === 'aktif' || $user->inactive_reason === 'letter_issued') && Hash::check($request->password, $user->password)) {
                 return $user;
             }
 

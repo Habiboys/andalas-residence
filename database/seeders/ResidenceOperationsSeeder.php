@@ -139,7 +139,8 @@ class ResidenceOperationsSeeder extends Seeder
             $file = $approved ? 'demo/documents/surat-bebas-'.$name.'.pdf' : null;
             $invoice = null;
             if ($path === 'alumni_unpaid') {
-                $amount = (int) Models\LegacyResidenceRate::where('angkatan', $student->angkatan)->firstOrFail()->jumlah;
+                $archive = Models\LegacyResident::where('nim', $student->user->nim_nip)->firstOrFail();
+                $amount = (int) Models\LegacyResidenceRate::where('angkatan', $student->angkatan)->where('gedung_id', $archive->gedung_id)->firstOrFail()->jumlah;
                 $invoice = (new ResidenceScenarioSeeder)->billing($student, $name, 'unpaid', 'local_non_kipk', $amount);
                 ResidenceScenarioSeeder::billingDocument($invoice, 'invoice');
             }
@@ -162,7 +163,7 @@ class ResidenceOperationsSeeder extends Seeder
                 $contents = Pdf::loadView('pdf.surat-bebas-asrama', ['pengajuan' => $request, 'mahasiswa' => $student, 'documentNumber' => $request->nomor_surat_resmi])->setPaper('a4')->output();
                 Storage::disk('local')->put($file, $contents);
                 gc_collect_cycles();
-                $student->user->update(['status' => 'nonaktif']);
+                $student->user->update(['status' => 'nonaktif', 'inactive_reason' => 'letter_issued']);
                 $student->update(['status_huni' => 'keluar']);
                 Models\FreeResidenceLetterDocumentIntent::create(['pengajuan_id' => $request->id, 'status' => 'ready', 'nomor' => $request->nomor_surat_resmi,
                     'path' => $file, 'checksum_sha256' => hash('sha256', $contents), 'template_version' => FreeResidenceLetterFormat::VERSION, 'requested_at' => now()->subDay(), 'generated_at' => now()->subDay()]);

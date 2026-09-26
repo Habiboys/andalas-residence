@@ -7,8 +7,13 @@ use Database\Factories\ResidenceRegistrationFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 
 /**
+ * @property Carbon|null $starts_at
+ * @property Carbon|null $ends_at
+ * @property Carbon|null $reservation_expires_at
+ * @property Carbon|null $sponsor_approved_at
  * @property ResidenceRegistrationStatus $status
  */
 class ResidenceRegistration extends BaseModel
@@ -17,6 +22,7 @@ class ResidenceRegistration extends BaseModel
     use HasFactory;
 
     protected $fillable = [
+        'stay_kind', 'ended_at',
         'student_profile_id',
         'periode_id',
         'status',
@@ -24,6 +30,7 @@ class ResidenceRegistration extends BaseModel
         'submitted_at',
         'reviewed_by',
         'reviewed_at',
+        'reserved_room_id', 'reservation_expires_at', 'starts_at', 'ends_at', 'rate_unit', 'funding', 'sponsor_name', 'sponsor_approved_at',
         'notes', 'tagihan_id', 'completed_at', 'penempatan_kamar_id',
     ];
 
@@ -57,11 +64,13 @@ class ResidenceRegistration extends BaseModel
         return $this->hasMany(ResidenceRegistrationStatusHistory::class);
     }
 
+    /** @return BelongsTo<PenempatanKamar, $this> */
     public function placement(): BelongsTo
     {
         return $this->belongsTo(PenempatanKamar::class, 'penempatan_kamar_id');
     }
 
+    /** @return BelongsTo<Tagihan, $this> */
     public function tagihan(): BelongsTo
     {
         return $this->belongsTo(Tagihan::class);
@@ -70,8 +79,13 @@ class ResidenceRegistration extends BaseModel
     protected function casts(): array
     {
         return [
+            'ended_at' => 'datetime',
             'status' => ResidenceRegistrationStatus::class,
             'is_kipk' => 'boolean',
+            'reservation_expires_at' => 'datetime',
+            'starts_at' => 'date',
+            'ends_at' => 'date',
+            'sponsor_approved_at' => 'datetime',
             'submitted_at' => 'datetime',
             'reviewed_at' => 'datetime',
             'completed_at' => 'datetime',

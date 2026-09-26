@@ -11,6 +11,9 @@ type RoleKey =
     | 'pimpinan';
 
 const ADMIN_PAGES: Record<string, string> = {
+    'temporary-stays': 'Hunian Sementara',
+    'residence-management': 'Pengaturan Layanan',
+    invoices: 'Invoice',
     perizinan: 'Monitoring Perizinan',
     'stok-aset': 'Stok Aset Keseluruhan',
     'registration-review': 'Review Pendaftaran',
@@ -41,14 +44,14 @@ const MAHASISWA_PAGES: Record<string, string> = {
     'detail-kamar': 'Detail Kamar',
     absensi: 'Absensi Kegiatan',
     'bebas-asrama': 'Pengajuan Bebas Asrama',
-    'perizinan': 'Perizinan',
+    perizinan: 'Perizinan',
     'lapor-kerusakan': 'Laporkan Kerusakan',
     jadwal: 'Jadwal Kegiatan',
-    'pemetaan-kamar': 'Pemetaan Kamar',
     checkout: 'Pengajuan Check-out',
 };
 
 const FASILITATOR_PAGES: Record<string, string> = {
+    'temporary-stays': 'Hunian Sementara',
     perizinan: 'Monitoring Perizinan',
     'kelola-aset': 'Aset per Kamar',
     'jadwal-kegiatan': 'Kegiatan & Absensi',
@@ -65,6 +68,9 @@ const TEKNISI_PAGES: Record<string, string> = {
 };
 
 const ADMIN_LAYANAN_PAGES: Record<string, string> = {
+    'temporary-stays': 'Hunian Sementara',
+    'residence-management': 'Pengaturan Layanan',
+    invoices: 'Invoice',
     dashboard: 'Dashboard Layanan',
     'data-mahasiswa': 'Data Mahasiswa',
     'verifikasi-pembayaran': 'Verifikasi Pembayaran',

@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * @property RoomInspectionStatus $status
+ * @property list<array<string, mixed>>|null $asset_checks
  */
 class RoomInspection extends BaseModel
 {

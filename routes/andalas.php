@@ -8,6 +8,7 @@ use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\DepartemenController;
 use App\Http\Controllers\FakultasController;
 use App\Http\Controllers\GedungController;
+use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\KamarController;
 use App\Http\Controllers\KategoriTransaksiController;
 use App\Http\Controllers\KegiatanController;
@@ -22,10 +23,13 @@ use App\Http\Controllers\PeriodeController;
 use App\Http\Controllers\PerizinanController;
 use App\Http\Controllers\ProdiController;
 use App\Http\Controllers\ProvinsiController;
+use App\Http\Controllers\ResidenceManagementController;
 use App\Http\Controllers\ResidenceRegistrationController;
 use App\Http\Controllers\StokAsetController;
 use App\Http\Controllers\TeknisiController;
+use App\Http\Controllers\TemporaryStayController;
 use App\Http\Controllers\TiketController;
+use App\Http\Middleware\EnsureResidenceAccountAccess;
 use Illuminate\Support\Facades\Route;
 
 // ─── Public landing pages ────────────────────────────────────────────────────
@@ -37,7 +41,7 @@ Route::get('/program', [LandingController::class, 'programIndex'])->name('landin
 Route::get('/program/{program}', [LandingController::class, 'programDetail'])->name('landing.program.detail');
 Route::get('/kontak', [LandingController::class, 'kontak'])->name('landing.kontak');
 
-Route::middleware(['auth', 'verified'])->group(function () {
+Route::middleware(['auth', 'verified', EnsureResidenceAccountAccess::class])->group(function () {
     require __DIR__.'/role-pages.php';
 
     Route::get('/dashboard/redirect', function () {
@@ -142,13 +146,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         // Registration, placement, payment, tiket, absensi, pengajuan
         Route::post('/registrations', [ResidenceRegistrationController::class, 'store'])->name('registrations.store');
+        Route::post('/temporary-stays', [TemporaryStayController::class, 'store'])->middleware('role:superadmin|staff_admin|admin_layanan|fasilitator')->name('temporary-stays.store');
         Route::patch('/registrations/{registration}', [ResidenceRegistrationController::class, 'update'])->name('registrations.update');
         Route::post('/checkout', [CheckoutController::class, 'store'])->name('checkout.store');
         Route::put('/checkout/{checkoutRequest}/inspection', [CheckoutController::class, 'inspect'])->name('checkout.inspection.update');
         Route::post('/checkout/findings/{finding}/damage-report', [CheckoutController::class, 'createDamageReport'])->name('checkout.findings.damage-report');
         Route::post('/checkout/{checkoutRequest}/complete', [CheckoutController::class, 'complete'])->name('checkout.complete');
-        Route::post('/tagihan/{tagihan}/cicilan', [PembayaranController::class, 'requestInstallments'])->name('tagihan.request-installments');
-        Route::put('/tagihan/{tagihan}/cicilan', [PembayaranController::class, 'installments'])->name('tagihan.installments');
         Route::get('/dokumen-tagihan/{document}', [PembayaranController::class, 'document'])->name('tagihan.document');
         Route::post('/pembayaran', [PembayaranController::class, 'store'])->name('pembayaran.store');
         Route::post('/pembayaran/{pembayaran}/verify', [PembayaranController::class, 'verify'])->name('pembayaran.verify');
@@ -162,6 +165,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/absensi/sesi/{session}/close', [AbsensiController::class, 'closeSession'])->name('absensi.sesi.close');
         Route::post('/absensi/sesi/{session}/record', [AbsensiController::class, 'recordActivity'])->name('absensi.sesi.record');
         Route::post('/penilaian/{laporan}', [TeknisiController::class, 'storePenilaian'])->name('penilaian.store');
+        Route::post('/residence-management/{kind}', [ResidenceManagementController::class, 'save'])->name('residence-management.save');
+        Route::post('/legacy-residents/import', [ResidenceManagementController::class, 'import'])->name('legacy-residents.import');
+        Route::post('/registrations/{registration}/sponsor', [ResidenceManagementController::class, 'approveSponsor'])->name('registrations.sponsor');
+        Route::put('/invoices/{tagihan}/payment-settings', [InvoiceController::class, 'paymentSettings'])->name('invoices.settings');
+        Route::post('/invoice-groups', [InvoiceController::class, 'store'])->name('invoice-groups.store');
+        Route::get('/invoice-groups/{group}', [InvoiceController::class, 'download'])->name('invoice-groups.download');
+        Route::post('/invoice-groups/{group}/payments', [InvoiceController::class, 'pay'])->name('invoice-groups.pay');
         Route::post('/pengajuan/bebas-asrama', [PengajuanController::class, 'storeBebas'])->name('pengajuan.bebas');
         Route::post('/perizinan', [PerizinanController::class, 'store'])->name('perizinan.store');
         Route::post('/perizinan/{perizinan}/review', [PerizinanController::class, 'review'])->name('perizinan.review');

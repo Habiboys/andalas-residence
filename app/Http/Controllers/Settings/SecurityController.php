@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\RolePageController;
 use App\Http\Requests\Settings\PasswordUpdateRequest;
 use App\Http\Requests\Settings\TwoFactorAuthenticationRequest;
 use Illuminate\Http\RedirectResponse;
@@ -19,6 +20,9 @@ class SecurityController extends Controller
     {
         $props = [
             'passwordRules' => Password::defaults()->toPasswordRulesString(),
+            'role' => $request->user()->roles->first()?->name ?? 'mahasiswa',
+            'page' => 'kelola-profil',
+            'initialUser' => app(RolePageController::class)->userPayload($request),
         ];
 
         return Inertia::render('settings/security', $props);

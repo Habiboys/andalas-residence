@@ -7,6 +7,7 @@ use App\Actions\Registration\CompleteResidenceRegistration;
 use App\Enums\FreeResidenceLetterStatus;
 use App\Enums\TagihanStatus;
 use App\Jobs\GenerateBillingDocument;
+use App\Models\MahasiswaProfil;
 use App\Models\PembayaranTagihan;
 use App\Models\PengajuanBebasAsrama;
 use App\Models\Tagihan;
@@ -24,6 +25,7 @@ class PostPayment
     public function handle(string $referensi, string $mahasiswaId, string $dibayarPada, array $allocations, ?string $virtualAccountId = null, ?array $metadata = null): PembayaranTagihan
     {
         return DB::transaction(function () use ($referensi, $mahasiswaId, $dibayarPada, $allocations, $virtualAccountId, $metadata): PembayaranTagihan {
+            MahasiswaProfil::whereKey($mahasiswaId)->lockForUpdate()->firstOrFail();
             $existing = PembayaranTagihan::where('referensi', $referensi)->first();
 
             if ($existing !== null) {
@@ -70,6 +72,7 @@ class PostPayment
                 if ($tagihan->registration) {
                     $this->completeRegistration->handle($tagihan->registration);
                 }
+                $tagihan->update(['amount_due_now' => null]);
             }
 
             $hasOutstandingDebt = Tagihan::where('mahasiswa_id', $mahasiswaId)->where('status', '!=', TagihanStatus::Batal)->whereColumn('total', '>', 'total_dibayar')->exists();

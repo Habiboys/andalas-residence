@@ -2,10 +2,10 @@
 
 namespace Database\Seeders;
 
-use App\Models\Faculty;
 use App\Models\Departemen;
-use App\Models\Prodi;
+use App\Models\Faculty;
 use App\Models\MahasiswaProfil;
+use App\Models\Prodi;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 

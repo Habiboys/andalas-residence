@@ -10,7 +10,6 @@ use App\Models\ResidenceRegistration;
 use App\Models\ResidenceRegistrationStatusHistory;
 use App\Models\RoomPreference;
 use App\Models\User;
-use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Schema;
 
 it('creates the identity and registration foundation schema', function () {
@@ -92,7 +91,7 @@ it('connects registration preferences and status history', function () {
         ->and($history->to_status)->toBe(ResidenceRegistrationStatus::Submitted);
 });
 
-it('prevents duplicate registrations for one student and period', function () {
+it('keeps separate registration attempts for one student and period as history', function () {
     $student = User::factory()->student()->create();
     $studentProfile = MahasiswaProfil::query()->create([
         'user_id' => $student->id,
@@ -105,13 +104,16 @@ it('prevents duplicate registrations for one student and period', function () {
         'tanggal_selesai' => '2027-07-31',
     ]);
 
-    ResidenceRegistration::factory()->create([
+    $first = ResidenceRegistration::factory()->create([
         'student_profile_id' => $studentProfile->id,
         'periode_id' => $periode->id,
     ]);
 
-    expect(fn () => ResidenceRegistration::factory()->create([
+    $second = ResidenceRegistration::factory()->create([
         'student_profile_id' => $studentProfile->id,
         'periode_id' => $periode->id,
-    ]))->toThrow(QueryException::class);
+    ]);
+
+    expect($second->id)->not->toBe($first->id)
+        ->and(ResidenceRegistration::where('student_profile_id', $studentProfile->id)->count())->toBe(2);
 });

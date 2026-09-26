@@ -11,31 +11,17 @@ use Illuminate\Validation\ValidationException;
 
 class ReviewResidenceRegistration
 {
-    public function __construct(private PlaceResidenceRegistration $placeRegistration, private CreateResidenceBilling $createBilling, private CompleteResidenceRegistration $completeRegistration) {}
-
-    public function handle(ResidenceRegistration $registration, User $reviewer, ResidenceRegistrationStatus $status, ?string $notes = null, ?string $roomId = null): ResidenceRegistration
+    public function handle(ResidenceRegistration $registration, User $reviewer, ResidenceRegistrationStatus $status, ?string $notes = null): ResidenceRegistration
     {
-        return DB::transaction(function () use ($registration, $reviewer, $status, $notes, $roomId): ResidenceRegistration {
+        return DB::transaction(function () use ($registration, $reviewer, $status, $notes): ResidenceRegistration {
             $locked = ResidenceRegistration::query()->lockForUpdate()->findOrFail($registration->id);
-            $allowed = match ($locked->status) {
-                ResidenceRegistrationStatus::Submitted => [ResidenceRegistrationStatus::Verified, ResidenceRegistrationStatus::Rejected],
-                ResidenceRegistrationStatus::Verified => [ResidenceRegistrationStatus::Accepted, ResidenceRegistrationStatus::Rejected],
-                default => [],
-            };
-
-            if (! in_array($status, $allowed, true)) {
-                throw ValidationException::withMessages(['status' => 'Perubahan status pendaftaran tidak valid.']);
+            if ($locked->completed_at) {
+                throw ValidationException::withMessages(['status' => 'Pendaftaran hanya dapat dibatalkan sebelum hunian aktif. Gunakan pengesahan sponsor untuk penempatan.']);
             }
-
-            if ($status === ResidenceRegistrationStatus::Accepted) {
-                if (! $roomId) {
-                    throw ValidationException::withMessages(['kamar_id' => 'Kamar wajib dipilih saat menerima pendaftaran.']);
-                }
-                $this->createBilling->handle($locked);
-                $placement = $this->placeRegistration->handle($locked, $roomId, $reviewer->id);
-                $locked->update(['penempatan_kamar_id' => $placement->id]);
+            if ($locked->tagihan && (float) $locked->tagihan->total_dibayar > 0) {
+                throw ValidationException::withMessages(['status' => 'Pendaftaran memiliki pembayaran. Selesaikan pengembalian dana terlebih dahulu.']);
             }
-
+            $locked->update(['reserved_room_id' => null, 'reservation_expires_at' => null]);
             $fromStatus = $locked->status;
             $locked->update([
                 'status' => $status,
@@ -50,14 +36,13 @@ class ReviewResidenceRegistration
                 'notes' => $notes,
             ]);
 
-            if ($status === ResidenceRegistrationStatus::Rejected && $locked->tagihan_id) {
+            if ($locked->tagihan_id) {
                 $invoice = $locked->tagihan()->lockForUpdate()->firstOrFail();
                 if ((float) $invoice->total_dibayar > 0) {
                     throw ValidationException::withMessages(['status' => 'Pendaftaran memiliki pembayaran. Selesaikan pengembalian dana sebelum penolakan.']);
                 }
                 $invoice->update(['status' => TagihanStatus::Batal]);
             }
-            $this->completeRegistration->handle($locked);
 
             return $locked->fresh(['statusHistories', 'studentProfile.penempatanKamar', 'placement']);
         });

@@ -9,8 +9,8 @@ use App\Models\Lantai;
 use App\Models\MahasiswaProfil;
 use App\Models\Periode;
 use App\Models\Prodi;
-use App\Models\ResidenceRegistration;
 use App\Models\User;
+use Database\Seeders\ResidenceBuildingSeeder;
 use Database\Seeders\RolePermissionSeeder;
 use Database\Seeders\UnandAcademicSeeder;
 use Illuminate\Support\Facades\Queue;
@@ -75,8 +75,8 @@ it('derives the cohort on admin create and update while preserving academic rela
 
 it('seeds fixed building allocations without replacing existing building details', function () {
     Gedung::create(['kode_gedung' => 'A', 'nama_gedung' => 'Nama dipertahankan', 'gender_peruntukan' => 'laki_laki']);
-    $this->seed(\Database\Seeders\ResidenceBuildingSeeder::class);
-    $this->seed(\Database\Seeders\ResidenceBuildingSeeder::class);
+    $this->seed(ResidenceBuildingSeeder::class);
+    $this->seed(ResidenceBuildingSeeder::class);
     $this->assertDatabaseCount('gedung', 10);
     $this->assertDatabaseHas('gedung', ['kode_gedung' => 'A', 'nama_gedung' => 'Nama dipertahankan', 'gender_peruntukan' => 'perempuan']);
     $this->assertDatabaseHas('gedung', ['kode_gedung' => 'H', 'gender_peruntukan' => 'laki_laki']);
@@ -130,9 +130,20 @@ it('enforces building gender on room submission and filters the available choice
 
 it('offers welcome service selection only to active accounts that are still candidates', function (string $status, string $housing, bool $expected) {
     $this->seed(RolePermissionSeeder::class);
-    $user = User::factory()->student()->create(['status' => $status])->assignRole('mahasiswa');
+    $user = User::factory()->student()->create([
+        'status' => $status,
+        'inactive_reason' => $status === 'nonaktif' ? 'letter_issued' : null,
+    ])->assignRole('mahasiswa');
     MahasiswaProfil::create(['user_id' => $user->id, 'barcode_code' => fake()->uuid(), 'status_huni' => $housing]);
 
     $this->actingAs($user)->get(route('mahasiswa.dashboard'))->assertOk()
         ->assertInertia(fn (Assert $page) => $page->where('initialUser.needs_service_selection', $expected));
 })->with([['aktif', 'calon', true], ['aktif', 'aktif', false], ['nonaktif', 'calon', false]]);
+
+it('blocks administrator deactivated accounts from the resident dashboard', function () {
+    $this->seed(RolePermissionSeeder::class);
+    $user = User::factory()->student()->create(['status' => 'nonaktif', 'inactive_reason' => 'admin_blocked'])->assignRole('mahasiswa');
+    MahasiswaProfil::create(['user_id' => $user->id, 'barcode_code' => fake()->uuid(), 'status_huni' => 'calon']);
+
+    $this->actingAs($user)->get(route('mahasiswa.dashboard'))->assertForbidden();
+});

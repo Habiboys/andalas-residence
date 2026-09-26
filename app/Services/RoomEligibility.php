@@ -10,6 +10,7 @@ use Illuminate\Validation\ValidationException;
 
 class RoomEligibility
 {
+    /** @return 'campur'|'laki_laki'|'perempuan' */
     public static function buildingGender(Gedung $building): string
     {
         return match (strtoupper(trim($building->kode_gedung))) {
@@ -22,7 +23,13 @@ class RoomEligibility
 
     public static function allows(Gedung $building, User $user): bool
     {
-        return in_array(self::buildingGender($building), ['campur', $user->gender], true);
+        $category = $user->client_profile_category?->value;
+        if ($user->mahasiswaProfil && app(ResidenceLifecycle::class)->isLocal($user->mahasiswaProfil)) {
+            $category = app(ResidenceLifecycle::class)->isKipk($user->mahasiswaProfil) ? 'local_kipk' : 'local_non_kipk';
+        }
+
+        return in_array(self::buildingGender($building), ['campur', $user->gender], true)
+            && (! $building->allowed_categories || in_array($category, $building->allowed_categories, true));
     }
 
     /** @return Builder<Kamar> */
@@ -33,13 +40,13 @@ class RoomEligibility
             ->with('lantai.gedung');
     }
 
-    public static function validate(Kamar $room, User $user, string $field = 'kamar_id'): void
+    public static function validate(Kamar $room, User $user, string $field = 'kamar_id', ?string $registrationId = null): void
     {
         if (! $room->lantai?->gedung || ! self::allows($room->lantai->gedung, $user)) {
             throw ValidationException::withMessages([$field => 'Gedung kamar tidak sesuai jenis kelamin penghuni. A–E untuk perempuan, F–H untuk laki-laki, Nakes dan ASN untuk keduanya.']);
         }
 
-        if ($room->status === 'maintenance' || $room->penempatanKamar()->where('status', 'aktif')->count() >= $room->kapasitas) {
+        if ($room->status === 'maintenance' || $room->penempatanKamar()->where('status', 'aktif')->count() + app(RoomReservations::class)->count($room, $registrationId) >= $room->kapasitas) {
             throw ValidationException::withMessages([$field => 'Kamar tidak tersedia atau sudah penuh. Pilih kamar lain.']);
         }
     }

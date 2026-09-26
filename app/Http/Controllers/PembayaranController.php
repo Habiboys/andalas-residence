@@ -26,7 +26,7 @@ class PembayaranController extends Controller
         $this->authorizePermission($request, 'pembayaran.create');
 
         $mhs = $request->user()->mahasiswaProfil;
-        abort_unless($mhs, 403);
+        abort_unless($mhs !== null, 403);
 
         $validated = $request->validate([
             'tagihan_id' => ['required', 'uuid', Rule::exists('tagihan', 'id')->where('mahasiswa_id', $mhs->id)],
@@ -40,45 +40,53 @@ class PembayaranController extends Controller
             'bukti_transfer' => 'required|file|mimes:jpg,jpeg,png,pdf|max:5120',
         ]);
 
-        $invoice = Tagihan::findOrFail($validated['tagihan_id']);
-        $remaining = (float) $invoice->total - (float) $invoice->total_dibayar;
-        if (in_array($invoice->status, [TagihanStatus::Batal, TagihanStatus::Lunas], true)
-            || (float) $validated['nominal'] > $remaining || (float) $validated['nominal'] <= 0) {
-            throw ValidationException::withMessages(['nominal' => 'Nominal harus sesuai sisa tagihan yang belum lunas.']);
-        }
-        $scheduled = $invoice->jadwalCicilan()->orderBy('termin_ke')->get();
-        $nextDue = $remaining;
-        $cumulative = 0.0;
-        foreach ($scheduled as $term) {
-            $cumulative += (float) $term->jumlah;
-            if ($cumulative > (float) $invoice->total_dibayar) {
-                $nextDue = $cumulative - (float) $invoice->total_dibayar;
-                break;
+        DB::transaction(function () use ($request, $validated, $mhs): void {
+            $invoice = Tagihan::query()->lockForUpdate()->whereKey($validated['tagihan_id'])->firstOrFail();
+            $remaining = (float) $invoice->total - (float) $invoice->total_dibayar;
+            if (Pembayaran::where('tagihan_id', $invoice->id)->where('status', 'menunggu_verifikasi')->exists() || in_array($invoice->status, [TagihanStatus::Batal, TagihanStatus::Lunas], true)
+                || (float) $validated['nominal'] > $remaining || (float) $validated['nominal'] <= 0) {
+                throw ValidationException::withMessages(['nominal' => 'Nominal harus sesuai sisa tagihan yang belum lunas.']);
             }
-        }
-        if (abs((float) $validated['nominal'] - $nextDue) > 0.005) {
-            throw ValidationException::withMessages(['nominal' => 'Bayar sesuai tagihan atau ajukan jadwal cicilan kepada admin layanan.']);
-        }
+            $scheduled = $invoice->jadwalCicilan()->orderBy('termin_ke')->get();
+            $nextDue = $remaining;
+            $cumulative = 0.0;
+            foreach ($scheduled as $term) {
+                $cumulative += (float) $term->jumlah;
+                if ($cumulative > (float) $invoice->total_dibayar) {
+                    $nextDue = $cumulative - (float) $invoice->total_dibayar;
+                    break;
+                }
+            }
+            $nextDue = $invoice->amount_due_now !== null ? min($remaining, (float) $invoice->amount_due_now) : $nextDue;
+            if (abs((float) $validated['nominal'] - $nextDue) > 0.005) {
+                throw ValidationException::withMessages(['nominal' => 'Bayar sesuai tagihan atau ajukan jadwal cicilan kepada admin layanan.']);
+            }
 
-        $path = null;
-        if ($request->hasFile('bukti_transfer')) {
-            $path = $request->file('bukti_transfer')->store('bukti-pembayaran', 'local');
-        }
+            $registration = $invoice->registration;
+            if ($registration && ! $registration->completed_at && $registration->reservation_expires_at?->isPast()) {
+                throw ValidationException::withMessages(['tagihan_id' => 'Reservasi sudah kedaluwarsa. Silakan mendaftar kembali.']);
+            }
+            $path = null;
+            if ($request->hasFile('bukti_transfer')) {
+                $path = $request->file('bukti_transfer')->store('bukti-pembayaran', 'local');
+            }
 
-        $pembayaran = Pembayaran::create([
-            'kode_transaksi' => 'PAY-'.now()->format('YmdHis').'-'.strtoupper(Str::random(4)),
-            'mahasiswa_id' => $mhs->id,
-            'tagihan_id' => $invoice->id,
-            'jenis_pembayaran' => $validated['jenis_pembayaran'],
-            'nominal' => $validated['nominal'],
-            'termin_ke' => $validated['termin_ke'] ?? 1,
-            'metode_pembayaran' => $validated['metode_pembayaran'] ?? 'transfer_bank',
-            'nama_bank' => $validated['nama_bank'] ?? null,
-            'nomor_rekening_pengirim' => $validated['nomor_rekening_pengirim'] ?? null,
-            'atas_nama_pengirim' => $validated['atas_nama_pengirim'] ?? null,
-            'bukti_transfer_path' => $path,
-            'status' => 'menunggu_verifikasi',
-        ]);
+            $pembayaran = Pembayaran::create([
+                'kode_transaksi' => 'PAY-'.now()->format('YmdHis').'-'.strtoupper(Str::random(4)),
+                'mahasiswa_id' => $mhs->id,
+                'tagihan_id' => $invoice->id,
+                'jenis_pembayaran' => $validated['jenis_pembayaran'],
+                'nominal' => $validated['nominal'],
+                'termin_ke' => $validated['termin_ke'] ?? 1,
+                'metode_pembayaran' => $validated['metode_pembayaran'] ?? 'transfer_bank',
+                'nama_bank' => $validated['nama_bank'] ?? null,
+                'nomor_rekening_pengirim' => $validated['nomor_rekening_pengirim'] ?? null,
+                'atas_nama_pengirim' => $validated['atas_nama_pengirim'] ?? null,
+                'bukti_transfer_path' => $path,
+                'status' => 'menunggu_verifikasi',
+            ]);
+
+        });
 
         return redirect()->back()->with('toast', [
             'type' => 'success',
@@ -153,50 +161,6 @@ class PembayaranController extends Controller
         ]);
     }
 
-    public function requestInstallments(Request $request, Tagihan $tagihan): RedirectResponse
-    {
-        $this->authorizePermission($request, 'pembayaran.create');
-        abort_unless($tagihan->mahasiswa_id === $request->user()->mahasiswaProfil?->id, 403);
-        $data = $request->validate(['alasan' => ['required', 'string', 'max:2000']]);
-
-        DB::transaction(function () use ($tagihan, $data): void {
-            $invoice = Tagihan::query()->lockForUpdate()->findOrFail($tagihan->id);
-            if ((float) $invoice->total_dibayar > 0 || (float) $invoice->total <= 0
-                || in_array($invoice->status, [TagihanStatus::Batal, TagihanStatus::Lunas], true)
-                || $invoice->jadwalCicilan()->exists()) {
-                throw ValidationException::withMessages(['alasan' => 'Cicilan hanya dapat diajukan sebelum pembayaran pertama dan sebelum jadwal disetujui.']);
-            }
-            $invoice->update(['alasan_cicilan' => $data['alasan'], 'cicilan_diminta_at' => $invoice->cicilan_diminta_at ?? now()]);
-        });
-
-        return back()->with('toast', ['type' => 'success', 'message' => 'Pengajuan cicilan dikirim kepada admin layanan.']);
-    }
-
-    public function installments(Request $request, Tagihan $tagihan): RedirectResponse
-    {
-        $this->authorizePermission($request, 'pembayaran.verify');
-        $data = $request->validate([
-            'cicilan' => ['required', 'array', 'min:2'],
-            'cicilan.*.jatuh_tempo' => ['required', 'date'],
-            'cicilan.*.jumlah' => ['required', 'numeric', 'min:1'],
-        ]);
-        DB::transaction(function () use ($tagihan, $data): void {
-            $invoice = Tagihan::query()->lockForUpdate()->findOrFail($tagihan->id);
-            if ((float) $invoice->total_dibayar > 0 || in_array($invoice->status, [TagihanStatus::Lunas, TagihanStatus::Batal], true)) {
-                throw ValidationException::withMessages(['cicilan' => 'Cicilan hanya dapat diatur sebelum pembayaran pertama.']);
-            }
-            if (abs(collect($data['cicilan'])->sum('jumlah') - (float) $invoice->total) > 0.005) {
-                throw ValidationException::withMessages(['cicilan' => 'Total cicilan harus sama dengan total tagihan.']);
-            }
-            $invoice->jadwalCicilan()->delete();
-            foreach ($data['cicilan'] as $index => $term) {
-                $invoice->jadwalCicilan()->create([...$term, 'termin_ke' => $index + 1]);
-            }
-        });
-
-        return back()->with('toast', ['type' => 'success', 'message' => 'Jadwal cicilan disimpan.']);
-    }
-
     public function document(Request $request, DokumenTagihan $document): StreamedResponse
     {
         abort_unless($request->user()->can('pembayaran.verify')
@@ -206,11 +170,11 @@ class PembayaranController extends Controller
         return Storage::disk('local')->download($document->path, $document->nomor.'.pdf');
     }
 
-    public function downloadBukti(Request $request, Pembayaran $pembayaran)
+    public function downloadBukti(Request $request, Pembayaran $pembayaran): StreamedResponse
     {
         $this->authorizePermission($request, 'pembayaran.download_bukti');
 
-        abort_unless($pembayaran->bukti_transfer_path, 404);
+        abort_unless($pembayaran->bukti_transfer_path !== null, 404);
         abort_unless(Storage::disk('local')->exists($pembayaran->bukti_transfer_path), 404);
 
         return Storage::disk('local')->response($pembayaran->bukti_transfer_path);

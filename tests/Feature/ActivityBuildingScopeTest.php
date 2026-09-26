@@ -9,6 +9,7 @@ use App\Models\Kegiatan;
 use App\Models\Lantai;
 use App\Models\MahasiswaProfil;
 use App\Models\PenempatanKamar;
+use App\Models\Periode;
 use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -22,6 +23,7 @@ beforeEach(function () {
     $this->building = Gedung::create(['kode_gedung' => 'SCOPE-A', 'nama_gedung' => 'Asrama A']);
     $this->otherBuilding = Gedung::create(['kode_gedung' => 'SCOPE-B', 'nama_gedung' => 'Asrama B']);
     FasilitatorWilayah::create(['user_id' => $this->facilitator->id, 'gedung_id' => $this->building->id]);
+    Periode::create(['nama_periode' => '2026/2027', 'status' => 'aktif', 'angkatan_maba' => 2026, 'tanggal_mulai' => now()->startOfYear(), 'tanggal_selesai' => now()->endOfYear()]);
     $this->payload = ['jenis_kegiatan_id' => JenisKegiatan::where('is_other', true)->value('id'), 'judul' => 'Kegiatan A', 'duration_minutes' => 15, 'latitude' => -0.9145, 'longitude' => 100.46, 'accuracy_meters' => 5, 'radius_meters' => 100];
     $this->qrPayload = ['expires_at' => now()->addMinutes(10)->toDateTimeString(), 'latitude' => -0.9145, 'longitude' => 100.46, 'accuracy_meters' => 5, 'radius_meters' => 100, 'maximum_accuracy_meters' => 30];
 });

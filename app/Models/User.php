@@ -24,11 +24,13 @@ use Spatie\Permission\Traits\HasRoles;
  * @property string $password
  * @property string|null $no_hp
  * @property string|null $gender
+ * @property string|null $inactive_reason
  * @property string $status
+ * @property ClientProfileCategory|null $client_profile_category
  * @property string|null $foto_profil
  * @property-read MahasiswaProfil|null $mahasiswaProfil
  */
-#[Fillable(['nim_nip', 'nama', 'email', 'password', 'no_hp', 'gender', 'status', 'client_profile_category', 'foto_profil'])]
+#[Fillable(['nim_nip', 'nama', 'email', 'password', 'no_hp', 'gender', 'status', 'client_profile_category', 'foto_profil', 'inactive_reason'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
 class User extends Authenticatable
 {

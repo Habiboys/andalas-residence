@@ -10,6 +10,7 @@ use App\Models\Periode;
 use App\Models\Prodi;
 use App\Models\Province;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\DB;
 
 class MasterDataService
 {
@@ -106,14 +107,27 @@ class MasterDataService
 
     public static function createPeriode(array $data): Periode
     {
-        return Periode::create($data);
+        return DB::transaction(function () use ($data): Periode {
+            Periode::query()->lockForUpdate()->get();
+            if (($data['status'] ?? null) === 'aktif') {
+                Periode::where('status', 'aktif')->update(['status' => 'nonaktif']);
+            }
+
+            return Periode::create($data);
+        });
     }
 
     public static function updatePeriode(Periode $periode, array $data): Periode
     {
-        $periode->update($data);
+        return DB::transaction(function () use ($periode, $data): Periode {
+            Periode::query()->lockForUpdate()->get();
+            if (($data['status'] ?? null) === 'aktif') {
+                Periode::where('id', '!=', $periode->id)->where('status', 'aktif')->update(['status' => 'nonaktif']);
+            }
+            $periode->update($data);
 
-        return $periode;
+            return $periode;
+        });
     }
 
     public static function deletePeriode(Periode $periode): void
