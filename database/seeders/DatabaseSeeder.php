@@ -45,7 +45,7 @@ class DatabaseSeeder extends Seeder
         ]);
 
         $gedung = Gedung::firstOrCreate(['kode_gedung' => 'A'], [
-            'nama_gedung' => 'Asrama Putri A',
+            'nama_gedung' => 'RPX (A)',
             'gender_peruntukan' => 'perempuan',
             'alamat' => 'Kampus Limau Manis',
         ]);

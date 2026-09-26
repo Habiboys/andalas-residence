@@ -226,6 +226,10 @@ class RolePermissionSeeder extends Seeder
             'absensi.scan',
             'kegiatan.view',
         ],
+
+        // Penghuni non-login (Summer Course & non-mahasiswa): data diinput admin/fasilitator,
+        // tanpa akses aplikasi sama sekali.
+        'tamu' => [],
     ];
 
     public function run(): void

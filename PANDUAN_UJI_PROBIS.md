@@ -456,8 +456,9 @@ Admin layanan membuka **Hunian Sementara** untuk Summer Course; fasilitator mema
 
 1. Isi identitas, email, jenis kelamin, kamar, tanggal masuk dan tanggal keluar. Tanggal keluar harus setelah tanggal masuk; tanggal keluar tidak dihitung sebagai malam menginap.
 2. Simpan: kamar langsung dialokasikan dan invoice pribadi dibuat. Akun yang sudah ada harus memakai identitas yang sesuai dan tidak sedang memiliki hunian aktif. Peserta Summer Course tidak memperoleh layanan binaan.
-3. Pada tanggal keluar, scheduler mengakhiri hunian dan mengirim notifikasi dalam aplikasi kepada fasilitator gedung. Kamar masih terisi bila ada penghuni lain; maintenance tetap maintenance. Sisa utang tidak dihapus.
-4. Uji tarif belum tersedia, kamar penuh/maintenance, dan fasilitator lintas gedung: penyimpanan ditolak tanpa meninggalkan invoice atau akun baru sebagian.
+3. Peserta Summer Course maupun nonmahasiswa **tidak masuk role mahasiswa**. Identitas tetap tersimpan sebagai pengguna dengan role non-login `tamu` (tanpa permission) agar relasi penempatan kamar dan tagihan tetap utuh, tetapi mereka tidak muncul di Data Mahasiswa, dashboard, maupun rekap penghuni aktif, dan tidak bisa membuka halaman role mana pun.
+4. Pada tanggal keluar, scheduler mengakhiri hunian dan mengirim notifikasi dalam aplikasi kepada fasilitator gedung. Kamar masih terisi bila ada penghuni lain; maintenance tetap maintenance. Sisa utang tidak dihapus.
+5. Uji tarif belum tersedia, kamar penuh/maintenance, dan fasilitator lintas gedung: penyimpanan ditolak tanpa meninggalkan invoice atau akun baru sebagian.
 
 Docker menjalankan scheduler. Untuk pengujian lokal, jalankan `php artisan schedule:work` di terminal tersendiri. Akun yang dibuat petugas memakai password acak; pengaturan password dilakukan melalui Lupa password, dengan email mengikuti konfigurasi mailer aplikasi.
 

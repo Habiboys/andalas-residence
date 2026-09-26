@@ -30,7 +30,6 @@ const ADMIN_PAGES: Record<string, string> = {
     'penilaian-teknisi': 'Penilaian Teknisi',
     'akun-internal': 'Akun & Role',
     'audit-log': 'Audit Log',
-    'kelola-profil': 'Kelola Profil',
     'kelola-informasi': 'Kelola Informasi',
     'kelola-program': 'Kelola Program',
     'kelola-testimoni': 'Kelola Testimoni',
@@ -105,17 +104,23 @@ const PIMPINAN_PAGES: Record<string, string> = {
     'laporan-aset': 'Laporan Aset',
 };
 
+const SETTINGS_PAGES: Record<string, string> = {
+    'settings-profile': 'Profil Saya',
+    'settings-security': 'Keamanan & Password',
+    'settings-appearance': 'Tampilan',
+};
+
 const ROLE_PAGES: Record<RoleKey, Record<string, string>> = {
-    mahasiswa: MAHASISWA_PAGES,
-    fasilitator: FASILITATOR_PAGES,
-    staff_admin: ADMIN_PAGES,
-    admin_layanan: ADMIN_LAYANAN_PAGES,
-    admin_aset: ADMIN_ASET_PAGES,
-    orang_tua: ORANG_TUA_PAGES,
-    go: GO_PAGES,
-    superadmin: ADMIN_PAGES,
-    teknisi: TEKNISI_PAGES,
-    pimpinan: PIMPINAN_PAGES,
+    mahasiswa: { ...MAHASISWA_PAGES, ...SETTINGS_PAGES },
+    fasilitator: { ...FASILITATOR_PAGES, ...SETTINGS_PAGES },
+    staff_admin: { ...ADMIN_PAGES, ...SETTINGS_PAGES },
+    admin_layanan: { ...ADMIN_LAYANAN_PAGES, ...SETTINGS_PAGES },
+    admin_aset: { ...ADMIN_ASET_PAGES, ...SETTINGS_PAGES },
+    orang_tua: { ...ORANG_TUA_PAGES, ...SETTINGS_PAGES },
+    go: { ...GO_PAGES, ...SETTINGS_PAGES },
+    superadmin: { ...ADMIN_PAGES, ...SETTINGS_PAGES },
+    teknisi: { ...TEKNISI_PAGES, ...SETTINGS_PAGES },
+    pimpinan: { ...PIMPINAN_PAGES, ...SETTINGS_PAGES },
 };
 
 export function pageTitle(role: string, slug: string): string {

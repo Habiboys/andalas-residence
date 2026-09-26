@@ -13,6 +13,13 @@ use Illuminate\Validation\ValidationException;
 
 class CreateTemporaryStay
 {
+    /**
+     * Hunian sementara (Summer Course & non-mahasiswa) tidak punya akun aplikasi.
+     * Identitas tetap disimpan sebagai User agar relasi penempatan & tagihan tetap utuh,
+     * tetapi role-nya non-login sehingga tidak masuk rekap mahasiswa.
+     */
+    public const OCCUPANT_ROLE = 'tamu';
+
     /** @param array<string, mixed> $data */
     public function handle(array $data, User $officer): ResidenceRegistration
     {
@@ -23,7 +30,8 @@ class CreateTemporaryStay
             }
             $user = User::where('nim_nip', $data['nim_nip'])->lockForUpdate()->first();
             if ($user) {
-                if (! $user->hasRole('mahasiswa') || ! $user->mahasiswaProfil || $user->status !== 'aktif') {
+                $isLoginable = $user->hasRole('mahasiswa') || $user->hasRole(self::OCCUPANT_ROLE);
+                if (! $isLoginable || ! $user->mahasiswaProfil || $user->status !== 'aktif') {
                     throw ValidationException::withMessages(['nim_nip' => 'Identitas sudah digunakan akun yang tidak dapat didaftarkan.']);
                 }
                 if ($user->email !== $data['email'] || $user->nama !== $data['nama'] || $user->gender !== $data['gender']
@@ -45,7 +53,7 @@ class CreateTemporaryStay
                     'password' => Str::password(32), 'gender' => $data['gender'],
                     'status' => 'aktif', 'client_profile_category' => $data['client_profile_category'],
                 ]);
-                $user->assignRole('mahasiswa');
+                $user->assignRole(self::OCCUPANT_ROLE);
                 $student = MahasiswaProfil::create([
                     'user_id' => $user->id, 'barcode_code' => 'BC-'.Str::uuid(), 'status_huni' => 'calon',
                     'angkatan' => $data['client_profile_category'] === 'non_student' ? null : StudentCohort::fromNim($data['nim_nip']),

@@ -27,7 +27,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('settings/appearance', function (Request $request) {
         return Inertia::render('settings/appearance', [
             'role' => $request->user()->roles->first()?->name ?? 'mahasiswa',
-            'page' => 'kelola-profil',
+            'page' => 'settings-appearance',
             'initialUser' => app(RolePageController::class)->userPayload($request),
         ]);
     })->name('appearance.edit');

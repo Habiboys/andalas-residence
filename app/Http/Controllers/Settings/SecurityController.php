@@ -21,7 +21,7 @@ class SecurityController extends Controller
         $props = [
             'passwordRules' => Password::defaults()->toPasswordRulesString(),
             'role' => $request->user()->roles->first()?->name ?? 'mahasiswa',
-            'page' => 'kelola-profil',
+            'page' => 'settings-security',
             'initialUser' => app(RolePageController::class)->userPayload($request),
         ];
 

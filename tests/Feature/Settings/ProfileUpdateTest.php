@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use Inertia\Testing\AssertableInertia as Assert;
 
 test('profile page is displayed', function () {
     $user = User::factory()->create();
@@ -10,6 +11,20 @@ test('profile page is displayed', function () {
         ->get(route('profile.edit'));
 
     $response->assertOk();
+});
+
+test('profile page carries the shell navigation props for the signed in role', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->get(route('profile.edit'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('settings/profile')
+            ->where('page', 'settings-profile')
+            ->has('role')
+            ->has('initialUser')
+            ->has('profileSummary'));
 });
 
 test('profile information can be updated', function () {

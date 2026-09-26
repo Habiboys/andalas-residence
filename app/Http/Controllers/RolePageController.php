@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\Registration\CreateTemporaryStay;
 use App\Models\ActivityAttendance;
 use App\Models\Aset;
 use App\Models\AuditLog;
@@ -126,7 +127,7 @@ class RolePageController extends Controller
                     ->get(),
             ],
             'data-mahasiswa' => [
-                'mahasiswa' => MahasiswaProfil::with(['user.roles', 'prodi.departemen.faculty', 'city.province', 'periode', 'penempatanKamar.kamar.lantai.gedung'])->get()->map(function (MahasiswaProfil $student) {
+                'mahasiswa' => $this->residents()->with(['user.roles', 'prodi.departemen.faculty', 'city.province', 'periode', 'penempatanKamar.kamar.lantai.gedung'])->get()->map(function (MahasiswaProfil $student) {
                     $student->user->setRelation('mahasiswaProfil', $student);
 
                     return [...$student->attributesToArray(), 'user' => $student->user->attributesToArray(), 'prodi' => $student->prodi, 'periode' => $student->periode, 'profile_summary' => app(UserProfileSummary::class)->forUser($student->user)];
@@ -162,7 +163,7 @@ class RolePageController extends Controller
             ],
             'monitoring-kamar' => ['gedung' => $this->gedungTree($request->user())],
             'penempatan-kamar' => [
-                'mahasiswa' => MahasiswaProfil::with(['user', 'prodi', 'periode', 'penempatanKamar.kamar.lantai.gedung'])->get(),
+                'mahasiswa' => $this->residents()->with(['user', 'prodi', 'periode', 'penempatanKamar.kamar.lantai.gedung'])->get(),
                 'penempatan' => PenempatanKamar::with([
                     'mahasiswa.user',
                     'mahasiswa.prodi',
@@ -230,6 +231,18 @@ class RolePageController extends Controller
         ];
     }
 
+    /**
+     * Penghuni yang punya akses aplikasi. Penghuni sementara (Summer Course &
+     * non-mahasiswa) memakai role non-login sehingga tidak masuk rekap mahasiswa.
+     */
+    private function residents(): EloquentBuilder
+    {
+        return MahasiswaProfil::whereDoesntHave(
+            'user.roles',
+            fn ($query) => $query->where('name', CreateTemporaryStay::OCCUPANT_ROLE)
+        );
+    }
+
     private function dashboardStats(Request $request): array
     {
         if ($request->user()->hasRole('fasilitator')) {
@@ -238,7 +251,7 @@ class RolePageController extends Controller
 
             return [
                 'okupansi' => ['total_kamar' => (clone $rooms)->count(), 'penuh' => (clone $rooms)->where('status', 'penuh')->count(), 'kosong' => (clone $rooms)->where('status', 'kosong')->count()],
-                'penghuni_aktif' => MahasiswaProfil::where('status_huni', 'aktif')->whereHas('penempatanKamar', fn ($query) => $query->where('status', 'aktif')->whereHas('kamar.lantai', fn ($floors) => $floors->whereIn('gedung_id', $ids)))->count(),
+                'penghuni_aktif' => $this->residents()->where('status_huni', 'aktif')->whereHas('penempatanKamar', fn ($query) => $query->where('status', 'aktif')->whereHas('kamar.lantai', fn ($floors) => $floors->whereIn('gedung_id', $ids)))->count(),
             ];
         }
 
@@ -251,7 +264,7 @@ class RolePageController extends Controller
             'pembayaran_pending' => Pembayaran::where('status', 'menunggu_verifikasi')->count(),
             'tiket_aktif' => LaporanKerusakan::whereNotIn('status', ['selesai', 'dibatalkan'])->count(),
             'pengajuan_pending' => PengajuanBebasAsrama::where('status', 'diajukan')->count() + PengajuanIzinPulang::where('status', 'diajukan')->count(),
-            'penghuni_aktif' => MahasiswaProfil::where('status_huni', 'aktif')->count(),
+            'penghuni_aktif' => $this->residents()->where('status_huni', 'aktif')->count(),
         ];
     }
 

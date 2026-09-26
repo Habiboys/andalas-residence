@@ -105,3 +105,43 @@ it('treats a listed local summer participant as a temporary personal payer', fun
     expect(app(ResidenceLifecycle::class)->isBinaan($stay->studentProfile))->toBeFalse();
     expect((float) $stay->tagihan->total)->toBe(200000.0);
 });
+
+it('keeps temporary occupants out of the student role, roster and dashboard', function (string $stayKind) {
+    $this->travelTo(now()->setDate(2026, 9, 26));
+    $this->seed(RolePermissionSeeder::class);
+    $f = temporaryStayFixture();
+
+    $this->actingAs($stayKind === 'non_student' ? $f['facilitator'] : $f['admin'])
+        ->post(route('andalas.temporary-stays.store'), [...$f['data'], 'stay_kind' => $stayKind])
+        ->assertSessionHasNoErrors();
+
+    $occupant = User::where('email', $f['data']['email'])->sole();
+    expect($occupant->hasRole('tamu'))->toBeTrue()
+        ->and($occupant->hasRole('mahasiswa'))->toBeFalse()
+        ->and($occupant->getAllPermissions())->toHaveCount(0);
+
+    $this->actingAs($occupant)->get(route('dashboard.redirect'))->assertForbidden();
+    $this->actingAs($occupant)->get(route('mahasiswa.dashboard'))->assertForbidden();
+
+    $this->actingAs($f['admin'])->get(route('admin_layanan.mahasiswa'))
+        ->assertInertia(fn (Assert $page) => $page->has('mahasiswa', 0));
+    $this->actingAs($f['facilitator'])->get(route('fasilitator.dashboard'))
+        ->assertInertia(fn (Assert $page) => $page->where('stats.penghuni_aktif', 0));
+})->with(['summer_course', 'non_student']);
+
+it('reuses the non-login occupant record when the same person returns', function () {
+    $this->travelTo(now()->setDate(2026, 9, 26));
+    $this->seed(RolePermissionSeeder::class);
+    $f = temporaryStayFixture();
+    $this->actingAs($f['admin'])->post(route('andalas.temporary-stays.store'), $f['data'])->assertSessionHasNoErrors();
+    $occupant = User::where('email', $f['data']['email'])->sole();
+
+    $this->travelTo(now()->setDate(2026, 9, 29));
+    app(EndTemporaryStays::class)->handle();
+    $this->post(route('andalas.temporary-stays.store'), [...$f['data'], 'starts_at' => '2026-09-29', 'ends_at' => '2026-10-02'])
+        ->assertSessionHasNoErrors();
+
+    expect(User::where('email', $f['data']['email'])->count())->toBe(1)
+        ->and(ResidenceRegistration::count())->toBe(2)
+        ->and($occupant->fresh()->hasRole('tamu'))->toBeTrue();
+});

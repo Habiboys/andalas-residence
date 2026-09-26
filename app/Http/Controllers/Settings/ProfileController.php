@@ -26,7 +26,7 @@ class ProfileController extends Controller
             'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
             'status' => $request->session()->get('status'),
             'role' => $request->user()->roles->first()?->name ?? 'mahasiswa',
-            'page' => 'kelola-profil',
+            'page' => 'settings-profile',
             'initialUser' => app(RolePageController::class)->userPayload($request),
         ]);
     }

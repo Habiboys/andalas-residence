@@ -48,6 +48,8 @@ Route::middleware(['auth', 'verified', EnsureResidenceAccountAccess::class])->gr
         $role = request()->user()->roles->first()?->name ?? 'mahasiswa';
         $prefix = in_array($role, ['staff_admin', 'superadmin'], true) ? 'admin' : $role;
 
+        abort_unless(Route::has($prefix.'.dashboard'), 403, 'Akun ini tidak memiliki akses dasbor.');
+
         return redirect()->route($prefix.'.dashboard');
     })->name('dashboard.redirect');
 
