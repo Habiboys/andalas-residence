@@ -3,7 +3,6 @@ import {
     Building2,
     Calendar,
     ClipboardCheck,
-    CreditCard,
     FileText,
     Home,
     KeyRound,

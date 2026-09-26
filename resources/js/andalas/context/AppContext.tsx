@@ -9,10 +9,8 @@ import { router } from '@inertiajs/react';
 import { useAppearance } from '@/hooks/use-appearance';
 import { login as loginRoute, logout as logoutRoute } from '@/routes';
 import {
-    DEFAULT_FONT_SCALE,
     FONT_SCALES,
     applyFontScaleToDocument,
-    getFontScale,
     persistFontScale,
     readFontScale,
     type FontScaleId,
@@ -37,7 +35,7 @@ export interface User {
     nim: string;
     password?: string;
     nama: string;
-    role: UserRole | string;
+    role: UserRole;
     raw_role?: string;
     email?: string;
     no_hp?: string;

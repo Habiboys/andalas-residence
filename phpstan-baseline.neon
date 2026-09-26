@@ -1,0 +1,979 @@
+parameters:
+	ignoreErrors:
+		-
+			message: '#^Cannot call method lt\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: app/Actions/Attendance/RecordAttendanceAttempt.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$floor\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/AbsensiController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$mahasiswa\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Http/Controllers/AbsensiController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$mahasiswa_id\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Http/Controllers/AbsensiController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$nama_gedung\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/AbsensiController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$room\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/AbsensiController.php
+
+		-
+			message: '#^Cannot access property \$value on string\.$#'
+			identifier: property.nonObject
+			count: 1
+			path: app/Http/Controllers/AbsensiController.php
+
+		-
+			message: '#^Parameter \#1 \$boolean of function abort_unless expects bool, App\\Models\\MahasiswaProfil\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Http/Controllers/AbsensiController.php
+
+		-
+			message: '#^Parameter \#1 \$callback of method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: argument.unresolvableType
+			count: 1
+			path: app/Http/Controllers/AbsensiController.php
+
+		-
+			message: '#^Return type of call to method Illuminate\\Database\\Eloquent\\Collection\<int,Illuminate\\Database\\Eloquent\\Model\>\:\:map\(\) contains unresolvable type\.$#'
+			identifier: method.unresolvableReturnType
+			count: 1
+			path: app/Http/Controllers/AbsensiController.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>nama_gedung" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Http/Controllers/AbsensiController.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>value" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Http/Controllers/AbsensiController.php
+
+		-
+			message: '#^Call to an undefined method App\\Models\\User\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\User\>\:\:hasRole\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Http/Controllers/ActivityMasterController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\ActivityMasterController\:\:assignmentData\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Http/Controllers/ActivityMasterController.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\StokAset\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\StokAset\>\:\:\$jumlah_total\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/AsetController.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\StokAset\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\StokAset\>\:\:\$kategori\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/AsetController.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\StokAset\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\StokAset\>\:\:\$nama\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/AsetController.php
+
+		-
+			message: '#^Call to an undefined method App\\Models\\StokAset\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\StokAset\>\:\:aset\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Http/Controllers/AsetController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\AsetController\:\:saveAsset\(\) has parameter \$input with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Http/Controllers/AsetController.php
+
+		-
+			message: '#^Parameter \#1 \$stream of function fclose expects resource, resource\|false given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Http/Controllers/AsetController.php
+
+		-
+			message: '#^Parameter \#1 \$stream of function fputcsv expects resource, resource\|false given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Http/Controllers/AsetController.php
+
+		-
+			message: '#^Parameter \#1 \$boolean of function abort_unless expects bool, App\\Models\\MahasiswaProfil\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Http/Controllers/CheckoutController.php
+
+		-
+			message: '#^Unable to resolve the template type TKey in call to function collect$#'
+			identifier: argument.templateType
+			count: 1
+			path: app/Http/Controllers/CheckoutController.php
+
+		-
+			message: '#^Unable to resolve the template type TValue in call to function collect$#'
+			identifier: argument.templateType
+			count: 1
+			path: app/Http/Controllers/CheckoutController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\Controller\:\:authorizeAllPermissions\(\) has parameter \$permissions with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Http/Controllers/Controller.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\Controller\:\:authorizeAnyPermission\(\) has parameter \$permissions with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Http/Controllers/Controller.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\Controller\:\:authorizeRole\(\) has parameter \$roles with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Http/Controllers/Controller.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\JenisKegiatan\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\JenisKegiatan\>\:\:\$id\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/KegiatanController.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\JenisKegiatan\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\JenisKegiatan\>\:\:\$is_other\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Http/Controllers/KegiatanController.php
+
+		-
+			message: '#^Access to an undefined property App\\Models\\JenisKegiatan\|Illuminate\\Database\\Eloquent\\Collection\<int, App\\Models\\JenisKegiatan\>\:\:\$nama\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/KegiatanController.php
+
+		-
+			message: '#^Parameter \#3 \$expiresAt of method App\\Actions\\Attendance\\OpenAttendanceSession\:\:handle\(\) expects Carbon\\CarbonInterface, string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Http/Controllers/KegiatanController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\LandingContentController\:\:editor\(\) has parameter \$record with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Http/Controllers/LandingContentController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\LandingContentController\:\:validateInformasi\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Http/Controllers/LandingContentController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\LandingContentController\:\:validateProgram\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Http/Controllers/LandingContentController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\LandingContentController\:\:validateProgramSub\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Http/Controllers/LandingContentController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\LandingContentController\:\:validateTestimoni\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Http/Controllers/LandingContentController.php
+
+		-
+			message: '#^Parameter \#1 \$path of method Illuminate\\Filesystem\\FilesystemAdapter\:\:url\(\) expects string, string\|false given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Http/Controllers/LandingContentController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$deskripsi\.$#'
+			identifier: property.notFound
+			count: 2
+			path: app/Http/Controllers/LandingController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\LandingController\:\:shared\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Http/Controllers/LandingController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\LandingController\:\:statistik\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Http/Controllers/LandingController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/RolePageController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\RolePageController\:\:activitiesPayload\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Http/Controllers/RolePageController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\RolePageController\:\:activityQuery\(\) return type with generic class Illuminate\\Database\\Eloquent\\Builder does not specify its types\: TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Http/Controllers/RolePageController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\RolePageController\:\:assetPayload\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Http/Controllers/RolePageController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\RolePageController\:\:buildingManagementTree\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Http/Controllers/RolePageController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\RolePageController\:\:dashboardStats\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Http/Controllers/RolePageController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\RolePageController\:\:gedungTree\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Http/Controllers/RolePageController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\RolePageController\:\:internalRoles\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Http/Controllers/RolePageController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\RolePageController\:\:internalUsers\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Http/Controllers/RolePageController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\RolePageController\:\:keuanganStats\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Http/Controllers/RolePageController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\RolePageController\:\:leavePayload\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Http/Controllers/RolePageController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\RolePageController\:\:pagePayload\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Http/Controllers/RolePageController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\RolePageController\:\:payments\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: app/Http/Controllers/RolePageController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\RolePageController\:\:stockPayload\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Http/Controllers/RolePageController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\RolePageController\:\:teknisiPerformance\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Http/Controllers/RolePageController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\RolePageController\:\:tickets\(\) has no return type specified\.$#'
+			identifier: missingType.return
+			count: 1
+			path: app/Http/Controllers/RolePageController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\RolePageController\:\:userPayload\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Http/Controllers/RolePageController.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Http/Controllers/RolePageController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/Settings/ProfileController.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Http/Controllers/Settings/ProfileController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Controllers/Settings/SecurityController.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: app/Http/Controllers/Settings/SecurityController.php
+
+		-
+			message: '#^Method App\\Http\\Controllers\\StokAsetController\:\:validated\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Http/Controllers/StokAsetController.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between App\\Enums\\LaporanKerusakanStatus and ''selesai'' will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 1
+			path: app/Http/Controllers/TeknisiController.php
+
+		-
+			message: '#^Unreachable statement \- code above always terminates\.$#'
+			identifier: deadCode.unreachable
+			count: 1
+			path: app/Http/Controllers/TeknisiController.php
+
+		-
+			message: '#^Parameter \#3 \$photoPaths of method App\\Actions\\DamageReports\\CreateDamageReport\:\:handle\(\) expects list\<string\>, array given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Http/Controllers/TiketController.php
+
+		-
+			message: '#^Parameter \#4 \$evidencePaths of method App\\Actions\\DamageReports\\CompleteDamageReport\:\:handle\(\) expects list\<string\>, array given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Http/Controllers/TiketController.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Http/Middleware/HandleInertiaRequests.php
+
+		-
+			message: '#^Method App\\Http\\Requests\\MasterDataRequest\:\:rules\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Http/Requests/MasterDataRequest.php
+
+		-
+			message: '#^Method App\\Models\\Aset\:\:stokAset\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\BelongsTo does not specify its types\: TRelatedModel, TDeclaringModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/Aset.php
+
+		-
+			message: '#^Method App\\Models\\AttendanceParticipant\:\:mahasiswa\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\BelongsTo does not specify its types\: TRelatedModel, TDeclaringModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/AttendanceParticipant.php
+
+		-
+			message: '#^Method App\\Models\\AttendanceSession\:\:participants\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\HasMany does not specify its types\: TRelatedModel, TDeclaringModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/AttendanceSession.php
+
+		-
+			message: '#^Method App\\Models\\AuditLog\:\:user\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\BelongsTo does not specify its types\: TRelatedModel, TDeclaringModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/AuditLog.php
+
+		-
+			message: '#^Method App\\Models\\City\:\:province\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\BelongsTo does not specify its types\: TRelatedModel, TDeclaringModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/City.php
+
+		-
+			message: '#^Method App\\Models\\FasilitasUmum\:\:gedung\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\BelongsTo does not specify its types\: TRelatedModel, TDeclaringModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/FasilitasUmum.php
+
+		-
+			message: '#^Method App\\Models\\FasilitasUmum\:\:lantai\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\BelongsTo does not specify its types\: TRelatedModel, TDeclaringModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/FasilitasUmum.php
+
+		-
+			message: '#^Method App\\Models\\FasilitatorWilayah\:\:gedung\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\BelongsTo does not specify its types\: TRelatedModel, TDeclaringModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/FasilitatorWilayah.php
+
+		-
+			message: '#^Method App\\Models\\FasilitatorWilayah\:\:user\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\BelongsTo does not specify its types\: TRelatedModel, TDeclaringModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/FasilitatorWilayah.php
+
+		-
+			message: '#^Method App\\Models\\Gedung\:\:fasilitasUmum\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\HasMany does not specify its types\: TRelatedModel, TDeclaringModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/Gedung.php
+
+		-
+			message: '#^Method App\\Models\\Gedung\:\:lantai\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\HasMany does not specify its types\: TRelatedModel, TDeclaringModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/Gedung.php
+
+		-
+			message: '#^Method App\\Models\\JawabanPenilaianTeknisi\:\:penilaian\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\BelongsTo does not specify its types\: TRelatedModel, TDeclaringModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/JawabanPenilaianTeknisi.php
+
+		-
+			message: '#^Method App\\Models\\KategoriTransaksi\:\:transaksi\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\HasMany does not specify its types\: TRelatedModel, TDeclaringModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/KategoriTransaksi.php
+
+		-
+			message: '#^Method App\\Models\\Kegiatan\:\:attendanceSession\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\HasOne does not specify its types\: TRelatedModel, TDeclaringModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/Kegiatan.php
+
+		-
+			message: '#^Method App\\Models\\Kegiatan\:\:gedung\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\BelongsTo does not specify its types\: TRelatedModel, TDeclaringModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/Kegiatan.php
+
+		-
+			message: '#^Method App\\Models\\Kegiatan\:\:pembuat\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\BelongsTo does not specify its types\: TRelatedModel, TDeclaringModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/Kegiatan.php
+
+		-
+			message: '#^Method App\\Models\\Kuesioner\:\:pembuat\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\BelongsTo does not specify its types\: TRelatedModel, TDeclaringModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/Kuesioner.php
+
+		-
+			message: '#^Method App\\Models\\Kuesioner\:\:pertanyaan\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\HasMany does not specify its types\: TRelatedModel, TDeclaringModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/Kuesioner.php
+
+		-
+			message: '#^Method App\\Models\\KuesionerOpsi\:\:pertanyaan\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\BelongsTo does not specify its types\: TRelatedModel, TDeclaringModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/KuesionerOpsi.php
+
+		-
+			message: '#^Method App\\Models\\KuesionerPertanyaan\:\:kuesioner\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\BelongsTo does not specify its types\: TRelatedModel, TDeclaringModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/KuesionerPertanyaan.php
+
+		-
+			message: '#^Method App\\Models\\KuesionerPertanyaan\:\:opsi\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\HasMany does not specify its types\: TRelatedModel, TDeclaringModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/KuesionerPertanyaan.php
+
+		-
+			message: '#^Method App\\Models\\Pembayaran\:\:mahasiswa\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\BelongsTo does not specify its types\: TRelatedModel, TDeclaringModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/Pembayaran.php
+
+		-
+			message: '#^Method App\\Models\\Pembayaran\:\:tagihan\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\BelongsTo does not specify its types\: TRelatedModel, TDeclaringModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/Pembayaran.php
+
+		-
+			message: '#^Method App\\Models\\Pembayaran\:\:verifikator\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\BelongsTo does not specify its types\: TRelatedModel, TDeclaringModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/Pembayaran.php
+
+		-
+			message: '#^Method App\\Models\\PenilaianTeknisi\:\:jawaban\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\HasMany does not specify its types\: TRelatedModel, TDeclaringModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/PenilaianTeknisi.php
+
+		-
+			message: '#^Method App\\Models\\PenilaianTeknisi\:\:kuesioner\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\BelongsTo does not specify its types\: TRelatedModel, TDeclaringModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/PenilaianTeknisi.php
+
+		-
+			message: '#^Method App\\Models\\PenilaianTeknisi\:\:laporanKerusakan\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\BelongsTo does not specify its types\: TRelatedModel, TDeclaringModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/PenilaianTeknisi.php
+
+		-
+			message: '#^Method App\\Models\\PenilaianTeknisi\:\:penilai\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\BelongsTo does not specify its types\: TRelatedModel, TDeclaringModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/PenilaianTeknisi.php
+
+		-
+			message: '#^Method App\\Models\\PenilaianTeknisi\:\:teknisi\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\BelongsTo does not specify its types\: TRelatedModel, TDeclaringModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/PenilaianTeknisi.php
+
+		-
+			message: '#^Method App\\Models\\Program\:\:sub\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\HasMany does not specify its types\: TRelatedModel, TDeclaringModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/Program.php
+
+		-
+			message: '#^Method App\\Models\\ProgramSub\:\:program\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\BelongsTo does not specify its types\: TRelatedModel, TDeclaringModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/ProgramSub.php
+
+		-
+			message: '#^Method App\\Models\\Province\:\:cities\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\HasMany does not specify its types\: TRelatedModel, TDeclaringModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/Province.php
+
+		-
+			message: '#^Method App\\Models\\StokAset\:\:aset\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\HasMany does not specify its types\: TRelatedModel, TDeclaringModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/StokAset.php
+
+		-
+			message: '#^Method App\\Models\\TransaksiKeuangan\:\:kategori\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\BelongsTo does not specify its types\: TRelatedModel, TDeclaringModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/TransaksiKeuangan.php
+
+		-
+			message: '#^Method App\\Models\\TransaksiKeuangan\:\:pembayaran\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\BelongsTo does not specify its types\: TRelatedModel, TDeclaringModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/TransaksiKeuangan.php
+
+		-
+			message: '#^Method App\\Models\\TransaksiKeuangan\:\:pencatat\(\) return type with generic class Illuminate\\Database\\Eloquent\\Relations\\BelongsTo does not specify its types\: TRelatedModel, TDeclaringModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Models/TransaksiKeuangan.php
+
+		-
+			message: '#^Parameter \#2 \$at of method App\\Services\\AttendanceEligibility\:\:isEligible\(\) expects Carbon\\CarbonInterface, string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: app/Services/AttendanceRoster.php
+
+		-
+			message: '#^Method App\\Services\\AuditLogService\:\:log\(\) has parameter \$new with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/AuditLogService.php
+
+		-
+			message: '#^Method App\\Services\\AuditLogService\:\:log\(\) has parameter \$old with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/AuditLogService.php
+
+		-
+			message: '#^Method App\\Services\\LandingContentService\:\:contents\(\) return type with generic class Illuminate\\Database\\Eloquent\\Collection does not specify its types\: TKey, TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Services/LandingContentService.php
+
+		-
+			message: '#^Method App\\Services\\LandingContentService\:\:informasi\(\) return type with generic class Illuminate\\Database\\Eloquent\\Collection does not specify its types\: TKey, TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Services/LandingContentService.php
+
+		-
+			message: '#^Method App\\Services\\LandingContentService\:\:programs\(\) return type with generic class Illuminate\\Database\\Eloquent\\Collection does not specify its types\: TKey, TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Services/LandingContentService.php
+
+		-
+			message: '#^Method App\\Services\\LandingContentService\:\:richData\(\) has parameter \$data with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/LandingContentService.php
+
+		-
+			message: '#^Method App\\Services\\LandingContentService\:\:richData\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/LandingContentService.php
+
+		-
+			message: '#^Method App\\Services\\LandingContentService\:\:storeInformasi\(\) has parameter \$data with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/LandingContentService.php
+
+		-
+			message: '#^Method App\\Services\\LandingContentService\:\:storeProgram\(\) has parameter \$data with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/LandingContentService.php
+
+		-
+			message: '#^Method App\\Services\\LandingContentService\:\:storeProgramSub\(\) has parameter \$data with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/LandingContentService.php
+
+		-
+			message: '#^Method App\\Services\\LandingContentService\:\:storeTestimoni\(\) has parameter \$data with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/LandingContentService.php
+
+		-
+			message: '#^Method App\\Services\\LandingContentService\:\:testimonials\(\) return type with generic class Illuminate\\Database\\Eloquent\\Collection does not specify its types\: TKey, TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Services/LandingContentService.php
+
+		-
+			message: '#^Method App\\Services\\LandingContentService\:\:updateContent\(\) has parameter \$data with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/LandingContentService.php
+
+		-
+			message: '#^Method App\\Services\\LandingContentService\:\:updateInformasi\(\) has parameter \$data with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/LandingContentService.php
+
+		-
+			message: '#^Method App\\Services\\LandingContentService\:\:updateProgram\(\) has parameter \$data with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/LandingContentService.php
+
+		-
+			message: '#^Method App\\Services\\LandingContentService\:\:updateProgramSub\(\) has parameter \$data with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/LandingContentService.php
+
+		-
+			message: '#^Method App\\Services\\LandingContentService\:\:updateTestimoni\(\) has parameter \$data with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/LandingContentService.php
+
+		-
+			message: '#^Method App\\Services\\MasterDataService\:\:allProdiList\(\) return type with generic class Illuminate\\Database\\Eloquent\\Collection does not specify its types\: TKey, TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Services/MasterDataService.php
+
+		-
+			message: '#^Method App\\Services\\MasterDataService\:\:createDepartemen\(\) has parameter \$data with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/MasterDataService.php
+
+		-
+			message: '#^Method App\\Services\\MasterDataService\:\:createFakultas\(\) has parameter \$data with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/MasterDataService.php
+
+		-
+			message: '#^Method App\\Services\\MasterDataService\:\:createKategori\(\) has parameter \$data with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/MasterDataService.php
+
+		-
+			message: '#^Method App\\Services\\MasterDataService\:\:createKota\(\) has parameter \$data with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/MasterDataService.php
+
+		-
+			message: '#^Method App\\Services\\MasterDataService\:\:createPeriode\(\) has parameter \$data with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/MasterDataService.php
+
+		-
+			message: '#^Method App\\Services\\MasterDataService\:\:createProdi\(\) has parameter \$data with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/MasterDataService.php
+
+		-
+			message: '#^Method App\\Services\\MasterDataService\:\:createProvinsi\(\) has parameter \$data with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/MasterDataService.php
+
+		-
+			message: '#^Method App\\Services\\MasterDataService\:\:departemenList\(\) return type with generic class Illuminate\\Database\\Eloquent\\Collection does not specify its types\: TKey, TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Services/MasterDataService.php
+
+		-
+			message: '#^Method App\\Services\\MasterDataService\:\:fakultasList\(\) return type with generic class Illuminate\\Database\\Eloquent\\Collection does not specify its types\: TKey, TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Services/MasterDataService.php
+
+		-
+			message: '#^Method App\\Services\\MasterDataService\:\:kategoriList\(\) return type with generic class Illuminate\\Database\\Eloquent\\Collection does not specify its types\: TKey, TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Services/MasterDataService.php
+
+		-
+			message: '#^Method App\\Services\\MasterDataService\:\:kotaList\(\) return type with generic class Illuminate\\Database\\Eloquent\\Collection does not specify its types\: TKey, TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Services/MasterDataService.php
+
+		-
+			message: '#^Method App\\Services\\MasterDataService\:\:periodeList\(\) return type with generic class Illuminate\\Database\\Eloquent\\Collection does not specify its types\: TKey, TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Services/MasterDataService.php
+
+		-
+			message: '#^Method App\\Services\\MasterDataService\:\:prodiList\(\) return type with generic class Illuminate\\Database\\Eloquent\\Collection does not specify its types\: TKey, TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Services/MasterDataService.php
+
+		-
+			message: '#^Method App\\Services\\MasterDataService\:\:provinsiList\(\) return type with generic class Illuminate\\Database\\Eloquent\\Collection does not specify its types\: TKey, TModel$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Services/MasterDataService.php
+
+		-
+			message: '#^Method App\\Services\\MasterDataService\:\:updateDepartemen\(\) has parameter \$data with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/MasterDataService.php
+
+		-
+			message: '#^Method App\\Services\\MasterDataService\:\:updateFakultas\(\) has parameter \$data with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/MasterDataService.php
+
+		-
+			message: '#^Method App\\Services\\MasterDataService\:\:updateKategori\(\) has parameter \$data with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/MasterDataService.php
+
+		-
+			message: '#^Method App\\Services\\MasterDataService\:\:updateKota\(\) has parameter \$data with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/MasterDataService.php
+
+		-
+			message: '#^Method App\\Services\\MasterDataService\:\:updatePeriode\(\) has parameter \$data with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/MasterDataService.php
+
+		-
+			message: '#^Method App\\Services\\MasterDataService\:\:updateProdi\(\) has parameter \$data with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/MasterDataService.php
+
+		-
+			message: '#^Method App\\Services\\MasterDataService\:\:updateProvinsi\(\) has parameter \$data with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/MasterDataService.php
+
+		-
+			message: '#^Call to an undefined method Illuminate\\Database\\Eloquent\\Model\:\:pertanyaan\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: app/Services/QuestionnaireScoringService.php
+
+		-
+			message: '#^Method App\\Services\\QuestionnaireScoringService\:\:calculate\(\) has parameter \$pertanyaan with generic class Illuminate\\Support\\Collection but does not specify its types\: TKey, TValue$#'
+			identifier: missingType.generics
+			count: 1
+			path: app/Services/QuestionnaireScoringService.php
+
+		-
+			message: '#^Method App\\Services\\QuestionnaireScoringService\:\:calculate\(\) return type has no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/QuestionnaireScoringService.php
+
+		-
+			message: '#^Method App\\Services\\QuestionnaireScoringService\:\:finalize\(\) has parameter \$answers with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: app/Services/QuestionnaireScoringService.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: app/Services/UserProfileSummary.php
+
+		-
+			message: '#^Cannot call method format\(\) on string\.$#'
+			identifier: method.nonObject
+			count: 2
+			path: app/Services/UserProfileSummary.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>id" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: database/migrations/2026_09_23_112200_implement_leave_monitoring_and_asset_quantities.php
+
+		-
+			message: '#^Using nullsafe method call on non\-nullable type Illuminate\\Console\\Command\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 2
+			path: database/seeders/DatabaseSeeder.php
+
+		-
+			message: '#^Method Database\\Seeders\\LandingContentSeeder\:\:upsert\(\) has parameter \$attributes with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: database/seeders/LandingContentSeeder.php
+
+		-
+			message: '#^Method Database\\Seeders\\LandingContentSeeder\:\:upsertSub\(\) has parameter \$items with no value type specified in iterable type array\.$#'
+			identifier: missingType.iterableValue
+			count: 1
+			path: database/seeders/LandingContentSeeder.php
+
+		-
+			message: '#^Parameter \#4 \$color of function imagefill expects int, int\<0, max\>\|false given\.$#'
+			identifier: argument.type
+			count: 1
+			path: database/seeders/ResidenceScenarioSeeder.php
+
+		-
+			message: '#^Parameter \#6 \$color of function imagestring expects int, int\<0, max\>\|false given\.$#'
+			identifier: argument.type
+			count: 1
+			path: database/seeders/ResidenceScenarioSeeder.php
+
+		-
+			message: '#^Using nullsafe method call on non\-nullable type Illuminate\\Console\\Command\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: database/seeders/ResidenceScenarioSeeder.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>angkatan" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: database/seeders/ResidenceScenarioSeeder.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: routes/andalas.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: routes/andalas.php
+
+		-
+			message: '#^Access to an undefined property Illuminate\\Database\\Eloquent\\Model\:\:\$name\.$#'
+			identifier: property.notFound
+			count: 1
+			path: routes/settings.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>name" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: routes/settings.php
