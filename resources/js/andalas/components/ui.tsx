@@ -644,7 +644,7 @@ export function DataTable<T extends Record<string, unknown>>({
                 >
                     <thead>
                         <tr>
-                            <th className="bg-base-100 text-base-content/60 w-14 text-center text-xs font-semibold">
+                            <th className="bg-base-200/60 text-base-content/60 w-14 text-center text-xs font-semibold">
                                 No.
                             </th>
                             {columns.map((col) => (
@@ -653,8 +653,8 @@ export function DataTable<T extends Record<string, unknown>>({
                                     className={
                                         (col.width ?? '') +
                                         (col.action
-                                            ? ' bg-base-100 sticky right-0 z-10 w-px text-center whitespace-nowrap'
-                                            : ' bg-base-100')
+                                            ? ' bg-base-200 sticky right-0 z-10 w-px text-center whitespace-nowrap shadow-sm'
+                                            : ' bg-base-200/60')
                                     }
                                     aria-sort={
                                         sortKey === col.key
