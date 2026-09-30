@@ -639,7 +639,7 @@ export function DataTable<T extends Record<string, unknown>>({
 
             <div className="overflow-x-auto px-4">
                 <table
-                    className="data-table table-sm table w-full table-auto"
+                    className="table-sm table w-full table-auto"
                     aria-busy={server?.loading ?? false}
                 >
                     <thead>
