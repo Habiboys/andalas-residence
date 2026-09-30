@@ -7,13 +7,7 @@ import {
 } from '../../components/charts';
 import * as admin from '@/routes/admin';
 import * as layanan from '@/routes/admin_layanan';
-import {
-    PageHeader,
-    StatCard,
-    Card,
-    Table,
-    StatusBadge,
-} from '../../components/ui';
+import { PageHeader, StatCard, Table, StatusBadge } from '../../components/ui';
 import type { DashboardStats } from '../../lib/types';
 
 const formatRupiah = (n: number) =>
@@ -102,7 +96,9 @@ export default function AdminDashboard({
             key: 'created_at',
             label: 'Tanggal',
             render: (row: Record<string, unknown>) =>
-                String(row.created_at ?? '').slice(0, 10),
+                typeof row.created_at === 'string'
+                    ? row.created_at.slice(0, 10)
+                    : '-',
         },
         {
             key: 'status',
@@ -208,12 +204,10 @@ export default function AdminDashboard({
                     />
                 </ChartCard>
             </div>
-            <Card>
-                <div className="border-base-300 border-b px-6 py-4">
-                    <h2 className="font-semibold">
-                        Pembayaran Menunggu Verifikasi
-                    </h2>
-                </div>
+            <section className="space-y-4">
+                <h2 className="font-semibold">
+                    Pembayaran Menunggu Verifikasi
+                </h2>
                 <Table
                     columns={tableColumns}
                     data={
@@ -224,7 +218,7 @@ export default function AdminDashboard({
                     }
                     emptyMessage="Tidak ada pembayaran pending"
                 />
-            </Card>
+            </section>
         </div>
     );
 }

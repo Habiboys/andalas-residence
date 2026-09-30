@@ -2,7 +2,6 @@ import { router, useForm } from '@inertiajs/react';
 import { useState } from 'react';
 import {
     PageHeader,
-    Card,
     ConfirmDialog,
     DataTable,
     inputClass,
@@ -13,6 +12,7 @@ import {
     CalendarDays,
     ChevronLeft,
     ChevronRight,
+    FileUp,
     Pencil,
     Trash2,
 } from 'lucide-react';
@@ -295,9 +295,11 @@ function Editor({
                     );
                 }
 
-                return Array.isArray(row[field.name])
-                    ? row[field.name].join(', ')
-                    : String(row[field.name] ?? '-');
+                const value = row[field.name];
+
+                return Array.isArray(value)
+                    ? value.join(', ')
+                    : String(value ?? '-');
             },
             render: (row: Row) => {
                 if (field.name === 'gedung_id') {
@@ -308,9 +310,11 @@ function Editor({
                     );
                 }
 
-                return Array.isArray(row[field.name])
-                    ? row[field.name].join(', ')
-                    : String(row[field.name] ?? '-');
+                const value = row[field.name];
+
+                return Array.isArray(value)
+                    ? value.join(', ')
+                    : String(value ?? '-');
             },
         })),
         {
@@ -343,7 +347,7 @@ function Editor({
     ];
 
     return (
-        <Card className="space-y-4 p-5">
+        <section className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="text-lg font-semibold">{title}</h2>
                 <button className="btn btn-primary btn-sm" onClick={openCreate}>
@@ -549,7 +553,7 @@ function Editor({
                         : 'Data ini akan dihapus dan tindakan ini tidak dapat dibatalkan.'
                 }
             />
-        </Card>
+        </section>
     );
 }
 
@@ -562,7 +566,12 @@ export default function ResidenceManagement({
     residence_rates = [],
 }: Props) {
     const [tab, setTab] = useState('legacy');
+    const [importModalOpen, setImportModalOpen] = useState(false);
     const upload = useForm({ file: null as File | null });
+    const closeImportModal = () => {
+        setImportModalOpen(false);
+        upload.reset();
+    };
     const buildingOrder = [
         'A',
         'B',
@@ -666,57 +675,90 @@ export default function ResidenceManagement({
                         )}
                         buildings={orderedBuildings}
                     />
-                    <Card className="space-y-3 p-5">
-                        <h2 className="font-semibold">Impor arsip alumni</h2>
-                        <p className="text-sm">
-                            Excel/CSV, satu sheet, maksimal 500 baris. Isi hanya
-                            nama, NIM, dan gedung. NIM duplikat ditolak dan
-                            seluruh impor dibatalkan.
-                        </p>
-                        <a
-                            download="template-alumni.csv"
-                            href={
-                                'data:text/csv;charset=utf-8,' +
-                                encodeURIComponent('nama,nim,gedung\n')
-                            }
-                            className="link"
+                    <div className="flex justify-end">
+                        <button
+                            type="button"
+                            className="btn btn-outline btn-sm"
+                            onClick={() => setImportModalOpen(true)}
                         >
-                            Unduh template CSV
-                        </a>
-                        <form
-                            onSubmit={(e) => {
-                                e.preventDefault();
-                                upload.post(importMethod.url(), {
-                                    preserveScroll: true,
-                                });
-                            }}
-                        >
-                            <input
-                                aria-label="Berkas alumni"
-                                type="file"
-                                accept=".csv,.xlsx,.xls"
-                                onChange={(e) =>
-                                    upload.setData(
-                                        'file',
-                                        e.target.files?.[0] ?? null,
-                                    )
+                            <FileUp className="size-4" aria-hidden="true" />
+                            Impor arsip alumni
+                        </button>
+                    </div>
+                    <Modal
+                        open={importModalOpen}
+                        onClose={closeImportModal}
+                        title="Impor arsip alumni"
+                    >
+                        <div className="space-y-4">
+                            <p className="text-sm">
+                                Excel/CSV, satu sheet, maksimal 500 baris. Isi
+                                hanya nama, NIM, dan gedung. NIM duplikat
+                                ditolak dan seluruh impor dibatalkan.
+                            </p>
+                            <a
+                                download="template-alumni.csv"
+                                href={
+                                    'data:text/csv;charset=utf-8,' +
+                                    encodeURIComponent('nama,nim,gedung\n')
                                 }
-                            />
-                            <button
-                                disabled={
-                                    upload.processing || !upload.data.file
-                                }
-                                className="btn btn-primary"
+                                className="link link-primary text-sm"
                             >
-                                Impor
-                            </button>
-                            {upload.errors.file && (
-                                <p role="alert" className="text-error">
-                                    {upload.errors.file}
-                                </p>
-                            )}
-                        </form>
-                    </Card>
+                                Unduh template CSV
+                            </a>
+                            <form
+                                className="space-y-3"
+                                onSubmit={(e) => {
+                                    e.preventDefault();
+                                    upload.post(importMethod.url(), {
+                                        preserveScroll: true,
+                                        onSuccess: closeImportModal,
+                                    });
+                                }}
+                            >
+                                <input
+                                    aria-label="Berkas alumni"
+                                    type="file"
+                                    accept=".csv,.xlsx,.xls"
+                                    className="file-input file-input-bordered w-full"
+                                    onChange={(e) =>
+                                        upload.setData(
+                                            'file',
+                                            e.target.files?.[0] ?? null,
+                                        )
+                                    }
+                                />
+                                {upload.errors.file && (
+                                    <p
+                                        role="alert"
+                                        className="text-error text-sm"
+                                    >
+                                        {upload.errors.file}
+                                    </p>
+                                )}
+                                <div className="modal-action mt-0">
+                                    <button
+                                        type="button"
+                                        className="btn btn-ghost"
+                                        onClick={closeImportModal}
+                                    >
+                                        Batal
+                                    </button>
+                                    <button
+                                        disabled={
+                                            upload.processing ||
+                                            !upload.data.file
+                                        }
+                                        className="btn btn-primary"
+                                    >
+                                        {upload.processing
+                                            ? 'Mengimpor...'
+                                            : 'Impor'}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </Modal>
                 </>
             ) : (
                 <>

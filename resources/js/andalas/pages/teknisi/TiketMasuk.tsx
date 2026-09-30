@@ -1,4 +1,4 @@
-import { PageHeader, Card, DataTable, StatusBadge } from '../../components/ui';
+import { PageHeader, DataTable, StatusBadge } from '../../components/ui';
 import { photo } from '@/routes/andalas/tiket';
 import { mapTicketStatus } from '../../lib/format';
 
@@ -92,13 +92,11 @@ export default function TiketMasuk({ tiket = [] }: Props) {
                 title="Tiket Masuk"
                 subtitle="Daftar tiket yang perlu ditangani"
             />
-            <Card className="p-4">
-                <DataTable
-                    columns={columns as never}
-                    data={incoming as never}
-                    emptyMessage="Tidak ada tiket masuk"
-                />
-            </Card>
+            <DataTable
+                columns={columns as never}
+                data={incoming as never}
+                emptyMessage="Tidak ada tiket masuk"
+            />
         </div>
     );
 }

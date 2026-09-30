@@ -2,7 +2,6 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useForm } from '@inertiajs/react';
 import {
     PageHeader,
-    Card,
     Button,
     Drawer,
     DataTable,
@@ -175,8 +174,8 @@ function MasterCrudSection({
     };
 
     return (
-        <Card>
-            <div className="px-4 pt-4">
+        <section className="space-y-4">
+            <div>
                 <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                         <h3 className="text-primary font-semibold dark:text-white">
@@ -297,7 +296,7 @@ function MasterCrudSection({
                 title={`Hapus ${title}`}
                 message={`Hapus ${title.toLowerCase()} "${rowLabel(deleting ?? {})}"? Tindakan ini tidak dapat dibatalkan.`}
             />
-        </Card>
+        </section>
     );
 }
 
@@ -797,14 +796,14 @@ export default function MasterData({
                     </Button>
                 }
             />
-            <Card className="p-4">
+            <section className="space-y-4">
                 <Tabs
                     tabs={tabs.map((t) => t.label)}
                     active={tab}
                     onChange={setTab}
                 />
-                <div className="mt-2">{tabs[tab]?.section}</div>
-            </Card>
+                <div>{tabs[tab]?.section}</div>
+            </section>
         </div>
     );
 }

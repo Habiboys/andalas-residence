@@ -85,60 +85,58 @@ export default function PenempatanKamar({
                     Buka review pendaftaran
                 </Link>
             </Card>
-            <Card>
-                <Table
-                    columns={[
-                        {
-                            key: 'student',
-                            label: 'Penghuni',
-                            render: (row: Placement) =>
-                                row.mahasiswa?.user?.nama ?? '-',
-                        },
-                        {
-                            key: 'identity',
-                            label: 'NIM / identitas',
-                            render: (row: Placement) =>
-                                row.mahasiswa?.user?.nim_nip ?? '-',
-                        },
-                        {
-                            key: 'room',
-                            label: 'Gedung / kamar',
-                            render: (row: Placement) =>
-                                [
-                                    row.kamar?.lantai?.gedung?.nama_gedung,
-                                    row.kamar?.nomor_kamar,
-                                ]
-                                    .filter(Boolean)
-                                    .join(' / '),
-                        },
-                        {
-                            key: 'status',
-                            label: 'Penempatan',
-                            render: (row: Placement) => (
-                                <StatusBadge status={row.status} />
-                            ),
-                        },
-                        {
-                            key: 'occupancy',
-                            label: 'Status penghuni',
-                            render: (row: Placement) => (
-                                <StatusBadge
-                                    status={row.mahasiswa?.status_huni ?? ''}
-                                />
-                            ),
-                        },
-                        {
-                            key: 'aksi',
-                            label: 'Aksi',
-                            render: (row: Placement) => (
-                                <RowActions onDetail={() => setSelected(row)} />
-                            ),
-                        },
-                    ]}
-                    data={penempatan}
-                    emptyMessage="Belum ada penempatan kamar."
-                />
-            </Card>
+            <Table
+                columns={[
+                    {
+                        key: 'student',
+                        label: 'Penghuni',
+                        render: (row: Placement) =>
+                            row.mahasiswa?.user?.nama ?? '-',
+                    },
+                    {
+                        key: 'identity',
+                        label: 'NIM / identitas',
+                        render: (row: Placement) =>
+                            row.mahasiswa?.user?.nim_nip ?? '-',
+                    },
+                    {
+                        key: 'room',
+                        label: 'Gedung / kamar',
+                        render: (row: Placement) =>
+                            [
+                                row.kamar?.lantai?.gedung?.nama_gedung,
+                                row.kamar?.nomor_kamar,
+                            ]
+                                .filter(Boolean)
+                                .join(' / '),
+                    },
+                    {
+                        key: 'status',
+                        label: 'Penempatan',
+                        render: (row: Placement) => (
+                            <StatusBadge status={row.status} />
+                        ),
+                    },
+                    {
+                        key: 'occupancy',
+                        label: 'Status penghuni',
+                        render: (row: Placement) => (
+                            <StatusBadge
+                                status={row.mahasiswa?.status_huni ?? ''}
+                            />
+                        ),
+                    },
+                    {
+                        key: 'aksi',
+                        label: 'Aksi',
+                        render: (row: Placement) => (
+                            <RowActions onDetail={() => setSelected(row)} />
+                        ),
+                    },
+                ]}
+                data={penempatan}
+                emptyMessage="Belum ada penempatan kamar."
+            />
 
             <Modal
                 open={!!selected}

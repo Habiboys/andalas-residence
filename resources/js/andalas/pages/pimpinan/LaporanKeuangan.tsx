@@ -1,4 +1,4 @@
-import { PageHeader, Card, Table } from '../../components/ui';
+import { PageHeader, Table } from '../../components/ui';
 import { formatRupiah } from '../../lib/format';
 import type { KeuanganStats } from '../../lib/types';
 
@@ -24,34 +24,32 @@ export default function LaporanKeuangan({ transaksi = [] }: Props) {
                 title="Laporan Keuangan"
                 subtitle="Rekap transaksi kas operasional"
             />
-            <Card>
-                <Table
-                    columns={[
-                        { key: 'nomor_bukti', label: 'No. Bukti' },
-                        {
-                            key: 'tanggal',
-                            label: 'Tanggal',
-                            render: (r: TransaksiRow) =>
-                                String(r.tanggal_transaksi ?? '').slice(0, 10),
-                        },
-                        {
-                            key: 'kategori',
-                            label: 'Kategori',
-                            render: (r: TransaksiRow) =>
-                                r.kategori?.nama_kategori ?? '-',
-                        },
-                        { key: 'tipe', label: 'Tipe' },
-                        {
-                            key: 'nominal',
-                            label: 'Nominal',
-                            render: (r: TransaksiRow) =>
-                                formatRupiah(Number(r.nominal ?? 0)),
-                        },
-                    ]}
-                    data={transaksi}
-                    emptyMessage="Belum ada transaksi"
-                />
-            </Card>
+            <Table
+                columns={[
+                    { key: 'nomor_bukti', label: 'No. Bukti' },
+                    {
+                        key: 'tanggal',
+                        label: 'Tanggal',
+                        render: (r: TransaksiRow) =>
+                            String(r.tanggal_transaksi ?? '').slice(0, 10),
+                    },
+                    {
+                        key: 'kategori',
+                        label: 'Kategori',
+                        render: (r: TransaksiRow) =>
+                            r.kategori?.nama_kategori ?? '-',
+                    },
+                    { key: 'tipe', label: 'Tipe' },
+                    {
+                        key: 'nominal',
+                        label: 'Nominal',
+                        render: (r: TransaksiRow) =>
+                            formatRupiah(Number(r.nominal ?? 0)),
+                    },
+                ]}
+                data={transaksi}
+                emptyMessage="Belum ada transaksi"
+            />
         </div>
     );
 }

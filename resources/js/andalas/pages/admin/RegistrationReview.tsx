@@ -75,7 +75,7 @@ export default function RegistrationReview({
         perPage: registrations?.per_page ?? 10,
         sortBy: table_state.sort_by,
         sortDirection: table_state.sort_direction,
-        filters: table_state.status ? { status: table_state.status } : {},
+        filters: { status: table_state.status ?? '' },
     } satisfies DataTableQuery;
 
     function openReview(row: Row) {

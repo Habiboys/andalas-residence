@@ -10,7 +10,6 @@ import { useState } from 'react';
 import { useForm, router } from '@inertiajs/react';
 import {
     PageHeader,
-    Card,
     DataTable,
     Button,
     Drawer,
@@ -234,13 +233,11 @@ export default function DataMahasiswa({
                 subtitle="Identitas, kategori akun, dan status hunian mahasiswa maupun nonmahasiswa"
                 actions={<Button onClick={openCreate}>Tambah Mahasiswa</Button>}
             />
-            <Card className="p-4">
-                <DataTable
-                    columns={columns}
-                    data={mahasiswa ?? []}
-                    searchKeys={['angkatan', 'status_huni']}
-                />
-            </Card>
+            <DataTable
+                columns={columns}
+                data={mahasiswa ?? []}
+                searchKeys={['angkatan', 'status_huni']}
+            />
 
             <Drawer
                 open={!!viewing}

@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useForm } from '@inertiajs/react';
 import {
     PageHeader,
-    Card,
     Tabs,
     DataTable,
     Button,
@@ -99,7 +98,7 @@ export default function PenilaianTeknisi({
                 title="Penilaian Teknisi"
                 subtitle="Kuesioner dinamis penilaian kinerja teknisi"
             />
-            <Card className="p-4">
+            <section className="space-y-4">
                 <Tabs
                     tabs={['Tiket Belum Dinilai', 'Rekap Performa']}
                     active={tab}
@@ -114,7 +113,7 @@ export default function PenilaianTeknisi({
                 ) : (
                     <PerformanceSummary stats={performance} />
                 )}
-            </Card>
+            </section>
             <Drawer
                 open={!!selected}
                 onClose={() => setSelected(null)}

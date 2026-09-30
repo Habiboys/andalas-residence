@@ -1,4 +1,4 @@
-import { PageHeader, Card, Table, StatusBadge } from '../../components/ui';
+import { PageHeader, Table, StatusBadge } from '../../components/ui';
 import { mapTicketStatus } from '../../lib/format';
 
 type AsetRow = {
@@ -10,8 +10,8 @@ type AsetRow = {
 type TiketRow = { nomor_tiket?: string; status?: string; deskripsi?: string };
 
 type Props = {
-    aset: AsetRow[];
-    tiket: TiketRow[];
+    aset?: AsetRow[];
+    tiket?: TiketRow[];
 };
 
 export default function LaporanAset({ aset = [], tiket = [] }: Props) {
@@ -21,10 +21,8 @@ export default function LaporanAset({ aset = [], tiket = [] }: Props) {
                 title="Laporan Aset"
                 subtitle="Inventaris dan tiket maintenance"
             />
-            <Card>
-                <div className="border-base-300 border-b px-5 py-4 font-semibold">
-                    Inventaris Aset
-                </div>
+            <section className="space-y-4">
+                <h2 className="font-semibold">Inventaris Aset</h2>
                 <Table
                     columns={[
                         { key: 'kode_inventaris', label: 'Kode' },
@@ -41,11 +39,9 @@ export default function LaporanAset({ aset = [], tiket = [] }: Props) {
                     data={aset}
                     emptyMessage="Tidak ada aset"
                 />
-            </Card>
-            <Card>
-                <div className="border-base-300 border-b px-5 py-4 font-semibold">
-                    Tiket Kerusakan
-                </div>
+            </section>
+            <section className="space-y-4">
+                <h2 className="font-semibold">Tiket Kerusakan</h2>
                 <Table
                     columns={[
                         { key: 'nomor_tiket', label: 'No. Tiket' },
@@ -63,7 +59,7 @@ export default function LaporanAset({ aset = [], tiket = [] }: Props) {
                     data={tiket}
                     emptyMessage="Tidak ada tiket"
                 />
-            </Card>
+            </section>
         </div>
     );
 }

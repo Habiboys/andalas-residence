@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useForm, router } from '@inertiajs/react';
 import {
     PageHeader,
-    Card,
     DataTable,
     StatusBadge,
     Button,
@@ -11,7 +10,9 @@ import {
     inputClass,
     ConfirmDialog,
     RowActions,
+    Modal,
 } from '../../components/ui';
+import { FileUp, Plus } from 'lucide-react';
 import {
     store as asetStore,
     update as asetUpdate,
@@ -100,6 +101,7 @@ export default function KelolaAset({
     stok = [],
 }: Props) {
     const [open, setOpen] = useState(false);
+    const [importOpen, setImportOpen] = useState(false);
     const importForm = useForm({ file: null as File | null });
     const [editing, setEditing] = useState<AsetRow | null>(null);
     const [deleting, setDeleting] = useState<AsetRow | null>(null);
@@ -233,20 +235,56 @@ export default function KelolaAset({
             <PageHeader
                 title="Kelola Aset"
                 subtitle="Inventaris aset asrama"
-                actions={<Button onClick={openCreate}>Tambah Aset</Button>}
+                actions={
+                    <div className="flex items-center gap-2">
+                        <Button
+                            variant="secondary"
+                            onClick={() => setImportOpen(true)}
+                        >
+                            <FileUp className="size-4" aria-hidden="true" />
+                            Impor aset
+                        </Button>
+                        <Button onClick={openCreate}>
+                            <Plus className="size-4" aria-hidden="true" />
+                            Tambah Aset
+                        </Button>
+                    </div>
+                }
             />
-            <Card className="p-4">
-                <details>
-                    <summary className="cursor-pointer text-sm font-medium">
-                        Impor aset per kamar dari Excel / CSV
-                    </summary>
+            <Modal
+                open={importOpen}
+                onClose={() => {
+                    setImportOpen(false);
+                    importForm.reset();
+                    importForm.clearErrors();
+                }}
+                title="Impor aset per kamar"
+                width="max-w-xl"
+            >
+                <div className="space-y-4">
+                    <p className="text-base-content/70 text-sm">
+                        Excel/CSV, satu sheet, maksimal 500 baris atau 5 MB. Isi
+                        kode gedung, nomor lantai, nomor kamar, kode stok,
+                        jumlah, kode inventaris, dan kondisi. Seluruh impor
+                        dibatalkan jika ada baris tidak valid.
+                    </p>
+                    <a
+                        className="link link-primary text-sm"
+                        href={template.url()}
+                    >
+                        Unduh template CSV
+                    </a>
                     <form
-                        className="mt-4 flex flex-wrap items-end gap-3"
+                        className="space-y-4"
                         onSubmit={(event) => {
                             event.preventDefault();
                             importForm.post(importAssets.url(), {
                                 forceFormData: true,
-                                onSuccess: () => importForm.reset(),
+                                preserveScroll: true,
+                                onSuccess: () => {
+                                    importForm.reset();
+                                    setImportOpen(false);
+                                },
                             });
                         }}
                     >
@@ -255,7 +293,7 @@ export default function KelolaAset({
                                 required
                                 type="file"
                                 accept=".xlsx,.xls,.csv"
-                                className={inputClass}
+                                className="file-input file-input-bordered w-full"
                                 onChange={(event) =>
                                     importForm.setData(
                                         'file',
@@ -264,35 +302,38 @@ export default function KelolaAset({
                                 }
                             />
                         </FormField>
-                        <Button type="submit" disabled={importForm.processing}>
-                            {importForm.processing ? 'Mengimpor…' : 'Impor'}
-                        </Button>
-                        <a
-                            className="text-primary py-2 text-sm underline"
-                            href={template.url()}
-                        >
-                            Unduh template CSV
-                        </a>
+                        {importForm.errors.file && (
+                            <p role="alert" className="text-error text-sm">
+                                {importForm.errors.file}
+                            </p>
+                        )}
+                        <div className="modal-action mt-0">
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                onClick={() => setImportOpen(false)}
+                            >
+                                Batal
+                            </Button>
+                            <Button
+                                type="submit"
+                                disabled={
+                                    importForm.processing ||
+                                    !importForm.data.file
+                                }
+                            >
+                                {importForm.processing
+                                    ? 'Mengimpor...'
+                                    : 'Impor'}
+                            </Button>
+                        </div>
                     </form>
-                    <p className="text-muted mt-3 text-xs">
-                        Satu sheet, maksimal 500 baris / 5 MB. Isi kode gedung,
-                        nomor lantai, nomor kamar, kode stok, jumlah, kode
-                        inventaris, dan kondisi. Seluruh impor dibatalkan jika
-                        ada baris tidak valid.
-                    </p>
-                    {importForm.errors.file && (
-                        <p role="alert" className="text-error mt-2 text-sm">
-                            {importForm.errors.file}
-                        </p>
-                    )}
-                </details>
-            </Card>
-            <Card className="p-4">
-                <DataTable
-                    columns={columns as never}
-                    data={(aset ?? []) as never}
-                />
-            </Card>
+                </div>
+            </Modal>
+            <DataTable
+                columns={columns as never}
+                data={(aset ?? []) as never}
+            />
 
             <Drawer
                 open={open}

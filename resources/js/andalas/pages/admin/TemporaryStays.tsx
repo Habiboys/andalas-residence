@@ -299,73 +299,70 @@ export default function TemporaryStays({
                     ))}
                 </Card>
             )}
-            <Card className="p-4">
-                <DataTable
-                    data={stays}
-                    columns={[
-                        {
-                            key: 'nama',
-                            label: 'Penghuni',
-                            value: (row) =>
-                                row.student_profile?.user?.nama ?? '',
-                            render: (row) => row.student_profile?.user?.nama,
-                        },
-                        {
-                            key: 'identity',
-                            label: 'NIM / identitas',
-                            value: (row) =>
-                                row.student_profile?.user?.nim_nip ?? '',
-                            render: (row) => row.student_profile?.user?.nim_nip,
-                        },
-                        {
-                            key: 'stay_kind',
-                            label: 'Jenis',
-                            render: (row) =>
-                                row.stay_kind === 'summer_course'
-                                    ? 'Summer Course'
-                                    : 'Nonmahasiswa',
-                        },
-                        {
-                            key: 'room',
-                            label: 'Kamar',
-                            render: (row) =>
-                                `${row.placement?.kamar?.lantai?.gedung?.nama_gedung ?? '-'} / ${row.placement?.kamar?.nomor_kamar ?? '-'}`,
-                        },
-                        {
-                            key: 'starts_at',
-                            label: 'Masuk',
-                            render: (row) => row.starts_at?.slice(0, 10),
-                        },
-                        {
-                            key: 'ends_at',
-                            label: 'Keluar',
-                            render: (row) => row.ends_at?.slice(0, 10),
-                        },
-                        {
-                            key: 'status',
-                            label: 'Status',
-                            render: (row) =>
-                                row.placement?.status === 'aktif'
-                                    ? 'Dialokasikan'
-                                    : 'Berakhir',
-                        },
-                        {
-                            key: 'invoice',
-                            label: 'Invoice',
-                            render: (row) => row.tagihan?.nomor,
-                        },
-                        {
-                            key: 'balance',
-                            label: 'Sisa tagihan',
-                            render: (row) =>
-                                formatRupiah(
-                                    Number(row.tagihan?.total ?? 0) -
-                                        Number(row.tagihan?.total_dibayar ?? 0),
-                                ),
-                        },
-                    ]}
-                />
-            </Card>
+            <DataTable
+                data={stays}
+                columns={[
+                    {
+                        key: 'nama',
+                        label: 'Penghuni',
+                        value: (row) => row.student_profile?.user?.nama ?? '',
+                        render: (row) => row.student_profile?.user?.nama,
+                    },
+                    {
+                        key: 'identity',
+                        label: 'NIM / identitas',
+                        value: (row) =>
+                            row.student_profile?.user?.nim_nip ?? '',
+                        render: (row) => row.student_profile?.user?.nim_nip,
+                    },
+                    {
+                        key: 'stay_kind',
+                        label: 'Jenis',
+                        render: (row) =>
+                            row.stay_kind === 'summer_course'
+                                ? 'Summer Course'
+                                : 'Nonmahasiswa',
+                    },
+                    {
+                        key: 'room',
+                        label: 'Kamar',
+                        render: (row) =>
+                            `${row.placement?.kamar?.lantai?.gedung?.nama_gedung ?? '-'} / ${row.placement?.kamar?.nomor_kamar ?? '-'}`,
+                    },
+                    {
+                        key: 'starts_at',
+                        label: 'Masuk',
+                        render: (row) => row.starts_at?.slice(0, 10),
+                    },
+                    {
+                        key: 'ends_at',
+                        label: 'Keluar',
+                        render: (row) => row.ends_at?.slice(0, 10),
+                    },
+                    {
+                        key: 'status',
+                        label: 'Status',
+                        render: (row) =>
+                            row.placement?.status === 'aktif'
+                                ? 'Dialokasikan'
+                                : 'Berakhir',
+                    },
+                    {
+                        key: 'invoice',
+                        label: 'Invoice',
+                        render: (row) => row.tagihan?.nomor,
+                    },
+                    {
+                        key: 'balance',
+                        label: 'Sisa tagihan',
+                        render: (row) =>
+                            formatRupiah(
+                                Number(row.tagihan?.total ?? 0) -
+                                    Number(row.tagihan?.total_dibayar ?? 0),
+                            ),
+                    },
+                ]}
+            />
         </div>
     );
 }

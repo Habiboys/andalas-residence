@@ -37,35 +37,32 @@ export default function AuditLogs({ audit_logs }: Props) {
                 title="Audit Log"
                 subtitle="Riwayat aktivitas sistem (superadmin)"
             />
-            <Card>
-                <Table
-                    columns={[
-                        {
-                            key: 'created_at',
-                            label: 'Waktu',
-                            render: (r: AuditRow) =>
-                                String(r.created_at ?? '')
-                                    .slice(0, 19)
-                                    .replace('T', ' '),
-                        },
-                        {
-                            key: 'user',
-                            label: 'Pengguna',
-                            render: (r: AuditRow) => r.user?.nama ?? '-',
-                        },
-                        { key: 'event', label: 'Aksi' },
-                        {
-                            key: 'auditable_type',
-                            label: 'Entitas',
-                            render: (r: AuditRow) =>
-                                (r.auditable_type ?? '').split('\\').pop() ??
-                                '-',
-                        },
-                    ]}
-                    data={audit_logs ?? []}
-                    emptyMessage="Belum ada log"
-                />
-            </Card>
+            <Table
+                columns={[
+                    {
+                        key: 'created_at',
+                        label: 'Waktu',
+                        render: (r: AuditRow) =>
+                            String(r.created_at ?? '')
+                                .slice(0, 19)
+                                .replace('T', ' '),
+                    },
+                    {
+                        key: 'user',
+                        label: 'Pengguna',
+                        render: (r: AuditRow) => r.user?.nama ?? '-',
+                    },
+                    { key: 'event', label: 'Aksi' },
+                    {
+                        key: 'auditable_type',
+                        label: 'Entitas',
+                        render: (r: AuditRow) =>
+                            (r.auditable_type ?? '').split('\\').pop() ?? '-',
+                    },
+                ]}
+                data={audit_logs ?? []}
+                emptyMessage="Belum ada log"
+            />
         </div>
     );
 }

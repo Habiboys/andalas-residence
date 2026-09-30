@@ -1,7 +1,6 @@
 import { router, useForm } from '@inertiajs/react';
 import { useState } from 'react';
 import {
-    Card,
     DataTable,
     inputClass,
     PageHeader,
@@ -94,7 +93,7 @@ export default function ApprovalPengajuan({
         perPage: bebas_asrama?.per_page ?? 10,
         sortBy: table_state.sort_by,
         sortDirection: table_state.sort_direction,
-        filters: table_state.status ? { status: table_state.status } : {},
+        filters: { status: table_state.status ?? '' },
     } satisfies DataTableQuery;
     const form = useForm({
         status: 'disetujui',
@@ -240,24 +239,22 @@ export default function ApprovalPengajuan({
                 subtitle="Kelola pengajuan dan periksa dokumen sebelum memberikan keputusan. Lengkapi arsip alumni dan tarif gedung/angkatan di Pengaturan Layanan."
             />
 
-            <Card className="p-4">
-                <DataTable<Row>
-                    columns={columns}
-                    data={rows}
-                    searchKeys={['nomor_pengajuan', 'mahasiswa.user.nim_nip']}
-                    searchPlaceholder="Cari nomor pengajuan, nama, atau NIM"
-                    defaultPerPage={10}
-                    emptyMessage="Belum ada pengajuan bebas asrama."
-                    server={{
-                        ...tableQuery,
-                        total: bebas_asrama?.total ?? 0,
-                        lastPage: bebas_asrama?.last_page ?? 1,
-                        loading: tableLoading,
-                        error: requestError ?? table_state.error ?? null,
-                        onChange: changeTable,
-                    }}
-                />
-            </Card>
+            <DataTable<Row>
+                columns={columns}
+                data={rows}
+                searchKeys={['nomor_pengajuan', 'mahasiswa.user.nim_nip']}
+                searchPlaceholder="Cari nomor pengajuan, nama, atau NIM"
+                defaultPerPage={10}
+                emptyMessage="Belum ada pengajuan bebas asrama."
+                server={{
+                    ...tableQuery,
+                    total: bebas_asrama?.total ?? 0,
+                    lastPage: bebas_asrama?.last_page ?? 1,
+                    loading: tableLoading,
+                    error: requestError ?? table_state.error ?? null,
+                    onChange: changeTable,
+                }}
+            />
 
             <Modal
                 open={selected !== null}

@@ -133,9 +133,10 @@ export default function DashboardEksekutif({
                                 name: 'Laporan lain',
                                 value: tiket.filter(
                                     (item) =>
-                                        !['selesai', 'sedang_dikerjakan'].includes(
-                                            item.status,
-                                        ),
+                                        ![
+                                            'selesai',
+                                            'sedang_dikerjakan',
+                                        ].includes(item.status),
                                 ).length,
                                 color: '#578cc8',
                             },
@@ -163,12 +164,10 @@ export default function DashboardEksekutif({
                     />
                 </ChartCard>
             </div>
-            <Card>
-                <div className="p-5">
-                    <h2 className="font-semibold">
-                        Pelaporan dan penyelesaian kerusakan
-                    </h2>
-                </div>
+            <section className="space-y-4">
+                <h2 className="font-semibold">
+                    Pelaporan dan penyelesaian kerusakan
+                </h2>
                 <Table
                     columns={[
                         { key: 'nomor_tiket', label: 'Tiket' },
@@ -219,11 +218,9 @@ export default function DashboardEksekutif({
                     data={tiket}
                     emptyMessage="Belum ada laporan kerusakan."
                 />
-            </Card>
-            <Card>
-                <div className="p-5">
-                    <h2 className="font-semibold">Laporan per gedung</h2>
-                </div>
+            </section>
+            <section className="space-y-4">
+                <h2 className="font-semibold">Laporan per gedung</h2>
                 <Table
                     columns={[
                         { key: 'kode_gedung', label: 'Kode' },
@@ -250,11 +247,9 @@ export default function DashboardEksekutif({
                     data={gedungReport}
                     emptyMessage="Belum ada data gedung."
                 />
-            </Card>
-            <Card>
-                <div className="p-5">
-                    <h2 className="font-semibold">Kinerja teknisi</h2>
-                </div>
+            </section>
+            <section className="space-y-4">
+                <h2 className="font-semibold">Kinerja teknisi</h2>
                 <Table
                     columns={[
                         { key: 'nama', label: 'Teknisi' },
@@ -283,7 +278,7 @@ export default function DashboardEksekutif({
                     data={performance}
                     emptyMessage="Belum ada data teknisi."
                 />
-            </Card>
+            </section>
             <div className="grid gap-4 md:grid-cols-2">
                 <Card className="p-5">
                     <p className="text-muted text-xs uppercase">

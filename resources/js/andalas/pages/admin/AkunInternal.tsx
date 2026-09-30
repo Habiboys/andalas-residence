@@ -136,7 +136,7 @@ export default function AkunInternal({ users, roles }: Props) {
                 actions={<Button onClick={openCreate}>Tambah Akun</Button>}
             />
 
-            <Card className="p-4">
+            <section className="space-y-4">
                 <Tabs
                     tabs={['Daftar Akun', 'Ringkasan Role']}
                     active={tab}
@@ -186,7 +186,7 @@ export default function AkunInternal({ users, roles }: Props) {
                         ))}
                     </div>
                 )}
-            </Card>
+            </section>
 
             <Drawer
                 open={!!viewing}

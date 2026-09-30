@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { router, useForm } from '@inertiajs/react';
 import {
     PageHeader,
-    Card,
     Table,
     Button,
     Modal,
@@ -262,74 +261,70 @@ export default function AdminJadwalKegiatan({
                     gedung Anda melalui Data Master.
                 </p>
             )}
-            <Card>
-                <Table
-                    columns={[
-                        { key: 'judul', label: 'Kegiatan' },
-                        {
-                            key: 'building',
-                            label: 'Gedung',
-                            filter: {
-                                type: 'select',
-                                options: gedung.map((item) => item.nama_gedung),
-                            },
+            <Table
+                columns={[
+                    { key: 'judul', label: 'Kegiatan' },
+                    {
+                        key: 'building',
+                        label: 'Gedung',
+                        filter: {
+                            type: 'select',
+                            options: gedung.map((item) => item.nama_gedung),
                         },
-                        {
-                            key: 'tanggal_mulai',
-                            label: 'Mulai',
-                            render: (r: Activity) => date(r.tanggal_mulai),
+                    },
+                    {
+                        key: 'tanggal_mulai',
+                        label: 'Mulai',
+                        render: (r: Activity) => date(r.tanggal_mulai),
+                    },
+                    {
+                        key: 'tanggal_selesai',
+                        label: 'Batas waktu',
+                        render: (r: Activity) => date(r.tanggal_selesai),
+                    },
+                    {
+                        key: 'status',
+                        label: 'Status',
+                        filter: {
+                            type: 'select',
+                            options: [
+                                'Berlangsung',
+                                'Selesai',
+                                'Arsip tanpa QR',
+                            ],
                         },
-                        {
-                            key: 'tanggal_selesai',
-                            label: 'Batas waktu',
-                            render: (r: Activity) => date(r.tanggal_selesai),
-                        },
-                        {
-                            key: 'status',
-                            label: 'Status',
-                            filter: {
-                                type: 'select',
-                                options: [
-                                    'Berlangsung',
-                                    'Selesai',
-                                    'Arsip tanpa QR',
-                                ],
-                            },
-                        },
-                        {
-                            key: 'aksi',
-                            label: 'Aksi',
-                            render: (r: Activity) =>
-                                can_manage && r.attendance_session ? (
-                                    <RowActions
-                                        onDetail={() => {
-                                            setTab(0);
-                                            setSessionId(
-                                                r.attendance_session!.id,
-                                            );
-                                        }}
-                                    />
-                                ) : (
-                                    <span className="text-base-content/60 text-xs">
-                                        Arsip lama
-                                    </span>
-                                ),
-                        },
-                    ]}
-                    data={kegiatan.map((row) => ({
-                        ...row,
-                        building: row.gedung?.nama_gedung ?? 'Arsip lama',
-                        status: !row.attendance_session
-                            ? 'Arsip tanpa QR'
-                            : row.attendance_session.closed_at ||
-                                new Date(row.tanggal_selesai).getTime() <=
-                                    Date.now()
-                              ? 'Selesai'
-                              : 'Berlangsung',
-                    }))}
-                    searchKeys={['judul', 'building']}
-                />
-            </Card>
+                    },
+                    {
+                        key: 'aksi',
+                        label: 'Aksi',
+                        render: (r: Activity) =>
+                            can_manage && r.attendance_session ? (
+                                <RowActions
+                                    onDetail={() => {
+                                        setTab(0);
+                                        setSessionId(r.attendance_session!.id);
+                                    }}
+                                />
+                            ) : (
+                                <span className="text-base-content/60 text-xs">
+                                    Arsip lama
+                                </span>
+                            ),
+                    },
+                ]}
+                data={kegiatan.map((row) => ({
+                    ...row,
+                    building: row.gedung?.nama_gedung ?? 'Arsip lama',
+                    status: !row.attendance_session
+                        ? 'Arsip tanpa QR'
+                        : row.attendance_session.closed_at ||
+                            new Date(row.tanggal_selesai).getTime() <=
+                                Date.now()
+                          ? 'Selesai'
+                          : 'Berlangsung',
+                }))}
+                searchKeys={['judul', 'building']}
+            />
 
             <Modal
                 open={creating}

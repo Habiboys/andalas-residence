@@ -167,46 +167,42 @@ export default function BarcodeAbsensi({
                     </p>
                 </Card>
             )}
-            <Card>
-                <Table
-                    columns={[
-                        {
-                            key: 'session.kegiatan.judul',
-                            label: 'Kegiatan',
-                            render: (row: Attendance) =>
-                                row.session?.kegiatan?.judul ?? '-',
-                        },
-                        {
-                            key: 'attended_at',
-                            label: 'Waktu pencatatan',
-                            render: (row: Attendance) =>
-                                new Date(row.attended_at).toLocaleString(
-                                    'id-ID',
-                                ),
-                        },
-                        {
-                            key: 'is_present',
-                            label: 'Kehadiran',
-                            render: (row: Attendance) =>
-                                row.is_present ? 'Hadir' : 'Tidak hadir',
-                        },
-                        {
-                            key: 'corrected_at',
-                            label: 'Pencatatan',
-                            render: (row: Attendance) =>
-                                row.corrected_at ? 'Koreksi manual' : 'Scan QR',
-                        },
-                        {
-                            key: 'correction_reason',
-                            label: 'Alasan koreksi',
-                            render: (row: Attendance) =>
-                                row.correction_reason ?? '—',
-                        },
-                    ]}
-                    data={absensi}
-                    emptyMessage="Belum ada riwayat kehadiran kegiatan."
-                />
-            </Card>
+            <Table
+                columns={[
+                    {
+                        key: 'session.kegiatan.judul',
+                        label: 'Kegiatan',
+                        render: (row: Attendance) =>
+                            row.session?.kegiatan?.judul ?? '-',
+                    },
+                    {
+                        key: 'attended_at',
+                        label: 'Waktu pencatatan',
+                        render: (row: Attendance) =>
+                            new Date(row.attended_at).toLocaleString('id-ID'),
+                    },
+                    {
+                        key: 'is_present',
+                        label: 'Kehadiran',
+                        render: (row: Attendance) =>
+                            row.is_present ? 'Hadir' : 'Tidak hadir',
+                    },
+                    {
+                        key: 'corrected_at',
+                        label: 'Pencatatan',
+                        render: (row: Attendance) =>
+                            row.corrected_at ? 'Koreksi manual' : 'Scan QR',
+                    },
+                    {
+                        key: 'correction_reason',
+                        label: 'Alasan koreksi',
+                        render: (row: Attendance) =>
+                            row.correction_reason ?? '—',
+                    },
+                ]}
+                data={absensi}
+                emptyMessage="Belum ada riwayat kehadiran kegiatan."
+            />
         </div>
     );
 }

@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useForm } from '@inertiajs/react';
 import {
     PageHeader,
-    Card,
     Table,
     Button,
     FormField,
@@ -252,66 +251,64 @@ export default function Keuangan({
                 </form>
             </Modal>
 
-            <Card>
-                <Table
-                    columns={[
-                        { key: 'nomor_bukti', label: 'No. Bukti' },
-                        {
-                            key: 'tanggal',
-                            label: 'Tanggal',
-                            render: (r: TransaksiRow) =>
-                                String(r.tanggal_transaksi ?? '').slice(0, 10),
+            <Table
+                columns={[
+                    { key: 'nomor_bukti', label: 'No. Bukti' },
+                    {
+                        key: 'tanggal',
+                        label: 'Tanggal',
+                        render: (r: TransaksiRow) =>
+                            String(r.tanggal_transaksi ?? '').slice(0, 10),
+                    },
+                    {
+                        key: 'kategori',
+                        label: 'Kategori',
+                        render: (r: TransaksiRow) =>
+                            r.kategori?.nama_kategori ?? '-',
+                    },
+                    {
+                        key: 'tipe',
+                        label: 'Tipe',
+                        filter: {
+                            type: 'select',
+                            options: [
+                                { value: 'pemasukan', label: 'Pemasukan' },
+                                {
+                                    value: 'pengeluaran',
+                                    label: 'Pengeluaran',
+                                },
+                            ],
                         },
-                        {
-                            key: 'kategori',
-                            label: 'Kategori',
-                            render: (r: TransaksiRow) =>
-                                r.kategori?.nama_kategori ?? '-',
-                        },
-                        {
-                            key: 'tipe',
-                            label: 'Tipe',
-                            filter: {
-                                type: 'select',
-                                options: [
-                                    { value: 'pemasukan', label: 'Pemasukan' },
-                                    {
-                                        value: 'pengeluaran',
-                                        label: 'Pengeluaran',
-                                    },
-                                ],
-                            },
-                        },
-                        {
-                            key: 'nominal',
-                            label: 'Nominal',
-                            render: (r: TransaksiRow) =>
-                                formatRupiah(Number(r.nominal ?? 0)),
-                        },
-                        {
-                            key: 'aksi',
-                            label: 'Aksi',
-                            render: (r: TransaksiRow) => (
-                                <RowActions
-                                    onDetail={() => setDetail(r)}
-                                    onEdit={
-                                        r.pembayaran_mahasiswa_id
-                                            ? undefined
-                                            : () => startEdit(r)
-                                    }
-                                    onDelete={
-                                        r.pembayaran_mahasiswa_id
-                                            ? undefined
-                                            : () => setDeleting(r)
-                                    }
-                                />
-                            ),
-                        },
-                    ]}
-                    data={transaksi ?? []}
-                    emptyMessage="Belum ada transaksi"
-                />
-            </Card>
+                    },
+                    {
+                        key: 'nominal',
+                        label: 'Nominal',
+                        render: (r: TransaksiRow) =>
+                            formatRupiah(Number(r.nominal ?? 0)),
+                    },
+                    {
+                        key: 'aksi',
+                        label: 'Aksi',
+                        render: (r: TransaksiRow) => (
+                            <RowActions
+                                onDetail={() => setDetail(r)}
+                                onEdit={
+                                    r.pembayaran_mahasiswa_id
+                                        ? undefined
+                                        : () => startEdit(r)
+                                }
+                                onDelete={
+                                    r.pembayaran_mahasiswa_id
+                                        ? undefined
+                                        : () => setDeleting(r)
+                                }
+                            />
+                        ),
+                    },
+                ]}
+                data={transaksi ?? []}
+                emptyMessage="Belum ada transaksi"
+            />
 
             <Modal
                 open={!!detail}

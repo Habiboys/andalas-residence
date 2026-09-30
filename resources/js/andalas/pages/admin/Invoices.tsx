@@ -1,6 +1,13 @@
 import { useForm, usePoll } from '@inertiajs/react';
 import { useState } from 'react';
-import { Card, PageHeader, inputClass } from '../../components/ui';
+import {
+    DataTable,
+    PageHeader,
+    inputClass,
+    type DataColumn,
+} from '../../components/ui';
+import { Modal } from '../../components/atoms/Modal';
+import { CreditCard, Download, FilePlus2, Settings2 } from 'lucide-react';
 import { settings } from '@/routes/andalas/invoices';
 import { store, download, pay } from '@/routes/andalas/invoice-groups';
 import { formatRupiah } from '../../lib/format';
@@ -31,7 +38,12 @@ type Group = {
     payer_type: string;
     invoice_ids: string[];
     path?: string;
-    snapshot: { total: number; institution: string };
+    snapshot: {
+        total: number;
+        institution: string;
+        recipient?: string;
+        date?: string;
+    };
 };
 type Account = {
     mahasiswa_id: string;
@@ -49,9 +61,11 @@ const remaining = (row: Invoice, payer: string) =>
 function PaymentSettings({
     invoice,
     account,
+    onClose,
 }: {
     invoice: Invoice;
     account?: Account;
+    onClose: () => void;
 }) {
     const form = useForm({
         amount_due_now:
@@ -61,46 +75,67 @@ function PaymentSettings({
         atas_nama: account?.atas_nama ?? '',
     });
     return (
-        <Card className="space-y-3 p-5">
-            <h2 className="font-semibold">
-                Pembayaran berikutnya ? {invoice.nomor}
-            </h2>
-            <p className="text-sm">
-                Kesepakatan cicilan dilakukan di luar aplikasi. Nominal ini
-                tidak mengubah total utang. VA belum terhubung otomatis ke bank.
-            </p>
+        <Modal
+            open
+            onClose={onClose}
+            title={`Atur pembayaran ${invoice.nomor}`}
+            width="max-w-2xl"
+        >
             <form
-                className="grid gap-3 sm:grid-cols-2"
+                className="space-y-5"
                 onSubmit={(e) => {
                     e.preventDefault();
-                    form.put(settings.url({ tagihan: invoice.id }));
+                    form.put(settings.url({ tagihan: invoice.id }), {
+                        preserveScroll: true,
+                        onSuccess: onClose,
+                    });
                 }}
             >
-                {(
-                    [
-                        ['amount_due_now', 'Nominal bayar sekarang'],
-                        ['bank', 'Bank'],
-                        ['nomor', 'Nomor VA'],
-                        ['atas_nama', 'Atas nama'],
-                    ] as const
-                ).map(([k, l]) => (
-                    <label key={k}>
-                        {l}
-                        <input
-                            className={inputClass}
-                            type={k === 'amount_due_now' ? 'number' : 'text'}
-                            value={form.data[k]}
-                            required
-                            onChange={(e) => form.setData(k, e.target.value)}
-                        />
-                    </label>
-                ))}
-                <div>
+                <p className="text-base-content/70 text-sm">
+                    Kesepakatan cicilan dilakukan di luar aplikasi. Nominal ini
+                    tidak mengubah total utang. VA belum terhubung otomatis ke
+                    bank.
+                </p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                    {(
+                        [
+                            ['amount_due_now', 'Nominal bayar sekarang'],
+                            ['bank', 'Bank'],
+                            ['nomor', 'Nomor VA'],
+                            ['atas_nama', 'Atas nama'],
+                        ] as const
+                    ).map(([k, l]) => (
+                        <label key={k} className="space-y-1 text-sm">
+                            <span>{l}</span>
+                            <input
+                                className={inputClass}
+                                type={
+                                    k === 'amount_due_now' ? 'number' : 'text'
+                                }
+                                value={form.data[k]}
+                                required
+                                onChange={(e) =>
+                                    form.setData(k, e.target.value)
+                                }
+                            />
+                        </label>
+                    ))}
+                </div>
+                <div className="space-y-1">
                     {Object.values(form.errors).map((e, i) => (
-                        <p role="alert" key={i} className="text-error">
+                        <p role="alert" key={i} className="text-error text-sm">
                             {e}
                         </p>
                     ))}
+                </div>
+                <div className="modal-action mt-0">
+                    <button
+                        type="button"
+                        className="btn btn-ghost"
+                        onClick={onClose}
+                    >
+                        Batal
+                    </button>
                     <button
                         className="btn btn-primary"
                         disabled={form.processing}
@@ -109,18 +144,30 @@ function PaymentSettings({
                     </button>
                 </div>
             </form>
-        </Card>
+        </Modal>
     );
 }
-function Allocate({ group, invoices }: { group: Group; invoices: Invoice[] }) {
+function Allocate({
+    group,
+    invoices,
+    onClose,
+}: {
+    group: Group;
+    invoices: Invoice[];
+    onClose: () => void;
+}) {
     const rows = invoices.filter((i) => group.invoice_ids.includes(i.id));
     const form = useForm({
         reference: '',
         allocations: rows.map((i) => ({ tagihan_id: i.id, jumlah: '' })),
     });
     return (
-        <Card className="space-y-3 p-5">
-            <h2 className="font-semibold">Pembayaran invoice {group.nomor}</h2>
+        <Modal
+            open
+            onClose={onClose}
+            title={`Catat pembayaran ${group.nomor}`}
+            width="max-w-3xl"
+        >
             <form
                 className="space-y-3"
                 onSubmit={(e) => {
@@ -131,11 +178,14 @@ function Allocate({ group, invoices }: { group: Group; invoices: Invoice[] }) {
                             (a) => Number(a.jumlah) > 0,
                         ),
                     }));
-                    form.post(pay.url({ group: group.id }));
+                    form.post(pay.url({ group: group.id }), {
+                        preserveScroll: true,
+                        onSuccess: onClose,
+                    });
                 }}
             >
-                <label>
-                    Referensi pembayaran bank
+                <label className="block space-y-1 text-sm">
+                    <span>Referensi pembayaran bank</span>
                     <input
                         className={inputClass}
                         required
@@ -146,9 +196,11 @@ function Allocate({ group, invoices }: { group: Group; invoices: Invoice[] }) {
                     />
                 </label>
                 {rows.map((row, index) => (
-                    <label key={row.id} className="block">
-                        {row.mahasiswa?.user?.nama} ? sisa{' '}
-                        {formatRupiah(remaining(row, group.payer_type))}
+                    <label key={row.id} className="block space-y-1 text-sm">
+                        <span>
+                            {row.mahasiswa?.user?.nama} · sisa{' '}
+                            {formatRupiah(remaining(row, group.payer_type))}
+                        </span>
                         <input
                             className={inputClass}
                             aria-label={`Alokasi ${row.nomor}`}
@@ -170,15 +222,27 @@ function Allocate({ group, invoices }: { group: Group; invoices: Invoice[] }) {
                     </label>
                 ))}
                 {Object.values(form.errors).map((e, i) => (
-                    <p key={i} role="alert" className="text-error">
+                    <p key={i} role="alert" className="text-error text-sm">
                         {e}
                     </p>
                 ))}
-                <button className="btn btn-primary" disabled={form.processing}>
-                    Catat pembayaran terverifikasi
-                </button>
+                <div className="modal-action mt-0">
+                    <button
+                        type="button"
+                        className="btn btn-ghost"
+                        onClick={onClose}
+                    >
+                        Batal
+                    </button>
+                    <button
+                        className="btn btn-primary"
+                        disabled={form.processing}
+                    >
+                        Catat pembayaran terverifikasi
+                    </button>
+                </div>
             </form>
-        </Card>
+        </Modal>
     );
 }
 export default function Invoices({
@@ -191,13 +255,10 @@ export default function Invoices({
     virtual_accounts?: Account[];
 }) {
     usePoll(5000, { only: ['billing', 'groups', 'virtual_accounts'] });
-    const [query, setQuery] = useState('');
     const [payer, setPayer] = useState('personal');
-    const [category, setCategory] = useState('');
-    const [status, setStatus] = useState('');
-    const [sort, setSort] = useState('date');
     const [edit, setEdit] = useState<string | null>(null);
     const [allocation, setAllocation] = useState<string | null>(null);
+    const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
     const form = useForm({
         nomor: '',
         payer_type: 'personal',
@@ -218,256 +279,453 @@ export default function Invoices({
             : remaining(i, payer) === 0
               ? 'lunas'
               : 'belum_lunas';
-    const rows = billing
-        .filter(
-            (i) =>
-                `${i.nomor} ${i.mahasiswa?.user?.nama} ${i.mahasiswa?.user?.nim_nip}`
-                    .toLowerCase()
-                    .includes(query.toLowerCase()) &&
-                (!category || i.residence_snapshot?.category === category) &&
-                (!status || invoiceStatus(i) === status),
-        )
-        .sort((a, b) =>
-            sort === 'amount'
-                ? remaining(b, payer) - remaining(a, payer)
-                : sort === 'amount_asc'
-                  ? remaining(a, payer) - remaining(b, payer)
-                  : b.created_at.localeCompare(a.created_at),
-        );
+    const invoiceRows = billing.map((invoice) => ({
+        id: invoice.id,
+        invoice,
+        client: invoice.mahasiswa?.user?.nama ?? '-',
+        nim: invoice.mahasiswa?.user?.nim_nip ?? '-',
+        nomor: invoice.nomor,
+        category: invoice.residence_snapshot?.category ?? '',
+        status: invoiceStatus(invoice),
+        total_amount: Number(
+            payer === 'sponsor' ? invoice.sponsor_total : invoice.total,
+        ),
+        paid_amount: Number(
+            payer === 'sponsor' ? invoice.sponsor_paid : invoice.total_dibayar,
+        ),
+        remaining_amount: remaining(invoice, payer),
+        due_now:
+            payer === 'personal'
+                ? Number(
+                      invoice.amount_due_now ?? remaining(invoice, 'personal'),
+                  )
+                : null,
+        created_at: invoice.created_at,
+    }));
+    const categoryOptions = Array.from(
+        new Set(invoiceRows.map((row) => row.category).filter(Boolean)),
+    ).map((value) => ({
+        value,
+        label: value.replaceAll('_', ' ').toUpperCase(),
+    }));
+    const invoiceColumns: DataColumn<(typeof invoiceRows)[number]>[] = [
+        {
+            key: 'selected',
+            label: 'Pilih',
+            sortable: false,
+            render: ({ invoice }) => (
+                <input
+                    type="checkbox"
+                    className="checkbox checkbox-sm"
+                    aria-label={`Pilih ${invoice.nomor}`}
+                    disabled={
+                        remaining(invoice, payer) === 0 ||
+                        invoice.status === 'batal'
+                    }
+                    checked={form.data.invoice_ids.includes(invoice.id)}
+                    onChange={(event) =>
+                        form.setData(
+                            'invoice_ids',
+                            event.target.checked
+                                ? [...form.data.invoice_ids, invoice.id]
+                                : form.data.invoice_ids.filter(
+                                      (id) => id !== invoice.id,
+                                  ),
+                        )
+                    }
+                />
+            ),
+        },
+        {
+            key: 'client',
+            label: 'Klien / invoice',
+            render: (row) => (
+                <div>
+                    <span className="font-medium">{row.client}</span>
+                    <span className="text-base-content/60 block text-xs">
+                        {row.nim} · {row.nomor}
+                    </span>
+                    {payer === 'sponsor' && row.invoice.sponsor_name && (
+                        <span className="text-base-content/60 block text-xs">
+                            {row.invoice.sponsor_name}
+                        </span>
+                    )}
+                </div>
+            ),
+        },
+        {
+            key: 'category',
+            label: 'Kategori',
+            filter: { type: 'select', options: categoryOptions },
+            render: (row) =>
+                row.category
+                    ? row.category.replaceAll('_', ' ').toUpperCase()
+                    : '-',
+        },
+        {
+            key: 'status',
+            label: 'Status',
+            filter: {
+                type: 'select',
+                options: [
+                    { value: 'belum_lunas', label: 'Belum lunas' },
+                    { value: 'lunas', label: 'Lunas' },
+                    { value: 'batal', label: 'Batal' },
+                ],
+            },
+            render: (row) => (
+                <span
+                    className={`badge badge-sm ${
+                        row.status === 'lunas'
+                            ? 'badge-success'
+                            : row.status === 'batal'
+                              ? 'badge-error'
+                              : 'badge-warning'
+                    }`}
+                >
+                    {row.status.replaceAll('_', ' ')}
+                </span>
+            ),
+        },
+        {
+            key: 'total_amount',
+            label: 'Total',
+            render: (row) => formatRupiah(row.total_amount),
+        },
+        {
+            key: 'paid_amount',
+            label: 'Terbayar',
+            render: (row) => formatRupiah(row.paid_amount),
+        },
+        {
+            key: 'remaining_amount',
+            label: 'Sisa',
+            render: (row) => formatRupiah(row.remaining_amount),
+        },
+        {
+            key: 'due_now',
+            label: 'Bayar sekarang',
+            render: (row) =>
+                row.due_now === null ? '-' : formatRupiah(row.due_now),
+        },
+        {
+            key: 'aksi',
+            label: 'Aksi',
+            action: true,
+            render: ({ invoice }) =>
+                payer === 'personal' && remaining(invoice, payer) > 0 ? (
+                    <button
+                        type="button"
+                        className="btn btn-ghost btn-xs btn-square"
+                        aria-label={`Atur pembayaran ${invoice.nomor}`}
+                        title="Atur pembayaran"
+                        onClick={() => setEdit(invoice.id)}
+                    >
+                        <Settings2 className="size-4" aria-hidden="true" />
+                    </button>
+                ) : null,
+        },
+    ];
+    const groupRows = groups.map((invoiceGroup) => ({
+        id: invoiceGroup.id,
+        group: invoiceGroup,
+        nomor: invoiceGroup.nomor,
+        institution: invoiceGroup.snapshot.institution,
+        recipient: invoiceGroup.snapshot.recipient ?? '-',
+        payer_type:
+            invoiceGroup.payer_type === 'sponsor' ? 'Sponsor' : 'Pribadi',
+        total: Number(invoiceGroup.snapshot.total),
+        date: invoiceGroup.snapshot.date ?? '-',
+    }));
+    const groupColumns: DataColumn<(typeof groupRows)[number]>[] = [
+        { key: 'nomor', label: 'Nomor invoice' },
+        { key: 'institution', label: 'Mitra / instansi' },
+        { key: 'recipient', label: 'Kepada' },
+        {
+            key: 'payer_type',
+            label: 'Pembayar',
+            filter: {
+                type: 'select',
+                options: ['Pribadi', 'Sponsor'],
+            },
+        },
+        {
+            key: 'total',
+            label: 'Total',
+            render: (row) => formatRupiah(row.total),
+        },
+        { key: 'date', label: 'Tanggal' },
+        {
+            key: 'aksi',
+            label: 'Aksi',
+            action: true,
+            render: ({ group: invoiceGroup }) => (
+                <div className="flex items-center justify-end gap-1">
+                    <a
+                        className="btn btn-ghost btn-xs btn-square"
+                        href={download.url({ group: invoiceGroup.id })}
+                        aria-label={`Unduh PDF ${invoiceGroup.nomor}`}
+                        title="Unduh PDF"
+                    >
+                        <Download className="size-4" aria-hidden="true" />
+                    </a>
+                    <button
+                        type="button"
+                        className="btn btn-ghost btn-xs btn-square"
+                        onClick={() => setAllocation(invoiceGroup.id)}
+                        aria-label={`Catat pembayaran ${invoiceGroup.nomor}`}
+                        title="Catat pembayaran"
+                    >
+                        <CreditCard className="size-4" aria-hidden="true" />
+                    </button>
+                </div>
+            ),
+        },
+    ];
     const selected = billing.find((i) => i.id === edit);
     const group = groups.find((g) => g.id === allocation);
+    const resetInvoiceForm = () => {
+        form.setData({
+            nomor: '',
+            payer_type: payer,
+            invoice_ids: [],
+            recipient: '',
+            institution: '',
+            subject: '',
+            bank: '',
+            account_number: '',
+            account_name: '',
+            due_date: '',
+            signer: '',
+            signature: null,
+        });
+        form.clearErrors();
+    };
     return (
         <div className="space-y-5">
             <PageHeader
                 title="Invoice"
                 subtitle="Tagihan pribadi dan piutang penanggung biaya diperbarui setiap lima detik."
             />
-            <Card className="space-y-3 p-5">
-                <div className="grid gap-3 sm:grid-cols-3">
-                    <input
-                        aria-label="Cari invoice"
-                        className={inputClass}
-                        placeholder="Cari nama, NIM, nomor invoice"
-                        value={query}
-                        onChange={(e) => setQuery(e.target.value)}
-                    />
-                    <select
-                        aria-label="Pembayar"
-                        className={inputClass}
-                        value={payer}
-                        onChange={(e) => {
-                            setPayer(e.target.value);
-                            form.setData({
-                                ...form.data,
-                                payer_type: e.target.value,
-                                invoice_ids: [],
-                            });
-                        }}
-                    >
-                        <option value="personal">Tagihan pribadi</option>
-                        <option value="sponsor">Piutang sponsor</option>
-                    </select>
-                    <select
-                        aria-label="Kategori invoice"
-                        className={inputClass}
-                        value={category}
-                        onChange={(e) => setCategory(e.target.value)}
-                    >
-                        <option value="">Semua kategori</option>
-                        <option value="kipk">KIP-K</option>
-                        <option value="non_kipk">Non KIP-K</option>
-                    </select>
-                    <select
-                        aria-label="Status invoice"
-                        className={inputClass}
-                        value={status}
-                        onChange={(e) => setStatus(e.target.value)}
-                    >
-                        <option value="">Semua status</option>
-                        <option value="belum_lunas">Belum lunas</option>
-                        <option value="lunas">Lunas</option>
-                        <option value="batal">Batal</option>
-                    </select>
-                    <select
-                        aria-label="Urutkan invoice"
-                        className={inputClass}
-                        value={sort}
-                        onChange={(e) => setSort(e.target.value)}
-                    >
-                        <option value="date">Tanggal terbaru</option>
-                        <option value="amount">Sisa terbesar</option>
-                        <option value="amount_asc">Sisa terkecil</option>
-                    </select>
+            <section className="space-y-3" aria-labelledby="daftar-invoice">
+                <div>
+                    <h2 id="daftar-invoice" className="text-lg font-semibold">
+                        Daftar invoice
+                    </h2>
+                    <p className="text-base-content/60 text-sm">
+                        Pilih invoice yang akan digabungkan, lalu terbitkan PDF.
+                    </p>
                 </div>
-                <div className="overflow-x-auto">
-                    <table className="table">
-                        <thead>
-                            <tr>
-                                <th>Pilih</th>
-                                <th>Klien / invoice</th>
-                                <th>Total</th>
-                                <th>Terbayar</th>
-                                <th>Sisa</th>
-                                <th>Bayar sekarang</th>
-                                <th>Aksi</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {rows.map((i) => (
-                                <tr key={i.id}>
-                                    <td>
-                                        <input
-                                            type="checkbox"
-                                            aria-label={`Pilih ${i.nomor}`}
-                                            disabled={
-                                                remaining(i, payer) === 0 ||
-                                                i.status === 'batal'
-                                            }
-                                            checked={form.data.invoice_ids.includes(
-                                                i.id,
-                                            )}
-                                            onChange={(e) =>
-                                                form.setData(
-                                                    'invoice_ids',
-                                                    e.target.checked
-                                                        ? [
-                                                              ...form.data
-                                                                  .invoice_ids,
-                                                              i.id,
-                                                          ]
-                                                        : form.data.invoice_ids.filter(
-                                                              (id) =>
-                                                                  id !== i.id,
-                                                          ),
-                                                )
-                                            }
-                                        />
-                                    </td>
-                                    <td>
-                                        {i.mahasiswa?.user?.nama}
-                                        <small className="block">
-                                            {i.nomor}
-                                        </small>
-                                        {payer === 'sponsor' && (
-                                            <small>{i.sponsor_name}</small>
-                                        )}
-                                    </td>
-                                    <td>
-                                        {formatRupiah(
-                                            Number(
-                                                payer === 'sponsor'
-                                                    ? i.sponsor_total
-                                                    : i.total,
-                                            ),
-                                        )}
-                                    </td>
-                                    <td>
-                                        {formatRupiah(
-                                            Number(
-                                                payer === 'sponsor'
-                                                    ? i.sponsor_paid
-                                                    : i.total_dibayar,
-                                            ),
-                                        )}
-                                    </td>
-                                    <td>{formatRupiah(remaining(i, payer))}</td>
-                                    <td>
-                                        {payer === 'personal'
-                                            ? formatRupiah(
-                                                  Number(
-                                                      i.amount_due_now ??
-                                                          remaining(i, payer),
-                                                  ),
-                                              )
-                                            : '?'}
-                                    </td>
-                                    <td>
-                                        {payer === 'personal' &&
-                                            remaining(i, payer) > 0 && (
-                                                <button
-                                                    className="btn btn-ghost btn-xs"
-                                                    onClick={() =>
-                                                        setEdit(i.id)
-                                                    }
-                                                >
-                                                    Atur pembayaran
-                                                </button>
-                                            )}
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                    {!rows.length && <p>Belum ada invoice yang sesuai.</p>}
-                </div>
-            </Card>
+                <DataTable
+                    columns={invoiceColumns}
+                    data={invoiceRows}
+                    searchKeys={['client', 'nim', 'nomor']}
+                    searchPlaceholder="Cari nama, NIM, atau invoice"
+                    defaultPerPage={10}
+                    emptyMessage="Belum ada invoice yang sesuai."
+                    filters={
+                        <select
+                            aria-label="Pembayar"
+                            className="select select-sm max-w-44"
+                            value={payer}
+                            onChange={(e) => {
+                                setPayer(e.target.value);
+                                form.setData({
+                                    ...form.data,
+                                    payer_type: e.target.value,
+                                    invoice_ids: [],
+                                });
+                            }}
+                        >
+                            <option value="personal">Tagihan pribadi</option>
+                            <option value="sponsor">Piutang sponsor</option>
+                        </select>
+                    }
+                    actions={
+                        <button
+                            type="button"
+                            className="btn btn-primary btn-sm"
+                            disabled={form.data.invoice_ids.length === 0}
+                            onClick={() => {
+                                form.setData('payer_type', payer);
+                                setInvoiceModalOpen(true);
+                            }}
+                        >
+                            <FilePlus2 className="size-4" aria-hidden="true" />
+                            Terbitkan gabungan ({form.data.invoice_ids.length})
+                        </button>
+                    }
+                />
+            </section>
             {selected && (
                 <PaymentSettings
                     key={selected.id}
                     invoice={selected}
+                    onClose={() => setEdit(null)}
                     account={virtual_accounts.find(
                         (a) => a.mahasiswa_id === selected.mahasiswa_id,
                     )}
                 />
             )}
-            <Card className="space-y-4 p-5">
-                <h2 className="font-semibold">
-                    Terbitkan invoice gabungan ({form.data.invoice_ids.length}{' '}
-                    dipilih)
-                </h2>
+            <Modal
+                open={invoiceModalOpen}
+                onClose={() => {
+                    setInvoiceModalOpen(false);
+                    form.clearErrors();
+                }}
+                title={`Terbitkan invoice gabungan (${form.data.invoice_ids.length} dipilih)`}
+                width="max-w-4xl"
+            >
                 <form
-                    className="grid gap-3 sm:grid-cols-2"
+                    className="space-y-6"
                     onSubmit={(e) => {
                         e.preventDefault();
-                        form.post(store.url());
+                        form.post(store.url(), {
+                            preserveScroll: true,
+                            onSuccess: () => {
+                                setInvoiceModalOpen(false);
+                                resetInvoiceForm();
+                            },
+                        });
                     }}
                 >
-                    {(
-                        [
-                            ['nomor', 'Nomor invoice'],
-                            ['recipient', 'Kepada Yth'],
-                            ['institution', 'Nama mitra / instansi'],
-                            ['subject', 'Perihal'],
-                            ['bank', 'Bank'],
-                            ['account_number', 'Nomor rekening'],
-                            ['account_name', 'Atas nama'],
-                            ['due_date', 'Batas pembayaran'],
-                            ['signer', 'Nama pimpinan penandatangan'],
-                        ] as const
-                    ).map(([k, l]) => (
-                        <label key={k}>
-                            {l}
-                            <input
-                                className={inputClass}
-                                required
-                                type={k === 'due_date' ? 'date' : 'text'}
-                                value={form.data[k]}
-                                onChange={(e) =>
-                                    form.setData(k, e.target.value)
-                                }
-                            />
-                        </label>
-                    ))}
-                    <label>
-                        Tanda tangan pimpinan (opsional)
-                        <input
-                            className="file-input"
-                            type="file"
-                            accept=".png,.jpg,.jpeg"
-                            onChange={(e) =>
-                                form.setData(
-                                    'signature',
-                                    e.target.files?.[0] ?? null,
-                                )
-                            }
-                        />
-                    </label>
-                    <div>
+                    <section className="space-y-3">
+                        <div>
+                            <h3 className="font-semibold">Informasi invoice</h3>
+                            <p className="text-base-content/60 text-sm">
+                                Identitas dokumen dan penerima invoice.
+                            </p>
+                        </div>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                            {(
+                                [
+                                    ['nomor', 'Nomor invoice'],
+                                    ['recipient', 'Kepada Yth'],
+                                    ['institution', 'Nama mitra / instansi'],
+                                ] as const
+                            ).map(([key, label]) => (
+                                <label key={key} className="space-y-1 text-sm">
+                                    <span>{label}</span>
+                                    <input
+                                        className={inputClass}
+                                        required
+                                        value={form.data[key]}
+                                        onChange={(event) =>
+                                            form.setData(
+                                                key,
+                                                event.target.value,
+                                            )
+                                        }
+                                    />
+                                </label>
+                            ))}
+                            <label className="space-y-1 text-sm sm:col-span-2">
+                                <span>Perihal</span>
+                                <textarea
+                                    className="textarea textarea-bordered w-full"
+                                    required
+                                    rows={3}
+                                    value={form.data.subject}
+                                    onChange={(event) =>
+                                        form.setData(
+                                            'subject',
+                                            event.target.value,
+                                        )
+                                    }
+                                />
+                            </label>
+                        </div>
+                    </section>
+                    <section className="border-base-200 space-y-3 border-t pt-5">
+                        <div>
+                            <h3 className="font-semibold">
+                                Informasi pembayaran
+                            </h3>
+                            <p className="text-base-content/60 text-sm">
+                                Rekening tujuan dan batas pembayaran.
+                            </p>
+                        </div>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                            {(
+                                [
+                                    ['bank', 'Bank'],
+                                    ['account_number', 'Nomor rekening'],
+                                    ['account_name', 'Atas nama'],
+                                    ['due_date', 'Batas pembayaran'],
+                                ] as const
+                            ).map(([key, label]) => (
+                                <label key={key} className="space-y-1 text-sm">
+                                    <span>{label}</span>
+                                    <input
+                                        className={inputClass}
+                                        required
+                                        type={
+                                            key === 'due_date' ? 'date' : 'text'
+                                        }
+                                        value={form.data[key]}
+                                        onChange={(event) =>
+                                            form.setData(
+                                                key,
+                                                event.target.value,
+                                            )
+                                        }
+                                    />
+                                </label>
+                            ))}
+                        </div>
+                    </section>
+                    <section className="border-base-200 space-y-3 border-t pt-5">
+                        <h3 className="font-semibold">Penandatangan</h3>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                            <label className="space-y-1 text-sm">
+                                <span>Nama pimpinan penandatangan</span>
+                                <input
+                                    className={inputClass}
+                                    required
+                                    value={form.data.signer}
+                                    onChange={(event) =>
+                                        form.setData(
+                                            'signer',
+                                            event.target.value,
+                                        )
+                                    }
+                                />
+                            </label>
+                            <label className="space-y-1 text-sm">
+                                <span>Tanda tangan pimpinan (opsional)</span>
+                                <input
+                                    className="file-input file-input-bordered w-full"
+                                    type="file"
+                                    accept=".png,.jpg,.jpeg"
+                                    onChange={(event) =>
+                                        form.setData(
+                                            'signature',
+                                            event.target.files?.[0] ?? null,
+                                        )
+                                    }
+                                />
+                            </label>
+                        </div>
+                    </section>
+                    <div className="space-y-1">
                         {Object.values(form.errors).map((e, i) => (
-                            <p role="alert" key={i} className="text-error">
+                            <p
+                                role="alert"
+                                key={i}
+                                className="text-error text-sm"
+                            >
                                 {e}
                             </p>
                         ))}
+                    </div>
+                    <div className="modal-action mt-0">
+                        <button
+                            type="button"
+                            className="btn btn-ghost"
+                            onClick={() => setInvoiceModalOpen(false)}
+                        >
+                            Batal
+                        </button>
                         <button
                             className="btn btn-primary"
                             disabled={
@@ -475,40 +733,44 @@ export default function Invoices({
                                 form.data.invoice_ids.length === 0
                             }
                         >
-                            Terbitkan PDF
+                            {form.processing
+                                ? 'Menerbitkan...'
+                                : 'Terbitkan PDF'}
                         </button>
                     </div>
                 </form>
-            </Card>
-            <Card className="space-y-3 p-5">
-                <h2 className="font-semibold">Arsip invoice gabungan</h2>
-                {!groups.length && <p>Belum ada invoice gabungan.</p>}
-                {groups.map((g) => (
-                    <div
-                        key={g.id}
-                        className="flex flex-wrap items-center gap-3 border-b py-3"
-                    >
-                        <span>
-                            {g.nomor} ? {g.snapshot.institution} ?{' '}
-                            {formatRupiah(g.snapshot.total)}
-                        </span>
-                        <a
-                            className="btn btn-outline btn-sm"
-                            href={download.url({ group: g.id })}
-                        >
-                            Unduh PDF
-                        </a>
-                        <button
-                            className="btn btn-ghost btn-sm"
-                            onClick={() => setAllocation(g.id)}
-                        >
-                            Catat pembayaran
-                        </button>
-                    </div>
-                ))}
-            </Card>
+            </Modal>
+            <section className="space-y-3" aria-labelledby="arsip-invoice">
+                <div>
+                    <h2 id="arsip-invoice" className="text-lg font-semibold">
+                        Arsip invoice gabungan
+                    </h2>
+                    <p className="text-base-content/60 text-sm">
+                        Unduh dokumen atau catat pembayaran invoice yang sudah
+                        diterbitkan.
+                    </p>
+                </div>
+                <DataTable
+                    columns={groupColumns}
+                    data={groupRows}
+                    searchKeys={[
+                        'nomor',
+                        'institution',
+                        'recipient',
+                        'payer_type',
+                    ]}
+                    searchPlaceholder="Cari arsip invoice"
+                    defaultPerPage={10}
+                    emptyMessage="Belum ada invoice gabungan."
+                />
+            </section>
             {group && (
-                <Allocate key={group.id} group={group} invoices={billing} />
+                <Allocate
+                    key={group.id}
+                    group={group}
+                    invoices={billing}
+                    onClose={() => setAllocation(null)}
+                />
             )}
         </div>
     );
