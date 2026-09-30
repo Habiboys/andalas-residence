@@ -637,7 +637,7 @@ export function DataTable<T extends Record<string, unknown>>({
                 </div>
             </div>
 
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto px-4">
                 <table
                     className="table-sm table w-full table-auto"
                     aria-busy={server?.loading ?? false}
