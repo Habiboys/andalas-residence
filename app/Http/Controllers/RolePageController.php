@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Actions\Registration\CreateTemporaryStay;
+use App\Enums\FreeResidenceLetterStatus;
+use App\Enums\ResidenceRegistrationStatus;
 use App\Models\ActivityAttendance;
 use App\Models\Aset;
 use App\Models\AuditLog;
@@ -46,6 +48,8 @@ use App\Services\RoomReservations;
 use App\Services\UserProfileSummary;
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 use Spatie\Permission\Models\Role;
@@ -118,10 +122,7 @@ class RolePageController extends Controller
                 'gedung' => Gedung::orderBy('kode_gedung')->get()->filter(fn ($building) => RoomEligibility::allows($building, $request->user()))->values(),
                 'registration' => ResidenceRegistration::with(['roomPreferences.kamar', 'periode', 'tagihan'])->where('student_profile_id', $request->user()->mahasiswaProfil?->id)->latest()->get(),
             ],
-            'registration-review' => [
-                'registrations' => ResidenceRegistration::with(['studentProfile.user', 'studentProfile.prodi', 'roomPreferences.kamar.lantai.gedung', 'periode', 'tagihan'])->latest()->get(),
-                'rooms' => RoomEligibility::available()->get(),
-            ],
+            'registration-review' => $this->registrationReviewPayload($request),
             'checkout-approval', 'checkout-inspection' => [
                 'checkout' => CheckoutRequest::with(['inspection.findings.aset', 'placement.kamar.lantai.gedung', 'placement.kamar.aset', 'mahasiswa.user'])
                     ->when(
@@ -142,7 +143,8 @@ class RolePageController extends Controller
                 'prodi' => Prodi::orderBy('name')->get(['id', 'name', 'jenjang', 'departemen_id']),
                 'periode' => MasterDataService::periodeList(),
             ],
-            'tagihan', 'verifikasi-pembayaran' => [
+            'verifikasi-pembayaran' => $this->paymentVerificationPayload($request),
+            'tagihan' => [
                 'virtual_accounts' => VirtualAccount::where('mahasiswa_id', $request->user()->mahasiswaProfil?->id)->where('aktif', true)->get(),
                 'pembayaran' => $this->payments($request),
                 'billing' => Tagihan::with(['mahasiswa.user', 'mahasiswa.prodi', 'jadwalCicilan', 'dokumen'])
@@ -202,12 +204,172 @@ class RolePageController extends Controller
                     'kuesioner' => Kuesioner::with('pertanyaan.opsi')->get(),
                 ] : []),
             ],
-            'approval-bebas-asrama' => ['bebas_asrama' => PengajuanBebasAsrama::with(['mahasiswa.user', 'tagihan'])->latest()->get(), 'legacy_rates' => LegacyResidenceRate::orderBy('angkatan')->get()],
+            'approval-bebas-asrama' => $this->freeResidenceApprovalPayload($request),
             'perizinan' => $this->leavePayload($request),
             'akun-internal' => ['users' => $this->internalUsers(), 'roles' => $this->internalRoles()],
             'audit-log' => ['audit_logs' => AuditLog::with('user')->latest()->limit(200)->get()],
             default => [],
         };
+    }
+
+    /** @return array<string, mixed> */
+    private function registrationReviewPayload(Request $request): array
+    {
+        $validator = Validator::make($request->query(), [
+            'search' => ['nullable', 'string', 'max:100'],
+            'status' => ['nullable', Rule::in(array_column(ResidenceRegistrationStatus::cases(), 'value'))],
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', Rule::in([10, 25, 50, 100])],
+            'sort_by' => ['nullable', Rule::in(['created_at', 'status'])],
+            'sort_direction' => ['nullable', Rule::in(['asc', 'desc'])],
+        ]);
+        $filters = [];
+        foreach (['search', 'status', 'page', 'per_page', 'sort_by', 'sort_direction'] as $key) {
+            if (! $validator->errors()->has($key) && $request->query->has($key)) {
+                $filters[$key] = $request->query($key);
+            }
+        }
+
+        $sortBy = $filters['sort_by'] ?? 'created_at';
+        $sortDirection = $filters['sort_direction'] ?? 'desc';
+        $search = trim((string) ($filters['search'] ?? ''));
+        $status = (string) ($filters['status'] ?? '');
+
+        return [
+            'registrations' => ResidenceRegistration::query()
+                ->with(['studentProfile.user', 'studentProfile.prodi', 'roomPreferences.kamar.lantai.gedung', 'periode', 'tagihan'])
+                ->when($search !== '', function (EloquentBuilder $query) use ($search): void {
+                    $query->whereHas('studentProfile.user', function (EloquentBuilder $userQuery) use ($search): void {
+                        $userQuery->where('nama', 'like', "%{$search}%")
+                            ->orWhere('nim_nip', 'like', "%{$search}%");
+                    });
+                })
+                ->when($status !== '', fn (EloquentBuilder $query) => $query->where('status', $status))
+                ->orderBy($sortBy, $sortDirection)
+                ->paginate((int) ($filters['per_page'] ?? 10))
+                ->withQueryString(),
+            'table_state' => [
+                'search' => $search,
+                'status' => $status,
+                'sort_by' => $sortBy,
+                'sort_direction' => $sortDirection,
+                'error' => $validator->errors()->first() ?: null,
+            ],
+            'rooms' => RoomEligibility::available()->get(),
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function paymentVerificationPayload(Request $request): array
+    {
+        $validator = Validator::make($request->query(), [
+            'search' => ['nullable', 'string', 'max:100'],
+            'status' => ['nullable', Rule::in(['menunggu_verifikasi', 'lunas', 'ditolak', 'kadaluarsa'])],
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', Rule::in([10, 25, 50, 100])],
+            'sort_by' => ['nullable', Rule::in(['created_at', 'nominal', 'status'])],
+            'sort_direction' => ['nullable', Rule::in(['asc', 'desc'])],
+        ]);
+        $filters = [];
+        foreach (['search', 'status', 'page', 'per_page', 'sort_by', 'sort_direction'] as $key) {
+            if (! $validator->errors()->has($key) && $request->query->has($key)) {
+                $filters[$key] = $request->query($key);
+            }
+        }
+
+        $sortBy = $filters['sort_by'] ?? 'created_at';
+        $sortDirection = $filters['sort_direction'] ?? 'desc';
+        $search = trim((string) ($filters['search'] ?? ''));
+        $status = (string) ($filters['status'] ?? '');
+
+        return [
+            'pembayaran' => Pembayaran::query()
+                ->with(['mahasiswa.user', 'mahasiswa.prodi', 'tagihan', 'verifikator'])
+                ->when($search !== '', function (EloquentBuilder $query) use ($search): void {
+                    $query->where(function (EloquentBuilder $query) use ($search): void {
+                        $query->where('kode_transaksi', 'like', "%{$search}%")
+                            ->orWhereHas('mahasiswa.user', function (EloquentBuilder $userQuery) use ($search): void {
+                                $userQuery->where('nama', 'like', "%{$search}%")
+                                    ->orWhere('nim_nip', 'like', "%{$search}%");
+                            })
+                            ->orWhereHas('tagihan', fn (EloquentBuilder $invoiceQuery) => $invoiceQuery->where('nomor', 'like', "%{$search}%"));
+                    });
+                })
+                ->when($status !== '', fn (EloquentBuilder $query) => $query->where('status', $status))
+                ->orderBy($sortBy, $sortDirection)
+                ->paginate((int) ($filters['per_page'] ?? 10))
+                ->withQueryString(),
+            'table_state' => [
+                'search' => $search,
+                'status' => $status,
+                'sort_by' => $sortBy,
+                'sort_direction' => $sortDirection,
+                'error' => $validator->errors()->first() ?: null,
+            ],
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function freeResidenceApprovalPayload(Request $request): array
+    {
+        $validator = Validator::make($request->query(), [
+            'search' => ['nullable', 'string', 'max:100'],
+            'status' => ['nullable', Rule::in(array_column(FreeResidenceLetterStatus::cases(), 'value'))],
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', Rule::in([10, 25, 50, 100])],
+            'sort_by' => ['nullable', Rule::in(['created_at', 'nomor_pengajuan', 'status'])],
+            'sort_direction' => ['nullable', Rule::in(['asc', 'desc'])],
+        ]);
+        $filters = [];
+        foreach (['search', 'status', 'page', 'per_page', 'sort_by', 'sort_direction'] as $key) {
+            if (! $validator->errors()->has($key) && $request->query->has($key)) {
+                $filters[$key] = $request->query($key);
+            }
+        }
+        $sortBy = $filters['sort_by'] ?? 'created_at';
+        $sortDirection = $filters['sort_direction'] ?? 'desc';
+        $search = trim((string) ($filters['search'] ?? ''));
+        $status = $filters['status'] ?? '';
+
+        $applications = PengajuanBebasAsrama::query()
+            ->select([
+                'id',
+                'mahasiswa_id',
+                'nomor_pengajuan',
+                'status',
+                'legacy_verification_path',
+                'payment_evidence_path',
+                'bank_statement_path',
+                'file_surat_path',
+                'catatan_penolakan',
+                'nomor_surat_resmi',
+                'created_at',
+            ])
+            ->with(['mahasiswa:id,user_id', 'mahasiswa.user:id,nama,nim_nip'])
+            ->when($search !== '', function (EloquentBuilder $query) use ($search): void {
+                $query->where(function (EloquentBuilder $query) use ($search): void {
+                    $query->where('nomor_pengajuan', 'like', "%{$search}%")
+                        ->orWhereHas('mahasiswa.user', function (EloquentBuilder $userQuery) use ($search): void {
+                            $userQuery->where('nama', 'like', "%{$search}%")
+                                ->orWhere('nim_nip', 'like', "%{$search}%");
+                        });
+                });
+            })
+            ->when($status !== '', fn (EloquentBuilder $query) => $query->where('status', $status))
+            ->orderBy($sortBy, $sortDirection)
+            ->paginate((int) ($filters['per_page'] ?? 10))
+            ->withQueryString();
+
+        return [
+            'bebas_asrama' => $applications,
+            'table_state' => [
+                'search' => $search,
+                'status' => $status,
+                'sort_by' => $sortBy,
+                'sort_direction' => $sortDirection,
+                'error' => $validator->errors()->first() ?: null,
+            ],
+        ];
     }
 
     private function activityQuery(Request $request): EloquentBuilder

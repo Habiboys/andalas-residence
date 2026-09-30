@@ -43,6 +43,29 @@ it('paginates records and keeps allowed row actions visible', () => {
     expect(html).not.toContain('Hapus</button>');
     expect(html).not.toContain('Filter Aksi');
 });
+it('renders server-side page metadata and keeps sortable columns active', () => {
+    const html = renderToStaticMarkup(
+        <DataTable
+            columns={[{ key: 'nama', label: 'Nama' }]}
+            data={[{ id: 'eleven', nama: 'Record 11' }]}
+            server={{
+                search: '',
+                page: 2,
+                perPage: 10,
+                sortBy: 'nama',
+                sortDirection: 'asc',
+                filters: {},
+                total: 21,
+                lastPage: 3,
+                onChange: () => {},
+            }}
+        />,
+    );
+
+    expect(html).toContain('Record 11');
+    expect(html).toContain('Menampilkan 11-11 dari 21 data');
+    expect(html).toContain('aria-sort="ascending"');
+});
 it('shows the scan and permit menus for binaan residents', () => {
     const html = renderToStaticMarkup(
         <Sidebar

@@ -181,6 +181,7 @@ Route::middleware(['auth', 'verified', EnsureResidenceAccountAccess::class])->gr
         Route::post('/absensi/sesi/{session}/record', [AbsensiController::class, 'recordActivity'])->name('absensi.sesi.record');
         Route::post('/penilaian/{laporan}', [TeknisiController::class, 'storePenilaian'])->name('penilaian.store');
         Route::post('/residence-management/{kind}', [ResidenceManagementController::class, 'save'])->name('residence-management.save');
+        Route::delete('/residence-management/{kind}', [ResidenceManagementController::class, 'destroy'])->name('residence-management.destroy');
         Route::post('/legacy-residents/import', [ResidenceManagementController::class, 'import'])->name('legacy-residents.import');
         Route::post('/registrations/{registration}/sponsor', [ResidenceManagementController::class, 'approveSponsor'])->name('registrations.sponsor');
         Route::put('/invoices/{tagihan}/payment-settings', [InvoiceController::class, 'paymentSettings'])->name('invoices.settings');

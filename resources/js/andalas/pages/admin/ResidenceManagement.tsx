@@ -1,7 +1,19 @@
-import { useForm } from '@inertiajs/react';
+import { router, useForm } from '@inertiajs/react';
 import { useState } from 'react';
-import { PageHeader, Card, inputClass } from '../../components/ui';
-import { save } from '@/routes/andalas/residence-management';
+import {
+    PageHeader,
+    Card,
+    ConfirmDialog,
+    DataTable,
+    inputClass,
+    type DataColumn,
+} from '../../components/ui';
+import { Modal } from '../../components/atoms/Modal';
+import { Pencil, Trash2 } from 'lucide-react';
+import {
+    destroy as destroyResidenceManagement,
+    save,
+} from '@/routes/andalas/residence-management';
 import { importMethod } from '@/routes/andalas/legacy-residents';
 
 type Row = Record<string, string | number | string[] | null>;
@@ -49,264 +61,353 @@ function Editor({
     buildings: Building[];
 }) {
     const initial: Record<string, string | string[]> = Object.fromEntries(
-        fields.map((f) => [
-            f.name,
-            f.type === 'categories'
+        fields.map((field) => [
+            field.name,
+            field.type === 'categories'
                 ? []
-                : (f.options?.[0]?.[0] ??
-                  (f.name === 'reservation_hours' ? '24' : '')),
+                : (field.options?.[0]?.[0] ??
+                  (field.name === 'reservation_hours' ? '24' : '')),
         ]),
     );
     const form = useForm(initial);
+    const [modalOpen, setModalOpen] = useState(false);
     const [editing, setEditing] = useState(false);
+    const [deleting, setDeleting] = useState(false);
+    const [deleteTarget, setDeleteTarget] = useState<Row | null>(null);
+
+    function closeForm() {
+        setModalOpen(false);
+        setEditing(false);
+        form.reset();
+        form.clearErrors();
+    }
+
+    function openCreate() {
+        form.reset();
+        form.clearErrors();
+        setEditing(false);
+        setModalOpen(true);
+    }
+
+    function openEdit(row: Row) {
+        form.clearErrors();
+        form.setData(
+            Object.fromEntries(
+                fields.map((field) => {
+                    const value = row[field.name];
+                    if (field.type === 'categories') {
+                        return [field.name, Array.isArray(value) ? value : []];
+                    }
+                    if (field.name === 'nama_periode') {
+                        const year = String(value ?? '').match(/20\d{2}/)?.[0];
+                        return [
+                            field.name,
+                            year
+                                ? `${year}/${Number(year) + 1}`
+                                : String(value ?? ''),
+                        ];
+                    }
+                    return [
+                        field.name,
+                        String(value ?? '').slice(
+                            0,
+                            field.type === 'date' ? 10 : undefined,
+                        ),
+                    ];
+                }),
+            ) as Record<string, string | string[]>,
+        );
+        setEditing(true);
+        setModalOpen(true);
+    }
+
+    function confirmDelete() {
+        if (!deleteTarget) {
+            return;
+        }
+        setDeleting(true);
+        const identifiers = Object.fromEntries(
+            (kind === 'legacy'
+                ? ['nim']
+                : kind === 'legacy-rate'
+                  ? ['angkatan', 'gedung_id']
+                  : kind === 'kipk'
+                    ? ['nim']
+                    : kind === 'rate'
+                      ? ['gedung_id', 'tipe_kamar', 'unit']
+                      : kind === 'building'
+                        ? ['gedung_id']
+                        : ['id']
+            ).map((name) => [name, deleteTarget[name]]),
+        );
+        router.delete(destroyResidenceManagement.url({ kind }), {
+            data: identifiers,
+            preserveScroll: true,
+            onSuccess: () => setDeleteTarget(null),
+            onFinish: () => setDeleting(false),
+        });
+    }
+
+    const visibleFields = fields.filter(
+        (field) => field.name !== 'id' && !field.hidden,
+    );
+    const columns: DataColumn<Row>[] = [
+        ...visibleFields.map((field) => ({
+            key: field.name,
+            label: field.label,
+            value: (row: Row) => {
+                if (field.name === 'gedung_id') {
+                    return (
+                        buildings.find(
+                            (building) => building.id === row.gedung_id,
+                        )?.nama_gedung ?? 'Perlu dilengkapi'
+                    );
+                }
+
+                return Array.isArray(row[field.name])
+                    ? row[field.name].join(', ')
+                    : String(row[field.name] ?? '-');
+            },
+            render: (row: Row) => {
+                if (field.name === 'gedung_id') {
+                    return (
+                        buildings.find(
+                            (building) => building.id === row.gedung_id,
+                        )?.nama_gedung ?? 'Perlu dilengkapi'
+                    );
+                }
+
+                return Array.isArray(row[field.name])
+                    ? row[field.name].join(', ')
+                    : String(row[field.name] ?? '-');
+            },
+        })),
+        {
+            key: 'aksi',
+            label: 'Aksi',
+            action: true,
+            render: (row) => (
+                <div className="flex items-center justify-end gap-1">
+                    <button
+                        type="button"
+                        className="btn btn-ghost btn-xs btn-square"
+                        onClick={() => openEdit(row)}
+                        aria-label={`Ubah ${title}`}
+                        title="Ubah"
+                    >
+                        <Pencil className="size-4" aria-hidden="true" />
+                    </button>
+                    <button
+                        type="button"
+                        className="btn btn-ghost btn-xs btn-square text-error"
+                        onClick={() => setDeleteTarget(row)}
+                        aria-label={`Hapus ${title}`}
+                        title="Hapus"
+                    >
+                        <Trash2 className="size-4" aria-hidden="true" />
+                    </button>
+                </div>
+            ),
+        },
+    ];
+
     return (
         <Card className="space-y-4 p-5">
-            <h2 className="text-lg font-semibold">{title}</h2>
-            <form
-                className="grid gap-3 sm:grid-cols-2"
-                onSubmit={(e) => {
-                    e.preventDefault();
-                    form.post(save.url({ kind }), {
-                        preserveScroll: true,
-                        onSuccess: () => {
-                            form.reset();
-                            setEditing(false);
-                        },
-                    });
-                }}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                <h2 className="text-lg font-semibold">{title}</h2>
+                <button className="btn btn-primary btn-sm" onClick={openCreate}>
+                    Tambah data
+                </button>
+            </div>
+            <DataTable
+                columns={columns}
+                data={rows}
+                searchKeys={visibleFields.map((field) => field.name)}
+                emptyMessage="Belum ada data."
+            />
+
+            <Modal
+                open={modalOpen}
+                onClose={closeForm}
+                title={`${editing ? 'Ubah' : 'Tambah'} ${title}`}
+                width="max-w-2xl"
             >
-                {fields
-                    .filter((field) => !field.hidden)
-                    .map((field) => (
-                        <label className="space-y-1 text-sm" key={field.name}>
-                            <span>{field.label}</span>
-                            {field.type === 'categories' ? (
-                                <div className="space-y-2">
-                                    {categories.map(([value, label]) => (
-                                        <label
-                                            key={value}
-                                            className="flex gap-2"
-                                        >
-                                            <input
-                                                type="checkbox"
-                                                checked={(
-                                                    form.data[
-                                                        field.name
-                                                    ] as string[]
-                                                ).includes(value)}
-                                                onChange={(e) =>
-                                                    form.setData(
-                                                        field.name,
-                                                        e.target.checked
-                                                            ? [
-                                                                  ...(form.data[
-                                                                      field.name
-                                                                  ] as string[]),
-                                                                  value,
-                                                              ]
-                                                            : (
-                                                                  form.data[
-                                                                      field.name
-                                                                  ] as string[]
-                                                              ).filter(
-                                                                  (v) =>
-                                                                      v !==
+                <form
+                    className="grid gap-3 sm:grid-cols-2"
+                    onSubmit={(event) => {
+                        event.preventDefault();
+                        form.post(save.url({ kind }), {
+                            preserveScroll: true,
+                            onSuccess: closeForm,
+                        });
+                    }}
+                >
+                    {fields
+                        .filter((field) => !field.hidden)
+                        .map((field) => (
+                            <label
+                                className="space-y-1 text-sm"
+                                key={field.name}
+                            >
+                                <span>{field.label}</span>
+                                {field.type === 'categories' ? (
+                                    <div className="space-y-2">
+                                        {categories.map(([value, label]) => (
+                                            <label
+                                                key={value}
+                                                className="flex gap-2"
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    checked={(
+                                                        form.data[
+                                                            field.name
+                                                        ] as string[]
+                                                    ).includes(value)}
+                                                    onChange={(event) =>
+                                                        form.setData(
+                                                            field.name,
+                                                            event.target.checked
+                                                                ? [
+                                                                      ...(form
+                                                                          .data[
+                                                                          field
+                                                                              .name
+                                                                      ] as string[]),
                                                                       value,
-                                                              ),
-                                                    )
-                                                }
-                                            />
-                                            {label}
-                                        </label>
-                                    ))}
-                                </div>
-                            ) : field.type === 'building' ? (
-                                <>
-                                    <input
+                                                                  ]
+                                                                : (
+                                                                      form.data[
+                                                                          field
+                                                                              .name
+                                                                      ] as string[]
+                                                                  ).filter(
+                                                                      (item) =>
+                                                                          item !==
+                                                                          value,
+                                                                  ),
+                                                        )
+                                                    }
+                                                />
+                                                {label}
+                                            </label>
+                                        ))}
+                                    </div>
+                                ) : field.type === 'building' ? (
+                                    <>
+                                        <input
+                                            className={inputClass}
+                                            list={`buildings-${kind}-${field.name}`}
+                                            value={
+                                                buildings.find(
+                                                    (building) =>
+                                                        building.id ===
+                                                        String(
+                                                            form.data[
+                                                                field.name
+                                                            ] ?? '',
+                                                        ),
+                                                )?.nama_gedung ??
+                                                String(
+                                                    form.data[field.name] ?? '',
+                                                )
+                                            }
+                                            onChange={(event) =>
+                                                form.setData(
+                                                    field.name,
+                                                    event.target.value,
+                                                )
+                                            }
+                                            required={!field.optional}
+                                        />
+                                        <datalist
+                                            id={`buildings-${kind}-${field.name}`}
+                                        >
+                                            {buildings.map((building) => (
+                                                <option
+                                                    key={building.id}
+                                                    value={building.nama_gedung}
+                                                />
+                                            ))}
+                                        </datalist>
+                                    </>
+                                ) : field.options ? (
+                                    <select
                                         className={inputClass}
-                                        list={`buildings-${kind}-${field.name}`}
-                                        value={
-                                            buildings.find(
-                                                (building) =>
-                                                    building.id ===
-                                                    String(
-                                                        form.data[field.name] ??
-                                                            '',
-                                                    ),
-                                            )?.nama_gedung ??
-                                            String(form.data[field.name] ?? '')
-                                        }
-                                        onChange={(e) =>
+                                        value={String(
+                                            form.data[field.name] ?? '',
+                                        )}
+                                        onChange={(event) =>
                                             form.setData(
                                                 field.name,
-                                                e.target.value,
+                                                event.target.value,
+                                            )
+                                        }
+                                        required={!field.optional}
+                                    >
+                                        {field.options.map(([value, label]) => (
+                                            <option key={value} value={value}>
+                                                {label}
+                                            </option>
+                                        ))}
+                                    </select>
+                                ) : (
+                                    <input
+                                        className={inputClass}
+                                        type={field.type ?? 'text'}
+                                        value={String(
+                                            form.data[field.name] ?? '',
+                                        )}
+                                        onChange={(event) =>
+                                            form.setData(
+                                                field.name,
+                                                event.target.value,
                                             )
                                         }
                                         required={!field.optional}
                                     />
-                                    <datalist
-                                        id={`buildings-${kind}-${field.name}`}
+                                )}
+                                {form.errors[field.name] && (
+                                    <span
+                                        role="alert"
+                                        className="text-error text-xs"
                                     >
-                                        {buildings.map((building) => (
-                                            <option
-                                                key={building.id}
-                                                value={building.nama_gedung}
-                                            />
-                                        ))}
-                                    </datalist>
-                                </>
-                            ) : field.options ? (
-                                <select
-                                    className={inputClass}
-                                    value={String(form.data[field.name] ?? '')}
-                                    onChange={(e) =>
-                                        form.setData(field.name, e.target.value)
-                                    }
-                                    required={!field.optional}
-                                >
-                                    {field.options.map(([v, l]) => (
-                                        <option key={v} value={v}>
-                                            {l}
-                                        </option>
-                                    ))}
-                                </select>
-                            ) : (
-                                <input
-                                    className={inputClass}
-                                    type={field.type ?? 'text'}
-                                    value={String(form.data[field.name] ?? '')}
-                                    onChange={(e) =>
-                                        form.setData(field.name, e.target.value)
-                                    }
-                                    required={!field.optional}
-                                />
-                            )}
-                        </label>
-                    ))}
-                <div className="sm:col-span-2">
-                    {Object.values(form.errors).map((error, i) => (
-                        <p role="alert" className="text-error text-sm" key={i}>
-                            {error}
-                        </p>
-                    ))}
-                    <button
-                        className="btn btn-primary mt-2"
-                        disabled={form.processing}
-                    >
-                        Simpan
-                    </button>{' '}
-                    {editing && (
+                                        {form.errors[field.name]}
+                                    </span>
+                                )}
+                            </label>
+                        ))}
+                    <div className="flex justify-end gap-2 sm:col-span-2">
                         <button
                             type="button"
                             className="btn btn-ghost"
-                            onClick={() => {
-                                form.reset();
-                                setEditing(false);
-                            }}
+                            onClick={closeForm}
+                            disabled={form.processing}
                         >
-                            Batalkan
+                            Batal
                         </button>
-                    )}
-                </div>
-            </form>
-            <div className="overflow-x-auto">
-                <table className="table-sm table">
-                    <thead>
-                        <tr>
-                            {fields
-                                .filter((f) => f.name !== 'id' && !f.hidden)
-                                .map((f) => (
-                                    <th key={f.name}>{f.label}</th>
-                                ))}
-                            <th>Aksi</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {rows.map((row, index) => (
-                            <tr key={String(row.id ?? index)}>
-                                {fields
-                                    .filter((f) => f.name !== 'id' && !f.hidden)
-                                    .map((f) => (
-                                        <td key={f.name}>
-                                            {f.name === 'gedung_id'
-                                                ? (buildings.find(
-                                                      (b) =>
-                                                          b.id ===
-                                                          row.gedung_id,
-                                                  )?.nama_gedung ??
-                                                  'Perlu dilengkapi')
-                                                : Array.isArray(row[f.name])
-                                                  ? (
-                                                        row[f.name] as string[]
-                                                    ).join(', ')
-                                                  : String(row[f.name] ?? '-')}
-                                        </td>
-                                    ))}
-                                <td>
-                                    <button
-                                        className="btn btn-ghost btn-xs"
-                                        onClick={() => {
-                                            form.setData(
-                                                Object.fromEntries(
-                                                    fields.map((f) => [
-                                                        f.name,
-                                                        f.type === 'categories'
-                                                            ? (row[f.name] ??
-                                                              [])
-                                                            : f.name ===
-                                                                'nama_periode'
-                                                              ? (() => {
-                                                                    const year =
-                                                                        String(
-                                                                            row[
-                                                                                f
-                                                                                    .name
-                                                                            ] ??
-                                                                                '',
-                                                                        ).match(
-                                                                            /20\d{2}/,
-                                                                        )?.[0];
-                                                                    return year
-                                                                        ? `${year}/${Number(year) + 1}`
-                                                                        : String(
-                                                                              row[
-                                                                                  f
-                                                                                      .name
-                                                                              ] ??
-                                                                                  '',
-                                                                          );
-                                                                })()
-                                                              : String(
-                                                                    row[
-                                                                        f.name
-                                                                    ] ?? '',
-                                                                ).slice(
-                                                                    0,
-                                                                    f.type ===
-                                                                        'date'
-                                                                        ? 10
-                                                                        : undefined,
-                                                                ),
-                                                    ]),
-                                                ) as Record<
-                                                    string,
-                                                    string | string[]
-                                                >,
-                                            );
-                                            setEditing(true);
-                                        }}
-                                    >
-                                        Ubah
-                                    </button>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-                {rows.length === 0 && (
-                    <p className="py-3 text-sm">Belum ada data.</p>
-                )}
-            </div>
+                        <button
+                            className="btn btn-primary"
+                            disabled={form.processing}
+                        >
+                            {form.processing ? 'Menyimpan?' : 'Simpan'}
+                        </button>
+                    </div>
+                </form>
+            </Modal>
+
+            <ConfirmDialog
+                open={deleteTarget !== null}
+                onClose={() => setDeleteTarget(null)}
+                onConfirm={confirmDelete}
+                loading={deleting}
+                title="Hapus data pengaturan?"
+                message={
+                    kind === 'building'
+                        ? 'Batasan kategori pada gedung ini akan dihapus. Setelahnya, semua kategori penghuni dapat menggunakan gedung ini.'
+                        : 'Data ini akan dihapus dan tindakan ini tidak dapat dibatalkan.'
+                }
+            />
         </Card>
     );
 }

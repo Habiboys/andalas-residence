@@ -16,7 +16,6 @@ import {
     ChevronsLeft,
     ChevronsRight,
     Eye,
-    Filter,
     Inbox,
     Pencil,
     Search,
@@ -242,7 +241,25 @@ interface DataTableProps<T extends Record<string, unknown>> {
     onRowClick?: (row: T) => void;
     defaultPerPage?: number;
     emptyMessage?: string;
+    server?: DataTableServerState;
 }
+
+export type DataTableQuery = {
+    search: string;
+    page: number;
+    perPage: number;
+    sortBy: string | null;
+    sortDirection: 'asc' | 'desc';
+    filters: Record<string, string>;
+};
+
+export type DataTableServerState = DataTableQuery & {
+    total: number;
+    lastPage: number;
+    loading?: boolean;
+    error?: string | null;
+    onChange: (query: DataTableQuery) => void;
+};
 
 function ToolbarFilter<T extends Record<string, unknown>>({
     col,
@@ -292,63 +309,6 @@ function SortIcon({ active, dir }: { active: boolean; dir: 'asc' | 'desc' }) {
     );
 }
 
-/*
- * Column filter lives directly under the sortable header, one control per
- * column, exactly like MyUNAND's filter row. Selects match the raw value
- * exactly; text inputs are LIKE.
- */
-function ColumnFilter<T extends Record<string, unknown>>({
-    col,
-    value,
-    onChange,
-}: {
-    col: DataColumn<T>;
-    value: string;
-    onChange: (v: string) => void;
-}) {
-    const f = col.filter;
-    if (!f) return null;
-
-    if (f.type === 'select') {
-        const options = f.options ?? [];
-        return (
-            <select
-                value={value}
-                onChange={(e) => onChange(e.target.value)}
-                className="select select-xs w-full"
-                aria-label={`Filter ${col.label}`}
-            >
-                <option value="">
-                    {f.placeholder ?? `Semua ${col.label.toLowerCase()}`}
-                </option>
-                {options.map((opt) => {
-                    const optValue = typeof opt === 'string' ? opt : opt.value;
-                    const optLabel = typeof opt === 'string' ? opt : opt.label;
-                    return (
-                        <option key={optValue} value={optValue}>
-                            {optLabel}
-                        </option>
-                    );
-                })}
-            </select>
-        );
-    }
-
-    return (
-        <label className="input input-xs w-full">
-            <input
-                type="search"
-                value={value}
-                onChange={(e) => onChange(e.target.value)}
-                placeholder={
-                    f.placeholder ?? `Filter ${col.label.toLowerCase()}`
-                }
-                aria-label={`Filter ${col.label}`}
-            />
-        </label>
-    );
-}
-
 function PageButton({
     onClick,
     disabled,
@@ -386,6 +346,7 @@ export function DataTable<T extends Record<string, unknown>>({
     onRowClick,
     defaultPerPage = 10,
     emptyMessage = 'Belum ada data di sini',
+    server,
 }: DataTableProps<T>) {
     const visibleColumns: DataColumn<T>[] =
         onRowClick &&
@@ -421,32 +382,122 @@ export function DataTable<T extends Record<string, unknown>>({
             filter: action ? undefined : column.filter,
         };
     });
-    const [search, setSearch] = useState('');
-    const [sortKey, setSortKey] = useState<string | null>(null);
-    const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
-    const [page, setPage] = useState(1);
-    const [perPage, setPerPage] = useState(defaultPerPage);
-    const [columnFilters, setColumnFilters] = useState<Record<string, string>>(
-        {},
+    const [search, setSearch] = useState(server?.search ?? '');
+    const [sortKey, setSortKey] = useState<string | null>(
+        server?.sortBy ?? null,
     );
+    const [sortDir, setSortDir] = useState<'asc' | 'desc'>(
+        server?.sortDirection ?? 'asc',
+    );
+    const [page, setPage] = useState(server?.page ?? 1);
+    const [perPage, setPerPage] = useState(server?.perPage ?? defaultPerPage);
+    const [columnFilters, setColumnFilters] = useState<Record<string, string>>(
+        server?.filters ?? {},
+    );
+    const serverQueryRef = useRef(server);
+    const serverSearchRef = useRef(server?.search ?? '');
+    const localQueryRef = useRef<DataTableQuery>({
+        search,
+        page,
+        perPage,
+        sortBy: sortKey,
+        sortDirection: sortDir,
+        filters: columnFilters,
+    });
+    localQueryRef.current = {
+        search,
+        page,
+        perPage,
+        sortBy: sortKey,
+        sortDirection: sortDir,
+        filters: columnFilters,
+    };
+
+    useEffect(() => {
+        serverQueryRef.current = server;
+    }, [server]);
+
+    const serverFiltersKey = JSON.stringify(server?.filters ?? {});
+    useEffect(() => {
+        const current = serverQueryRef.current;
+        if (!current) {
+            return;
+        }
+
+        setSearch(current.search);
+        setSortKey(current.sortBy);
+        setSortDir(current.sortDirection);
+        setPage(current.page);
+        setPerPage(current.perPage);
+        setColumnFilters(current.filters);
+        serverSearchRef.current = current.search;
+    }, [
+        server?.search,
+        server?.sortBy,
+        server?.sortDirection,
+        server?.page,
+        server?.perPage,
+        serverFiltersKey,
+    ]);
+
+    useEffect(() => {
+        if (!serverQueryRef.current || search === serverSearchRef.current) {
+            return;
+        }
+
+        const timeout = window.setTimeout(() => {
+            serverSearchRef.current = search;
+            const current = serverQueryRef.current;
+            const query = localQueryRef.current;
+            current?.onChange({
+                ...query,
+                search,
+                page: 1,
+            });
+        }, 350);
+
+        return () => window.clearTimeout(timeout);
+    }, [search]);
 
     const filterable = columns.filter((c) => c.filter?.type === 'select');
     const activeFilterCount =
         Object.values(columnFilters).filter(Boolean).length;
 
     useEffect(() => {
-        setPage(1);
+        if (!server) {
+            setPage(1);
+        }
     }, [data.length, search, columnFilters]);
 
     const setFilter = (key: string, value: string) => {
-        setColumnFilters((prev) => ({ ...prev, [key]: value }));
+        const filters = { ...columnFilters, [key]: value };
+        setColumnFilters(filters);
         setPage(1);
+        server?.onChange({
+            search,
+            page: 1,
+            perPage,
+            sortBy: sortKey,
+            sortDirection: sortDir,
+            filters,
+        });
     };
 
     const clearFilters = () => {
         setColumnFilters({});
         setSearch('');
         setPage(1);
+        if (server) {
+            serverSearchRef.current = '';
+            server.onChange({
+                search: '',
+                page: 1,
+                perPage,
+                sortBy: sortKey,
+                sortDirection: sortDir,
+                filters: {},
+            });
+        }
     };
 
     const processed = useMemo(
@@ -461,26 +512,52 @@ export function DataTable<T extends Record<string, unknown>>({
         [data, columns, search, searchKeys, sortKey, sortDir, columnFilters],
     );
 
-    const totalRows = processed.length;
-    const totalPages = Math.max(1, Math.ceil(totalRows / perPage));
-    const safePage = Math.min(page, totalPages);
-    const paginated = processed.slice(
-        (safePage - 1) * perPage,
-        safePage * perPage,
+    const totalRows = server?.total ?? processed.length;
+    const totalPages = Math.max(
+        1,
+        server?.lastPage ?? Math.ceil(totalRows / perPage),
     );
+    const safePage = server?.page ?? Math.min(page, totalPages);
+    const paginated = server
+        ? data
+        : processed.slice((safePage - 1) * perPage, safePage * perPage);
     const from = totalRows === 0 ? 0 : (safePage - 1) * perPage + 1;
-    const to = Math.min(safePage * perPage, totalRows);
+    const to = Math.min(from + paginated.length - 1, totalRows);
+
+    const changePage = (nextPage: number) => {
+        setPage(nextPage);
+        server?.onChange({
+            search,
+            page: nextPage,
+            perPage,
+            sortBy: sortKey,
+            sortDirection: sortDir,
+            filters: columnFilters,
+        });
+    };
 
     const toggleSort = (key: string) => {
+        let nextSortKey: string | null = key;
+        let nextSortDirection: 'asc' | 'desc' = 'asc';
         if (sortKey !== key) {
             setSortKey(key);
             setSortDir('asc');
         } else if (sortDir === 'asc') {
             setSortDir('desc');
+            nextSortDirection = 'desc';
         } else {
             setSortKey(null);
+            nextSortKey = null;
         }
         setPage(1);
+        server?.onChange({
+            search,
+            page: 1,
+            perPage,
+            sortBy: nextSortKey,
+            sortDirection: nextSortDirection,
+            filters: columnFilters,
+        });
     };
 
     const pageNumbers = (): (number | 'gap')[] => {
@@ -561,7 +638,10 @@ export function DataTable<T extends Record<string, unknown>>({
             </div>
 
             <div className="overflow-x-auto">
-                <table className="table-sm table w-full table-auto">
+                <table
+                    className="table-sm table w-full table-auto"
+                    aria-busy={server?.loading ?? false}
+                >
                     <thead>
                         <tr>
                             <th className="bg-base-200/60 text-base-content/60 w-14 text-center text-xs font-semibold">
@@ -607,7 +687,15 @@ export function DataTable<T extends Record<string, unknown>>({
                         </tr>
                     </thead>
                     <tbody>
-                        {paginated.length === 0 ? (
+                        {server?.loading ? (
+                            <tr>
+                                <td colSpan={columns.length + 1}>
+                                    <p className="text-muted py-10 text-center text-sm">
+                                        Memuat data...
+                                    </p>
+                                </td>
+                            </tr>
+                        ) : paginated.length === 0 ? (
                             <tr>
                                 <td colSpan={columns.length + 1}>
                                     <div className="flex flex-col items-center gap-2 py-12 text-center">
@@ -639,7 +727,12 @@ export function DataTable<T extends Record<string, unknown>>({
                         ) : (
                             paginated.map((row, i) => (
                                 <tr
-                                    key={String(row.id ?? i)}
+                                    key={
+                                        typeof row.id === 'string' ||
+                                        typeof row.id === 'number'
+                                            ? row.id
+                                            : i
+                                    }
                                     onClick={
                                         onRowClick
                                             ? () => onRowClick(row)
@@ -689,7 +782,12 @@ export function DataTable<T extends Record<string, unknown>>({
                                         >
                                             {col.render
                                                 ? col.render(row)
-                                                : String(row[col.key] ?? '')}
+                                                : typeof row[col.key] ===
+                                                        'string' ||
+                                                    typeof row[col.key] ===
+                                                        'number'
+                                                  ? String(row[col.key])
+                                                  : ''}
                                         </td>
                                     ))}
                                 </tr>
@@ -698,6 +796,12 @@ export function DataTable<T extends Record<string, unknown>>({
                     </tbody>
                 </table>
             </div>
+
+            {server?.error && (
+                <p role="alert" className="text-error px-4 pb-2 text-sm">
+                    {server.error}
+                </p>
+            )}
 
             <div className="border-base-200 mt-0 flex flex-col gap-2 border-t px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                 <span className="text-base-content/60 text-xs">
@@ -711,9 +815,19 @@ export function DataTable<T extends Record<string, unknown>>({
                         Tampil
                         <select
                             value={perPage}
+                            disabled={server?.loading}
                             onChange={(e) => {
-                                setPerPage(Number(e.target.value));
+                                const nextPerPage = Number(e.target.value);
+                                setPerPage(nextPerPage);
                                 setPage(1);
+                                server?.onChange({
+                                    search,
+                                    page: 1,
+                                    perPage: nextPerPage,
+                                    sortBy: sortKey,
+                                    sortDirection: sortDir,
+                                    filters: columnFilters,
+                                });
                             }}
                             className="select select-xs w-18"
                             aria-label="Baris per halaman"
@@ -729,8 +843,8 @@ export function DataTable<T extends Record<string, unknown>>({
                     {
                         <div className="join" aria-label="Navigasi halaman">
                             <PageButton
-                                onClick={() => setPage(1)}
-                                disabled={safePage === 1}
+                                onClick={() => changePage(1)}
+                                disabled={safePage === 1 || server?.loading}
                                 label="Halaman pertama"
                             >
                                 <ChevronsLeft
@@ -740,9 +854,9 @@ export function DataTable<T extends Record<string, unknown>>({
                             </PageButton>
                             <PageButton
                                 onClick={() =>
-                                    setPage((p) => Math.max(1, p - 1))
+                                    changePage(Math.max(1, safePage - 1))
                                 }
-                                disabled={safePage === 1}
+                                disabled={safePage === 1 || server?.loading}
                                 label="Halaman sebelumnya"
                             >
                                 <ChevronLeft
@@ -764,7 +878,8 @@ export function DataTable<T extends Record<string, unknown>>({
                                     <PageButton
                                         key={n}
                                         active={n === safePage}
-                                        onClick={() => setPage(n)}
+                                        onClick={() => changePage(n)}
+                                        disabled={server?.loading}
                                         label={`Halaman ${n}`}
                                     >
                                         {n}
@@ -774,9 +889,13 @@ export function DataTable<T extends Record<string, unknown>>({
 
                             <PageButton
                                 onClick={() =>
-                                    setPage((p) => Math.min(totalPages, p + 1))
+                                    changePage(
+                                        Math.min(totalPages, safePage + 1),
+                                    )
                                 }
-                                disabled={safePage === totalPages}
+                                disabled={
+                                    safePage === totalPages || server?.loading
+                                }
                                 label="Halaman berikutnya"
                             >
                                 <ChevronRight
@@ -785,8 +904,10 @@ export function DataTable<T extends Record<string, unknown>>({
                                 />
                             </PageButton>
                             <PageButton
-                                onClick={() => setPage(totalPages)}
-                                disabled={safePage === totalPages}
+                                onClick={() => changePage(totalPages)}
+                                disabled={
+                                    safePage === totalPages || server?.loading
+                                }
                                 label="Halaman terakhir"
                             >
                                 <ChevronsRight

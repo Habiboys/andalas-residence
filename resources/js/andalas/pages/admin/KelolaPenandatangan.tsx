@@ -1,15 +1,15 @@
 import { useForm } from '@inertiajs/react';
 import { useState } from 'react';
-import { Pen, Power, Trash2, X } from 'lucide-react';
+import { Pen, Power, Trash2 } from 'lucide-react';
 import { store, update, activate, destroy } from '@/routes/admin/penandatangan';
 import {
     Badge,
     Button,
-    Card,
     DataTable,
     PageHeader,
     inputClass,
 } from '../../components/ui';
+import { Modal } from '../../components/atoms/Modal';
 
 type Signer = {
     id: number;
@@ -27,19 +27,44 @@ export default function KelolaPenandatangan({
 }: {
     signers?: Signer[];
 }) {
-    const createForm = useForm(emptyForm);
-    const editForm = useForm({ ...emptyForm, id: 0 });
-    const [editing, setEditing] = useState<number | null>(null);
+    const form = useForm(emptyForm);
+    const [editing, setEditing] = useState<Signer | null>(null);
+    const [formOpen, setFormOpen] = useState(false);
+
+    const openCreate = () => {
+        setEditing(null);
+        form.reset();
+        form.clearErrors();
+        setFormOpen(true);
+    };
 
     const openEdit = (signer: Signer) => {
-        setEditing(signer.id);
-        editForm.setData({
-            id: signer.id,
+        setEditing(signer);
+        form.setData({
             nama: signer.nama,
             nip: signer.nip ?? '',
             jabatan: signer.jabatan,
             unit: signer.unit,
         });
+        form.clearErrors();
+        setFormOpen(true);
+    };
+
+    const closeForm = () => {
+        setFormOpen(false);
+        setEditing(null);
+        form.reset();
+        form.clearErrors();
+    };
+
+    const save = (event: React.FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        const options = { preserveScroll: true, onSuccess: closeForm };
+        if (editing) {
+            form.put(update.url({ signer: editing.id }), options);
+        } else {
+            form.post(store.url(), options);
+        }
     };
 
     const columns = [
@@ -68,40 +93,25 @@ export default function KelolaPenandatangan({
             action: true,
             render: (row: Signer) => (
                 <div className="flex flex-wrap items-center justify-end gap-1">
-                    {editing === row.id ? (
-                        <Button
-                            type="button"
-                            size="sm"
-                            onClick={() => {
-                                setEditing(null);
-                                editForm.reset();
-                            }}
-                        >
-                            <X className="size-4" />
-                        </Button>
-                    ) : (
-                        <Button
-                            type="button"
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => openEdit(row)}
-                        >
-                            <Pen className="size-4" />
-                            Ubah
-                        </Button>
-                    )}
+                    <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => openEdit(row)}
+                        aria-label={`Ubah ${row.nama}`}
+                    >
+                        <Pen className="size-4" />
+                        Ubah
+                    </Button>
                     {!row.aktif && (
                         <Button
                             type="button"
                             size="sm"
                             variant="ghost"
                             onClick={() =>
-                                editForm.post(
-                                    activate.url({ signer: row.id }),
-                                    {
-                                        preserveScroll: true,
-                                    },
-                                )
+                                form.post(activate.url({ signer: row.id }), {
+                                    preserveScroll: true,
+                                })
                             }
                         >
                             <Power className="size-4" />
@@ -114,12 +124,12 @@ export default function KelolaPenandatangan({
                             size="sm"
                             variant="ghost"
                             onClick={() =>
-                                editForm.delete(destroy.url({ signer: row.id }), {
+                                form.delete(destroy.url({ signer: row.id }), {
                                     preserveScroll: true,
                                 })
                             }
                         >
-                            <Trash2 className="size-4 text-error" />
+                            <Trash2 className="text-error size-4" />
                         </Button>
                     )}
                 </div>
@@ -132,146 +142,103 @@ export default function KelolaPenandatangan({
             <PageHeader
                 title="Kelola Penandatangan"
                 subtitle="Penandatangan aktif dipakai pada surat yang terbit berikutnya. Surat yang sudah terbit tetap memakai nama dan NIP saat dicetak."
+                actions={
+                    <Button onClick={openCreate}>Tambah penandatangan</Button>
+                }
+            />
+            <DataTable
+                columns={columns}
+                data={signers}
+                emptyMessage="Belum ada penandatangan"
             />
 
-            <Card className="space-y-4 p-5">
-                <h2 className="font-semibold">Tambah penandatangan</h2>
-                <form
-                    className="grid gap-4 sm:grid-cols-2"
-                    onSubmit={(event) => {
-                        event.preventDefault();
-                        createForm.post(store.url(), {
-                            preserveScroll: true,
-                            onSuccess: () => createForm.reset(),
-                        });
-                    }}
-                >
-                    <label>
-                        Nama lengkap dan gelar
+            <Modal
+                open={formOpen}
+                onClose={closeForm}
+                title={editing ? 'Ubah penandatangan' : 'Tambah penandatangan'}
+                width="max-w-xl"
+            >
+                <form className="space-y-4" onSubmit={save}>
+                    <label className="block space-y-1 text-sm">
+                        <span>Nama lengkap dan gelar</span>
                         <input
                             className={inputClass}
-                            value={createForm.data.nama}
-                            onChange={(e) =>
-                                createForm.setData('nama', e.target.value)
+                            value={form.data.nama}
+                            onChange={(event) =>
+                                form.setData('nama', event.target.value)
                             }
                             required
                         />
+                        {form.errors.nama && (
+                            <span className="text-error text-xs">
+                                {form.errors.nama}
+                            </span>
+                        )}
                     </label>
-                    <label>
-                        NIP
+                    <label className="block space-y-1 text-sm">
+                        <span>NIP</span>
                         <input
                             className={inputClass}
-                            value={createForm.data.nip}
-                            onChange={(e) =>
-                                createForm.setData('nip', e.target.value)
+                            value={form.data.nip}
+                            onChange={(event) =>
+                                form.setData('nip', event.target.value)
                             }
                         />
+                        {form.errors.nip && (
+                            <span className="text-error text-xs">
+                                {form.errors.nip}
+                            </span>
+                        )}
                     </label>
-                    <label>
-                        Jabatan
+                    <label className="block space-y-1 text-sm">
+                        <span>Jabatan</span>
                         <input
                             className={inputClass}
-                            value={createForm.data.jabatan}
-                            onChange={(e) =>
-                                createForm.setData('jabatan', e.target.value)
+                            value={form.data.jabatan}
+                            onChange={(event) =>
+                                form.setData('jabatan', event.target.value)
                             }
                             required
                         />
+                        {form.errors.jabatan && (
+                            <span className="text-error text-xs">
+                                {form.errors.jabatan}
+                            </span>
+                        )}
                     </label>
-                    <label>
-                        Unit
+                    <label className="block space-y-1 text-sm">
+                        <span>Unit</span>
                         <input
                             className={inputClass}
-                            value={createForm.data.unit}
-                            onChange={(e) =>
-                                createForm.setData('unit', e.target.value)
+                            value={form.data.unit}
+                            onChange={(event) =>
+                                form.setData('unit', event.target.value)
                             }
                             required
                         />
+                        {form.errors.unit && (
+                            <span className="text-error text-xs">
+                                {form.errors.unit}
+                            </span>
+                        )}
                     </label>
-                    <div className="sm:col-span-2">
-                        <Button type="submit" disabled={createForm.processing}>
-                            Simpan & aktifkan
+                    <div className="flex justify-end gap-2">
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={closeForm}
+                            disabled={form.processing}
+                        >
+                            Batal
+                        </Button>
+                        <Button type="submit" disabled={form.processing}>
+                            {form.processing
+                                ? 'Menyimpan...'
+                                : 'Simpan & aktifkan'}
                         </Button>
                     </div>
                 </form>
-            </Card>
-
-            {editing !== null && (
-                <Card className="space-y-4 p-5">
-                    <h2 className="font-semibold">Ubah penandatangan</h2>
-                    <form
-                        className="grid gap-4 sm:grid-cols-2"
-                        onSubmit={(event) => {
-                            event.preventDefault();
-                            editForm.put(update.url({ signer: editForm.data.id }), {
-                                preserveScroll: true,
-                                onSuccess: () => {
-                                    setEditing(null);
-                                    editForm.reset();
-                                },
-                            });
-                        }}
-                    >
-                        <label>
-                            Nama lengkap dan gelar
-                            <input
-                                className={inputClass}
-                                value={editForm.data.nama}
-                                onChange={(e) =>
-                                    editForm.setData('nama', e.target.value)
-                                }
-                                required
-                            />
-                        </label>
-                        <label>
-                            NIP
-                            <input
-                                className={inputClass}
-                                value={editForm.data.nip}
-                                onChange={(e) =>
-                                    editForm.setData('nip', e.target.value)
-                                }
-                            />
-                        </label>
-                        <label>
-                            Jabatan
-                            <input
-                                className={inputClass}
-                                value={editForm.data.jabatan}
-                                onChange={(e) =>
-                                    editForm.setData('jabatan', e.target.value)
-                                }
-                                required
-                            />
-                        </label>
-                        <label>
-                            Unit
-                            <input
-                                className={inputClass}
-                                value={editForm.data.unit}
-                                onChange={(e) =>
-                                    editForm.setData('unit', e.target.value)
-                                }
-                                required
-                            />
-                        </label>
-                        <div className="sm:col-span-2">
-                            <Button type="submit" disabled={editForm.processing}>
-                                Simpan perubahan
-                            </Button>
-                        </div>
-                    </form>
-                </Card>
-            )}
-
-            <Card className="p-0">
-                <DataTable
-                    columns={columns}
-                    data={signers}
-                    emptyMessage="Belum ada penandatangan"
-                />
-            </Card>
+            </Modal>
         </div>
     );
 }

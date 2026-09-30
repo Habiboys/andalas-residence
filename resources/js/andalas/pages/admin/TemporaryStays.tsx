@@ -1,6 +1,14 @@
 import { useForm, usePoll } from '@inertiajs/react';
+import { useState } from 'react';
 import { store } from '@/routes/andalas/temporary-stays';
-import { Card, PageHeader, DataTable, inputClass } from '../../components/ui';
+import {
+    Button,
+    Card,
+    PageHeader,
+    DataTable,
+    Drawer,
+    inputClass,
+} from '../../components/ui';
 import { formatRupiah } from '../../lib/format';
 
 type Room = {
@@ -43,6 +51,14 @@ export default function TemporaryStays({
         starts_at: '',
         ends_at: '',
     });
+    const [formOpen, setFormOpen] = useState(false);
+
+    function closeForm() {
+        setFormOpen(false);
+        form.reset();
+        form.clearErrors();
+    }
+
     return (
         <div className="space-y-5">
             <PageHeader
@@ -52,11 +68,14 @@ export default function TemporaryStays({
                         ? 'Pendataan nonmahasiswa di gedung penugasan Anda.'
                         : 'Pendataan Summer Course dan penghuni nonmahasiswa.'
                 }
+                actions={
+                    <Button onClick={() => setFormOpen(true)}>
+                        Catat penghuni
+                    </Button>
+                }
             />
             <Card className="space-y-4 p-5">
-                <h2 className="font-semibold">
-                    Catat penghuni dan masa tinggal
-                </h2>
+                <h2 className="font-semibold">Pencatatan hunian sementara</h2>
                 <p className="text-sm">
                     Summer Course tidak masuk ke role aplikasi dan pesertanya
                     tidak perlu membuat akun; pendataan cukup dilakukan di sini.
@@ -69,135 +88,194 @@ export default function TemporaryStays({
                     dihitung sebagai hari menginap. Kapasitas dilepas otomatis
                     pada tanggal keluar, sementara sisa tagihan tetap tercatat.
                 </p>
+            </Card>
+            <Drawer
+                open={formOpen}
+                onClose={closeForm}
+                title="Catat penghuni dan masa tinggal"
+                width="w-full max-w-3xl"
+                footer={
+                    <div className="flex justify-end gap-2">
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={closeForm}
+                            disabled={form.processing}
+                        >
+                            Batal
+                        </Button>
+                        <Button
+                            type="submit"
+                            form="temporary-stay-form"
+                            disabled={form.processing || !rooms.length}
+                        >
+                            {form.processing
+                                ? 'Menyimpan...'
+                                : 'Simpan hunian dan terbitkan invoice'}
+                        </Button>
+                    </div>
+                }
+            >
                 <form
-                    className="grid gap-4 sm:grid-cols-2"
+                    id="temporary-stay-form"
+                    className="space-y-6"
                     onSubmit={(e) => {
                         e.preventDefault();
                         form.post(store.url(), {
-                            onSuccess: () => form.reset(),
+                            onSuccess: () => {
+                                form.reset();
+                                setFormOpen(false);
+                            },
                         });
                     }}
                 >
-                    {!facilitator && (
-                        <label>
-                            Jenis hunian
-                            <select
-                                className={inputClass}
-                                value={form.data.stay_kind}
-                                onChange={(e) =>
-                                    form.setData('stay_kind', e.target.value)
-                                }
-                            >
-                                <option value="summer_course">
-                                    Summer Course
-                                </option>
-                                <option value="non_student">
-                                    Nonmahasiswa
-                                </option>
-                            </select>
-                        </label>
-                    )}
-                    {!facilitator &&
-                        form.data.stay_kind === 'summer_course' && (
+                    <section className="space-y-3">
+                        <div>
+                            <h3 className="font-semibold">
+                                Informasi penghuni
+                            </h3>
+                            <p className="text-muted text-sm">
+                                Gunakan identitas dan email yang sama jika
+                                penghuni sudah memiliki akun.
+                            </p>
+                        </div>
+                        {!facilitator && (
                             <label>
-                                Jenis peserta
+                                Jenis hunian
                                 <select
                                     className={inputClass}
-                                    value={form.data.client_profile_category}
+                                    value={form.data.stay_kind}
                                     onChange={(e) =>
                                         form.setData(
-                                            'client_profile_category',
+                                            'stay_kind',
                                             e.target.value,
                                         )
                                     }
                                 >
+                                    <option value="summer_course">
+                                        Summer Course
+                                    </option>
                                     <option value="non_student">
                                         Nonmahasiswa
-                                    </option>
-                                    <option value="local_non_kipk">
-                                        Mahasiswa lokal
-                                    </option>
-                                    <option value="international_student">
-                                        Mahasiswa internasional
                                     </option>
                                 </select>
                             </label>
                         )}
-                    {(['nama', 'nim_nip', 'email'] as const).map((key) => (
-                        <label key={key}>
-                            {
+                        {!facilitator &&
+                            form.data.stay_kind === 'summer_course' && (
+                                <label>
+                                    Jenis peserta
+                                    <select
+                                        className={inputClass}
+                                        value={
+                                            form.data.client_profile_category
+                                        }
+                                        onChange={(e) =>
+                                            form.setData(
+                                                'client_profile_category',
+                                                e.target.value,
+                                            )
+                                        }
+                                    >
+                                        <option value="non_student">
+                                            Nonmahasiswa
+                                        </option>
+                                        <option value="local_non_kipk">
+                                            Mahasiswa lokal
+                                        </option>
+                                        <option value="international_student">
+                                            Mahasiswa internasional
+                                        </option>
+                                    </select>
+                                </label>
+                            )}
+                        {(['nama', 'nim_nip', 'email'] as const).map((key) => (
+                            <label key={key}>
                                 {
-                                    nama: 'Nama lengkap',
-                                    nim_nip: 'NIM / NIK / paspor',
-                                    email: 'Email penghuni',
-                                }[key]
-                            }
-                            <input
-                                className={inputClass}
-                                type={key === 'email' ? 'email' : 'text'}
-                                required
-                                value={form.data[key]}
-                                onChange={(e) =>
-                                    form.setData(key, e.target.value)
+                                    {
+                                        nama: 'Nama lengkap',
+                                        nim_nip: 'NIM / NIK / paspor',
+                                        email: 'Email penghuni',
+                                    }[key]
                                 }
-                            />
-                        </label>
-                    ))}
-                    <label>
-                        Jenis kelamin
-                        <select
-                            className={inputClass}
-                            required
-                            value={form.data.gender}
-                            onChange={(e) =>
-                                form.setData('gender', e.target.value)
-                            }
-                        >
-                            <option value="">Pilih jenis kelamin</option>
-                            <option value="laki_laki">Laki-laki</option>
-                            <option value="perempuan">Perempuan</option>
-                        </select>
-                    </label>
-                    <label>
-                        Gedung / tipe / kamar
-                        <select
-                            className={inputClass}
-                            required
-                            value={form.data.kamar_id}
-                            onChange={(e) =>
-                                form.setData('kamar_id', e.target.value)
-                            }
-                        >
-                            <option value="">Pilih kamar</option>
-                            {rooms.map((room) => (
-                                <option key={room.id} value={room.id}>
-                                    {room.lantai?.gedung?.nama_gedung} /{' '}
-                                    {room.tipe_kamar} / {room.nomor_kamar}
-                                </option>
-                            ))}
-                        </select>
-                    </label>
-                    {(['starts_at', 'ends_at'] as const).map((key) => (
-                        <label key={key}>
-                            {key === 'starts_at'
-                                ? 'Tanggal masuk'
-                                : 'Tanggal keluar'}
-                            <input
+                                <input
+                                    className={inputClass}
+                                    type={key === 'email' ? 'email' : 'text'}
+                                    required
+                                    value={form.data[key]}
+                                    onChange={(e) =>
+                                        form.setData(key, e.target.value)
+                                    }
+                                />
+                            </label>
+                        ))}
+                        <label>
+                            Jenis kelamin
+                            <select
                                 className={inputClass}
-                                type="date"
                                 required
-                                value={form.data[key]}
+                                value={form.data.gender}
                                 onChange={(e) =>
-                                    form.setData(key, e.target.value)
+                                    form.setData('gender', e.target.value)
                                 }
-                            />
+                            >
+                                <option value="">Pilih jenis kelamin</option>
+                                <option value="laki_laki">Laki-laki</option>
+                                <option value="perempuan">Perempuan</option>
+                            </select>
                         </label>
-                    ))}
-                    <p className="text-sm sm:col-span-2">
-                        Gunakan identitas dan email yang sama jika penghuni
-                        sudah memiliki akun. Akun baru dapat mengatur password
-                        melalui menu Lupa password.
-                    </p>
+                    </section>
+                    <section className="space-y-3 border-t pt-4">
+                        <div>
+                            <h3 className="font-semibold">
+                                Masa tinggal dan kamar
+                            </h3>
+                            <p className="text-muted text-sm">
+                                Tarif dihitung berdasarkan tipe kamar dan lama
+                                tinggal.
+                            </p>
+                        </div>
+                        <label>
+                            Gedung / tipe / kamar
+                            <select
+                                className={inputClass}
+                                required
+                                value={form.data.kamar_id}
+                                onChange={(e) =>
+                                    form.setData('kamar_id', e.target.value)
+                                }
+                            >
+                                <option value="">Pilih kamar</option>
+                                {rooms.map((room) => (
+                                    <option key={room.id} value={room.id}>
+                                        {room.lantai?.gedung?.nama_gedung} /{' '}
+                                        {room.tipe_kamar} / {room.nomor_kamar}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+                        {(['starts_at', 'ends_at'] as const).map((key) => (
+                            <label key={key}>
+                                {key === 'starts_at'
+                                    ? 'Tanggal masuk'
+                                    : 'Tanggal keluar'}
+                                <input
+                                    className={inputClass}
+                                    type="date"
+                                    required
+                                    value={form.data[key]}
+                                    onChange={(e) =>
+                                        form.setData(key, e.target.value)
+                                    }
+                                />
+                            </label>
+                        ))}
+                        {!rooms.length && (
+                            <p className="text-error text-sm">
+                                Belum ada kamar tersedia dalam akses Anda.
+                            </p>
+                        )}
+                    </section>
                     {Object.entries(form.errors).map(([key, error]) => (
                         <p
                             key={key}
@@ -207,19 +285,8 @@ export default function TemporaryStays({
                             {error}
                         </p>
                     ))}
-                    {!rooms.length && (
-                        <p className="sm:col-span-2">
-                            Belum ada kamar tersedia dalam akses Anda.
-                        </p>
-                    )}
-                    <button
-                        className="btn btn-primary sm:col-span-2"
-                        disabled={form.processing || !rooms.length}
-                    >
-                        Simpan hunian dan terbitkan invoice
-                    </button>
                 </form>
-            </Card>
+            </Drawer>
             {!!notifications.length && (
                 <Card className="space-y-2 p-5">
                     <h2 className="font-semibold">

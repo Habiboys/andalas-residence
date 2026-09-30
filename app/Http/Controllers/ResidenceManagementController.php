@@ -73,6 +73,39 @@ class ResidenceManagementController extends Controller
         return back()->with('toast', ['type' => 'success', 'message' => 'Pengaturan layanan disimpan.']);
     }
 
+    public function destroy(Request $request, string $kind): RedirectResponse
+    {
+        $this->authorizePermission($request, in_array($kind, ['legacy', 'legacy-rate'], true) ? 'free-residence.review' : 'registration.review');
+
+        if ($kind === 'legacy') {
+            $data = $request->validate(['nim' => ['required', 'string', 'max:50']]);
+            LegacyResident::query()->where('nim', $data['nim'])->firstOrFail()->delete();
+        } elseif ($kind === 'legacy-rate') {
+            $data = $request->validate(['angkatan' => ['required', 'integer'], 'gedung_id' => ['required', 'uuid', 'exists:gedung,id']]);
+            LegacyResidenceRate::query()->where($data)->firstOrFail()->delete();
+        } elseif ($kind === 'kipk') {
+            $data = $request->validate(['nim' => ['required', 'string', 'max:50']]);
+            KipkRecipient::query()->where('nim', $data['nim'])->firstOrFail()->delete();
+        } elseif ($kind === 'rate') {
+            $data = $request->validate([
+                'gedung_id' => ['required', 'uuid', 'exists:gedung,id'],
+                'tipe_kamar' => ['required', 'in:standar,medium,premium'],
+                'unit' => ['required', 'in:year,month,day'],
+            ]);
+            ResidenceRate::query()->where($data)->firstOrFail()->delete();
+        } elseif ($kind === 'building') {
+            $data = $request->validate(['gedung_id' => ['required', 'uuid', 'exists:gedung,id']]);
+            Gedung::query()->whereKey($data['gedung_id'])->firstOrFail()->update(['allowed_categories' => null]);
+        } elseif ($kind === 'period') {
+            $data = $request->validate(['id' => ['required', 'uuid', 'exists:periode,id']]);
+            MasterDataService::deletePeriode(Periode::query()->whereKey($data['id'])->firstOrFail());
+        } else {
+            abort(404);
+        }
+
+        return back()->with('toast', ['type' => 'success', 'message' => 'Data pengaturan dihapus.']);
+    }
+
     /** @param array<string, mixed> $input */
     private function saveLegacy(array $input, string $officer): LegacyResident
     {
