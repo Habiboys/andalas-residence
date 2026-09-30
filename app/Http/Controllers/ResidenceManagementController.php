@@ -18,6 +18,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use PhpOffice\PhpSpreadsheet\IOFactory;
@@ -27,6 +28,14 @@ class ResidenceManagementController extends Controller
     public function save(Request $request, string $kind): RedirectResponse
     {
         $this->authorizePermission($request, in_array($kind, ['legacy', 'legacy-rate'], true) ? 'free-residence.review' : 'registration.review');
+        if (in_array($kind, ['legacy', 'legacy-rate', 'rate'], true) && $request->filled('gedung_id') && ! Str::isUuid((string) $request->input('gedung_id'))) {
+            $buildingValue = trim((string) $request->input('gedung_id'));
+            $buildingId = Gedung::query()
+                ->where('kode_gedung', $buildingValue)
+                ->orWhere('nama_gedung', $buildingValue)
+                ->value('id');
+            $request->merge(['gedung_id' => $buildingId ?? $buildingValue]);
+        }
         if ($kind === 'legacy') {
             $this->saveLegacy($request->all(), $request->user()->id);
         } elseif ($kind === 'legacy-rate') {
@@ -36,13 +45,24 @@ class ResidenceManagementController extends Controller
             $data = $request->validate(['nim' => ['required', 'string', 'max:50'], 'nama' => ['required', 'string', 'max:255']]);
             KipkRecipient::updateOrCreate(['nim' => $data['nim'], 'angkatan' => StudentCohort::fromNim($data['nim'])], ['nama' => $data['nama']]);
         } elseif ($kind === 'rate') {
-            $data = $request->validate(['gedung_id' => ['required', 'uuid', 'exists:gedung,id'], 'tipe_kamar' => ['required', 'in:standar,medium,premium'], 'unit' => ['required', 'in:period,day'], 'amount' => ['required', 'numeric', 'min:1']]);
-            ResidenceRate::updateOrCreate(array_diff_key($data, ['amount' => null]), ['amount' => $data['amount']]);
+            $data = $request->validate(['gedung_id' => ['required', 'uuid', 'exists:gedung,id'], 'tipe_kamar' => ['required', 'in:standar,medium,premium'], 'unit' => ['required', 'in:year,month,day'], 'amount' => ['required', 'numeric', 'min:1'], 'facilities' => ['nullable', 'string', 'max:2000']]);
+            ResidenceRate::updateOrCreate(
+                ['gedung_id' => $data['gedung_id'], 'tipe_kamar' => $data['tipe_kamar'], 'unit' => $data['unit']],
+                ['amount' => $data['amount'], 'facilities' => $data['facilities'] ?? null],
+            );
+            ResidenceRate::query()
+                ->where('gedung_id', $data['gedung_id'])
+                ->where('tipe_kamar', $data['tipe_kamar'])
+                ->update(['facilities' => $data['facilities'] ?? null]);
         } elseif ($kind === 'building') {
             $data = $request->validate(['gedung_id' => ['required', 'uuid', 'exists:gedung,id'], 'allowed_categories' => ['required', 'array', 'min:1'], 'allowed_categories.*' => ['required', Rule::in(['local_kipk', 'local_non_kipk', 'international_student', 'international_free_facility', 'non_student'])]]);
             Gedung::query()->whereKey($data['gedung_id'])->firstOrFail()->update(['allowed_categories' => $data['allowed_categories']]);
         } elseif ($kind === 'period') {
-            $data = $request->validate(['id' => ['nullable', 'uuid', 'exists:periode,id'], 'nama_periode' => ['required', 'string', 'max:150'], 'status' => ['required', 'in:aktif,nonaktif'], 'angkatan_maba' => ['required', 'integer', 'min:2026', 'max:2099'], 'reservation_hours' => ['required', 'integer', 'min:1', 'max:720'], 'tanggal_mulai' => ['required', 'date'], 'tanggal_selesai' => ['required', 'date', 'after_or_equal:tanggal_mulai']]);
+            $data = $request->validate(['id' => ['nullable', 'uuid', 'exists:periode,id'], 'nama_periode' => ['required', 'regex:/^20\d{2}\/(?:20\d{2}|2100)$/', 'max:10'], 'status' => ['required', 'in:aktif,nonaktif'], 'reservation_hours' => ['required', 'integer', 'min:1', 'max:720'], 'tanggal_mulai' => ['required', 'date'], 'tanggal_selesai' => ['required', 'date', 'after_or_equal:tanggal_mulai']]);
+            if ((int) substr($data['nama_periode'], 5, 4) !== (int) substr($data['nama_periode'], 0, 4) + 1) {
+                throw ValidationException::withMessages(['nama_periode' => 'Pilih rentang tahun ajaran yang berurutan.']);
+            }
+            $data['angkatan_maba'] = (int) substr($data['nama_periode'], 0, 4);
             $id = $data['id'] ?? null;
             unset($data['id']);
             $id ? MasterDataService::updatePeriode(Periode::query()->whereKey($id)->firstOrFail(), $data) : MasterDataService::createPeriode($data);
@@ -76,17 +96,17 @@ class ResidenceManagementController extends Controller
             $reader = IOFactory::createReader(IOFactory::identify($request->file('file')->getRealPath(), ['Xlsx', 'Xls', 'Csv']));
             $reader->setReadDataOnly(true);
             $info = $reader->listWorksheetInfo($request->file('file')->getRealPath());
-            if (count($info) !== 1 || $info[0]['totalRows'] > 501 || $info[0]['totalColumns'] !== 5) {
-                throw new \RuntimeException('Gunakan satu sheet, maksimal 500 baris dengan kolom nim,nama,kode_gedung,checked_out_at,notes.');
+            if (count($info) !== 1 || $info[0]['totalRows'] > 501 || $info[0]['totalColumns'] !== 3) {
+                throw new \RuntimeException('Gunakan satu sheet, maksimal 500 baris dengan kolom nim,nama,gedung.');
             }
             $book = $reader->load($request->file('file')->getRealPath());
             $rows = $book->getSheet(0)->toArray(null, false, false);
             $book->disconnectWorksheets();
         } catch (\Throwable $exception) {
-            throw ValidationException::withMessages(['file' => 'Berkas tidak dapat dibaca. Gunakan template lima kolom, satu sheet, maksimal 500 baris.']);
+            throw ValidationException::withMessages(['file' => 'Berkas tidak dapat dibaca. Gunakan template tiga kolom, satu sheet, maksimal 500 baris.']);
         }
-        if (array_shift($rows) !== ['nim', 'nama', 'kode_gedung', 'checked_out_at', 'notes']) {
-            throw ValidationException::withMessages(['file' => 'Kolom harus nim,nama,kode_gedung,checked_out_at,notes. Tanggal memakai YYYY-MM-DD.']);
+        if (array_shift($rows) !== ['nama', 'nim', 'gedung']) {
+            throw ValidationException::withMessages(['file' => 'Kolom harus nama,nim,gedung.']);
         }
         DB::transaction(function () use ($rows, $request): void {
             $seen = [];
@@ -94,13 +114,19 @@ class ResidenceManagementController extends Controller
                 if (! array_filter($row)) {
                     continue;
                 }
-                $nim = (string) $row[0];
+                $nim = (string) $row[1];
                 if (isset($seen[$nim]) || LegacyResident::where('nim', $nim)->exists()) {
                     throw ValidationException::withMessages(['file' => 'Baris '.($index + 2).': NIM duplikat. Perbarui data melalui formulir.']);
                 }
                 $seen[$nim] = true;
                 try {
-                    $this->saveLegacy(['nim' => $nim, 'nama' => $row[1], 'gedung_id' => Gedung::where('kode_gedung', $row[2])->value('id'), 'checked_out_at' => $row[3] ?: null, 'notes' => $row[4]], $request->user()->id);
+                    $building = Gedung::query()->where('kode_gedung', trim((string) $row[2]))
+                        ->orWhere('nama_gedung', trim((string) $row[2]))
+                        ->first();
+                    if (! $building) {
+                        throw ValidationException::withMessages(['gedung_id' => 'Gedung tidak ditemukan.']);
+                    }
+                    $this->saveLegacy(['nim' => $nim, 'nama' => $row[0], 'gedung_id' => $building->id], $request->user()->id);
                 } catch (ValidationException $exception) {
                     throw ValidationException::withMessages(['file' => 'Baris '.($index + 2).': '.collect($exception->errors())->flatten()->implode(' ')]);
                 }
@@ -128,7 +154,7 @@ class ResidenceManagementController extends Controller
             $registration->update(['reserved_room_id' => $roomId, 'sponsor_name' => $data['sponsor_name'], 'sponsor_approved_at' => now(), 'reviewed_by' => $request->user()->id]);
             $invoice = $registration->tagihan;
             if ($registration->is_kipk && ! ($invoice->residence_snapshot['building'] ?? null)) {
-                $rate = ResidenceRate::where('gedung_id', $room->lantai->gedung_id)->where('tipe_kamar', $room->tipe_kamar)->where('unit', 'period')->value('amount') ?? $room->tarif_per_periode;
+                $rate = ResidenceRate::where('gedung_id', $room->lantai->gedung_id)->where('tipe_kamar', $room->tipe_kamar)->where('unit', 'year')->value('amount') ?? $room->tarif_per_periode;
                 if ((float) $rate <= 0) {
                     throw ValidationException::withMessages(['kamar_id' => 'Tetapkan tarif kamar sebelum penempatan.']);
                 }

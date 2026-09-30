@@ -1011,7 +1011,7 @@ export default function KelolaBangunan({ gedung }: Props) {
                         )}
                     </FormField>
                     <FormField
-                        label="Tarif per Periode"
+                        label="Tarif per Tahun"
                         hint="Kosongkan bila belum ditetapkan."
                     >
                         <input

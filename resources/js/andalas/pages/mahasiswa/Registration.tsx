@@ -67,7 +67,10 @@ export default function Registration({
         (r) =>
             r.gedung_id === room?.lantai?.gedung_id &&
             r.tipe_kamar === room?.tipe_kamar &&
-            r.unit === form.data.rate_unit,
+            r.unit ===
+                (form.data.rate_unit === 'period'
+                    ? 'year'
+                    : form.data.rate_unit),
     );
     const price = Number(
         rate?.amount ??
@@ -158,12 +161,15 @@ export default function Registration({
                                         }
                                     >
                                         <option value="period">
-                                            Per periode
+                                            Per tahun
                                         </option>
+                                        <option value="month">Per bulan</option>
                                         <option value="day">Per hari</option>
                                     </select>
                                 </label>
-                                {form.data.rate_unit === 'day' && (
+                                {['day', 'month'].includes(
+                                    form.data.rate_unit,
+                                ) && (
                                     <div className="grid gap-3 sm:grid-cols-2">
                                         <label>
                                             Masuk
@@ -283,12 +289,22 @@ export default function Registration({
                                             price *
                                                 (form.data.rate_unit === 'day'
                                                     ? days
-                                                    : 1),
+                                                    : form.data.rate_unit ===
+                                                        'month'
+                                                      ? Math.max(
+                                                            1,
+                                                            Math.ceil(
+                                                                days / 30,
+                                                            ),
+                                                        )
+                                                      : 1),
                                         )}
                                     </strong>
                                     {form.data.rate_unit === 'day'
                                         ? ` untuk ${days} hari`
-                                        : ' per periode'}
+                                        : form.data.rate_unit === 'month'
+                                          ? ` untuk ${Math.max(1, Math.ceil(days / 30))} bulan`
+                                          : ' per tahun'}
                                     .
                                 </p>
                                 <p className="text-sm">

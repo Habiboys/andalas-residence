@@ -29,9 +29,9 @@ class SubmitResidenceRegistrationRequest extends FormRequest
             'preferences.*.kamar_id' => ['required', 'uuid', 'distinct', Rule::exists('kamar', 'id')->whereIn('status', ['kosong', 'terisi_sebagian'])],
             'preferences.*.notes' => ['nullable', 'string', 'max:1000'],
             'notes' => ['nullable', 'string', 'max:2000'],
-            'rate_unit' => ['sometimes', 'in:period,day'],
-            'starts_at' => ['required_if:rate_unit,day', 'nullable', 'date', 'after_or_equal:today'],
-            'ends_at' => ['required_if:rate_unit,day', 'nullable', 'date', 'after:starts_at'],
+            'rate_unit' => ['sometimes', 'in:period,year,month,day'],
+            'starts_at' => ['required_if:rate_unit,month,day', 'nullable', 'date', 'after_or_equal:today'],
+            'ends_at' => ['required_if:rate_unit,month,day', 'nullable', 'date', 'after:starts_at'],
             'funding' => ['sometimes', 'in:personal,sponsor'],
             'sponsor_name' => ['required_if:funding,sponsor', 'nullable', 'string', 'max:255'],
         ];

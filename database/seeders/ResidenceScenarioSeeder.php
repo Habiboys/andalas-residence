@@ -163,7 +163,7 @@ class ResidenceScenarioSeeder extends Seeder
         foreach (['P', 'W', 'T'] as $code) {
             $building = Models\Gedung::where('kode_gedung', 'DEMO-'.$code)->firstOrFail();
             foreach (['standar' => 1500000, 'premium' => 2000000] as $type => $amount) {
-                Models\ResidenceRate::firstOrCreate(['gedung_id' => $building->id, 'tipe_kamar' => $type, 'unit' => 'period'], ['amount' => $amount]);
+                Models\ResidenceRate::firstOrCreate(['gedung_id' => $building->id, 'tipe_kamar' => $type, 'unit' => 'year'], ['amount' => $amount]);
                 Models\ResidenceRate::firstOrCreate(['gedung_id' => $building->id, 'tipe_kamar' => $type, 'unit' => 'day'], ['amount' => $type === 'premium' ? 100000 : 75000]);
             }
         }

@@ -69,7 +69,7 @@ class SubmitResidenceRegistration
                 'reservation_expires_at' => now()->addHours($period->reservation_hours),
                 'starts_at' => $data['starts_at'] ?? $period->tanggal_mulai,
                 'ends_at' => $data['ends_at'] ?? $period->tanggal_selesai,
-                'rate_unit' => $data['rate_unit'] ?? 'period',
+                'rate_unit' => in_array($data['rate_unit'] ?? 'period', ['period', 'year'], true) ? 'year' : $data['rate_unit'],
                 'funding' => $funding,
                 'sponsor_name' => $data['is_kipk'] ? 'KIP-K' : ($data['sponsor_name'] ?? null),
                 'sponsor_approved_at' => $data['is_kipk'] ? now() : null,

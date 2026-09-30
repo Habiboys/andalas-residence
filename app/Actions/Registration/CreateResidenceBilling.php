@@ -20,12 +20,17 @@ class CreateResidenceBilling
             return $registration->tagihan;
         }
         $room = $registration->reserved_room_id ? Kamar::with('lantai.gedung')->findOrFail($registration->reserved_room_id) : null;
-        $rate = $room === null ? null : ResidenceRate::where('gedung_id', $room->lantai->gedung_id)->where('tipe_kamar', $room->tipe_kamar)->where('unit', $registration->rate_unit)->first();
-        $amount = $rate ? (float) $rate->amount : ($registration->rate_unit === 'period' && $room !== null ? (float) $room->tarif_per_periode : 0);
+        $rateUnit = in_array($registration->rate_unit, ['period', 'year'], true) ? 'year' : $registration->rate_unit;
+        $rate = $room === null ? null : ResidenceRate::where('gedung_id', $room->lantai->gedung_id)->where('tipe_kamar', $room->tipe_kamar)->where('unit', $rateUnit)->first();
+        $amount = $rate ? (float) $rate->amount : (in_array($registration->rate_unit, ['period', 'year'], true) && $room !== null ? (float) $room->tarif_per_periode : 0);
         if ($room && $amount <= 0) {
             throw ValidationException::withMessages(['preferences' => 'Tarif gedung, tipe kamar, dan satuan belum ditetapkan.']);
         }
-        $quantity = $registration->rate_unit === 'day' ? max(1, (int) $registration->starts_at->diffInDays($registration->ends_at)) : 1;
+        $quantity = match ($registration->rate_unit) {
+            'day' => max(1, (int) $registration->starts_at->diffInDays($registration->ends_at)),
+            'month' => max(1, (int) ceil($registration->starts_at->diffInDays($registration->ends_at) / 30)),
+            default => 1,
+        };
         $sponsored = $registration->funding === 'sponsor';
         $invoice = $this->createTagihan->handle($registration->studentProfile, 'REG-'.$registration->id, [
             ['deskripsi' => 'Hunian '.($room?->lantai->gedung->nama_gedung ?? 'KIP-K menunggu penempatan').' / '.($room === null ? '-' : $room->nomor_kamar), 'kuantitas' => $quantity, 'harga_satuan' => $amount],
