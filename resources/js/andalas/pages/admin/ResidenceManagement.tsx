@@ -54,6 +54,7 @@ const categories: Array<[string, string]> = [
 ];
 const earliestHistoricalCohortYear = 1950;
 const latestHistoricalCohortYear = 2100;
+const currentCohortYear = new Date().getFullYear();
 
 function YearPicker({
     id,
@@ -66,7 +67,7 @@ function YearPicker({
 }) {
     const [open, setOpen] = useState(false);
     const [decade, setDecade] = useState(
-        Math.floor((Number(value) || latestHistoricalCohortYear) / 10) * 10,
+        Math.floor((Number(value) || currentCohortYear) / 10) * 10,
     );
     const years = Array.from(
         { length: 10 },
@@ -79,7 +80,7 @@ function YearPicker({
 
     function togglePicker() {
         if (!open) {
-            const selectedYear = Number(value) || latestHistoricalCohortYear;
+            const selectedYear = Number(value) || currentCohortYear;
             setDecade(Math.floor(selectedYear / 10) * 10);
         }
         setOpen(!open);
