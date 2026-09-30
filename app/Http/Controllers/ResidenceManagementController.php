@@ -39,7 +39,7 @@ class ResidenceManagementController extends Controller
         if ($kind === 'legacy') {
             $this->saveLegacy($request->all(), $request->user()->id);
         } elseif ($kind === 'legacy-rate') {
-            $data = $request->validate(['angkatan' => ['required', 'integer', 'min:1950', 'max:2025'], 'gedung_id' => ['required', 'uuid', 'exists:gedung,id'], 'jumlah' => ['required', 'numeric', 'min:1']]);
+            $data = $request->validate(['angkatan' => ['required', 'integer', 'min:1950', 'max:2100'], 'gedung_id' => ['required', 'uuid', 'exists:gedung,id'], 'jumlah' => ['required', 'numeric', 'min:1']]);
             LegacyResidenceRate::updateOrCreate(['angkatan' => $data['angkatan'], 'gedung_id' => $data['gedung_id']], ['jumlah' => $data['jumlah']]);
         } elseif ($kind === 'kipk') {
             $data = $request->validate(['nim' => ['required', 'string', 'max:50'], 'nama' => ['required', 'string', 'max:255']]);

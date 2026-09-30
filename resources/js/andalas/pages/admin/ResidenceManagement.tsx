@@ -9,7 +9,13 @@ import {
     type DataColumn,
 } from '../../components/ui';
 import { Modal } from '../../components/atoms/Modal';
-import { Pencil, Trash2 } from 'lucide-react';
+import {
+    CalendarDays,
+    ChevronLeft,
+    ChevronRight,
+    Pencil,
+    Trash2,
+} from 'lucide-react';
 import {
     destroy as destroyResidenceManagement,
     save,
@@ -46,6 +52,130 @@ const categories: Array<[string, string]> = [
     ['international_free_facility', 'Internasional/S2/S3 ditanggung'],
     ['non_student', 'Non-mahasiswa'],
 ];
+const earliestHistoricalCohortYear = 1950;
+const latestHistoricalCohortYear = 2100;
+
+function YearPicker({
+    id,
+    value,
+    onChange,
+}: {
+    id: string;
+    value: string;
+    onChange: (year: string) => void;
+}) {
+    const [open, setOpen] = useState(false);
+    const [decade, setDecade] = useState(
+        Math.floor((Number(value) || latestHistoricalCohortYear) / 10) * 10,
+    );
+    const years = Array.from(
+        { length: 10 },
+        (_, index) => decade + index,
+    ).filter(
+        (year) =>
+            year >= earliestHistoricalCohortYear &&
+            year <= latestHistoricalCohortYear,
+    );
+
+    function togglePicker() {
+        if (!open) {
+            const selectedYear = Number(value) || latestHistoricalCohortYear;
+            setDecade(Math.floor(selectedYear / 10) * 10);
+        }
+        setOpen(!open);
+    }
+
+    return (
+        <div
+            className="relative"
+            onBlur={(event) => {
+                if (
+                    !event.currentTarget.contains(
+                        event.relatedTarget as Node | null,
+                    )
+                ) {
+                    setOpen(false);
+                }
+            }}
+            onKeyDown={(event) => {
+                if (event.key === 'Escape') {
+                    setOpen(false);
+                }
+            }}
+        >
+            <button
+                type="button"
+                className={`${inputClass} flex items-center justify-between gap-2 text-left`}
+                aria-haspopup="dialog"
+                aria-expanded={open}
+                aria-controls={id}
+                onClick={togglePicker}
+            >
+                <span>{value || 'Pilih tahun angkatan'}</span>
+                <CalendarDays
+                    className="text-muted size-4 shrink-0"
+                    aria-hidden="true"
+                />
+            </button>
+            {open && (
+                <div
+                    id={id}
+                    role="dialog"
+                    aria-label="Kalender tahun angkatan"
+                    className="border-base-300 bg-base-100 rounded-box absolute top-full z-20 mt-2 w-full min-w-64 border p-3 shadow-xl"
+                >
+                    <div className="mb-3 flex items-center justify-between">
+                        <button
+                            type="button"
+                            className="btn btn-ghost btn-sm btn-square"
+                            aria-label="Tahun sebelumnya"
+                            disabled={decade <= earliestHistoricalCohortYear}
+                            onClick={() => setDecade((year) => year - 10)}
+                        >
+                            <ChevronLeft
+                                className="size-4"
+                                aria-hidden="true"
+                            />
+                        </button>
+                        <span className="text-sm font-semibold">
+                            {decade}–
+                            {Math.min(decade + 9, latestHistoricalCohortYear)}
+                        </span>
+                        <button
+                            type="button"
+                            className="btn btn-ghost btn-sm btn-square"
+                            aria-label="Tahun berikutnya"
+                            disabled={decade + 10 > latestHistoricalCohortYear}
+                            onClick={() => setDecade((year) => year + 10)}
+                        >
+                            <ChevronRight
+                                className="size-4"
+                                aria-hidden="true"
+                            />
+                        </button>
+                    </div>
+                    <div className="grid grid-cols-4 gap-1" role="grid">
+                        {years.map((year) => (
+                            <button
+                                key={year}
+                                type="button"
+                                className={`btn btn-sm ${String(year) === value ? 'btn-primary' : 'btn-ghost'}`}
+                                aria-label={`Pilih angkatan ${year}`}
+                                aria-pressed={String(year) === value}
+                                onClick={() => {
+                                    onChange(String(year));
+                                    setOpen(false);
+                                }}
+                            >
+                                {year}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
 
 function Editor({
     kind,
@@ -331,6 +461,16 @@ function Editor({
                                             ))}
                                         </datalist>
                                     </>
+                                ) : field.type === 'year' ? (
+                                    <YearPicker
+                                        id={`year-picker-${kind}-${field.name}`}
+                                        value={String(
+                                            form.data[field.name] ?? '',
+                                        )}
+                                        onChange={(year) =>
+                                            form.setData(field.name, year)
+                                        }
+                                    />
                                 ) : field.options ? (
                                     <select
                                         className={inputClass}
@@ -498,7 +638,7 @@ export default function ResidenceManagement({
                             {
                                 name: 'angkatan',
                                 label: 'Tahun angkatan',
-                                type: 'number',
+                                type: 'year',
                             },
                             buildingTextField,
                             {

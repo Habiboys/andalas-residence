@@ -67,6 +67,26 @@ it('deactivates the previous admission period when another is activated', functi
     expect(Periode::where('status', 'aktif')->count())->toBe(1);
 });
 
+it('saves a historical building rate for a future cohort year', function () {
+    $this->seed(RolePermissionSeeder::class);
+    $admin = User::factory()->create()->assignRole('superadmin');
+    $building = Gedung::create(['kode_gedung' => 'RATE-TEST', 'nama_gedung' => 'Gedung Tarif Uji', 'gender_peruntukan' => 'campur']);
+
+    $this->actingAs($admin)
+        ->post(route('andalas.residence-management.save', 'legacy-rate'), [
+            'angkatan' => 2027,
+            'gedung_id' => $building->id,
+            'jumlah' => 3000000,
+        ])
+        ->assertSessionHasNoErrors();
+
+    $this->assertDatabaseHas('legacy_residence_rates', [
+        'angkatan' => 2027,
+        'gedung_id' => $building->id,
+        'jumlah' => 3000000,
+    ]);
+});
+
 it('reserves the last bed and completes a personal registration after payment', function () {
     $this->seed(RolePermissionSeeder::class);
     Queue::fake();
