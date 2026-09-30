@@ -33,6 +33,10 @@ jobs:
           echo "⏳ Menunggu container andalas-app siap..."
           docker compose exec -T andalas-app php artisan wait:db 2>/dev/null || sleep 5
 
+          # bootstrap/cache berada di named volume, jadi cache route lama tetap bertahan saat image dibangun ulang.
+          # Bersihkan cache route sebelum seeder membuat URL dokumen verifikasi.
+          docker compose exec -T andalas-app php artisan route:clear
+
           # 4. Reset database dan jalankan seeder baru
           echo "🔄 Mereset database dan menjalankan seeder..."
           docker compose exec -T andalas-app php artisan migrate:fresh --seed --force
