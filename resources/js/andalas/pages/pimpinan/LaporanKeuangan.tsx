@@ -12,7 +12,7 @@ type TransaksiRow = {
 type KategoriRow = { id: string; nama_kategori?: string };
 
 type Props = {
-    transaksi: TransaksiRow[];
+    transaksi?: TransaksiRow[];
     kategori: KategoriRow[];
     stats: KeuanganStats;
 };

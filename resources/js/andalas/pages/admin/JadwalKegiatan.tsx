@@ -62,9 +62,9 @@ type Preview = {
 };
 
 type Props = {
-    kegiatan: Activity[];
-    gedung: Building[];
-    jenis_kegiatan: { id: string; nama: string; is_other: boolean }[];
+    kegiatan?: Activity[];
+    gedung?: Building[];
+    jenis_kegiatan?: { id: string; nama: string; is_other: boolean }[];
     assigned_building?: Building | null;
     role?: string;
     activity_session_id?: string | null;

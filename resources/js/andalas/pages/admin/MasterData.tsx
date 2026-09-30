@@ -62,6 +62,18 @@ import {
 
 type Row = Record<string, unknown>;
 
+function valueToString(value: unknown, fallback = ''): string {
+    if (
+        typeof value === 'string' ||
+        typeof value === 'number' ||
+        typeof value === 'boolean'
+    ) {
+        return String(value);
+    }
+
+    return fallback;
+}
+
 interface Field {
     key: string;
     label: string;
@@ -136,7 +148,7 @@ function MasterCrudSection({
                     | undefined;
                 v = rel?.id;
             }
-            d[f.key] = String(v ?? '');
+            d[f.key] = valueToString(v);
         });
         setData(d);
         setOpen(true);
@@ -145,7 +157,7 @@ function MasterCrudSection({
     function save(e: React.FormEvent) {
         e.preventDefault();
         if (editing) {
-            put(update.url({ id: String(editing.id) }), {
+            put(update.url({ id: valueToString(editing.id) }), {
                 onSuccess: () => setOpen(false),
             });
         } else {
@@ -157,7 +169,7 @@ function MasterCrudSection({
 
     function confirmDelete() {
         if (!deleting) return;
-        deleteForm.delete(destroy.url({ id: String(deleting.id) }), {
+        deleteForm.delete(destroy.url({ id: valueToString(deleting.id) }), {
             onSuccess: () => setDeleting(null),
         });
     }
@@ -402,7 +414,7 @@ export default function MasterData({
                             required: true,
                         },
                     ]}
-                    rowLabel={(row) => String(row.nama)}
+                    rowLabel={(row) => valueToString(row.nama)}
                     emptyMessage="Belum ada jenis kegiatan."
                 />
             ),
@@ -455,7 +467,7 @@ export default function MasterData({
                             })),
                         },
                     ]}
-                    rowLabel={(row) => String(row.nama)}
+                    rowLabel={(row) => valueToString(row.nama)}
                     emptyMessage="Belum ada penugasan fasilitator."
                 />
             ),
@@ -472,7 +484,7 @@ export default function MasterData({
                     update={fakultasUpdate}
                     destroy={fakultasDestroy}
                     emptyMessage="Belum ada fakultas"
-                    rowLabel={(r) => String(r.name ?? '')}
+                    rowLabel={(r) => valueToString(r.name)}
                     registerAdd={registerAdd(2)}
                     fields={[
                         { key: 'name', label: 'Nama Fakultas', required: true },
@@ -495,7 +507,7 @@ export default function MasterData({
                     update={departemenUpdate}
                     destroy={departemenDestroy}
                     emptyMessage="Belum ada departemen"
-                    rowLabel={(r) => String(r.name ?? '')}
+                    rowLabel={(r) => valueToString(r.name)}
                     registerAdd={registerAdd(3)}
                     fields={[
                         {
@@ -542,7 +554,7 @@ export default function MasterData({
                     update={prodiUpdate}
                     destroy={prodiDestroy}
                     emptyMessage="Belum ada program studi"
-                    rowLabel={(r) => String(r.name ?? '')}
+                    rowLabel={(r) => valueToString(r.name)}
                     registerAdd={registerAdd(4)}
                     fields={[
                         {
@@ -591,7 +603,7 @@ export default function MasterData({
                     update={periodeUpdate}
                     destroy={periodeDestroy}
                     emptyMessage="Belum ada periode"
-                    rowLabel={(r) => String(r.nama_periode ?? '')}
+                    rowLabel={(r) => valueToString(r.nama_periode)}
                     registerAdd={registerAdd(5)}
                     fields={[
                         {
@@ -639,7 +651,7 @@ export default function MasterData({
                                             : 'gray'
                                     }
                                 >
-                                    {String(r.status ?? '')}
+                                    {valueToString(r.status)}
                                 </Badge>
                             ),
                         },
@@ -660,7 +672,7 @@ export default function MasterData({
                     update={provinsiUpdate}
                     destroy={provinsiDestroy}
                     emptyMessage="Belum ada provinsi"
-                    rowLabel={(r) => String(r.name ?? '')}
+                    rowLabel={(r) => valueToString(r.name)}
                     registerAdd={registerAdd(6)}
                     fields={[
                         { key: 'name', label: 'Nama Provinsi', required: true },
@@ -683,7 +695,7 @@ export default function MasterData({
                     update={kotaUpdate}
                     destroy={kotaDestroy}
                     emptyMessage="Belum ada kota"
-                    rowLabel={(r) => String(r.name ?? '')}
+                    rowLabel={(r) => valueToString(r.name)}
                     registerAdd={registerAdd(7)}
                     fields={[
                         {
@@ -732,7 +744,7 @@ export default function MasterData({
                     update={kategoriUpdate}
                     destroy={kategoriDestroy}
                     emptyMessage="Belum ada kategori transaksi"
-                    rowLabel={(r) => String(r.nama_kategori ?? '')}
+                    rowLabel={(r) => valueToString(r.nama_kategori)}
                     registerAdd={registerAdd(8)}
                     fields={[
                         {
@@ -769,14 +781,14 @@ export default function MasterData({
                                             : 'red'
                                     }
                                 >
-                                    {String(r.tipe ?? '')}
+                                    {valueToString(r.tipe)}
                                 </Badge>
                             ),
                         },
                         {
                             key: 'kode_rekening',
                             label: 'Kode Rekening',
-                            render: (r) => String(r.kode_rekening ?? '-'),
+                            render: (r) => valueToString(r.kode_rekening, '-'),
                         },
                         { key: 'transaksi_count', label: 'Transaksi' },
                     ]}

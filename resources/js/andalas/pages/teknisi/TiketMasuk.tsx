@@ -21,7 +21,7 @@ type TiketRow = {
 };
 
 type Props = {
-    tiket: TiketRow[];
+    tiket?: TiketRow[];
 };
 
 export default function TiketMasuk({ tiket = [] }: Props) {
