@@ -33,6 +33,10 @@ jobs:
           echo "⏳ Menunggu container andalas-app siap..."
           docker compose exec -T andalas-app php artisan wait:db 2>/dev/null || sleep 5
 
+          # Step awal mengubah owner storage ke user runner host untuk git reset.
+          # Pulihkan owner agar PHP-FPM (www-data) dapat menulis compiled Blade.
+          docker compose exec -T -u root andalas-app sh -lc 'chown -R www-data:www-data storage bootstrap/cache && chmod -R 775 storage bootstrap/cache'
+
           # bootstrap/cache berada di named volume, jadi cache route lama tetap bertahan saat image dibangun ulang.
           # Bersihkan cache route sebelum seeder membuat URL dokumen verifikasi.
           docker compose exec -T andalas-app php artisan route:clear
@@ -46,5 +50,8 @@ jobs:
           docker compose exec -T andalas-app php artisan config:cache
           docker compose exec -T andalas-app php artisan route:cache
           docker compose exec -T andalas-app php artisan view:cache
+
+          # Migrate dan seeder berjalan sebagai root; pulihkan izin runtime setelah cache/file demo dibuat.
+          docker compose exec -T -u root andalas-app sh -lc 'chown -R www-data:www-data storage bootstrap/cache && chmod -R 775 storage bootstrap/cache'
 
           echo "✅ Deployment selesai! Kode, database, dan seeder sudah diperbarui."
