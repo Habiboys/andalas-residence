@@ -76,3 +76,34 @@ test('master data update uses route model binding', function () {
 
     expect($faculty->refresh()->name)->toBe('Baru');
 });
+
+test('each master submenu opens its own page', function (string $section) {
+    $this->actingAs(masterDataUser('staff_admin'))
+        ->get(route('admin.master-data-section', ['section' => $section]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('admin/master-data')
+            ->where('section', $section)
+            ->where('page', 'master-data/'.$section));
+})->with(['jenis-kegiatan', 'penugasan', 'fakultas', 'departemen', 'prodi', 'periode', 'provinsi', 'kota', 'kategori']);
+
+test('master submenus reject non admins and unknown sections', function () {
+    $this->actingAs(masterDataUser('mahasiswa'))
+        ->get(route('admin.master-data-section', ['section' => 'fakultas']))
+        ->assertForbidden();
+
+    $this->actingAs(masterDataUser('staff_admin'))
+        ->get(route('admin.master-data-section', ['section' => 'unknown']))
+        ->assertNotFound();
+});
+
+test('creating master data returns to the selected submenu', function () {
+    $destination = route('admin.master-data-section', ['section' => 'fakultas']);
+    $this->actingAs(masterDataUser('staff_admin'))
+        ->from($destination)
+        ->post(route('admin.master-data.fakultas.store'), ['name' => 'Fakultas Baru'])
+        ->assertRedirect($destination)
+        ->assertSessionHas('toast.type', 'success');
+
+    $this->assertDatabaseHas('faculty', ['name' => 'Fakultas Baru']);
+});

@@ -33,6 +33,11 @@ Route::get('admin/master-data', MasterDataPageController::class)
     ->middleware('role:staff_admin|superadmin')
     ->name('admin.master-data');
 
+Route::get('admin/master-data/{section}', MasterDataPageController::class)
+    ->whereIn('section', ['jenis-kegiatan', 'penugasan', 'fakultas', 'departemen', 'prodi', 'periode', 'provinsi', 'kota', 'kategori'])
+    ->middleware('role:staff_admin|superadmin')
+    ->name('admin.master-data-section');
+
 $componentAliases = [
     'admin_layanan.temporary-stays' => 'admin/temporary-stays',
     'fasilitator.temporary-stays' => 'admin/temporary-stays',

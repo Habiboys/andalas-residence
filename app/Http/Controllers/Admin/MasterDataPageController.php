@@ -16,12 +16,13 @@ use Inertia\Response;
 
 class MasterDataPageController extends Controller
 {
-    public function __invoke(Request $request, RolePageController $pages): Response
+    public function __invoke(Request $request, RolePageController $pages, string $section = 'jenis-kegiatan'): Response
     {
         return Inertia::render('admin/master-data', [
             'initialUser' => $pages->userPayload($request),
             'role' => 'staff_admin',
-            'page' => 'master-data',
+            'page' => 'master-data/'.$section,
+            'section' => $section,
             'jenis_kegiatan' => JenisKegiatan::orderBy('nama')->get(),
             'penugasan' => FasilitatorWilayah::with(['user', 'gedung'])->get(),
             'fasilitator' => User::whereHas('roles', fn (Builder $query) => $query->where('name', 'fasilitator')->where('guard_name', 'web'))->orderBy('nama')->get(['id', 'nama', 'email']),

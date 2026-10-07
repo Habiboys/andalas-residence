@@ -189,7 +189,7 @@ export default function LandingContentList({
                             filters={
                                 <select
                                     aria-label="Filter program"
-                                    className="select select-sm max-w-48"
+                                    className="select select-sm w-auto max-w-full shrink-0"
                                     value={selectedProgram}
                                     onChange={(event) =>
                                         setSelectedProgram(event.target.value)

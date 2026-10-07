@@ -23,6 +23,10 @@ it('renders escaped identity values and missing data clearly', () => {
     expect(html).toContain('&lt;script&gt;nama&lt;/script&gt;');
     expect(html).toContain('Belum tersedia');
     expect(html).toContain('Identitas dan akun');
+    expect(html).toContain('<dl');
+    expect(html).toContain('<dt');
+    expect(html).toContain('<dd');
+    expect(html).not.toContain('bg-base-200/70');
 });
 
 it('shows category and residence separately in the administrative directory', () => {

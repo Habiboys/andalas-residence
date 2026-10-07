@@ -8,7 +8,6 @@ import {
     type DataColumn,
     FormField,
     inputClass,
-    Tabs,
     Badge,
     ConfirmDialog,
     RowActions,
@@ -345,6 +344,7 @@ type KategoriRow = {
 };
 
 export default function MasterData({
+    section = 'jenis-kegiatan',
     fakultas = [],
     departemen = [],
     prodi = [],
@@ -357,6 +357,7 @@ export default function MasterData({
     fasilitator = [],
     gedung = [],
 }: {
+    section?: string;
     fakultas?: FakultasRow[];
     departemen?: DepartemenRow[];
     prodi?: ProdiRow[];
@@ -375,7 +376,18 @@ export default function MasterData({
     fasilitator?: { id: string; nama: string; email: string }[];
     gedung?: { id: string; nama_gedung: string }[];
 }) {
-    const [tab, setTab] = useState(0);
+    const sectionKeys = [
+        'jenis-kegiatan',
+        'penugasan',
+        'fakultas',
+        'departemen',
+        'prodi',
+        'periode',
+        'provinsi',
+        'kota',
+        'kategori',
+    ];
+    const tab = Math.max(sectionKeys.indexOf(section), 0);
     const addFns = useRef<Array<() => void>>([]);
     const registerAdd = (i: number) => (fn: () => void) => {
         addFns.current[i] = fn;
@@ -685,7 +697,7 @@ export default function MasterData({
             ),
         },
         {
-            label: 'Kota',
+            label: 'Kota / Kabupaten',
             section: (
                 <MasterCrudSection
                     title="Kota / Kabupaten"
@@ -800,8 +812,8 @@ export default function MasterData({
     return (
         <div className="space-y-4">
             <PageHeader
-                title="Data Master"
-                subtitle="Kelola data master sistem (superadmin)"
+                title={`Data Master — ${tabs[tab]?.label}`}
+                subtitle="Kelola data master sistem"
                 actions={
                     <Button onClick={() => addFns.current[tab]?.()}>
                         Tambah {tabs[tab]?.label}
@@ -809,12 +821,7 @@ export default function MasterData({
                 }
             />
             <section className="space-y-4">
-                <Tabs
-                    tabs={tabs.map((t) => t.label)}
-                    active={tab}
-                    onChange={setTab}
-                />
-                <div>{tabs[tab]?.section}</div>
+                <div key={section}>{tabs[tab]?.section}</div>
             </section>
         </div>
     );

@@ -19,18 +19,18 @@ export default function UserProfileDetails({
                     <h2 className="text-base-content/60 text-xs font-semibold tracking-wide uppercase">
                         {section.title}
                     </h2>
-                    <dl className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                    <dl className="divide-base-300 divide-y">
                         {Object.entries(section.fields).map(
                             ([label, value]) => (
                                 <div
                                     key={label}
-                                    className="bg-base-200/70 rounded-field min-w-0 px-2.5 py-2"
+                                    className="grid min-w-0 gap-1 py-3 sm:grid-cols-[minmax(0,12rem)_minmax(0,1fr)] sm:gap-4"
                                 >
-                                    <dt className="text-base-content/60 text-[11px] leading-snug font-medium">
+                                    <dt className="text-base-content/60 text-sm leading-relaxed">
                                         {label}
                                     </dt>
                                     <dd
-                                        className={`mt-0.5 text-sm break-words ${value ? 'font-medium' : 'text-base-content/40'}`}
+                                        className={`min-w-0 text-sm leading-relaxed break-words ${value ? 'font-medium' : 'text-base-content/40'}`}
                                     >
                                         {value || 'Belum tersedia'}
                                     </dd>

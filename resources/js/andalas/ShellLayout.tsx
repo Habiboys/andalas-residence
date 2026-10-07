@@ -155,6 +155,14 @@ function ShellInner({
                           : pimpinanRoutes;
 
     const nav = (slug: string) => {
+        if (slug.startsWith('master-data/')) {
+            router.visit(
+                adminRoutes.masterDataSection.url({
+                    section: slug.slice('master-data/'.length),
+                }),
+            );
+            return;
+        }
         const routeKey = ROUTE_KEY_ALIASES[slug] ?? slug;
         const routeName = routeKey.replace(/-([a-z])/g, (_, letter: string) =>
             letter.toUpperCase(),

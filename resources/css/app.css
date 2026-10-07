@@ -239,11 +239,6 @@
         --input-color: var(--field-border);
     }
 
-    select.input {
-        appearance: auto;
-        padding-inline-end: 2.25rem;
-    }
-
     textarea.input {
         height: auto;
         min-height: calc(var(--size-field) * 22);
@@ -262,6 +257,25 @@
         --normal-border: var(--color-base-300);
         font-family: var(--font-sans);
     }
+}
+
+/* Reserve space for the dropdown arrow, including selects using input styles. */
+select:is(.select, .input):not([multiple]) {
+    appearance: none;
+    padding-inline-start: 0.75rem;
+    padding-inline-end: 2.5rem;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' viewBox='0 0 24 24'%3E%3Cpath stroke='%2364748b' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 1rem;
+}
+
+/* Single-row filters grow with their text and reserved arrow space. */
+select.select.w-auto {
+    width: max-content;
+    min-width: max-content;
+    max-width: none;
+    field-sizing: content;
 }
 
 /* Neutral badges use a light surface in both themes. */

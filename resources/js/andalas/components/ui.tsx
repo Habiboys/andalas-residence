@@ -270,7 +270,7 @@ function ToolbarFilter<T extends Record<string, unknown>>({
 
     return (
         <select
-            className="select select-sm max-w-48"
+            className="select select-sm w-auto shrink-0"
             value={value}
             onChange={(event) => onChange(event.target.value)}
             aria-label={`Filter ${col.label}`}

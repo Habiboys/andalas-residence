@@ -8,7 +8,7 @@ on:
 
 jobs:
   deploy:
-    name: Deploy & Refresh Database
+    name: Deploy & Migrate Database
     runs-on: self-hosted # Dijalankan langsung oleh server dev Anda
 
     steps:
@@ -38,15 +38,12 @@ jobs:
           docker compose exec -T -u root andalas-app sh -lc 'chown -R www-data:www-data storage bootstrap/cache && chmod -R 775 storage bootstrap/cache'
 
           # bootstrap/cache berada di named volume, jadi cache route lama tetap bertahan saat image dibangun ulang.
-          # Bersihkan cache route sebelum seeder membuat URL dokumen verifikasi.
+          # Bersihkan cache route lama sebelum migrasi dan cache ulang.
           docker compose exec -T andalas-app php artisan route:clear
 
-          # 4. Reset database dan jalankan seeder baru
-          # Validasi sumber master sebelum database direset.
-          docker compose exec -T andalas-app php artisan asrama:seed-master --dry-run --no-interaction
-          echo "🔄 Mereset database dan menjalankan seeder..."
-          # DatabaseSeeder memanggil ResidenceMasterSeeder untuk Data Asrama.xlsx, lalu seeder demo dev.
-          docker compose exec -T andalas-app php artisan migrate:fresh --seed --seeder=DatabaseSeeder --force --no-interaction
+          # 4. Jalankan migrasi baru dengan mempertahankan data yang ada.
+          echo "Menjalankan migrasi database..."
+          docker compose exec -T andalas-app php artisan migrate --force --no-interaction
 
           # 5. Bersihkan cache aplikasi
           docker compose exec -T andalas-app php artisan optimize:clear
@@ -54,7 +51,7 @@ jobs:
           docker compose exec -T andalas-app php artisan route:cache
           docker compose exec -T andalas-app php artisan view:cache
 
-          # Migrate dan seeder berjalan sebagai root; pulihkan izin runtime setelah cache/file demo dibuat.
+          # Pulihkan izin runtime setelah migrasi dan cache dibuat.
           docker compose exec -T -u root andalas-app sh -lc 'chown -R www-data:www-data storage bootstrap/cache && chmod -R 775 storage bootstrap/cache'
 
-          echo "✅ Deployment selesai! Kode, database, dan seeder sudah diperbarui."
+          echo "✅ Deployment selesai! Kode diperbarui dan migrasi database selesai."

@@ -413,7 +413,7 @@ export default function Invoices({
                     filters={
                         <select
                             aria-label="Pembayar"
-                            className="select select-sm max-w-44"
+                            className="select select-sm w-auto max-w-full shrink-0"
                             value={payer}
                             onChange={(e) => {
                                 setPayer(e.target.value);

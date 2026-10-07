@@ -259,7 +259,40 @@ const ADMIN_NAV: NavGroup[] = [
             { label: 'Invoice', page: 'invoices', icon: CreditCard },
         ],
     },
-    { items: [{ label: 'Data Master', page: 'master-data', icon: Database }] },
+    {
+        group: 'Data Master',
+        items: [
+            {
+                label: 'Jenis Kegiatan',
+                page: 'master-data/jenis-kegiatan',
+                icon: List,
+            },
+            {
+                label: 'Penugasan Fasilitator',
+                page: 'master-data/penugasan',
+                icon: Users,
+            },
+            {
+                label: 'Fakultas',
+                page: 'master-data/fakultas',
+                icon: Building2,
+            },
+            {
+                label: 'Departemen',
+                page: 'master-data/departemen',
+                icon: Building2,
+            },
+            { label: 'Prodi', page: 'master-data/prodi', icon: Database },
+            { label: 'Periode', page: 'master-data/periode', icon: Calendar },
+            { label: 'Provinsi', page: 'master-data/provinsi', icon: Map },
+            { label: 'Kota / Kabupaten', page: 'master-data/kota', icon: Map },
+            {
+                label: 'Kategori Transaksi',
+                page: 'master-data/kategori',
+                icon: Wallet,
+            },
+        ],
+    },
     {
         group: 'Operasional',
         items: [
