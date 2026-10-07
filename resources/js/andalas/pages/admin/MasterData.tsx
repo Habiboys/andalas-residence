@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { useForm } from '@inertiajs/react';
+import { sync as syncWilayah } from '@/routes/admin/master-data/wilayah';
 import {
     PageHeader,
     Button,
@@ -82,6 +83,7 @@ interface Field {
 }
 
 interface SectionProps {
+    readOnly?: boolean;
     title: string;
     subtitle: string;
     data: Row[];
@@ -95,6 +97,7 @@ interface SectionProps {
 }
 
 function MasterCrudSection({
+    readOnly = false,
     title,
     subtitle,
     data,
@@ -118,6 +121,7 @@ function MasterCrudSection({
         errors,
     } = useForm<Record<string, string>>({});
     const deleteForm = useForm<Record<string, string>>({});
+    const syncForm = useForm<Record<string, string>>({});
 
     function openCreate() {
         setEditing(null);
@@ -176,6 +180,42 @@ function MasterCrudSection({
             />
         ),
     };
+
+    if (readOnly) {
+        return (
+            <section className="space-y-4">
+                <PageHeader
+                    title={title}
+                    subtitle="Data bersumber dari wilayah.id. Sinkronisasi juga memperbarui pilihan wilayah pada formulir mahasiswa."
+                    actions={
+                        <Button
+                            disabled={syncForm.processing}
+                            onClick={() =>
+                                syncForm.post(syncWilayah.url(), {
+                                    preserveScroll: true,
+                                })
+                            }
+                        >
+                            {syncForm.processing
+                                ? 'Menyinkronkan…'
+                                : 'Sinkronkan dari wilayah.id'}
+                        </Button>
+                    }
+                />
+                {syncForm.errors.wilayah && (
+                    <p role="alert" className="text-error text-sm">
+                        {syncForm.errors.wilayah}
+                    </p>
+                )}
+                <DataTable
+                    columns={columns}
+                    data={data}
+                    searchKeys={columns.map((column) => column.key)}
+                    emptyMessage="Belum ada data wilayah. Klik Sinkronkan dari wilayah.id."
+                />
+            </section>
+        );
+    }
 
     return (
         <section className="space-y-4">
@@ -651,6 +691,7 @@ export default function MasterData({
             section: (
                 <MasterCrudSection
                     title="Provinsi"
+                    readOnly
                     subtitle="Provinsi asal mahasiswa"
                     data={provinsi}
                     store={provinsiStore}
@@ -673,6 +714,7 @@ export default function MasterData({
             section: (
                 <MasterCrudSection
                     title="Kota / Kabupaten"
+                    readOnly
                     subtitle="Kota/kabupaten di bawah provinsi"
                     data={kota}
                     store={kotaStore}

@@ -18,7 +18,12 @@ it.each([
         const html = renderToStaticMarkup(<MasterData section={section} />);
         expect(html).not.toContain('Data Master —');
         expect(html.match(/<h1/g)).toHaveLength(1);
-        expect(html).toContain(`Tambah ${label}`);
+        if (['provinsi', 'kota'].includes(section)) {
+            expect(html).toContain('Sinkronkan dari wilayah.id');
+            expect(html).not.toContain(`Tambah ${label}`);
+        } else {
+            expect(html).toContain(`Tambah ${label}`);
+        }
         expect(html).not.toContain('>Tambah</button>');
         expect(html).not.toContain('role="tab');
         expect(html.match(/<table/g)).toHaveLength(1);

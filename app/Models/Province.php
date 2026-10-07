@@ -8,7 +8,7 @@ class Province extends BaseModel
 {
     protected $table = 'provinces';
 
-    protected $fillable = ['name'];
+    protected $fillable = ['name', 'wilayah_code'];
 
     public function cities(): HasMany
     {

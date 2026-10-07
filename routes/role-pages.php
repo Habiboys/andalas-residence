@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\MasterDataPageController;
+use App\Http\Controllers\Admin\WilayahSyncController;
 use App\Http\Controllers\RolePageController;
 use Illuminate\Support\Facades\Route;
 
@@ -32,6 +33,10 @@ Route::middleware('role:superadmin')->group(function () {
 Route::get('admin/master-data', MasterDataPageController::class)
     ->middleware('role:staff_admin|superadmin')
     ->name('admin.master-data');
+
+Route::post('admin/master-data/wilayah/sync', WilayahSyncController::class)
+    ->middleware(['role:staff_admin|superadmin', 'throttle:2,1'])
+    ->name('admin.master-data.wilayah.sync');
 
 Route::get('admin/master-data/{section}', MasterDataPageController::class)
     ->whereIn('section', ['jenis-kegiatan', 'penugasan', 'fakultas', 'departemen', 'prodi', 'periode', 'provinsi', 'kota', 'kategori'])

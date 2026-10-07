@@ -8,7 +8,7 @@ class City extends BaseModel
 {
     protected $table = 'cities';
 
-    protected $fillable = ['province_id', 'name'];
+    protected $fillable = ['province_id', 'name', 'wilayah_code'];
 
     public function province(): BelongsTo
     {
