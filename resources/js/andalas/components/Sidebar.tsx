@@ -509,7 +509,7 @@ export default function Sidebar({
             >
                 {groups.map((g, gi) =>
                     g.group === 'Data Master' ? (
-                        <ul key={g.group} className="menu menu-sm w-full p-0">
+                        <ul key={g.group} className="menu w-full p-0">
                             <li>
                                 <details
                                     open={g.items.some(
@@ -522,7 +522,7 @@ export default function Sidebar({
                                                 ? 'Data Master'
                                                 : undefined
                                         }
-                                        className="text-base-content/80 gap-3 py-2.5 font-semibold"
+                                        className="text-base-content/80 gap-3 py-2.5 text-xs font-semibold"
                                     >
                                         <Database
                                             className="size-[18px] shrink-0"
@@ -552,16 +552,18 @@ export default function Sidebar({
                                                                 ? 'page'
                                                                 : undefined
                                                         }
-                                                        className={
+                                                        className={`px-3 py-2 text-sm font-medium ${
                                                             active
                                                                 ? 'menu-active bg-primary text-primary-content'
-                                                                : undefined
-                                                        }
+                                                                : 'text-base-content/70 hover:bg-base-200 hover:text-base-content'
+                                                        }`}
                                                     >
-                                                        <Icon
-                                                            className="size-4 shrink-0"
-                                                            aria-hidden="true"
-                                                        />
+                                                        {collapsed && (
+                                                            <Icon
+                                                                className="size-4 shrink-0"
+                                                                aria-hidden="true"
+                                                            />
+                                                        )}
                                                         {!collapsed && (
                                                             <span className="whitespace-normal">
                                                                 {item.label}
