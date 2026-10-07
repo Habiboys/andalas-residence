@@ -1,5 +1,5 @@
 import { formatRupiah, mapPaymentStatus } from '../../lib/format';
-import { StatusBadge } from './Badge';
+import { Badge, StatusBadge } from './Badge';
 
 export type ResidentPayment = {
     status: string;
@@ -30,11 +30,7 @@ export function PaymentStatusBadge({
 }) {
     const latest = latestPayment(pembayaran);
     if (!latest) {
-        return (
-            <span className="badge badge-sm badge-neutral font-medium">
-                Belum bayar
-            </span>
-        );
+        return <Badge>Belum bayar</Badge>;
     }
 
     return (

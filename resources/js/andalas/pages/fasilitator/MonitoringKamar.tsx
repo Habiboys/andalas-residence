@@ -1,4 +1,6 @@
 import { PageHeader, Card } from '../../components/ui';
+import { router } from '@inertiajs/react';
+import { show as roomShow } from '@/routes/andalas/kamar';
 import { RoomGridMap } from '../../components/organisms/RoomGridMap';
 
 type GedungRow = {
@@ -34,7 +36,10 @@ export default function MonitoringKamar({ gedung = [] }: Props) {
                 subtitle="Status kamar wilayah fasilitator"
             />
             <Card className="p-5">
-                <RoomGridMap rooms={rooms as never} />
+                <RoomGridMap
+                    rooms={rooms as never}
+                    onSelect={(room) => router.visit(roomShow.url(room.id))}
+                />
             </Card>
         </div>
     );

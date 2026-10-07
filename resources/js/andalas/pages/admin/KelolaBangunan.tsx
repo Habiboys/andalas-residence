@@ -1,6 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { useForm, router } from '@inertiajs/react';
+import { useState } from 'react';
+
+import { Link, useForm, router } from '@inertiajs/react';
+import { show as buildingShow } from '@/routes/andalas/gedung';
+import { show as floorShow } from '@/routes/andalas/lantai';
+import { show as roomShow } from '@/routes/andalas/kamar';
 import {
     PageHeader,
     DataTable,
@@ -33,7 +36,7 @@ import {
     destroy as kamarDestroy,
 } from '@/routes/andalas/kamar';
 import { formatRupiah } from '../../lib/format';
-import { Building2, ChevronDown, Pencil, Trash2 } from 'lucide-react';
+import { Pencil, Trash2 } from 'lucide-react';
 
 type Kamar = {
     id: string;
@@ -41,7 +44,7 @@ type Kamar = {
     kapasitas?: number;
     status?: string;
     tipe_kamar?: string;
-    tarif_per_periode?: number;
+    tarif_per_periode?: number | string;
 };
 
 type Lantai = {
@@ -79,7 +82,7 @@ type DeleteTarget =
 type LantaiTarget = { gedung_id: string; lantai: Lantai | null };
 type KamarTarget = { lantai_id: string; kamar: Kamar | null };
 
-type Props = { gedung: Gedung[] };
+type Props = { gedung: Gedung[]; detail?: boolean; floorOnly?: boolean };
 
 const gedungDefaults = {
     kode_gedung: '',
@@ -114,7 +117,7 @@ function lantaiLabel(lantai: Lantai): string {
     return lantai.nama_lantai ?? `Lantai ${lantai.nomor_lantai}`;
 }
 
-function RowMenu({
+function BuildingActions({
     gedung,
     onManage,
     onEdit,
@@ -125,137 +128,22 @@ function RowMenu({
     onEdit: (gedung: Gedung) => void;
     onDelete: (gedung: Gedung) => void;
 }) {
-    const [open, setOpen] = useState(false);
-    const [position, setPosition] = useState<{
-        top: number;
-        right: number;
-    } | null>(null);
-    const triggerRef = useRef<HTMLButtonElement>(null);
-
-    function toggle() {
-        const trigger = triggerRef.current;
-        if (!open && trigger) {
-            const rect = trigger.getBoundingClientRect();
-            setPosition({
-                top: rect.bottom + 6,
-                right: window.innerWidth - rect.right,
-            });
-        }
-        setOpen((value) => !value);
-    }
-
-    useEffect(() => {
-        if (!open) {
-            return;
-        }
-
-        function onOutsideClick(event: MouseEvent) {
-            if (!triggerRef.current?.contains(event.target as Node)) {
-                setOpen(false);
-            }
-        }
-
-        function onScroll() {
-            setOpen(false);
-        }
-
-        function onKey(event: KeyboardEvent) {
-            if (event.key === 'Escape') {
-                setOpen(false);
-            }
-        }
-
-        document.addEventListener('click', onOutsideClick);
-        document.addEventListener('scroll', onScroll, true);
-        document.addEventListener('keydown', onKey);
-
-        return () => {
-            document.removeEventListener('click', onOutsideClick);
-            document.removeEventListener('scroll', onScroll, true);
-            document.removeEventListener('keydown', onKey);
-        };
-    }, [open]);
-
     return (
-        <>
-            <button
-                ref={triggerRef}
-                type="button"
-                onClick={toggle}
-                aria-haspopup="menu"
-                aria-expanded={open}
-                className="btn btn-sm btn-outline gap-1"
-            >
-                Kelola
-                <ChevronDown
-                    className={`size-3.5 transition-transform ${open ? 'rotate-180' : ''}`}
-                    aria-hidden="true"
-                />
-            </button>
-            {open &&
-                position &&
-                createPortal(
-                    <ul
-                        role="menu"
-                        aria-label={`Aksi untuk ${gedung.nama_gedung}`}
-                        style={{ top: position.top, right: position.right }}
-                        className="menu menu-sm rounded-box border-base-300 bg-base-100 fixed z-[100] w-52 border p-2 shadow-lg"
-                    >
-                        <li>
-                            <button
-                                type="button"
-                                role="menuitem"
-                                onClick={() => {
-                                    setOpen(false);
-                                    onManage(gedung);
-                                }}
-                            >
-                                <Building2
-                                    className="size-4"
-                                    aria-hidden="true"
-                                />
-                                Kelola Lantai &amp; Kamar
-                            </button>
-                        </li>
-                        <li>
-                            <button
-                                type="button"
-                                role="menuitem"
-                                onClick={() => {
-                                    setOpen(false);
-                                    onEdit(gedung);
-                                }}
-                            >
-                                <Pencil className="size-4" aria-hidden="true" />
-                                Edit Gedung
-                            </button>
-                        </li>
-                        <li>
-                            <button
-                                type="button"
-                                role="menuitem"
-                                onClick={() => {
-                                    setOpen(false);
-                                    onDelete(gedung);
-                                }}
-                                className="text-error"
-                            >
-                                <Trash2 className="size-4" aria-hidden="true" />
-                                Hapus Gedung
-                            </button>
-                        </li>
-                    </ul>,
-                    document.body,
-                )}
-        </>
+        <RowActions
+            onDetail={() => onManage(gedung)}
+            onEdit={() => onEdit(gedung)}
+            onDelete={() => onDelete(gedung)}
+        />
     );
 }
-
-export default function KelolaBangunan({ gedung }: Props) {
+export default function KelolaBangunan({
+    gedung,
+    detail = false,
+    floorOnly = false,
+}: Props) {
     const [gedungOpen, setGedungOpen] = useState(false);
     const [editingGedung, setEditingGedung] = useState<Gedung | null>(null);
     const [gedungPreview, setGedungPreview] = useState<string | null>(null);
-    const [manageGedung, setManageGedung] = useState<Gedung | null>(null);
     const [lantaiTarget, setLantaiTarget] = useState<LantaiTarget | null>(null);
     const [kamarTarget, setKamarTarget] = useState<KamarTarget | null>(null);
     const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
@@ -414,18 +302,27 @@ export default function KelolaBangunan({ gedung }: Props) {
         {
             key: 'kode_gedung',
             label: 'Kode',
-            width: 'w-28',
             render: (row) => (
                 <span className="text-identifier">
                     {row.kode_gedung ?? '—'}
                 </span>
             ),
         },
-        { key: 'nama_gedung', label: 'Nama Gedung' },
+        {
+            key: 'nama_gedung',
+            label: 'Nama Gedung',
+            render: (row) => (
+                <Link
+                    className="link link-primary"
+                    href={buildingShow.url(row.id)}
+                >
+                    {row.nama_gedung}
+                </Link>
+            ),
+        },
         {
             key: 'gender_peruntukan',
             label: 'Peruntukan',
-            width: 'w-40',
             render: (row) => (
                 <Badge>{peruntukanLabel(row.gender_peruntukan)}</Badge>
             ),
@@ -438,17 +335,19 @@ export default function KelolaBangunan({ gedung }: Props) {
                 ],
             },
         },
-        { key: 'jumlah_lantai', label: 'Lantai', width: 'w-24' },
-        { key: 'jumlah_kamar', label: 'Kamar', width: 'w-24' },
+        { key: 'jumlah_lantai', label: 'Lantai' },
+        { key: 'jumlah_kamar', label: 'Kamar' },
         {
             key: 'aksi',
             label: 'Aksi',
             action: true,
             render: (row) => (
                 <div className="flex justify-end">
-                    <RowMenu
+                    <BuildingActions
                         gedung={row}
-                        onManage={setManageGedung}
+                        onManage={(building) =>
+                            router.visit(buildingShow.url(building.id))
+                        }
                         onEdit={openGedungForm}
                         onDelete={(gedung) =>
                             setDeleteTarget({ kind: 'gedung', gedung })
@@ -459,7 +358,7 @@ export default function KelolaBangunan({ gedung }: Props) {
         },
     ];
 
-    const manage = manageGedung;
+    const manage = detail ? gedung[0] : null;
 
     let deleteTitle = 'Hapus Data';
     let deleteMessage =
@@ -477,25 +376,28 @@ export default function KelolaBangunan({ gedung }: Props) {
 
     return (
         <div className="space-y-4">
-            <PageHeader
-                title="Kelola Bangunan"
-                subtitle="Tambah dan atur gedung, lantai, serta kamar asrama"
-                actions={
-                    <Button onClick={() => openGedungForm()}>
-                        Tambah Gedung
-                    </Button>
-                }
-            />
+            {!detail && (
+                <>
+                    <PageHeader
+                        title="Kelola Bangunan"
+                        subtitle="Tambah dan atur gedung, lantai, serta kamar asrama"
+                        actions={
+                            <Button onClick={() => openGedungForm()}>
+                                Tambah Gedung
+                            </Button>
+                        }
+                    />
 
-            <DataTable<GedungRow>
-                columns={columns}
-                data={rows}
-                searchKeys={['kode_gedung', 'nama_gedung', 'alamat']}
-                searchPlaceholder="Cari gedung…"
-                defaultPerPage={10}
-                emptyMessage="Belum ada gedung. Tambahkan gedung pertama untuk mulai mengatur lantai dan kamar."
-            />
-
+                    <DataTable<GedungRow>
+                        columns={columns}
+                        data={rows}
+                        searchKeys={['kode_gedung', 'nama_gedung', 'alamat']}
+                        searchPlaceholder="Cari gedung…"
+                        defaultPerPage={10}
+                        emptyMessage="Belum ada gedung. Tambahkan gedung pertama untuk mulai mengatur lantai dan kamar."
+                    />
+                </>
+            )}
             <Drawer
                 open={gedungOpen}
                 onClose={closeGedungForm}
@@ -650,17 +552,7 @@ export default function KelolaBangunan({ gedung }: Props) {
                 </form>
             </Drawer>
 
-            <Drawer
-                open={!!manage}
-                onClose={() => setManageGedung(null)}
-                title="Kelola Lantai & Kamar"
-                subtitle={
-                    manage
-                        ? `${manage.kode_gedung ?? ''} · ${peruntukanLabel(manage.gender_peruntukan)}`
-                        : undefined
-                }
-                width="w-full max-w-2xl"
-            >
+            <section aria-label="Kelola lantai dan kamar">
                 {manage && (
                     <div className="space-y-4">
                         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -673,12 +565,14 @@ export default function KelolaBangunan({ gedung }: Props) {
                                 )}{' '}
                                 kamar
                             </p>
-                            <Button
-                                size="sm"
-                                onClick={() => openLantaiForm(manage.id)}
-                            >
-                                Tambah Lantai
-                            </Button>
+                            {!floorOnly && (
+                                <Button
+                                    size="sm"
+                                    onClick={() => openLantaiForm(manage.id)}
+                                >
+                                    Tambah Lantai
+                                </Button>
+                            )}
                         </div>
 
                         {(manage.lantai ?? []).length === 0 ? (
@@ -705,7 +599,12 @@ export default function KelolaBangunan({ gedung }: Props) {
                                 >
                                     <header className="border-base-200 flex items-center justify-between gap-2 border-b px-4 py-2.5">
                                         <h3 className="min-w-0 truncate text-sm font-medium">
-                                            {lantaiLabel(lantai)}
+                                            <Link
+                                                className="link link-primary"
+                                                href={floorShow.url(lantai.id)}
+                                            >
+                                                {lantaiLabel(lantai)}
+                                            </Link>
                                         </h3>
                                         <RowActions
                                             onEdit={() =>
@@ -735,11 +634,16 @@ export default function KelolaBangunan({ gedung }: Props) {
                                                             key={kamar.id}
                                                             className="flex flex-wrap items-center gap-x-3 gap-y-1 px-2 py-2"
                                                         >
-                                                            <span className="text-identifier w-16 text-sm font-medium">
+                                                            <Link
+                                                                href={roomShow.url(
+                                                                    kamar.id,
+                                                                )}
+                                                                className="link link-primary text-identifier w-16 text-sm font-medium"
+                                                            >
                                                                 {
                                                                     kamar.nomor_kamar
                                                                 }
-                                                            </span>
+                                                            </Link>
                                                             <Badge
                                                                 color={
                                                                     kamar.tipe_kamar ===
@@ -773,21 +677,24 @@ export default function KelolaBangunan({ gedung }: Props) {
                                                             </span>
                                                             {kamar.tarif_per_periode !=
                                                                 null &&
-                                                                kamar.tarif_per_periode >
-                                                                    0 && (
+                                                                Number(
+                                                                    kamar.tarif_per_periode,
+                                                                ) > 0 && (
                                                                     <span className="text-muted text-sm">
                                                                         {formatRupiah(
-                                                                            kamar.tarif_per_periode,
+                                                                            Number(
+                                                                                kamar.tarif_per_periode,
+                                                                            ),
                                                                         )}
                                                                     </span>
                                                                 )}
-                                                            <div className="ml-auto flex items-center gap-0.5">
+                                                            <div className="ml-auto inline-flex shrink-0 items-center gap-1">
                                                                 <IconButton
                                                                     label="Ubah kamar"
                                                                     icon={
                                                                         Pencil
                                                                     }
-                                                                    tone="text-blue-600 dark:text-blue-400 hover:bg-blue-500/10"
+                                                                    tone="text-warning hover:bg-warning/10"
                                                                     onClick={() =>
                                                                         openKamarForm(
                                                                             lantai.id,
@@ -833,7 +740,7 @@ export default function KelolaBangunan({ gedung }: Props) {
                         )}
                     </div>
                 )}
-            </Drawer>
+            </section>
 
             <Drawer
                 open={!!lantaiTarget}

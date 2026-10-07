@@ -57,9 +57,10 @@ class KamarController extends Controller
             ]);
         }
 
+        $buildingId = $lantai->gedung_id;
         $lantai->delete();
 
-        return redirect()->back()->with('toast', [
+        return redirect()->route('andalas.gedung.show', $buildingId)->with('toast', [
             'type' => 'success',
             'message' => 'Lantai dihapus.',
         ]);
@@ -128,9 +129,10 @@ class KamarController extends Controller
             ]);
         }
 
+        $floorId = $kamar->lantai_id;
         $kamar->delete();
 
-        return redirect()->back()->with('toast', [
+        return redirect()->route('andalas.lantai.show', $floorId)->with('toast', [
             'type' => 'success',
             'message' => 'Kamar dihapus.',
         ]);

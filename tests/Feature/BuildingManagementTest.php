@@ -70,12 +70,12 @@ test('lantai dapat diubah melalui endpoint update', function () {
 });
 
 test('lantai dapat dihapus selama tidak ada kamar berpenghuni', function () {
-    ['lantai' => $lantai] = buildingFixture();
+    ['gedung' => $gedung, 'lantai' => $lantai] = buildingFixture();
 
     $this->actingAs($this->admin)
         ->from(route('admin.kelola-bangunan'))
         ->delete(route('andalas.lantai.destroy', $lantai))
-        ->assertRedirect(route('admin.kelola-bangunan'))
+        ->assertRedirect(route('andalas.gedung.show', $gedung))
         ->assertSessionHas('toast.type', 'success');
 
     expect(Lantai::find($lantai->id))->toBeNull();
@@ -109,12 +109,12 @@ test('kamar berpenghuni tidak dapat dihapus', function () {
 });
 
 test('kamar kosong dapat dihapus', function () {
-    ['kamar' => $kamar] = buildingFixture();
+    ['lantai' => $lantai, 'kamar' => $kamar] = buildingFixture();
 
     $this->actingAs($this->admin)
         ->from(route('admin.kelola-bangunan'))
         ->delete(route('andalas.kamar.destroy', $kamar))
-        ->assertRedirect(route('admin.kelola-bangunan'))
+        ->assertRedirect(route('andalas.lantai.show', $lantai))
         ->assertSessionHas('toast.type', 'success');
 
     expect(Kamar::find($kamar->id))->toBeNull();

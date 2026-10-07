@@ -264,6 +264,19 @@
     }
 }
 
+/* Neutral badges use a light surface in both themes. */
+.badge:is(.badge-ghost, .badge-neutral) {
+    background-color: #e2e8f0;
+    border-color: #cbd5e1;
+    color: #475569;
+}
+
+.dark .badge:is(.badge-ghost, .badge-neutral) {
+    background-color: #cbd5e1;
+    border-color: #94a3b8;
+    color: #334155;
+}
+
 /* Match MyUNAND's table grid: 1px base-300 borders on the table and each cell. */
 .table {
     border-collapse: collapse;

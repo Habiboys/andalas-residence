@@ -327,7 +327,7 @@ function ShellInner({
                                     </Link>
                                 </li>
                                 <li className="pointer-events-none px-3 pb-2">
-                                    <span className="badge badge-sm badge-outline badge-neutral">
+                                    <span className="badge badge-sm badge-ghost">
                                         {ROLE_LABELS[roleKey] ?? roleKey}
                                     </span>
                                 </li>

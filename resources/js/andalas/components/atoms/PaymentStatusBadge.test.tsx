@@ -21,6 +21,8 @@ it('keeps a dated payment ahead of an undated one', () => {
 it('shows a fallback badge when the resident never paid', () => {
     const html = renderToStaticMarkup(<PaymentStatusBadge pembayaran={[]} />);
     expect(html).toContain('Belum bayar');
+    expect(html).toContain('badge-ghost');
+    expect(html).not.toContain('badge-neutral');
 });
 
 it('renders the mapped status and nominal of the latest payment', () => {

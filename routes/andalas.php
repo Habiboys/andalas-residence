@@ -25,6 +25,7 @@ use App\Http\Controllers\PeriodeController;
 use App\Http\Controllers\PerizinanController;
 use App\Http\Controllers\ProdiController;
 use App\Http\Controllers\ProvinsiController;
+use App\Http\Controllers\ResidenceDetailController;
 use App\Http\Controllers\ResidenceManagementController;
 use App\Http\Controllers\ResidenceRegistrationController;
 use App\Http\Controllers\StokAsetController;
@@ -129,6 +130,10 @@ Route::middleware(['auth', 'verified', EnsureResidenceAccountAccess::class])->gr
         Route::delete('/mahasiswa/{mahasiswa}', [MahasiswaController::class, 'destroy'])->name('mahasiswa.destroy');
 
         // Gedung / lantai / kamar
+        Route::get('/gedung/{gedung}', [ResidenceDetailController::class, 'building'])->name('gedung.show');
+        Route::get('/lantai/{lantai}', [ResidenceDetailController::class, 'floor'])->name('lantai.show');
+        Route::get('/kamar/{kamar}', [ResidenceDetailController::class, 'room'])->name('kamar.show');
+        Route::get('/mahasiswa/{mahasiswa}', [ResidenceDetailController::class, 'resident'])->name('mahasiswa.show');
         Route::post('/gedung', [GedungController::class, 'store'])->name('gedung.store');
         Route::put('/gedung/{gedung}', [GedungController::class, 'update'])->name('gedung.update');
         Route::delete('/gedung/{gedung}', [GedungController::class, 'destroy'])->name('gedung.destroy');
@@ -144,6 +149,7 @@ Route::middleware(['auth', 'verified', EnsureResidenceAccountAccess::class])->gr
         Route::put('/stok-aset/{stokAset}', [StokAsetController::class, 'update'])->name('stok-aset.update');
         Route::delete('/stok-aset/{stokAset}', [StokAsetController::class, 'destroy'])->name('stok-aset.destroy');
         Route::get('/aset/template', [AsetController::class, 'template'])->name('aset.template');
+        Route::get('/aset/{aset}', [ResidenceDetailController::class, 'asset'])->name('aset.show');
         Route::post('/aset/import', [AsetController::class, 'import'])->name('aset.import');
         Route::post('/aset', [AsetController::class, 'store'])->name('aset.store');
         Route::put('/aset/{aset}', [AsetController::class, 'update'])->name('aset.update');

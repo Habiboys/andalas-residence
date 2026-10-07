@@ -49,16 +49,11 @@ interface BadgeProps {
     children: ReactNode;
 }
 
-/*
- * Six tinted hues were reduced to five semantic tones. `orange` and `yellow`
- * both meant "in progress" and rendered as two nearly identical amber chips, so
- * they now share `warning`. A hue that carries no distinct meaning is noise.
- */
 const badgeTone: Record<BadgeColor, string> = {
     green: 'badge-success',
     yellow: 'badge-warning',
     red: 'badge-error',
-    gray: 'badge-neutral',
+    gray: 'badge-ghost',
     blue: 'badge-info',
     orange: 'badge-warning',
 };
@@ -220,7 +215,6 @@ export function StatCard({
 // ─── TABLE ──────────────────────────────────────────────────────────────────
 
 export interface DataColumn<T> extends TableColumn<T> {
-    width?: string;
     render?: (row: T) => ReactNode;
 }
 
@@ -639,22 +633,19 @@ export function DataTable<T extends Record<string, unknown>>({
 
             <div className="overflow-x-auto px-4">
                 <table
-                    className="table-sm table-zebra table w-full"
+                    className="table-sm table-zebra table w-full table-auto"
                     aria-busy={server?.loading ?? false}
                 >
                     <thead>
-                        <tr>
-                            <th className="bg-base-200/60 text-base-content/60 w-14 text-center text-xs font-semibold">
-                                No.
-                            </th>
+                        <tr className="text-base-content/60 text-xs uppercase">
+                            <th className="text-center">No.</th>
                             {columns.map((col) => (
                                 <th
                                     key={col.key}
                                     className={
-                                        (col.width ?? '') +
-                                        (col.action
-                                            ? ' bg-base-200 sticky right-0 z-10 w-px text-center whitespace-nowrap shadow-sm'
-                                            : ' bg-base-200/60')
+                                        col.action
+                                            ? 'text-right whitespace-nowrap'
+                                            : undefined
                                     }
                                     aria-sort={
                                         sortKey === col.key
@@ -668,7 +659,7 @@ export function DataTable<T extends Record<string, unknown>>({
                                         <button
                                             type="button"
                                             onClick={() => toggleSort(col.key)}
-                                            className="text-base-content/60 hover:text-base-content flex items-center gap-1 text-xs font-semibold uppercase"
+                                            className="hover:text-base-content inline-flex items-center gap-1 uppercase"
                                             aria-label={`Urutkan berdasarkan ${col.label}`}
                                         >
                                             {col.label}
@@ -678,15 +669,13 @@ export function DataTable<T extends Record<string, unknown>>({
                                             />
                                         </button>
                                     ) : (
-                                        <span className="text-base-content/60 text-xs font-semibold uppercase">
-                                            {col.label}
-                                        </span>
+                                        <span>{col.label}</span>
                                     )}
                                 </th>
                             ))}
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="text-base-content text-sm">
                         {server?.loading ? (
                             <tr>
                                 <td colSpan={columns.length + 1}>
@@ -755,14 +744,11 @@ export function DataTable<T extends Record<string, unknown>>({
                                     }
                                     tabIndex={onRowClick ? 0 : undefined}
                                     className={
-                                        'hover:bg-base-300 ' +
-                                        (i % 2 === 0
-                                            ? 'bg-base-100 '
-                                            : 'bg-base-200 ') +
+                                        'hover:bg-primary/15 ' +
                                         (onRowClick ? 'cursor-pointer' : '')
                                     }
                                 >
-                                    <td className="text-base-content/50 w-14 text-center text-xs font-medium">
+                                    <td className="text-base-content/50 text-center text-xs font-medium">
                                         {from + i}
                                     </td>
                                     {columns.map((col) => (
@@ -770,7 +756,7 @@ export function DataTable<T extends Record<string, unknown>>({
                                             key={col.key}
                                             className={
                                                 col.action
-                                                    ? 'sticky right-0 z-[1] w-px bg-inherit whitespace-nowrap shadow-sm'
+                                                    ? 'text-right whitespace-nowrap'
                                                     : ''
                                             }
                                             onClick={
@@ -1248,16 +1234,14 @@ const iconBtnSize = { xs: 'btn-xs', sm: 'btn-sm', md: 'btn-md' } as const;
 const iconBtnIconSize = { xs: 14, sm: 16, md: 18 } as const;
 
 /*
- * Row-level action buttons, copied from MyUNAND-Akademik's IconButton: a small
- * square ghost button with a semantic tone and a tooltip. Tooltips carry the
- * human label while the button itself stays icon-only, so the grid column
- * stays narrow and the row stays readable.
+ * MyUNAND row actions use borderless ghost buttons with semantic icon colours
+ * and tooltips that preserve a visible explanation of each action.
  */
 export function IconButton({
     label,
     icon: Icon,
     onClick,
-    tone = '',
+    tone = 'text-info hover:bg-info/10',
     size = 'xs',
     tooltipPosition = 'tooltip-top',
     disabled = false,
@@ -1281,7 +1265,7 @@ export function IconButton({
                         onClick={onClick}
                         disabled={disabled}
                         aria-label={label}
-                        className={`btn btn-ghost btn-square border border-current ${iconBtnSize[size]} ${tone} ${className}`}
+                        className={`btn btn-ghost btn-square shrink-0 ${iconBtnSize[size]} ${tone} ${className}`}
                     >
                         <Icon size={iconBtnIconSize[size]} aria-hidden="true" />
                     </button>
@@ -1312,7 +1296,7 @@ export function RowActions({
 }) {
     return (
         <div
-            className="flex items-center justify-end gap-0.5"
+            className="inline-flex shrink-0 items-center justify-end gap-1 whitespace-nowrap"
             onClick={(event) => event.stopPropagation()}
         >
             {onDetail && (
@@ -1327,7 +1311,7 @@ export function RowActions({
                 <IconButton
                     label="Ubah data"
                     icon={Pencil}
-                    tone="text-blue-600 dark:text-blue-400 hover:bg-blue-500/10"
+                    tone="text-warning hover:bg-warning/10"
                     onClick={onEdit}
                 />
             )}

@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
+import { router, Link } from '@inertiajs/react';
+import { show as roomShow } from '@/routes/andalas/kamar';
+import { show as buildingShow } from '@/routes/andalas/gedung';
+import { show as floorShow } from '@/routes/andalas/lantai';
 import { PageHeader, Card, inputClass } from '../../components/ui';
 import {
     RoomGridMap,
-    RoomDetailModal,
     type RoomGridItem,
 } from '../../components/organisms/RoomGridMap';
 
@@ -21,9 +24,6 @@ type Gedung = {
 export default function PemetaanKamar({ gedung = [] }: { gedung?: Gedung[] }) {
     const [selectedGedung, setSelectedGedung] = useState('');
     const [selectedLantai, setSelectedLantai] = useState('');
-    const [selectedKamar, setSelectedKamar] = useState<RoomGridItem | null>(
-        null,
-    );
 
     useEffect(() => {
         if (gedung?.length && !selectedGedung) {
@@ -93,16 +93,29 @@ export default function PemetaanKamar({ gedung = [] }: { gedung?: Gedung[] }) {
             </Card>
 
             <Card className="p-5">
+                <div className="mb-4 flex flex-wrap gap-4 text-sm">
+                    {selectedGedung && (
+                        <Link
+                            className="link link-primary"
+                            href={buildingShow.url(selectedGedung)}
+                        >
+                            Detail gedung
+                        </Link>
+                    )}
+                    {selectedLantai && (
+                        <Link
+                            className="link link-primary"
+                            href={floorShow.url(selectedLantai)}
+                        >
+                            Detail lantai
+                        </Link>
+                    )}
+                </div>
                 <RoomGridMap
                     rooms={filteredKamar}
-                    onSelect={setSelectedKamar}
+                    onSelect={(room) => router.visit(roomShow.url(room.id))}
                 />
             </Card>
-
-            <RoomDetailModal
-                room={selectedKamar}
-                onClose={() => setSelectedKamar(null)}
-            />
         </div>
     );
 }

@@ -1,6 +1,7 @@
 import { expect, it } from 'vite-plus/test';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { DataTable, Table, RowActions } from './ui';
+import { Badge, DataTable, Table, RowActions, StatusBadge } from './ui';
+import { roleBadgeClass } from '../shellMeta';
 import Sidebar from './Sidebar';
 
 it('gives legacy tables search filters sorting pagination and per-page controls', () => {
@@ -134,5 +135,28 @@ it('labels unnamed action columns and keeps categorical filters above the table'
     expect(html).toContain('aria-label="Ubah data"');
     expect(html).toContain('aria-label="Hapus data"');
     expect(html).not.toContain('>Ubah</button>');
-    expect(html).toContain('border-current');
+    expect(html).not.toContain('border-current');
+    expect(html).toContain('text-warning');
+    expect(html).toContain('text-error');
+    expect(html).not.toContain('w-px');
+    expect(html).not.toContain('sticky right-0');
+});
+
+it('renders neutral and unrecognised statuses with a light badge and preserves their labels', () => {
+    const html = renderToStaticMarkup(
+        <>
+            <Badge>Campuran</Badge>
+            <StatusBadge status="nonaktif" />
+            <StatusBadge status="Status baru" />
+        </>,
+    );
+
+    expect(html).toContain('Campuran');
+    expect(html).toContain('Nonaktif');
+    expect(html).toContain('Status baru');
+    expect(html.match(/badge-ghost/g)).toHaveLength(3);
+    expect(html).not.toContain('badge-neutral');
+    expect(roleBadgeClass('mahasiswa')).toContain('badge-ghost');
+    expect(roleBadgeClass('staff_admin')).toContain('badge-primary');
+    expect(roleBadgeClass('staff_admin')).not.toContain('badge-ghost');
 });

@@ -7,7 +7,8 @@ import UserProfileDetails, {
     type ProfileSummary,
 } from '../../components/UserProfileDetails';
 import { useState } from 'react';
-import { useForm, router } from '@inertiajs/react';
+import { Link, useForm, router } from '@inertiajs/react';
+import { show as residentShow } from '@/routes/andalas/mahasiswa';
 import {
     PageHeader,
     DataTable,
@@ -139,7 +140,14 @@ export default function DataMahasiswa({
         {
             key: 'nama',
             label: 'Nama',
-            render: (r: MhsRow) => r.user?.nama ?? '-',
+            render: (r: MhsRow) => (
+                <Link
+                    className="link link-primary"
+                    href={residentShow.url(r.id)}
+                >
+                    {r.user?.nama ?? '-'}
+                </Link>
+            ),
         },
         ...(['category', 'residence', 'account'] as const).map((key) => ({
             key,

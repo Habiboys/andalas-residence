@@ -1,5 +1,8 @@
 import { useState } from 'react';
-import { useForm, router } from '@inertiajs/react';
+import { Link, useForm, router } from '@inertiajs/react';
+import { show as assetShow } from '@/routes/andalas/aset';
+import { show as roomShow } from '@/routes/andalas/kamar';
+import { show as buildingShow } from '@/routes/andalas/gedung';
 import {
     PageHeader,
     DataTable,
@@ -184,23 +187,39 @@ export default function KelolaAset({
 
     const columns = [
         { key: 'kode_inventaris', label: 'Kode' },
-        { key: 'nama_aset', label: 'Nama Aset' },
+        {
+            key: 'nama_aset',
+            label: 'Nama Aset',
+            render: (r: AsetRow) => (
+                <Link className="link link-primary" href={assetShow.url(r.id)}>
+                    {r.nama_aset}
+                </Link>
+            ),
+        },
         { key: 'kategori', label: 'Kategori' },
         {
             key: 'kamar',
             label: 'Lokasi',
             render: (r: AsetRow) =>
-                r.kamar
-                    ? [
-                          r.kamar.lantai?.gedung?.nama_gedung,
-                          'Kamar ' + r.kamar.nomor_kamar,
-                      ].join(' / ')
-                    : [
-                          r.fasilitas_umum?.gedung?.nama_gedung,
-                          r.fasilitas_umum?.nama_fasilitas,
-                      ]
-                          .filter(Boolean)
-                          .join(' / ') || 'Belum ditentukan',
+                r.kamar?.id ? (
+                    <Link
+                        className="link link-primary"
+                        href={roomShow.url(r.kamar.id)}
+                    >
+                        {r.kamar.lantai?.gedung?.nama_gedung} / Kamar{' '}
+                        {r.kamar.nomor_kamar}
+                    </Link>
+                ) : r.fasilitas_umum?.gedung?.id ? (
+                    <Link
+                        className="link link-primary"
+                        href={buildingShow.url(r.fasilitas_umum.gedung.id)}
+                    >
+                        {r.fasilitas_umum.gedung.nama_gedung} /{' '}
+                        {r.fasilitas_umum.nama_fasilitas}
+                    </Link>
+                ) : (
+                    'Belum ditentukan'
+                ),
         },
         {
             key: 'jumlah',
