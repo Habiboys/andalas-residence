@@ -26,17 +26,27 @@ class RoomEligibility
         $category = $user->client_profile_category?->value;
         if ($user->mahasiswaProfil && app(ResidenceLifecycle::class)->isLocal($user->mahasiswaProfil)) {
             $category = app(ResidenceLifecycle::class)->isKipk($user->mahasiswaProfil) ? 'local_kipk' : 'local_non_kipk';
-            if (! app(ResidenceLifecycle::class)->isBinaan($user->mahasiswaProfil) && in_array('student', $building->allowed_categories ?? [], true)) {
+            if (! app(ResidenceLifecycle::class)->isBinaan($user->mahasiswaProfil)) {
                 $category = 'student';
             }
         }
-        if ($user->mahasiswaProfil?->residenceRegistrations()->where('stay_kind', 'summer_course')->whereNull('ended_at')->where('status', 'accepted')->exists()
-            && in_array('summer_course', $building->allowed_categories ?? [], true)) {
+        if ($user->mahasiswaProfil?->residenceRegistrations()->where('stay_kind', 'summer_course')->whereNull('ended_at')->where('status', 'accepted')->exists()) {
             $category = 'summer_course';
         }
 
         return in_array(self::buildingGender($building), ['campur', $user->gender], true)
-            && (! $building->allowed_categories || in_array($category, $building->allowed_categories, true));
+            && ($building->allowed_categories === null || in_array($category, $building->allowed_categories, true));
+    }
+
+    public static function allowsType(Gedung $building, string $type, ?int $capacity = null): bool
+    {
+        if ($building->room_types === null) {
+            return true;
+        }
+        $definition = collect($building->room_types)->firstWhere('type', $type);
+
+        return ($definition['enabled'] ?? false)
+            && ($capacity === null || $definition['max_capacity'] === null || $capacity <= $definition['max_capacity']);
     }
 
     /** @return Builder<Kamar> */
@@ -50,7 +60,11 @@ class RoomEligibility
     public static function validate(Kamar $room, User $user, string $field = 'kamar_id', ?string $registrationId = null): void
     {
         if (! $room->lantai?->gedung || ! self::allows($room->lantai->gedung, $user)) {
-            throw ValidationException::withMessages([$field => 'Gedung kamar tidak sesuai jenis kelamin penghuni. A–E untuk perempuan, F–H untuk laki-laki, Nakes dan ASN untuk keduanya.']);
+            throw ValidationException::withMessages([$field => 'Gedung tidak menerima kategori atau jenis kelamin penghuni Anda.']);
+        }
+
+        if (! self::allowsType($room->lantai->gedung, $room->tipe_kamar, $room->kapasitas)) {
+            throw ValidationException::withMessages([$field => 'Tipe atau kapasitas kamar tidak sesuai master tipe gedung.']);
         }
 
         if ($room->status === 'maintenance' || $room->penempatanKamar()->where('status', 'aktif')->count() + app(RoomReservations::class)->count($room, $registrationId) >= $room->kapasitas) {

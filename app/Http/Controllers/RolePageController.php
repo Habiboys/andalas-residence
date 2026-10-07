@@ -119,7 +119,7 @@ class RolePageController extends Controller
                 'rates' => ResidenceRate::all(),
                 'periode' => Periode::where('status', 'aktif')->get(),
                 'billing' => Tagihan::with(['items', 'jadwalCicilan', 'dokumen'])->where('mahasiswa_id', $request->user()->mahasiswaProfil?->id)->latest()->get(),
-                'rooms' => RoomEligibility::available()->get()->filter(fn ($room) => RoomEligibility::allows($room->lantai->gedung, $request->user()) && $room->penempatanKamar()->where('status', 'aktif')->count() + app(RoomReservations::class)->count($room) < $room->kapasitas)->values(),
+                'rooms' => RoomEligibility::available()->get()->filter(fn ($room) => RoomEligibility::allows($room->lantai->gedung, $request->user()) && RoomEligibility::allowsType($room->lantai->gedung, $room->tipe_kamar, $room->kapasitas) && $room->penempatanKamar()->where('status', 'aktif')->count() + app(RoomReservations::class)->count($room) < $room->kapasitas)->values(),
                 'gedung' => Gedung::orderBy('kode_gedung')->get()->filter(fn ($building) => RoomEligibility::allows($building, $request->user()))->values(),
                 'registration' => ResidenceRegistration::with(['roomPreferences.kamar', 'periode', 'tagihan'])->where('student_profile_id', $request->user()->mahasiswaProfil?->id)->latest()->get(),
             ],
@@ -552,7 +552,7 @@ class RolePageController extends Controller
     private function buildingManagementTree(): array
     {
         return Gedung::query()
-            ->select(['id', 'kode_gedung', 'nama_gedung', 'gender_peruntukan', 'alamat', 'deskripsi', 'foto'])
+            ->select(['id', 'kode_gedung', 'nama_gedung', 'gender_peruntukan', 'alamat', 'deskripsi', 'foto', 'room_types'])
             ->with([
                 'lantai:id,gedung_id,nomor_lantai,nama_lantai',
                 'lantai.kamar:id,lantai_id,nomor_kamar,kapasitas,status,tipe_kamar,tarif_per_periode',

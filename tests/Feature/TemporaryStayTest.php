@@ -121,7 +121,7 @@ it('treats a listed local summer participant as a temporary personal payer', fun
     $this->seed(RolePermissionSeeder::class);
     $f = temporaryStayFixture();
     KipkRecipient::create(['nim' => '2612345678', 'angkatan' => 2026, 'nama' => 'Peserta']);
-    $f['building']->update(['allowed_categories' => ['local_non_kipk']]);
+    $f['building']->update(['allowed_categories' => ['summer_course']]);
     $this->actingAs($f['admin'])->post(route('andalas.temporary-stays.store'), [...$f['data'], 'nim_nip' => '2612345678', 'client_profile_category' => 'local_non_kipk'])->assertSessionHasNoErrors();
     $stay = ResidenceRegistration::sole();
     expect(app(ResidenceLifecycle::class)->isBinaan($stay->studentProfile))->toBeFalse();

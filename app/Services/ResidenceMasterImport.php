@@ -38,22 +38,32 @@ class ResidenceMasterImport
                     }
                 }
                 $rates = [];
+                $roomTypes = [];
                 foreach (range(13, 17) as $row) {
                     $values = $rows[$row] ?? [];
-                    if (! ($values['J'] ?? false)) {
+                    if (! ($values['G'] ?? null)) {
                         continue;
                     }
                     $type = strtolower(str_replace(' ', '_', trim((string) ($values['G'] ?? ''))));
                     if (! in_array($type, ['standar', 'medium', 'premium', 'umum', 'umum_vip'], true)) {
                         throw new \InvalidArgumentException($name.' baris '.$row.': tipe tarif tidak dikenal.');
                     }
+                    $capacityText = trim((string) ($values['I'] ?? ''));
+                    $maxCapacity = preg_match('/^([1-9]\d*)(?:\s+orang)?$/i', $capacityText, $capacityMatch) ? (int) $capacityMatch[1] : null;
+                    if ($capacityText !== '' && $maxCapacity === null) {
+                        throw new \InvalidArgumentException($name.' baris '.$row.': kapasitas maksimal tidak valid.');
+                    }
+                    $roomTypes[] = ['type' => $type, 'enabled' => (bool) ($values['J'] ?? false), 'max_capacity' => $maxCapacity, 'facilities' => trim((string) ($values['H'] ?? ''))];
+                    if (! ($values['J'] ?? false)) {
+                        continue;
+                    }
                     foreach (['year' => ['L', 'K'], 'month' => ['M', null], 'day' => ['O', null]] as $unit => [$column, $roomColumn]) {
                         $amount = $values[$column] ?? null;
                         $studentAmount = $unit === 'day' ? ($values['N'] ?? null) : null;
-                        if ($amount === null && $studentAmount === null) {
+                        $roomAmount = $roomColumn ? ($values[$roomColumn] ?? null) : null;
+                        if ($amount === null && $studentAmount === null && $roomAmount === null) {
                             continue;
                         }
-                        $roomAmount = $roomColumn ? ($values[$roomColumn] ?? null) : null;
                         foreach ([$amount, $studentAmount, $roomAmount] as $price) {
                             if ($price !== null && (! is_numeric($price) || (float) $price < 0 || floor((float) $price) !== (float) $price)) {
                                 throw new \InvalidArgumentException($name.' baris '.$row.': tarif harus angka bulat nonnegatif.');
@@ -79,6 +89,11 @@ class ResidenceMasterImport
                         throw new \InvalidArgumentException($name.' baris '.$row.': lantai, tipe, atau nomor kamar tidak valid/duplikat.');
                     }
                     $roomData = ['nomor_kamar' => $number, 'nomor_lantai' => $floor, 'kapasitas' => $capacity, 'tipe_kamar' => $type];
+                    $definition = collect($roomTypes)->firstWhere('type', $type);
+                    if (! ($definition['enabled'] ?? false) || ($definition['max_capacity'] !== null && $capacity > $definition['max_capacity'])) {
+                        $warnings[] = $name.' / '.$number.': tipe tidak aktif atau kapasitas melebihi master tipe; kamar diblokir sampai data diperbaiki.';
+                        $roomData['blocked'] = true;
+                    }
                     if (isset($seen[$number])) {
                         if ($seen[$number] !== $roomData) {
                             throw new \InvalidArgumentException($name.' baris '.$row.': nomor kamar duplikat dengan data berbeda.');
@@ -93,7 +108,7 @@ class ResidenceMasterImport
                     }
                     $rooms[] = $roomData;
                 }
-                $buildings[] = ['kode_gedung' => $code, 'nama_gedung' => $name, 'allowed_categories' => $categories, 'rooms' => $rooms, 'rates' => $rates];
+                $buildings[] = ['kode_gedung' => $code, 'nama_gedung' => $name, 'allowed_categories' => $categories, 'room_types' => $roomTypes, 'rooms' => $rooms, 'rates' => $rates];
             }
         } finally {
             $book->disconnectWorksheets();
@@ -108,8 +123,15 @@ class ResidenceMasterImport
         DB::transaction(function () use ($buildings): void {
             foreach ($buildings as $data) {
                 $building = Gedung::updateOrCreate(['kode_gedung' => $data['kode_gedung']], [
-                    'nama_gedung' => $data['nama_gedung'], 'allowed_categories' => $data['allowed_categories'], 'alamat' => 'Kampus Limau Manis',
+                    'nama_gedung' => $data['nama_gedung'], 'allowed_categories' => $data['allowed_categories'], 'room_types' => $data['room_types'], 'alamat' => 'Kampus Limau Manis',
                 ]);
+                ResidenceRate::where('gedung_id', $building->id)->when($data['rates'] !== [], function ($query) use ($data): void {
+                    $query->whereNot(function ($query) use ($data): void {
+                        foreach ($data['rates'] as $rate) {
+                            $query->orWhere(fn ($query) => $query->where('tipe_kamar', $rate['tipe_kamar'])->where('unit', $rate['unit']));
+                        }
+                    });
+                })->delete();
                 foreach ($data['rates'] as $rate) {
                     ResidenceRate::updateOrCreate(['gedung_id' => $building->id, 'tipe_kamar' => $rate['tipe_kamar'], 'unit' => $rate['unit']], $rate);
                 }
@@ -118,11 +140,14 @@ class ResidenceMasterImport
                     $room = Kamar::firstOrNew(['lantai_id' => $floor->id, 'nomor_kamar' => $roomData['nomor_kamar']]);
                     $active = $room->exists ? $room->penempatanKamar()->where('status', 'aktif')->count() : 0;
                     $reserved = $room->exists ? app(RoomReservations::class)->count($room) : 0;
+                    if (($roomData['blocked'] ?? false) && $active + $reserved > 0) {
+                        throw new \LogicException('Master tipe '.$building->nama_gedung.' / '.$roomData['nomor_kamar'].' bertentangan dengan kamar berpenghuni atau direservasi. Tidak ada data yang diubah.');
+                    }
                     if ($roomData['kapasitas'] < $active + $reserved) {
                         throw new \LogicException('Kapasitas '.$building->nama_gedung.' / '.$roomData['nomor_kamar'].' lebih kecil dari penghuni/reservasi aktif. Tidak ada data yang diubah.');
                     }
                     $annual = collect($data['rates'])->first(fn (array $rate): bool => $rate['tipe_kamar'] === $roomData['tipe_kamar'] && $rate['unit'] === 'year');
-                    $status = $room->exists && $room->status === 'maintenance' ? 'maintenance' : ($roomData['kapasitas'] === 0 ? 'maintenance' : ($active === 0 ? 'kosong' : ($active >= $roomData['kapasitas'] ? 'penuh' : 'terisi_sebagian')));
+                    $status = ($room->exists && $room->status === 'maintenance') || ($roomData['blocked'] ?? false) || $roomData['kapasitas'] === 0 ? 'maintenance' : ($active === 0 ? 'kosong' : ($active + $reserved >= $roomData['kapasitas'] ? 'penuh' : 'terisi_sebagian'));
                     $room->fill(['kapasitas' => $roomData['kapasitas'], 'tipe_kamar' => $roomData['tipe_kamar'], 'tarif_per_periode' => $annual['amount'] ?? 0, 'status' => $status])->save();
                 }
             }

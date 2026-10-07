@@ -42,8 +42,11 @@ jobs:
           docker compose exec -T andalas-app php artisan route:clear
 
           # 4. Reset database dan jalankan seeder baru
+          # Validasi sumber master sebelum database direset.
+          docker compose exec -T andalas-app php artisan asrama:seed-master --dry-run --no-interaction
           echo "🔄 Mereset database dan menjalankan seeder..."
-          docker compose exec -T andalas-app php artisan migrate:fresh --seed --force
+          # DatabaseSeeder memanggil ResidenceMasterSeeder untuk Data Asrama.xlsx, lalu seeder demo dev.
+          docker compose exec -T andalas-app php artisan migrate:fresh --seed --seeder=DatabaseSeeder --force --no-interaction
 
           # 5. Bersihkan cache aplikasi
           docker compose exec -T andalas-app php artisan optimize:clear

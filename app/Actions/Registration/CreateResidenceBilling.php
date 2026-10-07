@@ -26,6 +26,12 @@ class CreateResidenceBilling
             $rate = ResidenceRate::where('gedung_id', $room->lantai->gedung_id)->where('tipe_kamar', 'umum')->where('unit', 'day')->first();
         }
         $amount = $rate ? (float) $rate->amount : (in_array($registration->rate_unit, ['period', 'year'], true) && $room !== null ? (float) $room->tarif_per_periode : 0);
+        if ($registration->billing_basis === 'room') {
+            if ($rateUnit !== 'year' || ! $rate || (float) $rate->room_amount <= 0) {
+                throw ValidationException::withMessages(['billing_basis' => 'Tarif tahunan per kamar belum tersedia.']);
+            }
+            $amount = (float) $rate->room_amount;
+        }
         if ($rate && $rateUnit === 'day' && $registration->studentProfile->user->client_profile_category?->value !== 'non_student' && $rate->student_amount !== null) {
             $amount = (float) $rate->student_amount;
         }
@@ -49,7 +55,7 @@ class CreateResidenceBilling
             'sponsor_total' => $sponsored ? $amount * $quantity : 0, 'sponsor_name' => $registration->sponsor_name,
             'residence_snapshot' => ['building' => $room?->lantai->gedung->nama_gedung, 'room' => $room?->nomor_kamar, 'type' => $room?->tipe_kamar,
                 'starts_at' => $registration->starts_at?->toDateString(), 'ends_at' => $registration->ends_at?->toDateString(),
-                'unit' => $registration->rate_unit, 'quantity' => $quantity, 'amount' => $amount, 'category' => $registration->is_kipk ? 'kipk' : 'non_kipk'],
+                'unit' => $registration->rate_unit, 'billing_basis' => $registration->billing_basis ?? 'person', 'quantity' => $quantity, 'amount' => $amount, 'category' => $registration->is_kipk ? 'kipk' : 'non_kipk'],
         ]);
         $registration->update(['tagihan_id' => $invoice->id]);
 

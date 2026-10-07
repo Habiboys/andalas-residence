@@ -8,6 +8,7 @@ use App\Models\ResidenceRegistration;
 use App\Notifications\TemporaryStayEnded;
 use App\Services\ResidenceBuildingAccess;
 use App\Services\RoomEligibility;
+use App\Services\RoomReservations;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
@@ -21,7 +22,7 @@ class TemporaryStayController extends Controller
 
         return [
             'facilitator' => $facilitator,
-            'rooms' => RoomEligibility::available()->when($facilitator, fn ($query) => $query->whereHas('lantai', fn ($floors) => $floors->whereIn('gedung_id', $buildings)))->get(),
+            'rooms' => RoomEligibility::available()->when($facilitator, fn ($query) => $query->whereHas('lantai', fn ($floors) => $floors->whereIn('gedung_id', $buildings)))->get()->filter(fn (Kamar $room): bool => RoomEligibility::allowsType($room->lantai->gedung, $room->tipe_kamar, $room->kapasitas) && $room->penempatanKamar()->where('status', 'aktif')->count() + app(RoomReservations::class)->count($room) < $room->kapasitas)->values(),
             'stays' => ResidenceRegistration::with(['studentProfile.user', 'placement.kamar.lantai.gedung', 'tagihan'])
                 ->whereIn('stay_kind', ['summer_course', 'non_student'])
                 ->when($facilitator, fn ($query) => $query->whereHas('placement.kamar.lantai', fn ($floors) => $floors->whereIn('gedung_id', $buildings)))

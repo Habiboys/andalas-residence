@@ -51,6 +51,13 @@ class ResidenceManagementController extends Controller
             KipkRecipient::updateOrCreate(['nim' => $data['nim'], 'angkatan' => StudentCohort::fromNim($data['nim'])], ['nama' => $data['nama']]);
         } elseif ($kind === 'rate') {
             $data = $request->validate(['gedung_id' => ['required', 'uuid', 'exists:gedung,id'], 'tipe_kamar' => ['required', 'in:standar,medium,premium,umum,umum_vip'], 'unit' => ['required', 'in:year,month,day'], 'amount' => ['required', 'integer', 'min:0'], 'student_amount' => ['nullable', 'integer', 'min:0'], 'room_amount' => ['nullable', 'integer', 'min:0'], 'facilities' => ['nullable', 'string', 'max:2000']]);
+            $building = Gedung::findOrFail($data['gedung_id']);
+            if (! RoomEligibility::allowsType($building, $data['tipe_kamar'])) {
+                throw ValidationException::withMessages(['tipe_kamar' => 'Aktifkan tipe kamar pada master gedung sebelum menetapkan tarif.']);
+            }
+            if ($building->room_types !== null) {
+                $data['facilities'] = collect($building->room_types)->firstWhere('type', $data['tipe_kamar'])['facilities'];
+            }
             ResidenceRate::updateOrCreate(
                 ['gedung_id' => $data['gedung_id'], 'tipe_kamar' => $data['tipe_kamar'], 'unit' => $data['unit']],
                 ['amount' => $data['amount'], 'facilities' => $data['facilities'] ?? null, ...array_intersect_key($data, ['student_amount' => true, 'room_amount' => true])],
@@ -59,13 +66,34 @@ class ResidenceManagementController extends Controller
                 ->where('gedung_id', $data['gedung_id'])
                 ->where('tipe_kamar', $data['tipe_kamar'])
                 ->update(['facilities' => $data['facilities'] ?? null]);
+        } elseif ($kind === 'room-type') {
+            $data = $request->validate([
+                'gedung_id' => ['required', 'uuid', 'exists:gedung,id'],
+                'type' => ['required', 'in:standar,medium,premium,umum,umum_vip'],
+                'enabled' => ['required', 'boolean'],
+                'max_capacity' => ['nullable', 'integer', 'min:1', 'max:100'],
+                'facilities' => ['nullable', 'string', 'max:2000'],
+            ]);
+            DB::transaction(function () use ($data): void {
+                $building = Gedung::query()->lockForUpdate()->findOrFail($data['gedung_id']);
+                $rooms = Kamar::whereHas('lantai', fn ($query) => $query->where('gedung_id', $building->id))->where('tipe_kamar', $data['type'])->lockForUpdate()->get();
+                foreach ($rooms as $room) {
+                    if ((! $data['enabled'] || (isset($data['max_capacity']) && $room->kapasitas > $data['max_capacity'])) && ($room->penempatanKamar()->where('status', 'aktif')->exists() || app(RoomReservations::class)->count($room) > 0)) {
+                        throw ValidationException::withMessages(['type' => 'Tipe masih dipakai kamar berpenghuni atau direservasi; aturan baru tidak dapat diterapkan.']);
+                    }
+                }
+                $types = collect($building->room_types ?? [])->reject(fn (array $type): bool => $type['type'] === $data['type'])->values()->all();
+                $types[] = ['type' => $data['type'], 'enabled' => (bool) $data['enabled'], 'max_capacity' => $data['max_capacity'] ?? null, 'facilities' => $data['facilities'] ?? ''];
+                $building->update(['room_types' => $types]);
+                ResidenceRate::where('gedung_id', $building->id)->where('tipe_kamar', $data['type'])->update(['facilities' => $data['facilities'] ?? '']);
+            });
         } elseif ($kind === 'building') {
             $data = $request->validate([
                 'gedung_id' => ['nullable', 'uuid', 'exists:gedung,id'],
                 'kode_gedung' => ['required_without:gedung_id', 'nullable', 'string', 'max:10', Rule::unique('gedung', 'kode_gedung')->ignore($request->input('gedung_id'))],
                 'nama_gedung' => ['nullable', 'required_without:gedung_id', 'string', 'max:150'],
                 'gender_peruntukan' => ['nullable', 'in:laki_laki,perempuan,campur'],
-                'allowed_categories' => ['required', 'array', 'min:1'],
+                'allowed_categories' => ['present', 'array'],
                 'allowed_categories.*' => ['required', Rule::in(['local_kipk', 'local_non_kipk', 'student', 'international_student', 'international_free_facility', 'non_student', 'summer_course'])],
             ]);
             $building = ! empty($data['gedung_id']) ? Gedung::findOrFail($data['gedung_id']) : new Gedung;
@@ -79,6 +107,9 @@ class ResidenceManagementController extends Controller
             ]);
             DB::transaction(function () use ($data): void {
                 $building = Gedung::query()->lockForUpdate()->findOrFail($data['gedung_id']);
+                if (! RoomEligibility::allowsType($building, $data['tipe_kamar'], (int) $data['kapasitas'])) {
+                    throw ValidationException::withMessages(['tipe_kamar' => 'Tipe tidak aktif atau kapasitas melebihi batas master tipe gedung.']);
+                }
                 $floor = Lantai::firstOrCreate(['gedung_id' => $building->id, 'nomor_lantai' => $data['nomor_lantai']], ['nama_lantai' => 'Lantai '.$data['nomor_lantai']]);
                 $room = ! empty($data['id']) ? Kamar::query()->lockForUpdate()->findOrFail($data['id']) : new Kamar;
                 if (Kamar::where('lantai_id', $floor->id)->where('nomor_kamar', $data['nomor_kamar'])->when($room->exists, fn ($query) => $query->whereKeyNot($room->id))->exists()) {
@@ -133,7 +164,7 @@ class ResidenceManagementController extends Controller
             ResidenceRate::query()->where($data)->firstOrFail()->delete();
         } elseif ($kind === 'building') {
             $data = $request->validate(['gedung_id' => ['required', 'uuid', 'exists:gedung,id']]);
-            Gedung::query()->whereKey($data['gedung_id'])->firstOrFail()->update(['allowed_categories' => null]);
+            Gedung::query()->whereKey($data['gedung_id'])->firstOrFail()->update(['allowed_categories' => []]);
         } elseif ($kind === 'period') {
             $data = $request->validate(['id' => ['required', 'uuid', 'exists:periode,id']]);
             MasterDataService::deletePeriode(Periode::query()->whereKey($data['id'])->firstOrFail());

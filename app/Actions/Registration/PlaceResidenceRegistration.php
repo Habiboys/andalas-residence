@@ -7,6 +7,7 @@ use App\Models\MahasiswaProfil;
 use App\Models\PenempatanKamar;
 use App\Models\ResidenceRegistration;
 use App\Services\RoomEligibility;
+use App\Services\RoomReservations;
 use Illuminate\Validation\ValidationException;
 
 class PlaceResidenceRegistration
@@ -44,6 +45,9 @@ class PlaceResidenceRegistration
         if ($occupancy >= $room->kapasitas) {
             throw ValidationException::withMessages(['kamar_id' => 'Kamar sudah penuh.']);
         }
+        if ($registration->billing_basis === 'room' && ($occupancy > 0 || app(RoomReservations::class)->count($room, $registration->id) > 0)) {
+            throw ValidationException::withMessages(['kamar_id' => 'Sewa per kamar membutuhkan seluruh kamar yang kosong.']);
+        }
 
         $placement = PenempatanKamar::query()->create([
             'mahasiswa_id' => $registration->student_profile_id,
@@ -54,7 +58,7 @@ class PlaceResidenceRegistration
             'diproses_oleh' => $officerId,
         ]);
 
-        $room->update(['status' => $occupancy + 1 >= $room->kapasitas ? 'penuh' : 'terisi_sebagian']);
+        $room->update(['status' => $registration->billing_basis === 'room' || $occupancy + 1 >= $room->kapasitas ? 'penuh' : 'terisi_sebagian']);
         $registration->studentProfile()->update(['periode_id' => $registration->periode_id]);
 
         return $placement;

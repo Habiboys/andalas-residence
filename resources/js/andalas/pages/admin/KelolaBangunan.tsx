@@ -61,6 +61,12 @@ type Gedung = {
     deskripsi?: string;
     foto?: string;
     lantai?: Lantai[];
+    room_types?: Array<{
+        type: string;
+        enabled: boolean;
+        max_capacity: number | null;
+        facilities: string;
+    }> | null;
 };
 
 type GedungRow = Gedung & { jumlah_lantai: number; jumlah_kamar: number };
@@ -979,11 +985,39 @@ export default function KelolaBangunan({ gedung }: Props) {
                                 )
                             }
                         >
-                            <option value="standar">Standar</option>
-                            <option value="medium">Medium</option>
-                            <option value="premium">Premium</option>
-                            <option value="umum">Umum</option>
-                            <option value="umum_vip">Umum VIP</option>
+                            <option value="">Pilih tipe aktif</option>
+                            {[
+                                'standar',
+                                'medium',
+                                'premium',
+                                'umum',
+                                'umum_vip',
+                            ]
+                                .filter((type) => {
+                                    const building = gedung.find((b) =>
+                                        b.lantai?.some(
+                                            (floor) =>
+                                                floor.id ===
+                                                kamarTarget?.lantai_id,
+                                        ),
+                                    );
+                                    return (
+                                        building?.room_types == null ||
+                                        building.room_types.some(
+                                            (definition) =>
+                                                definition.type === type &&
+                                                definition.enabled,
+                                        )
+                                    );
+                                })
+                                .map((type) => (
+                                    <option key={type} value={type}>
+                                        {type === 'umum_vip'
+                                            ? 'Umum VIP'
+                                            : type.charAt(0).toUpperCase() +
+                                              type.slice(1)}
+                                    </option>
+                                ))}
                         </select>
                         {kamarForm.errors.tipe_kamar && (
                             <p className="text-error text-sm">

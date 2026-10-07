@@ -17,6 +17,7 @@ type Props = {
         status_huni?: string;
         student_stage?: string;
         inactive_reason?: string;
+        client_profile_category?: string;
     };
     periode?: Array<{
         id: string;
@@ -30,6 +31,8 @@ type Props = {
         tipe_kamar: string;
         unit: string;
         amount: string;
+        student_amount?: string | null;
+        room_amount?: string | null;
     }>;
     registration?: Array<{
         id: string;
@@ -56,6 +59,7 @@ export default function Registration({
         is_kipk: kipk,
         preferences: [{ kamar_id: '', notes: '' }],
         rate_unit: 'period',
+        billing_basis: 'person',
         starts_at: '',
         ends_at: '',
         funding: 'personal',
@@ -63,18 +67,38 @@ export default function Registration({
         notes: '',
     });
     const room = rooms.find((r) => r.id === form.data.preferences[0].kamar_id);
-    const rate = rates.find(
-        (r) =>
-            r.gedung_id === room?.lantai?.gedung_id &&
-            r.tipe_kamar === room?.tipe_kamar &&
-            r.unit ===
-                (form.data.rate_unit === 'period'
-                    ? 'year'
-                    : form.data.rate_unit),
-    );
+    const rateUnit =
+        form.data.rate_unit === 'period' ? 'year' : form.data.rate_unit;
+    const rate =
+        rates.find(
+            (r) =>
+                r.gedung_id === room?.lantai?.gedung_id &&
+                r.tipe_kamar === room?.tipe_kamar &&
+                r.unit ===
+                    (form.data.rate_unit === 'period'
+                        ? 'year'
+                        : form.data.rate_unit),
+        ) ??
+        (rateUnit === 'day'
+            ? rates.find(
+                  (r) =>
+                      r.gedung_id === room?.lantai?.gedung_id &&
+                      r.tipe_kamar === 'umum' &&
+                      r.unit === 'day',
+              )
+            : undefined);
     const price = Number(
-        rate?.amount ??
-            (form.data.rate_unit === 'period' ? room?.tarif_per_periode : 0) ??
+        (form.data.billing_basis === 'room'
+            ? rate?.room_amount
+            : rateUnit === 'day' &&
+                initialUser?.client_profile_category !== 'non_student' &&
+                rate?.student_amount != null
+              ? rate.student_amount
+              : rate?.amount) ??
+            (form.data.billing_basis === 'person' &&
+            form.data.rate_unit === 'period'
+                ? room?.tarif_per_periode
+                : 0) ??
             0,
     );
     const days =
@@ -154,10 +178,11 @@ export default function Registration({
                                         className={inputClass}
                                         value={form.data.rate_unit}
                                         onChange={(e) =>
-                                            form.setData(
-                                                'rate_unit',
-                                                e.target.value,
-                                            )
+                                            form.setData({
+                                                ...form.data,
+                                                rate_unit: e.target.value,
+                                                billing_basis: 'person',
+                                            })
                                         }
                                     >
                                         <option value="period">
@@ -167,6 +192,32 @@ export default function Registration({
                                         <option value="day">Per hari</option>
                                     </select>
                                 </label>
+                                {rateUnit === 'year' && (
+                                    <label className="block text-sm">
+                                        Dasar tarif
+                                        <select
+                                            className={inputClass}
+                                            value={form.data.billing_basis}
+                                            onChange={(e) =>
+                                                form.setData(
+                                                    'billing_basis',
+                                                    e.target.value,
+                                                )
+                                            }
+                                        >
+                                            <option value="person">
+                                                Per orang
+                                            </option>
+                                            <option value="room">
+                                                Per kamar (seluruh kamar)
+                                            </option>
+                                        </select>
+                                        <span className="text-sm">
+                                            Sewa per kamar memerlukan kamar
+                                            kosong dan tarif tahunan per kamar.
+                                        </span>
+                                    </label>
+                                )}
                                 {['day', 'month'].includes(
                                     form.data.rate_unit,
                                 ) && (

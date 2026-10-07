@@ -23,7 +23,16 @@ class RoomReservations
 
     public function count(Kamar $room, ?string $except = null): int
     {
-        return $this->held()->where('reserved_room_id', $room->id)->when($except, fn (Builder $query) => $query->where('id', '!=', $except))->count();
+        $held = $this->held()->where('reserved_room_id', $room->id)->when($except, fn (Builder $query) => $query->where('id', '!=', $except));
+        if ((clone $held)->where('billing_basis', 'room')->exists()) {
+            return $room->kapasitas;
+        }
+        $exclusive = ResidenceRegistration::where('billing_basis', 'room')->whereHas('placement', fn (Builder $query) => $query->where('kamar_id', $room->id)->where('status', 'aktif'))->when($except, fn (Builder $query) => $query->where('id', '!=', $except))->exists();
+        if ($exclusive) {
+            return max(0, $room->kapasitas - $room->penempatanKamar()->where('status', 'aktif')->count());
+        }
+
+        return $held->count();
     }
 
     public function expire(): void

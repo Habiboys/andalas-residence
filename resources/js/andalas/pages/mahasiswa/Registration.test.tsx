@@ -25,7 +25,9 @@ it('offers room selection and daily or period pricing for personal registration'
     );
     expect(html).toContain('Gedung / tipe / nomor kamar');
     expect(html).toContain('Per hari');
-    expect(html).toContain('Per periode');
+    expect(html).toContain('Per tahun');
+    expect(html).toContain('Per orang');
+    expect(html).toContain('Per kamar (seluruh kamar)');
     expect(html).not.toContain('type="checkbox"');
 });
 it('blocks another application while a submitted registration is pending', () => {
@@ -44,6 +46,7 @@ it('skips room choice for a server verified KIPK recipient', () => {
     );
     expect(html).toContain('Kamar ditempatkan Admin Layanan');
     expect(html).not.toContain('Gedung / tipe / nomor kamar');
+    expect(html).not.toContain('Dasar tarif');
 });
 it('requires sponsor verification instead of claiming free residence from account category', () => {
     const html = renderToStaticMarkup(

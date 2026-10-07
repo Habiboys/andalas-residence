@@ -4,8 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\Kamar;
 use App\Models\Lantai;
+use App\Services\RoomEligibility;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class KamarController extends Controller
 {
@@ -76,6 +78,10 @@ class KamarController extends Controller
             'status' => 'nullable|in:kosong,terisi_sebagian,penuh,maintenance',
         ]);
 
+        $building = Lantai::findOrFail($validated['lantai_id'])->gedung;
+        if (! RoomEligibility::allowsType($building, $validated['tipe_kamar'] ?? 'standar', (int) $validated['kapasitas'])) {
+            throw ValidationException::withMessages(['tipe_kamar' => 'Tipe tidak aktif atau kapasitas melebihi batas master tipe gedung.']);
+        }
         $kamar = Kamar::create([
             ...$validated,
             'status' => $validated['status'] ?? 'kosong',
@@ -100,6 +106,9 @@ class KamarController extends Controller
             'status' => 'sometimes|in:kosong,terisi_sebagian,penuh,maintenance',
         ]);
 
+        if (! RoomEligibility::allowsType($kamar->lantai->gedung, $validated['tipe_kamar'] ?? $kamar->tipe_kamar, (int) ($validated['kapasitas'] ?? $kamar->kapasitas))) {
+            throw ValidationException::withMessages(['tipe_kamar' => 'Tipe tidak aktif atau kapasitas melebihi batas master tipe gedung.']);
+        }
         $kamar->update($validated);
 
         return redirect()->back()->with('toast', [

@@ -22,7 +22,7 @@ class ResidenceRegistration extends BaseModel
     use HasFactory;
 
     protected $fillable = [
-        'stay_kind', 'ended_at',
+        'stay_kind', 'ended_at', 'billing_basis',
         'student_profile_id',
         'periode_id',
         'status',

@@ -22,7 +22,7 @@ class SubmitResidenceRegistration
      *     periode_id: string,
      *     is_kipk: bool,
      *     notes?: string|null,
-     *     rate_unit?: string, starts_at?: string|null, ends_at?: string|null, funding?: string, sponsor_name?: string|null,
+     *     rate_unit?: string, billing_basis?: 'person'|'room', starts_at?: string|null, ends_at?: string|null, funding?: string, sponsor_name?: string|null,
      *     preferences?: list<array{kamar_id: string, notes?: string|null}>
      * } $data
      */
@@ -42,6 +42,9 @@ class SubmitResidenceRegistration
                 foreach ($preferences as $preference) {
                     $room = Kamar::query()->lockForUpdate()->findOrFail($preference['kamar_id']);
                     RoomEligibility::validate($room, $student->user, 'preferences');
+                    if (($data['billing_basis'] ?? 'person') === 'room' && ($room->penempatanKamar()->where('status', 'aktif')->exists() || app(RoomReservations::class)->count($room) > 0)) {
+                        throw ValidationException::withMessages(['preferences' => 'Sewa per kamar hanya tersedia untuk kamar kosong tanpa reservasi lain.']);
+                    }
                 }
             }
             app(RoomReservations::class)->expire();
@@ -63,6 +66,7 @@ class SubmitResidenceRegistration
             $registration->fill([
                 'status' => ResidenceRegistrationStatus::Submitted,
                 'is_kipk' => $data['is_kipk'],
+                'billing_basis' => $data['is_kipk'] ? 'person' : ($data['billing_basis'] ?? 'person'),
                 'submitted_at' => now(),
                 'notes' => $data['notes'] ?? null,
                 'reserved_room_id' => $data['is_kipk'] ? null : $preferences[0]['kamar_id'],

@@ -32,7 +32,14 @@ type Building = {
     id: string;
     kode_gedung: string;
     nama_gedung: string;
+    gender_peruntukan?: string;
     allowed_categories?: string[];
+    room_types?: Array<{
+        type: string;
+        enabled: boolean;
+        max_capacity: number | null;
+        facilities: string;
+    }> | null;
 };
 type Props = {
     gedung?: Building[];
@@ -215,6 +222,27 @@ function Editor({
     const [editing, setEditing] = useState(false);
     const [deleting, setDeleting] = useState(false);
     const [deleteTarget, setDeleteTarget] = useState<Row | null>(null);
+    const selectedBuilding = buildings.find((building) =>
+        [building.id, building.kode_gedung, building.nama_gedung].includes(
+            String(form.data.gedung_id ?? ''),
+        ),
+    );
+    function fieldOptions(field: Field): Array<[string, string]> {
+        if (
+            field.name === 'tipe_kamar' &&
+            selectedBuilding?.room_types != null
+        ) {
+            return [
+                ['', 'Pilih tipe aktif'],
+                ...(field.options ?? []).filter(([value]) =>
+                    selectedBuilding.room_types?.some(
+                        (type) => type.type === value && type.enabled,
+                    ),
+                ),
+            ];
+        }
+        return field.options ?? [];
+    }
 
     function closeForm() {
         setModalOpen(false);
@@ -374,7 +402,7 @@ function Editor({
                     >
                         <Pencil className="size-4" aria-hidden="true" />
                     </button>
-                    {kind !== 'room' && (
+                    {!['room', 'room-type'].includes(kind) && (
                         <button
                             type="button"
                             className="btn btn-ghost btn-xs btn-square text-error"
@@ -540,11 +568,16 @@ function Editor({
                                         }
                                         required={!field.optional}
                                     >
-                                        {field.options.map(([value, label]) => (
-                                            <option key={value} value={value}>
-                                                {label}
-                                            </option>
-                                        ))}
+                                        {fieldOptions(field).map(
+                                            ([value, label]) => (
+                                                <option
+                                                    key={value}
+                                                    value={value}
+                                                >
+                                                    {label}
+                                                </option>
+                                            ),
+                                        )}
                                     </select>
                                 ) : (
                                     <input
@@ -983,6 +1016,53 @@ export default function ResidenceManagement({
                         ]}
                     />
                     <Editor
+                        kind="room-type"
+                        title="Jenis tipe kamar per gedung"
+                        rows={orderedBuildings.flatMap((building) =>
+                            (building.room_types ?? []).map((type) => ({
+                                gedung_id: building.id,
+                                type: type.type,
+                                enabled: type.enabled ? 1 : 0,
+                                max_capacity: type.max_capacity,
+                                facilities: type.facilities,
+                            })),
+                        )}
+                        buildings={orderedBuildings}
+                        fields={[
+                            buildingField,
+                            {
+                                name: 'type',
+                                label: 'Tipe',
+                                options: [
+                                    ['standar', 'Standar'],
+                                    ['medium', 'Medium'],
+                                    ['premium', 'Premium'],
+                                    ['umum', 'Umum'],
+                                    ['umum_vip', 'Umum VIP'],
+                                ],
+                            },
+                            {
+                                name: 'enabled',
+                                label: 'Tersedia',
+                                options: [
+                                    ['1', 'Ya'],
+                                    ['0', 'Tidak'],
+                                ],
+                            },
+                            {
+                                name: 'max_capacity',
+                                label: 'Kapasitas maksimal (orang)',
+                                type: 'number',
+                                optional: true,
+                            },
+                            {
+                                name: 'facilities',
+                                label: 'Fasilitas',
+                                optional: true,
+                            },
+                        ]}
+                    />
+                    <Editor
                         kind="rate"
                         title="Tarif gedung dan tipe kamar"
                         rows={residence_rates.filter((row) =>
@@ -1026,11 +1106,6 @@ export default function ResidenceManagement({
                                 name: 'room_amount',
                                 label: 'Tarif tahunan per kamar (Rp)',
                                 type: 'number',
-                                optional: true,
-                            },
-                            {
-                                name: 'facilities',
-                                label: 'Fasilitas per tipe kamar',
                                 optional: true,
                             },
                         ]}
@@ -1094,7 +1169,11 @@ export default function ResidenceManagement({
                         kind="building"
                         title="Kategori penghuni per gedung"
                         rows={orderedBuildings.map((b) => ({
-                            ...b,
+                            id: b.id,
+                            kode_gedung: b.kode_gedung,
+                            nama_gedung: b.nama_gedung,
+                            gender_peruntukan: b.gender_peruntukan ?? 'campur',
+                            allowed_categories: b.allowed_categories ?? [],
                             gedung_id: b.id,
                         }))}
                         buildings={orderedBuildings}

@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * @property list<string>|null $allowed_categories
+ * @property list<array{type: string, enabled: bool, max_capacity: int|null, facilities: string}>|null $room_types
  */
 class Gedung extends BaseModel
 {
@@ -19,11 +20,11 @@ class Gedung extends BaseModel
 
     protected $table = 'gedung';
 
-    protected $fillable = ['kode_gedung', 'nama_gedung', 'gender_peruntukan', 'alamat', 'deskripsi', 'foto', 'allowed_categories'];
+    protected $fillable = ['kode_gedung', 'nama_gedung', 'gender_peruntukan', 'alamat', 'deskripsi', 'foto', 'allowed_categories', 'room_types'];
 
     protected function casts(): array
     {
-        return ['allowed_categories' => 'array'];
+        return ['allowed_categories' => 'array', 'room_types' => 'array'];
     }
 
     public function lantai(): HasMany
