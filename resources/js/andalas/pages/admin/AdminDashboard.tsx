@@ -4,6 +4,8 @@ import {
     DonutChart,
     OccupancyChart,
     TrendAreaChart,
+    TrendBarChart,
+    TrendLineChart,
 } from '../../components/charts';
 import * as admin from '@/routes/admin';
 import * as layanan from '@/routes/admin_layanan';
@@ -65,6 +67,51 @@ export default function AdminDashboard({
                   100,
           )
         : 0;
+    const paymentTypes = Object.values(
+        pembayaran.reduce<Record<string, { jenis: string; jumlah: number }>>(
+            (result, item) => {
+                const jenis = item.jenis_pembayaran || 'Belum dikategorikan';
+                result[jenis] ??= { jenis, jumlah: 0 };
+                result[jenis].jumlah += 1;
+                return result;
+            },
+            {},
+        ),
+    );
+    const paymentActivity = Object.values(
+        pembayaran.reduce<
+            Record<
+                string,
+                {
+                    bulan: string;
+                    menunggu: number;
+                    terverifikasi: number;
+                    ditolak: number;
+                }
+            >
+        >((result, item) => {
+            if (!item.created_at) {
+                return result;
+            }
+            const bulan = item.created_at.slice(0, 7);
+            result[bulan] ??= {
+                bulan,
+                menunggu: 0,
+                terverifikasi: 0,
+                ditolak: 0,
+            };
+            if (item.status === 'menunggu_verifikasi') {
+                result[bulan].menunggu += 1;
+            }
+            if (item.status === 'terverifikasi') {
+                result[bulan].terverifikasi += 1;
+            }
+            if (item.status === 'ditolak') {
+                result[bulan].ditolak += 1;
+            }
+            return result;
+        }, {}),
+    ).sort((a, b) => a.bulan.localeCompare(b.bulan));
 
     const tableColumns = [
         {
@@ -201,6 +248,50 @@ export default function AdminDashboard({
                             },
                         ]}
                         valueFormatter={formatRupiah}
+                    />
+                </ChartCard>
+            </div>
+            <div className="grid gap-4 xl:grid-cols-2">
+                <ChartCard
+                    title="Jenis pembayaran"
+                    subtitle="Jumlah transaksi yang tercatat menurut jenis pembayaran"
+                >
+                    <TrendBarChart
+                        data={paymentTypes}
+                        xKey="jenis"
+                        series={[
+                            {
+                                key: 'jumlah',
+                                name: 'Jumlah transaksi',
+                                color: '#578cc8',
+                            },
+                        ]}
+                    />
+                </ChartCard>
+                <ChartCard
+                    title="Aktivitas pembayaran"
+                    subtitle="Jumlah transaksi per status dan bulan pencatatan"
+                >
+                    <TrendLineChart
+                        data={paymentActivity}
+                        xKey="bulan"
+                        series={[
+                            {
+                                key: 'terverifikasi',
+                                name: 'Terverifikasi',
+                                color: '#27745a',
+                            },
+                            {
+                                key: 'menunggu',
+                                name: 'Menunggu verifikasi',
+                                color: '#dbad4a',
+                            },
+                            {
+                                key: 'ditolak',
+                                name: 'Ditolak',
+                                color: '#bc6676',
+                            },
+                        ]}
                     />
                 </ChartCard>
             </div>

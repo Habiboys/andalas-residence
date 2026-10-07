@@ -118,6 +118,7 @@ const MAHASISWA_NAV: NavGroup[] = [
 ];
 
 const ADMIN_LAYANAN_NAV: NavGroup[] = [
+    { items: [{ label: 'Dashboard Layanan', page: 'dashboard', icon: Home }] },
     {
         items: [
             {
@@ -137,7 +138,6 @@ const ADMIN_LAYANAN_NAV: NavGroup[] = [
             { label: 'Invoice', page: 'invoices', icon: CreditCard },
         ],
     },
-    { items: [{ label: 'Dashboard Layanan', page: 'dashboard', icon: Home }] },
     {
         group: 'Layanan',
         items: [
@@ -204,6 +204,7 @@ const GO_NAV: NavGroup[] = [
 ];
 
 const FASILITATOR_NAV: NavGroup[] = [
+    { items: [{ label: 'Beranda', page: 'dashboard', icon: Home }] },
     {
         items: [
             {
@@ -213,7 +214,6 @@ const FASILITATOR_NAV: NavGroup[] = [
             },
         ],
     },
-    { items: [{ label: 'Beranda', page: 'dashboard', icon: Home }] },
     {
         group: 'Absensi',
         items: [
@@ -239,6 +239,7 @@ const FASILITATOR_NAV: NavGroup[] = [
 ];
 
 const ADMIN_NAV: NavGroup[] = [
+    { items: [{ label: 'Dashboard', page: 'dashboard', icon: Home }] },
     {
         items: [
             {
@@ -258,7 +259,6 @@ const ADMIN_NAV: NavGroup[] = [
             { label: 'Invoice', page: 'invoices', icon: CreditCard },
         ],
     },
-    { items: [{ label: 'Dashboard', page: 'dashboard', icon: Home }] },
     { items: [{ label: 'Data Master', page: 'master-data', icon: Database }] },
     {
         group: 'Operasional',

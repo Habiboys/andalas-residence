@@ -56,7 +56,12 @@ function useOptions(): ApexOptions {
             foreColor: dark ? '#cbd5e1' : '#64748b',
             fontFamily: 'DM Sans, sans-serif',
             toolbar: { show: false },
-            animations: { enabled: false },
+            animations: {
+                enabled: true,
+                speed: 650,
+                animateGradually: { enabled: true, delay: 120 },
+                dynamicAnimation: { enabled: true, speed: 400 },
+            },
             parentHeightOffset: 0,
         },
         theme: { mode: dark ? 'dark' : 'light' },

@@ -4,6 +4,25 @@ import { Badge, DataTable, Table, RowActions, StatusBadge } from './ui';
 import { roleBadgeClass } from '../shellMeta';
 import Sidebar from './Sidebar';
 
+it.each(['staff_admin', 'superadmin', 'admin_layanan', 'fasilitator'] as const)(
+    'puts the dashboard before residence management for %s',
+    (role) => {
+        const html = renderToStaticMarkup(
+            <Sidebar role={role} currentPage="dashboard" setPage={() => {}} />,
+        );
+        const dashboard =
+            role === 'admin_layanan'
+                ? 'Dashboard Layanan'
+                : role === 'fasilitator'
+                  ? 'Beranda'
+                  : 'Dashboard';
+        expect(html.indexOf(dashboard)).toBeGreaterThan(-1);
+        expect(html.indexOf(dashboard)).toBeLessThan(
+            html.indexOf('Hunian Sementara'),
+        );
+    },
+);
+
 it('gives legacy tables search filters sorting pagination and per-page controls', () => {
     const html = renderToStaticMarkup(
         <Table
