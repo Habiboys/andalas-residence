@@ -1,5 +1,6 @@
 import { Head, Link } from '@inertiajs/react';
-import { type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
+import { LayoutGrid, List } from 'lucide-react';
 import { show as buildingShow } from '@/routes/andalas/gedung';
 import { show as floorShow } from '@/routes/andalas/lantai';
 import { show as roomShow } from '@/routes/andalas/kamar';
@@ -203,6 +204,158 @@ function RoomTable({ rooms }: { rooms: Room[] }) {
             searchKeys={['nomor_kamar', 'tipe_kamar']}
             emptyMessage="Belum ada kamar tercatat."
         />
+    );
+}
+export function BuildingInventory({
+    floors,
+    initialView = 'table',
+}: {
+    floors: Floor[];
+    initialView?: 'grid' | 'table';
+}) {
+    const [view, setView] = useState(initialView);
+    const rooms = floors.flatMap((floor) => floor.kamar ?? []);
+    return (
+        <div className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                <h2 className="text-lg font-semibold">Lantai dan kamar</h2>
+                <div
+                    className="join"
+                    role="group"
+                    aria-label="Tampilan lantai dan kamar"
+                >
+                    {(['grid', 'table'] as const).map((mode) => (
+                        <button
+                            key={mode}
+                            type="button"
+                            aria-pressed={view === mode}
+                            onClick={() => setView(mode)}
+                            className={`btn btn-sm join-item ${view === mode ? 'btn-primary' : 'btn-ghost'}`}
+                        >
+                            {mode === 'grid' ? (
+                                <LayoutGrid
+                                    className="size-4"
+                                    aria-hidden="true"
+                                />
+                            ) : (
+                                <List className="size-4" aria-hidden="true" />
+                            )}
+                            {mode === 'grid' ? 'Grid' : 'Tabel'}
+                        </button>
+                    ))}
+                </div>
+            </div>
+            {view === 'table' ? (
+                <>
+                    <Section title="Lantai">
+                        <DataTable
+                            columns={[
+                                {
+                                    key: 'nama_lantai',
+                                    label: 'Lantai',
+                                    render: (floor) => (
+                                        <Link
+                                            className="link link-primary"
+                                            href={floorShow.url(floor.id)}
+                                        >
+                                            {floor.nama_lantai ||
+                                                `Lantai ${floor.nomor_lantai}`}
+                                        </Link>
+                                    ),
+                                },
+                                { key: 'room_count', label: 'Jumlah kamar' },
+                                { key: 'capacity', label: 'Kapasitas' },
+                                { key: 'occupants', label: 'Penghuni aktif' },
+                            ]}
+                            data={floors.map((floor) => ({
+                                ...floor,
+                                room_count: floor.kamar?.length ?? 0,
+                                capacity:
+                                    floor.kamar?.reduce(
+                                        (sum, room) => sum + room.kapasitas,
+                                        0,
+                                    ) ?? 0,
+                                occupants:
+                                    floor.kamar?.reduce(
+                                        (sum, room) =>
+                                            sum + (room.occupants_count ?? 0),
+                                        0,
+                                    ) ?? 0,
+                            }))}
+                            searchKeys={['nama_lantai']}
+                            emptyMessage="Belum ada lantai tercatat."
+                        />
+                    </Section>
+                    <Section title="Daftar kamar">
+                        <RoomTable rooms={rooms} />
+                    </Section>
+                </>
+            ) : floors.length ? (
+                floors.map((floor) => (
+                    <Section
+                        key={floor.id}
+                        title={
+                            floor.nama_lantai || `Lantai ${floor.nomor_lantai}`
+                        }
+                    >
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                            <Link
+                                className="link link-primary"
+                                href={floorShow.url(floor.id)}
+                            >
+                                Lihat detail lantai
+                            </Link>
+                            <span className="text-muted text-sm">
+                                {floor.kamar?.length ?? 0} kamar
+                            </span>
+                        </div>
+                        {floor.kamar?.length ? (
+                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                                {floor.kamar.map((room) => (
+                                    <div
+                                        key={room.id}
+                                        className="border-base-300 rounded-box space-y-3 border p-4"
+                                    >
+                                        <div className="flex flex-wrap items-center justify-between gap-2">
+                                            <Link
+                                                className="link link-primary font-semibold"
+                                                href={roomShow.url(room.id)}
+                                            >
+                                                Kamar {room.nomor_kamar}
+                                            </Link>
+                                            <StatusBadge status={room.status} />
+                                        </div>
+                                        <p className="text-muted text-sm">
+                                            {typeLabel(room.tipe_kamar)}
+                                        </p>
+                                        <Facts
+                                            values={[
+                                                [
+                                                    'Kapasitas',
+                                                    `${room.kapasitas} orang`,
+                                                ],
+                                                [
+                                                    'Penghuni aktif',
+                                                    room.occupants_count ?? 0,
+                                                ],
+                                                [
+                                                    'Data aset',
+                                                    room.aset_count ?? 0,
+                                                ],
+                                            ]}
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <p>Belum ada kamar tercatat.</p>
+                        )}
+                    </Section>
+                ))
+            ) : (
+                <p>Belum ada lantai tercatat.</p>
+            )}
+        </div>
     );
 }
 function AssetTable({ assets, link }: { assets: Asset[]; link: boolean }) {
@@ -507,35 +660,13 @@ export default function ResidenceDetail({
                             </div>
                         </Section>
                     )}
-                    {kind === 'building' && (
-                        <Section title="Lantai">
-                            <div className="divide-base-300 divide-y">
-                                {building.lantai?.length ? (
-                                    building.lantai.map((f) => (
-                                        <div
-                                            key={f.id}
-                                            className="flex items-center justify-between gap-4 py-3"
-                                        >
-                                            <Link
-                                                className="link link-primary"
-                                                href={floorShow.url(f.id)}
-                                            >
-                                                {f.nama_lantai}
-                                            </Link>
-                                            <span>
-                                                {f.kamar?.length ?? 0} kamar
-                                            </span>
-                                        </div>
-                                    ))
-                                ) : (
-                                    <p>Belum ada lantai tercatat.</p>
-                                )}
-                            </div>
+                    {kind === 'building' ? (
+                        <BuildingInventory floors={building.lantai ?? []} />
+                    ) : (
+                        <Section title="Daftar kamar">
+                            <RoomTable rooms={roomList} />
                         </Section>
                     )}
-                    <Section title="Daftar kamar">
-                        <RoomTable rooms={roomList} />
-                    </Section>
                     <Section title="Fasilitas umum">
                         <div className="divide-base-300 divide-y">
                             {(kind === 'building'

@@ -5,7 +5,7 @@ import { show as floorShow } from '@/routes/andalas/lantai';
 import { show as roomShow } from '@/routes/andalas/kamar';
 import { show as assetShow } from '@/routes/andalas/aset';
 import { show as residentShow } from '@/routes/andalas/mahasiswa';
-import ResidenceDetail from './residence-detail';
+import ResidenceDetail, { BuildingInventory } from './residence-detail';
 import KelolaBangunan from '@/andalas/pages/admin/KelolaBangunan';
 
 vi.mock('@inertiajs/react', async (importOriginal) => ({
@@ -34,6 +34,40 @@ const room = {
     kapasitas: 2,
     status: 'terisi_sebagian',
 };
+
+it.each(['grid', 'table'] as const)(
+    'shows linked floors and room occupancy in the %s building view',
+    (view) => {
+        const html = renderToStaticMarkup(
+            <BuildingInventory
+                initialView={view}
+                floors={[
+                    {
+                        ...floor,
+                        kamar: [{ ...room, occupants_count: 1, aset_count: 2 }],
+                    },
+                ]}
+            />,
+        );
+        expect(html).toContain('Tampilan lantai dan kamar');
+        expect(html).toContain('aria-pressed="true"');
+        expect(html).toContain(`href="${floorShow.url(floor.id)}"`);
+        expect(html).toContain(`href="${roomShow.url(room.id)}"`);
+        expect(html).toContain('Penghuni aktif');
+        expect(html).toContain('Data aset');
+        expect(html).toContain('101');
+    },
+);
+
+it.each(['grid', 'table'] as const)(
+    'shows an empty building in the %s view',
+    (view) => {
+        const html = renderToStaticMarkup(
+            <BuildingInventory initialView={view} floors={[]} />,
+        );
+        expect(html).toContain('Belum ada lantai tercatat.');
+    },
+);
 
 it('links room assets occupants and parent locations to separate detail pages', () => {
     const html = renderToStaticMarkup(
