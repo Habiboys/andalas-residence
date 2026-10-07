@@ -352,12 +352,7 @@ export default function ResidenceDetail({
     const managementBuilding = building
         ? {
               ...building,
-              lantai:
-                  kind === 'floor'
-                      ? [floor!]
-                      : kind === 'room'
-                        ? [{ ...floor!, kamar: [room!] }]
-                        : building.lantai,
+              lantai: kind === 'floor' ? [floor!] : building.lantai,
           }
         : null;
     const active =
@@ -684,7 +679,7 @@ export default function ResidenceDetail({
             )}
             {can_manage &&
                 managementBuilding &&
-                ['building', 'floor', 'room'].includes(kind) && (
+                ['building', 'floor'].includes(kind) && (
                     <Section title="Kelola lantai dan kamar">
                         <KelolaBangunan
                             gedung={[managementBuilding]}

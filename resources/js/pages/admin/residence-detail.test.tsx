@@ -42,6 +42,7 @@ it('links room assets occupants and parent locations to separate detail pages', 
             building={building}
             floor={floor}
             type_definition={building.room_types[0]}
+            can_manage
             can_view_assets
             can_view_residents
             room={{
@@ -82,6 +83,8 @@ it('links room assets occupants and parent locations to separate detail pages', 
     expect(html).toContain('Dipan, Lemari');
     expect(html).toContain('Penghuni Kamar');
     expect(html).toContain('INV-1');
+    expect(html).not.toContain('Kelola lantai dan kamar');
+    expect(html).not.toContain('Tambah Kamar');
 });
 
 it('shows empty inventory and placement states instead of claiming master facilities are installed', () => {
