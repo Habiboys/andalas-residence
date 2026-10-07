@@ -7,7 +7,7 @@ it.each([
     ['penugasan', 'Penugasan Fasilitator'],
     ['fakultas', 'Fakultas'],
     ['departemen', 'Departemen'],
-    ['prodi', 'Prodi'],
+    ['prodi', 'Program Studi'],
     ['periode', 'Periode'],
     ['provinsi', 'Provinsi'],
     ['kota', 'Kota / Kabupaten'],
@@ -16,8 +16,10 @@ it.each([
     'shows only the selected %s master section without tabs',
     (section, label) => {
         const html = renderToStaticMarkup(<MasterData section={section} />);
-        expect(html).toContain(`Data Master — ${label}`);
+        expect(html).not.toContain('Data Master —');
+        expect(html.match(/<h1/g)).toHaveLength(1);
         expect(html).toContain(`Tambah ${label}`);
+        expect(html).not.toContain('>Tambah</button>');
         expect(html).not.toContain('role="tab');
         expect(html.match(/<table/g)).toHaveLength(1);
     },

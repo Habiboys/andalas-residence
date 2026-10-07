@@ -507,63 +507,134 @@ export default function Sidebar({
                 className="no-scrollbar flex-1 space-y-4 overflow-y-auto px-3 py-4"
                 aria-label="Navigasi utama"
             >
-                {groups.map((g, gi) => (
-                    <div key={g.group ?? `group-${gi}`}>
-                        {g.group && !collapsed && (
-                            <p className="text-base-content/40 px-3 text-[10px] font-bold tracking-wider uppercase">
-                                {g.group}
-                            </p>
-                        )}
-                        <ul
-                            className={
-                                g.group && !collapsed
-                                    ? 'mt-1.5 space-y-0.5'
-                                    : 'space-y-0.5'
-                            }
-                        >
-                            {g.items.map((item) => {
-                                const active = currentPage === item.page;
-                                const Icon = item.icon;
-
-                                return (
-                                    <li key={item.page}>
-                                        <button
-                                            type="button"
-                                            onClick={() => setPage(item.page)}
-                                            title={
-                                                collapsed
-                                                    ? item.label
-                                                    : undefined
-                                            }
-                                            aria-current={
-                                                active ? 'page' : undefined
-                                            }
-                                            className={`flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-xs font-semibold transition-colors ${
-                                                collapsed
-                                                    ? 'justify-center px-2'
-                                                    : ''
-                                            } ${
-                                                active
-                                                    ? 'bg-primary text-primary-content shadow-xs'
-                                                    : 'text-base-content/80 hover:bg-base-200 hover:text-base-content'
-                                            }`}
-                                        >
-                                            <Icon
-                                                className="size-[18px] shrink-0"
-                                                aria-hidden="true"
-                                            />
-                                            {!collapsed && (
-                                                <span className="truncate">
-                                                    {item.label}
-                                                </span>
-                                            )}
-                                        </button>
-                                    </li>
-                                );
-                            })}
+                {groups.map((g, gi) =>
+                    g.group === 'Data Master' ? (
+                        <ul key={g.group} className="menu menu-sm w-full p-0">
+                            <li>
+                                <details
+                                    open={g.items.some(
+                                        (item) => item.page === currentPage,
+                                    )}
+                                >
+                                    <summary
+                                        title={
+                                            collapsed
+                                                ? 'Data Master'
+                                                : undefined
+                                        }
+                                        className="text-base-content/80 gap-3 py-2.5 font-semibold"
+                                    >
+                                        <Database
+                                            className="size-[18px] shrink-0"
+                                            aria-hidden="true"
+                                        />
+                                        {!collapsed && <span>Data Master</span>}
+                                    </summary>
+                                    <ul aria-label="Submenu Data Master">
+                                        {g.items.map((item) => {
+                                            const Icon = item.icon;
+                                            const active =
+                                                currentPage === item.page;
+                                            return (
+                                                <li key={item.page}>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() =>
+                                                            setPage(item.page)
+                                                        }
+                                                        title={
+                                                            collapsed
+                                                                ? item.label
+                                                                : undefined
+                                                        }
+                                                        aria-current={
+                                                            active
+                                                                ? 'page'
+                                                                : undefined
+                                                        }
+                                                        className={
+                                                            active
+                                                                ? 'menu-active bg-primary text-primary-content'
+                                                                : undefined
+                                                        }
+                                                    >
+                                                        <Icon
+                                                            className="size-4 shrink-0"
+                                                            aria-hidden="true"
+                                                        />
+                                                        {!collapsed && (
+                                                            <span className="whitespace-normal">
+                                                                {item.label}
+                                                            </span>
+                                                        )}
+                                                    </button>
+                                                </li>
+                                            );
+                                        })}
+                                    </ul>
+                                </details>
+                            </li>
                         </ul>
-                    </div>
-                ))}
+                    ) : (
+                        <div key={g.group ?? `group-${gi}`}>
+                            {g.group && !collapsed && (
+                                <p className="text-base-content/40 px-3 text-[10px] font-bold tracking-wider uppercase">
+                                    {g.group}
+                                </p>
+                            )}
+                            <ul
+                                className={
+                                    g.group && !collapsed
+                                        ? 'mt-1.5 space-y-0.5'
+                                        : 'space-y-0.5'
+                                }
+                            >
+                                {g.items.map((item) => {
+                                    const active = currentPage === item.page;
+                                    const Icon = item.icon;
+
+                                    return (
+                                        <li key={item.page}>
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    setPage(item.page)
+                                                }
+                                                title={
+                                                    collapsed
+                                                        ? item.label
+                                                        : undefined
+                                                }
+                                                aria-current={
+                                                    active ? 'page' : undefined
+                                                }
+                                                className={`flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-xs font-semibold transition-colors ${
+                                                    collapsed
+                                                        ? 'justify-center px-2'
+                                                        : ''
+                                                } ${
+                                                    active
+                                                        ? 'bg-primary text-primary-content shadow-xs'
+                                                        : 'text-base-content/80 hover:bg-base-200 hover:text-base-content'
+                                                }`}
+                                            >
+                                                <Icon
+                                                    className="size-[18px] shrink-0"
+                                                    aria-hidden="true"
+                                                />
+                                                {!collapsed && (
+                                                    <span className="truncate">
+                                                        {item.label}
+                                                    </span>
+                                                )}
+                                            </button>
+                                        </li>
+                                    );
+                                })}
+                            </ul>
+                        </div>
+                    ),
+                )}
             </nav>
         </aside>
     );

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useForm } from '@inertiajs/react';
 import {
     PageHeader,
@@ -92,7 +92,6 @@ interface SectionProps {
     fields: Field[];
     emptyMessage: string;
     rowLabel: (row: Row) => string;
-    registerAdd?: (fn: () => void) => void;
 }
 
 function MasterCrudSection({
@@ -106,7 +105,6 @@ function MasterCrudSection({
     fields,
     emptyMessage,
     rowLabel,
-    registerAdd,
 }: SectionProps) {
     const [open, setOpen] = useState(false);
     const [editing, setEditing] = useState<Row | null>(null);
@@ -120,11 +118,6 @@ function MasterCrudSection({
         errors,
     } = useForm<Record<string, string>>({});
     const deleteForm = useForm<Record<string, string>>({});
-
-    useEffect(() => {
-        registerAdd?.(openCreate);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [registerAdd]);
 
     function openCreate() {
         setEditing(null);
@@ -186,21 +179,11 @@ function MasterCrudSection({
 
     return (
         <section className="space-y-4">
-            <div>
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                        <h3 className="text-primary font-semibold dark:text-white">
-                            {title}
-                        </h3>
-                        <p className="text-muted dark:text-muted mt-0.5 text-xs">
-                            {subtitle}
-                        </p>
-                    </div>
-                    <Button size="sm" onClick={openCreate}>
-                        Tambah
-                    </Button>
-                </div>
-            </div>
+            <PageHeader
+                title={title}
+                subtitle={subtitle}
+                actions={<Button onClick={openCreate}>Tambah {title}</Button>}
+            />
 
             <DataTable
                 columns={[...columns, actionCol]}
@@ -388,10 +371,6 @@ export default function MasterData({
         'kategori',
     ];
     const tab = Math.max(sectionKeys.indexOf(section), 0);
-    const addFns = useRef<Array<() => void>>([]);
-    const registerAdd = (i: number) => (fn: () => void) => {
-        addFns.current[i] = fn;
-    };
 
     const fakultasOptions = fakultas.map((f) => ({
         value: String(f.id),
@@ -413,7 +392,6 @@ export default function MasterData({
                 <MasterCrudSection
                     title="Jenis Kegiatan"
                     subtitle="Lainnya menyediakan nama kegiatan bebas. Jenis yang sudah digunakan tetap disimpan untuk riwayat."
-                    registerAdd={registerAdd(0)}
                     data={jenis_kegiatan}
                     store={typeStore}
                     update={typeUpdate}
@@ -442,7 +420,6 @@ export default function MasterData({
                         nama: row.user.nama,
                         nama_gedung: row.gedung.nama_gedung,
                     }))}
-                    registerAdd={registerAdd(1)}
                     store={assignmentStore}
                     update={assignmentUpdate}
                     destroy={assignmentDestroy}
@@ -497,7 +474,6 @@ export default function MasterData({
                     destroy={fakultasDestroy}
                     emptyMessage="Belum ada fakultas"
                     rowLabel={(r) => valueToString(r.name)}
-                    registerAdd={registerAdd(2)}
                     fields={[
                         { key: 'name', label: 'Nama Fakultas', required: true },
                     ]}
@@ -520,7 +496,6 @@ export default function MasterData({
                     destroy={departemenDestroy}
                     emptyMessage="Belum ada departemen"
                     rowLabel={(r) => valueToString(r.name)}
-                    registerAdd={registerAdd(3)}
                     fields={[
                         {
                             key: 'faculty_id',
@@ -567,7 +542,6 @@ export default function MasterData({
                     destroy={prodiDestroy}
                     emptyMessage="Belum ada program studi"
                     rowLabel={(r) => valueToString(r.name)}
-                    registerAdd={registerAdd(4)}
                     fields={[
                         {
                             key: 'departemen_id',
@@ -616,7 +590,6 @@ export default function MasterData({
                     destroy={periodeDestroy}
                     emptyMessage="Belum ada periode"
                     rowLabel={(r) => valueToString(r.nama_periode)}
-                    registerAdd={registerAdd(5)}
                     fields={[
                         {
                             key: 'nama_periode',
@@ -685,7 +658,6 @@ export default function MasterData({
                     destroy={provinsiDestroy}
                     emptyMessage="Belum ada provinsi"
                     rowLabel={(r) => valueToString(r.name)}
-                    registerAdd={registerAdd(6)}
                     fields={[
                         { key: 'name', label: 'Nama Provinsi', required: true },
                     ]}
@@ -708,7 +680,6 @@ export default function MasterData({
                     destroy={kotaDestroy}
                     emptyMessage="Belum ada kota"
                     rowLabel={(r) => valueToString(r.name)}
-                    registerAdd={registerAdd(7)}
                     fields={[
                         {
                             key: 'province_id',
@@ -757,7 +728,6 @@ export default function MasterData({
                     destroy={kategoriDestroy}
                     emptyMessage="Belum ada kategori transaksi"
                     rowLabel={(r) => valueToString(r.nama_kategori)}
-                    registerAdd={registerAdd(8)}
                     fields={[
                         {
                             key: 'nama_kategori',
@@ -811,15 +781,6 @@ export default function MasterData({
 
     return (
         <div className="space-y-4">
-            <PageHeader
-                title={`Data Master — ${tabs[tab]?.label}`}
-                subtitle="Kelola data master sistem"
-                actions={
-                    <Button onClick={() => addFns.current[tab]?.()}>
-                        Tambah {tabs[tab]?.label}
-                    </Button>
-                }
-            />
             <section className="space-y-4">
                 <div key={section}>{tabs[tab]?.section}</div>
             </section>

@@ -4,6 +4,24 @@ import { Badge, DataTable, Table, RowActions, StatusBadge } from './ui';
 import { roleBadgeClass } from '../shellMeta';
 import Sidebar from './Sidebar';
 
+it('nests master pages beneath one expandable Data Master parent and opens the active submenu', () => {
+    const html = renderToStaticMarkup(
+        <Sidebar
+            role="staff_admin"
+            currentPage="master-data/fakultas"
+            setPage={() => {}}
+        />,
+    );
+    expect(html).toContain('<details open="">');
+    expect(html).toContain('<summary');
+    expect(html).toContain('Submenu Data Master');
+    expect(html).toContain('aria-current="page"');
+    expect(html.indexOf('<summary')).toBeLessThan(
+        html.indexOf('Submenu Data Master'),
+    );
+    expect(html).toContain('Penugasan Fasilitator');
+});
+
 it.each(['staff_admin', 'superadmin', 'admin_layanan', 'fasilitator'] as const)(
     'puts the dashboard before residence management for %s',
     (role) => {
