@@ -26,6 +26,13 @@ class RoomEligibility
         $category = $user->client_profile_category?->value;
         if ($user->mahasiswaProfil && app(ResidenceLifecycle::class)->isLocal($user->mahasiswaProfil)) {
             $category = app(ResidenceLifecycle::class)->isKipk($user->mahasiswaProfil) ? 'local_kipk' : 'local_non_kipk';
+            if (! app(ResidenceLifecycle::class)->isBinaan($user->mahasiswaProfil) && in_array('student', $building->allowed_categories ?? [], true)) {
+                $category = 'student';
+            }
+        }
+        if ($user->mahasiswaProfil?->residenceRegistrations()->where('stay_kind', 'summer_course')->whereNull('ended_at')->where('status', 'accepted')->exists()
+            && in_array('summer_course', $building->allowed_categories ?? [], true)) {
+            $category = 'summer_course';
         }
 
         return in_array(self::buildingGender($building), ['campur', $user->gender], true)

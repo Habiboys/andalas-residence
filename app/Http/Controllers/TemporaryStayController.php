@@ -34,9 +34,9 @@ class TemporaryStayController extends Controller
     {
         $data = $request->validate([
             'nama' => ['required', 'string', 'max:150'], 'nim_nip' => ['required', 'string', 'max:50'],
-            'email' => ['required', 'email', 'max:255'], 'gender' => ['required', 'in:laki_laki,perempuan'],
+            'email' => ['nullable', 'email', 'max:255'], 'gender' => ['required', 'in:laki_laki,perempuan'],
             'stay_kind' => ['required', 'in:summer_course,non_student'],
-            'client_profile_category' => ['required', 'in:local_non_kipk,international_student,non_student'],
+            'client_profile_category' => ['nullable', 'in:local_non_kipk,international_student,non_student'],
             'kamar_id' => ['required', 'uuid', 'exists:kamar,id'],
             'starts_at' => ['required', 'date', 'after_or_equal:today'],
             'ends_at' => ['required', 'date', 'after:starts_at'],
@@ -49,6 +49,7 @@ class TemporaryStayController extends Controller
         if ($data['stay_kind'] === 'non_student') {
             $data['client_profile_category'] = 'non_student';
         }
+        $data['client_profile_category'] ??= 'non_student';
         $create->handle($data, $request->user());
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Hunian sementara dan invoice berhasil dicatat.']);

@@ -16,5 +16,7 @@ it('keeps the temporary stay list visible and opens the structured entry sheet o
     expect(html).toContain('Catat penghuni');
     expect(html).toContain('Informasi penghuni');
     expect(html).toContain('Masa tinggal dan kamar');
+    expect(html).not.toContain('Email penghuni');
+    expect(html).not.toContain('Jenis peserta');
     expect(html).toContain('Belum ada data di sini');
 });

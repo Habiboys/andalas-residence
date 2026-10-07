@@ -3,13 +3,10 @@
 namespace Database\Seeders;
 
 use App\Enums\ClientProfileCategory;
-use App\Models\Gedung;
-use App\Models\Kamar;
 use App\Models\KategoriTransaksi;
 use App\Models\Kuesioner;
 use App\Models\KuesionerOpsi;
 use App\Models\KuesionerPertanyaan;
-use App\Models\Lantai;
 use App\Models\MahasiswaProfil;
 use App\Models\ParentStudentLink;
 use App\Models\Periode;
@@ -36,32 +33,13 @@ class DatabaseSeeder extends Seeder
         $this->call(UnandAcademicSeeder::class);
         $prodi = Prodi::where('code', '15-03-01')->firstOrFail();
 
-        $this->call(ResidenceBuildingSeeder::class);
+        $this->call(ResidenceMasterSeeder::class);
 
         $periode = Periode::firstOrCreate(['nama_periode' => '2025/2026 Ganjil'], [
             'status' => 'nonaktif',
             'tanggal_mulai' => '2025-08-01',
             'tanggal_selesai' => '2026-01-31',
         ]);
-
-        $gedung = Gedung::firstOrCreate(['kode_gedung' => 'A'], [
-            'nama_gedung' => 'RPX (A)',
-            'gender_peruntukan' => 'perempuan',
-            'alamat' => 'Kampus Limau Manis',
-        ]);
-
-        $lantai = Lantai::firstOrCreate(['gedung_id' => $gedung->id, 'nomor_lantai' => 1], [
-            'nama_lantai' => 'Lantai 1',
-        ]);
-
-        for ($i = 101; $i <= 110; $i++) {
-            Kamar::firstOrCreate(['lantai_id' => $lantai->id, 'nomor_kamar' => (string) $i], [
-                'kapasitas' => 2,
-                'status' => 'kosong',
-                'tipe_kamar' => 'standar',
-                'tarif_per_periode' => 1500000,
-            ]);
-        }
 
         KategoriTransaksi::firstOrCreate(['nama_kategori' => 'Pembayaran Sewa Asrama', 'tipe' => 'pemasukan']);
         KategoriTransaksi::firstOrCreate(['nama_kategori' => 'Operasional Gedung', 'tipe' => 'pengeluaran']);

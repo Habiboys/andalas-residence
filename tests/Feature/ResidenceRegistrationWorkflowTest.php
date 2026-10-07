@@ -373,6 +373,28 @@ it('allocates a combined invoice payment to the original invoice without duplica
     $this->assertDatabaseCount('pembayaran_tagihan', 1);
 });
 
+it('stores both invoice signatories and the uploaded administration signature in the issued snapshot', function () {
+    Queue::fake();
+    Storage::fake('local');
+    [$user, $profile, $period] = registrationStudent();
+    $registration = app(SubmitResidenceRegistration::class)->handle($profile, [
+        'periode_id' => $period->id, 'is_kipk' => false, 'preferences' => [['kamar_id' => registrationRoom()->id]],
+    ]);
+    $admin = registrationAdmin('pembayaran.verify');
+    $this->actingAs($admin)->post(route('andalas.invoice-groups.store'), [
+        'nomor' => 'INV-TTD-1', 'payer_type' => 'personal', 'invoice_ids' => [$registration->fresh()->tagihan_id],
+        'recipient' => 'Mitra', 'institution' => 'Universitas Andalas', 'subject' => 'Sewa asrama',
+        'bank' => 'BRI', 'account_number' => '123456', 'account_name' => 'Andalas Residence',
+        'due_date' => now()->addDays(7)->toDateString(), 'signer' => 'Pimpinan', 'administration_signer' => 'Petugas Administrasi',
+        'administration_signature' => UploadedFile::fake()->image('administrasi.png'),
+    ])->assertSessionHasNoErrors();
+    $group = InvoiceGroup::sole();
+    expect($group->snapshot['signer'])->toBe('Pimpinan');
+    expect($group->snapshot['administration_signer'])->toBe('Petugas Administrasi');
+    Storage::disk('local')->assertExists($group->snapshot['administration_signature_path']);
+    expect(Storage::disk('local')->get($group->path))->toStartWith('%PDF-');
+});
+
 it('lets a rejected applicant correct and resubmit while keeping the cancelled invoice history', function () {
     [$user, $profile, $period] = registrationStudent();
     $user->update(['client_profile_category' => ClientProfileCategory::LocalNonKipk]);

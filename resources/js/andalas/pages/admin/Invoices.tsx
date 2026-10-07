@@ -7,9 +7,9 @@ import {
     type DataColumn,
 } from '../../components/ui';
 import { Modal } from '../../components/atoms/Modal';
-import { CreditCard, Download, FilePlus2, Settings2 } from 'lucide-react';
+import { Download, FilePlus2, Settings2 } from 'lucide-react';
 import { settings } from '@/routes/andalas/invoices';
-import { store, download, pay } from '@/routes/andalas/invoice-groups';
+import { store, download } from '@/routes/andalas/invoice-groups';
 import { formatRupiah } from '../../lib/format';
 export type Invoice = {
     id: string;
@@ -147,104 +147,6 @@ function PaymentSettings({
         </Modal>
     );
 }
-function Allocate({
-    group,
-    invoices,
-    onClose,
-}: {
-    group: Group;
-    invoices: Invoice[];
-    onClose: () => void;
-}) {
-    const rows = invoices.filter((i) => group.invoice_ids.includes(i.id));
-    const form = useForm({
-        reference: '',
-        allocations: rows.map((i) => ({ tagihan_id: i.id, jumlah: '' })),
-    });
-    return (
-        <Modal
-            open
-            onClose={onClose}
-            title={`Catat pembayaran ${group.nomor}`}
-            width="max-w-3xl"
-        >
-            <form
-                className="space-y-3"
-                onSubmit={(e) => {
-                    e.preventDefault();
-                    form.transform((d) => ({
-                        ...d,
-                        allocations: d.allocations.filter(
-                            (a) => Number(a.jumlah) > 0,
-                        ),
-                    }));
-                    form.post(pay.url({ group: group.id }), {
-                        preserveScroll: true,
-                        onSuccess: onClose,
-                    });
-                }}
-            >
-                <label className="block space-y-1 text-sm">
-                    <span>Referensi pembayaran bank</span>
-                    <input
-                        className={inputClass}
-                        required
-                        value={form.data.reference}
-                        onChange={(e) =>
-                            form.setData('reference', e.target.value)
-                        }
-                    />
-                </label>
-                {rows.map((row, index) => (
-                    <label key={row.id} className="block space-y-1 text-sm">
-                        <span>
-                            {row.mahasiswa?.user?.nama} · sisa{' '}
-                            {formatRupiah(remaining(row, group.payer_type))}
-                        </span>
-                        <input
-                            className={inputClass}
-                            aria-label={`Alokasi ${row.nomor}`}
-                            type="number"
-                            min="0"
-                            max={remaining(row, group.payer_type)}
-                            value={form.data.allocations[index].jumlah}
-                            onChange={(e) =>
-                                form.setData(
-                                    'allocations',
-                                    form.data.allocations.map((a, n) =>
-                                        n === index
-                                            ? { ...a, jumlah: e.target.value }
-                                            : a,
-                                    ),
-                                )
-                            }
-                        />
-                    </label>
-                ))}
-                {Object.values(form.errors).map((e, i) => (
-                    <p key={i} role="alert" className="text-error text-sm">
-                        {e}
-                    </p>
-                ))}
-                <div className="modal-action mt-0">
-                    <button
-                        type="button"
-                        className="btn btn-ghost"
-                        onClick={onClose}
-                    >
-                        Batal
-                    </button>
-                    <button
-                        className="btn btn-primary"
-                        disabled={form.processing}
-                    >
-                        Catat pembayaran terverifikasi
-                    </button>
-                </div>
-            </form>
-        </Modal>
-    );
-}
 export default function Invoices({
     billing = [],
     groups = [],
@@ -257,7 +159,6 @@ export default function Invoices({
     usePoll(5000, { only: ['billing', 'groups', 'virtual_accounts'] });
     const [payer, setPayer] = useState('personal');
     const [edit, setEdit] = useState<string | null>(null);
-    const [allocation, setAllocation] = useState<string | null>(null);
     const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
     const form = useForm({
         nomor: '',
@@ -271,6 +172,8 @@ export default function Invoices({
         account_name: '',
         due_date: '',
         signer: '',
+        administration_signer: '',
+        administration_signature: null as File | null,
         signature: null as File | null,
     });
     const invoiceStatus = (i: Invoice) =>
@@ -375,7 +278,7 @@ export default function Invoices({
             },
             render: (row) => (
                 <span
-                    className={`badge badge-sm ${
+                    className={`badge badge-sm h-auto shrink-0 px-2 py-1 whitespace-nowrap ${
                         row.status === 'lunas'
                             ? 'badge-success'
                             : row.status === 'batal'
@@ -469,21 +372,11 @@ export default function Invoices({
                     >
                         <Download className="size-4" aria-hidden="true" />
                     </a>
-                    <button
-                        type="button"
-                        className="btn btn-ghost btn-xs btn-square"
-                        onClick={() => setAllocation(invoiceGroup.id)}
-                        aria-label={`Catat pembayaran ${invoiceGroup.nomor}`}
-                        title="Catat pembayaran"
-                    >
-                        <CreditCard className="size-4" aria-hidden="true" />
-                    </button>
                 </div>
             ),
         },
     ];
     const selected = billing.find((i) => i.id === edit);
-    const group = groups.find((g) => g.id === allocation);
     const resetInvoiceForm = () => {
         form.setData({
             nomor: '',
@@ -497,6 +390,8 @@ export default function Invoices({
             account_name: '',
             due_date: '',
             signer: '',
+            administration_signer: '',
+            administration_signature: null,
             signature: null,
         });
         form.clearErrors();
@@ -505,17 +400,9 @@ export default function Invoices({
         <div className="space-y-5">
             <PageHeader
                 title="Invoice"
-                subtitle="Tagihan pribadi dan piutang penanggung biaya diperbarui setiap lima detik."
+                subtitle="Pilih tagihan yang akan digabungkan, lalu terbitkan invoice PDF."
             />
-            <section className="space-y-3" aria-labelledby="daftar-invoice">
-                <div>
-                    <h2 id="daftar-invoice" className="text-lg font-semibold">
-                        Daftar invoice
-                    </h2>
-                    <p className="text-base-content/60 text-sm">
-                        Pilih invoice yang akan digabungkan, lalu terbitkan PDF.
-                    </p>
-                </div>
+            <section className="space-y-3" aria-label="Daftar invoice">
                 <DataTable
                     columns={invoiceColumns}
                     data={invoiceRows}
@@ -705,6 +592,35 @@ export default function Invoices({
                                     }
                                 />
                             </label>
+                            <label className="space-y-1 text-sm">
+                                <span>Nama administrasi Andalas Residence</span>
+                                <input
+                                    className={inputClass}
+                                    value={form.data.administration_signer}
+                                    onChange={(event) =>
+                                        form.setData(
+                                            'administration_signer',
+                                            event.target.value,
+                                        )
+                                    }
+                                />
+                            </label>
+                            <label className="space-y-1 text-sm">
+                                <span>
+                                    Tanda tangan administrasi (opsional)
+                                </span>
+                                <input
+                                    className="file-input file-input-bordered w-full"
+                                    type="file"
+                                    accept=".png,.jpg,.jpeg"
+                                    onChange={(event) =>
+                                        form.setData(
+                                            'administration_signature',
+                                            event.target.files?.[0] ?? null,
+                                        )
+                                    }
+                                />
+                            </label>
                         </div>
                     </section>
                     <div className="space-y-1">
@@ -746,8 +662,7 @@ export default function Invoices({
                         Arsip invoice gabungan
                     </h2>
                     <p className="text-base-content/60 text-sm">
-                        Unduh dokumen atau catat pembayaran invoice yang sudah
-                        diterbitkan.
+                        Unduh invoice gabungan yang sudah diterbitkan.
                     </p>
                 </div>
                 <DataTable
@@ -764,14 +679,6 @@ export default function Invoices({
                     emptyMessage="Belum ada invoice gabungan."
                 />
             </section>
-            {group && (
-                <Allocate
-                    key={group.id}
-                    group={group}
-                    invoices={billing}
-                    onClose={() => setAllocation(null)}
-                />
-            )}
         </div>
     );
 }

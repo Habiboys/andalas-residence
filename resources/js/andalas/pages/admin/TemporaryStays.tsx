@@ -43,10 +43,8 @@ export default function TemporaryStays({
     const form = useForm({
         nama: '',
         nim_nip: '',
-        email: '',
         gender: '',
         stay_kind: facilitator ? 'non_student' : 'summer_course',
-        client_profile_category: 'non_student',
         kamar_id: '',
         starts_at: '',
         ends_at: '',
@@ -135,8 +133,8 @@ export default function TemporaryStays({
                                 Informasi penghuni
                             </h3>
                             <p className="text-muted text-sm">
-                                Gunakan identitas dan email yang sama jika
-                                penghuni sudah memiliki akun.
+                                Gunakan identitas yang sama jika penghuni sudah
+                                memiliki akun.
                             </p>
                         </div>
                         {!facilitator && (
@@ -161,46 +159,17 @@ export default function TemporaryStays({
                                 </select>
                             </label>
                         )}
-                        {!facilitator &&
-                            form.data.stay_kind === 'summer_course' && (
-                                <label>
-                                    Jenis peserta
-                                    <select
-                                        className={inputClass}
-                                        value={
-                                            form.data.client_profile_category
-                                        }
-                                        onChange={(e) =>
-                                            form.setData(
-                                                'client_profile_category',
-                                                e.target.value,
-                                            )
-                                        }
-                                    >
-                                        <option value="non_student">
-                                            Nonmahasiswa
-                                        </option>
-                                        <option value="local_non_kipk">
-                                            Mahasiswa lokal
-                                        </option>
-                                        <option value="international_student">
-                                            Mahasiswa internasional
-                                        </option>
-                                    </select>
-                                </label>
-                            )}
-                        {(['nama', 'nim_nip', 'email'] as const).map((key) => (
+                        {(['nama', 'nim_nip'] as const).map((key) => (
                             <label key={key}>
                                 {
                                     {
                                         nama: 'Nama lengkap',
                                         nim_nip: 'NIM / NIK / paspor',
-                                        email: 'Email penghuni',
                                     }[key]
                                 }
                                 <input
                                     className={inputClass}
-                                    type={key === 'email' ? 'email' : 'text'}
+                                    type="text"
                                     required
                                     value={form.data[key]}
                                     onChange={(e) =>

@@ -54,6 +54,8 @@ class InvoiceController extends Controller
             'account_number' => ['required', 'string', 'max:100'], 'account_name' => ['required', 'string', 'max:255'],
             'due_date' => ['required', 'date', 'after_or_equal:today'], 'signer' => ['required', 'string', 'max:255'],
             'signature' => ['nullable', 'image', 'mimes:png,jpg,jpeg', 'max:2048'],
+            'administration_signer' => ['nullable', 'string', 'max:255'],
+            'administration_signature' => ['nullable', 'image', 'mimes:png,jpg,jpeg', 'max:2048'],
         ]);
         DB::transaction(function () use ($request, $data): void {
             $invoices = Tagihan::with('mahasiswa.user')->whereIn('id', $data['invoice_ids'])->orderBy('id')->lockForUpdate()->get();
@@ -65,9 +67,12 @@ class InvoiceController extends Controller
                 }
                 $rows[] = ['id' => $invoice->id, 'nomor' => $invoice->nomor, 'nama' => $invoice->mahasiswa->user->nama, 'nim' => $invoice->mahasiswa->user->nim_nip, 'residence' => $invoice->residence_snapshot, 'amount' => $remaining];
             }
-            $snapshot = [...array_diff_key($data, array_flip(['invoice_ids', 'signature'])), 'date' => now()->timezone('Asia/Jakarta')->toDateString(), 'rows' => $rows, 'total' => array_sum(array_column($rows, 'amount'))];
+            $snapshot = [...array_diff_key($data, array_flip(['invoice_ids', 'signature', 'administration_signature'])), 'date' => now()->timezone('Asia/Jakarta')->toDateString(), 'rows' => $rows, 'total' => array_sum(array_column($rows, 'amount'))];
             if ($request->hasFile('signature')) {
                 $snapshot['signature_path'] = $request->file('signature')->store('documents/invoice-signatures', 'local');
+            }
+            if ($request->hasFile('administration_signature')) {
+                $snapshot['administration_signature_path'] = $request->file('administration_signature')->store('documents/invoice-signatures', 'local');
             }
             $group = InvoiceGroup::create(['nomor' => $data['nomor'], 'payer_type' => $data['payer_type'], 'invoice_ids' => $data['invoice_ids'], 'snapshot' => $snapshot, 'created_by' => $request->user()->id]);
             $path = 'documents/invoice-groups/'.$group->id.'.pdf';

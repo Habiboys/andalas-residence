@@ -1,5 +1,10 @@
 import { router, useForm } from '@inertiajs/react';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
+import { formatRupiah } from '../../lib/format';
+import {
+    importMethod as importKipk,
+    template as kipkTemplate,
+} from '@/routes/andalas/kipk-recipients';
 import {
     PageHeader,
     ConfirmDialog,
@@ -36,6 +41,7 @@ type Props = {
     legacy_rates?: Row[];
     kipk_recipients?: Row[];
     residence_rates?: Row[];
+    rooms?: Row[];
 };
 type Field = {
     name: string;
@@ -50,7 +56,9 @@ const categories: Array<[string, string]> = [
     ['local_non_kipk', 'Lokal non-KIP-K'],
     ['international_student', 'Internasional/S2/S3 pribadi'],
     ['international_free_facility', 'Internasional/S2/S3 ditanggung'],
+    ['student', 'Mahasiswa S1 non-maba'],
     ['non_student', 'Non-mahasiswa'],
+    ['summer_course', 'Summer Course'],
 ];
 const earliestHistoricalCohortYear = 1950;
 const latestHistoricalCohortYear = 2100;
@@ -184,12 +192,14 @@ function Editor({
     fields,
     rows,
     buildings,
+    actions,
 }: {
     kind: string;
     title: string;
     fields: Field[];
     rows: Row[];
     buildings: Building[];
+    actions?: ReactNode;
 }) {
     const initial: Record<string, string | string[]> = Object.fromEntries(
         fields.map((field) => [
@@ -226,6 +236,14 @@ function Editor({
             Object.fromEntries(
                 fields.map((field) => {
                     const value = row[field.name];
+                    if (field.type === 'number') {
+                        return [
+                            field.name,
+                            value === null || value === undefined
+                                ? ''
+                                : String(Number(value)),
+                        ];
+                    }
                     if (field.type === 'categories') {
                         return [field.name, Array.isArray(value) ? value : []];
                     }
@@ -296,6 +314,18 @@ function Editor({
                 }
 
                 const value = row[field.name];
+                if (
+                    [
+                        'amount',
+                        'jumlah',
+                        'student_amount',
+                        'room_amount',
+                    ].includes(field.name) &&
+                    value !== null &&
+                    value !== undefined
+                ) {
+                    return formatRupiah(Number(value));
+                }
 
                 return Array.isArray(value)
                     ? value.join(', ')
@@ -311,6 +341,18 @@ function Editor({
                 }
 
                 const value = row[field.name];
+                if (
+                    [
+                        'amount',
+                        'jumlah',
+                        'student_amount',
+                        'room_amount',
+                    ].includes(field.name) &&
+                    value !== null &&
+                    value !== undefined
+                ) {
+                    return formatRupiah(Number(value));
+                }
 
                 return Array.isArray(value)
                     ? value.join(', ')
@@ -332,27 +374,35 @@ function Editor({
                     >
                         <Pencil className="size-4" aria-hidden="true" />
                     </button>
-                    <button
-                        type="button"
-                        className="btn btn-ghost btn-xs btn-square text-error"
-                        onClick={() => setDeleteTarget(row)}
-                        aria-label={`Hapus ${title}`}
-                        title="Hapus"
-                    >
-                        <Trash2 className="size-4" aria-hidden="true" />
-                    </button>
+                    {kind !== 'room' && (
+                        <button
+                            type="button"
+                            className="btn btn-ghost btn-xs btn-square text-error"
+                            onClick={() => setDeleteTarget(row)}
+                            aria-label={`Hapus ${title}`}
+                            title="Hapus"
+                        >
+                            <Trash2 className="size-4" aria-hidden="true" />
+                        </button>
+                    )}
                 </div>
             ),
         },
     ];
 
     return (
-        <section className="space-y-4">
+        <section className="border-base-300 space-y-4 border-t pt-8">
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="text-lg font-semibold">{title}</h2>
-                <button className="btn btn-primary btn-sm" onClick={openCreate}>
-                    Tambah data
-                </button>
+                <div className="flex flex-wrap items-center gap-3">
+                    {actions}
+                    <button
+                        className="btn btn-primary btn-sm"
+                        onClick={openCreate}
+                    >
+                        Tambah data
+                    </button>
+                </div>
             </div>
             <DataTable
                 columns={columns}
@@ -499,14 +549,37 @@ function Editor({
                                 ) : (
                                     <input
                                         className={inputClass}
-                                        type={field.type ?? 'text'}
+                                        type={
+                                            field.type === 'number'
+                                                ? 'text'
+                                                : (field.type ?? 'text')
+                                        }
+                                        inputMode={
+                                            field.type === 'number'
+                                                ? 'numeric'
+                                                : undefined
+                                        }
+                                        pattern={
+                                            field.type === 'number'
+                                                ? '[0-9]+'
+                                                : undefined
+                                        }
                                         value={String(
                                             form.data[field.name] ?? '',
                                         )}
                                         onChange={(event) =>
                                             form.setData(
                                                 field.name,
-                                                event.target.value,
+                                                field.type === 'number' &&
+                                                    !/^[0-9]*$/.test(
+                                                        event.target.value,
+                                                    )
+                                                    ? String(
+                                                          form.data[
+                                                              field.name
+                                                          ] ?? '',
+                                                      )
+                                                    : event.target.value,
                                             )
                                         }
                                         required={!field.optional}
@@ -564,9 +637,12 @@ export default function ResidenceManagement({
     legacy_rates = [],
     kipk_recipients = [],
     residence_rates = [],
+    rooms = [],
 }: Props) {
     const [tab, setTab] = useState('legacy');
     const [importModalOpen, setImportModalOpen] = useState(false);
+    const [kipkImportOpen, setKipkImportOpen] = useState(false);
+    const kipkUpload = useForm({ file: null as File | null });
     const upload = useForm({ file: null as File | null });
     const closeImportModal = () => {
         setImportModalOpen(false);
@@ -625,6 +701,70 @@ export default function ResidenceManagement({
                 title="Pengaturan Layanan"
                 subtitle="Arsip alumni, tarif, penerimaan, dan kategori penghuni."
             />
+            <Modal
+                open={kipkImportOpen}
+                onClose={() => {
+                    setKipkImportOpen(false);
+                    kipkUpload.reset();
+                    kipkUpload.clearErrors();
+                }}
+                title="Impor penerima KIP-K"
+            >
+                <form
+                    className="space-y-4"
+                    onSubmit={(event) => {
+                        event.preventDefault();
+                        kipkUpload.post(importKipk.url(), {
+                            onSuccess: () => {
+                                setKipkImportOpen(false);
+                                kipkUpload.reset();
+                            },
+                        });
+                    }}
+                >
+                    <p>
+                        Gunakan dua kolom nama dan nim, satu sheet, maksimal 500
+                        baris. Impor ulang memperbarui nama berdasarkan NIM.
+                    </p>
+                    <a className="link link-primary" href={kipkTemplate.url()}>
+                        Unduh template Excel
+                    </a>
+                    <input
+                        className="file-input w-full"
+                        type="file"
+                        required
+                        accept=".xlsx,.xls,.csv"
+                        onChange={(event) =>
+                            kipkUpload.setData(
+                                'file',
+                                event.target.files?.[0] ?? null,
+                            )
+                        }
+                    />
+                    {kipkUpload.errors.file && (
+                        <p role="alert" className="text-error">
+                            {kipkUpload.errors.file}
+                        </p>
+                    )}
+                    <div className="flex justify-end gap-3">
+                        <button
+                            type="button"
+                            className="btn btn-ghost"
+                            onClick={() => setKipkImportOpen(false)}
+                        >
+                            Batal
+                        </button>
+                        <button
+                            className="btn btn-primary"
+                            disabled={
+                                kipkUpload.processing || !kipkUpload.data.file
+                            }
+                        >
+                            Impor
+                        </button>
+                    </div>
+                </form>
+            </Modal>
             <div className="flex flex-wrap gap-2">
                 {[
                     ['legacy', 'Bebas asrama'],
@@ -665,6 +805,21 @@ export default function ResidenceManagement({
                     <Editor
                         kind="legacy"
                         title="Arsip alumni yang sudah check-out (angkatan 2025 dan sebelumnya)"
+                        actions={
+                            <div>
+                                <button
+                                    type="button"
+                                    className="btn btn-outline btn-sm"
+                                    onClick={() => setImportModalOpen(true)}
+                                >
+                                    <FileUp
+                                        className="size-4"
+                                        aria-hidden="true"
+                                    />
+                                    Impor arsip alumni
+                                </button>
+                            </div>
+                        }
                         fields={[
                             { name: 'nama', label: 'Nama' },
                             { name: 'nim', label: 'NIM' },
@@ -675,16 +830,6 @@ export default function ResidenceManagement({
                         )}
                         buildings={orderedBuildings}
                     />
-                    <div className="flex justify-end">
-                        <button
-                            type="button"
-                            className="btn btn-outline btn-sm"
-                            onClick={() => setImportModalOpen(true)}
-                        >
-                            <FileUp className="size-4" aria-hidden="true" />
-                            Impor arsip alumni
-                        </button>
-                    </div>
                     <Modal
                         open={importModalOpen}
                         onClose={closeImportModal}
@@ -821,6 +966,15 @@ export default function ResidenceManagement({
                     <Editor
                         kind="kipk"
                         title="Penerima KIP-K"
+                        actions={
+                            <button
+                                className="btn btn-outline btn-sm"
+                                onClick={() => setKipkImportOpen(true)}
+                            >
+                                <FileUp className="size-4" />
+                                Impor Excel
+                            </button>
+                        }
                         rows={kipk_recipients}
                         buildings={orderedBuildings}
                         fields={[
@@ -844,6 +998,8 @@ export default function ResidenceManagement({
                                     ['standar', 'Standar'],
                                     ['medium', 'Medium'],
                                     ['premium', 'Premium'],
+                                    ['umum', 'Umum'],
+                                    ['umum_vip', 'Umum VIP'],
                                 ],
                             },
                             {
@@ -861,9 +1017,76 @@ export default function ResidenceManagement({
                                 type: 'number',
                             },
                             {
+                                name: 'student_amount',
+                                label: 'Tarif harian mahasiswa (Rp)',
+                                type: 'number',
+                                optional: true,
+                            },
+                            {
+                                name: 'room_amount',
+                                label: 'Tarif tahunan per kamar (Rp)',
+                                type: 'number',
+                                optional: true,
+                            },
+                            {
                                 name: 'facilities',
                                 label: 'Fasilitas per tipe kamar',
                                 optional: true,
+                            },
+                        ]}
+                    />
+                    <Editor
+                        kind="room"
+                        title="Nomor dan kondisi kamar"
+                        rows={rooms.filter((row) =>
+                            visibleBuildingIds.has(String(row.gedung_id ?? '')),
+                        )}
+                        buildings={orderedBuildings}
+                        fields={[
+                            {
+                                name: 'id',
+                                label: 'ID',
+                                hidden: true,
+                                optional: true,
+                            },
+                            buildingField,
+                            {
+                                name: 'nomor_lantai',
+                                label: 'Lantai',
+                                type: 'number',
+                            },
+                            { name: 'nomor_kamar', label: 'Nomor kamar' },
+                            {
+                                name: 'tipe_kamar',
+                                label: 'Tipe',
+                                options: [
+                                    ['standar', 'Standar'],
+                                    ['medium', 'Medium'],
+                                    ['premium', 'Premium'],
+                                    ['umum', 'Umum'],
+                                    ['umum_vip', 'Umum VIP'],
+                                ],
+                            },
+                            {
+                                name: 'kapasitas',
+                                label: 'Kapasitas',
+                                type: 'number',
+                            },
+                            {
+                                name: 'status',
+                                label: 'Kondisi',
+                                options: [
+                                    [
+                                        'kosong',
+                                        'Siap digunakan (status hunian otomatis)',
+                                    ],
+                                    [
+                                        'terisi_sebagian',
+                                        'Terisi sebagian (otomatis)',
+                                    ],
+                                    ['penuh', 'Penuh (otomatis)'],
+                                    ['maintenance', 'Rusak / tidak tersedia'],
+                                ],
                             },
                         ]}
                     />
@@ -876,7 +1099,26 @@ export default function ResidenceManagement({
                         }))}
                         buildings={orderedBuildings}
                         fields={[
-                            buildingField,
+                            { ...buildingField, optional: true },
+                            {
+                                name: 'kode_gedung',
+                                label: 'Kode gedung baru / kode gedung',
+                                optional: true,
+                            },
+                            {
+                                name: 'nama_gedung',
+                                label: 'Nama gedung',
+                                optional: true,
+                            },
+                            {
+                                name: 'gender_peruntukan',
+                                label: 'Peruntukan',
+                                options: [
+                                    ['campur', 'Campur'],
+                                    ['perempuan', 'Perempuan'],
+                                    ['laki_laki', 'Laki-laki'],
+                                ],
+                            },
                             {
                                 name: 'allowed_categories',
                                 label: 'Kategori yang diizinkan',

@@ -31,6 +31,28 @@ function temporaryStayFixture(): array
     return compact('admin', 'facilitator', 'building', 'room', 'data');
 }
 
+it('records a temporary guest without requesting email or participant category', function () {
+    $this->travelTo(now()->setDate(2026, 9, 26));
+    $this->seed(RolePermissionSeeder::class);
+    $f = temporaryStayFixture();
+    unset($f['data']['email'], $f['data']['client_profile_category']);
+    $this->actingAs($f['admin'])->post(route('andalas.temporary-stays.store'), $f['data'])->assertSessionHasNoErrors();
+    $stay = ResidenceRegistration::sole();
+    expect($stay->studentProfile->user->nama)->toBe('Peserta');
+    expect($stay->studentProfile->user->email)->toEndWith('@guest.invalid');
+    expect((float) $stay->tagihan->total)->toBe(200000.0);
+});
+
+it('uses the general daily tariff and separates student and nonstudent amounts', function (string $category, float $expected) {
+    $this->travelTo(now()->setDate(2026, 9, 26));
+    $this->seed(RolePermissionSeeder::class);
+    $f = temporaryStayFixture();
+    ResidenceRate::query()->delete();
+    ResidenceRate::create(['gedung_id' => $f['building']->id, 'tipe_kamar' => 'umum', 'unit' => 'day', 'amount' => 100000, 'student_amount' => 75000]);
+    $this->actingAs($f['admin'])->post(route('andalas.temporary-stays.store'), [...$f['data'], 'nim_nip' => '2612345678', 'client_profile_category' => $category])->assertSessionHasNoErrors();
+    expect((float) ResidenceRegistration::sole()->tagihan->total)->toBe($expected);
+})->with(['student' => ['local_non_kipk', 150000.0], 'nonstudent' => ['non_student', 200000.0]]);
+
 it('creates a daily invoice and releases the bed exactly once without erasing debt', function () {
     $this->travelTo(now()->setDate(2026, 9, 26));
     $this->seed(RolePermissionSeeder::class);

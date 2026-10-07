@@ -45,11 +45,11 @@ class CreateTemporaryStay
                     throw ValidationException::withMessages(['nim_nip' => 'Penghuni masih mempunyai hunian atau pendaftaran berjalan.']);
                 }
             } else {
-                if (User::where('email', $data['email'])->exists()) {
+                if (! empty($data['email']) && User::where('email', $data['email'])->exists()) {
                     throw ValidationException::withMessages(['email' => 'Email sudah digunakan oleh identitas lain.']);
                 }
                 $user = User::create([
-                    'nama' => $data['nama'], 'nim_nip' => $data['nim_nip'], 'email' => $data['email'],
+                    'nama' => $data['nama'], 'nim_nip' => $data['nim_nip'], 'email' => $data['email'] ?? ('guest-'.Str::uuid().'@guest.invalid'),
                     'password' => Str::password(32), 'gender' => $data['gender'],
                     'status' => 'aktif', 'client_profile_category' => $data['client_profile_category'],
                 ]);

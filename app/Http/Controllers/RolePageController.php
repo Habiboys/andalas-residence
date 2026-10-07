@@ -86,6 +86,7 @@ class RolePageController extends Controller
                 'legacy_rates' => LegacyResidenceRate::orderBy('angkatan')->get(),
                 'kipk_recipients' => KipkRecipient::orderByDesc('angkatan')->get(),
                 'residence_rates' => ResidenceRate::all(),
+                'rooms' => Kamar::with('lantai.gedung')->get()->map(fn (Kamar $room): array => [...$room->toArray(), 'gedung_id' => $room->lantai->gedung_id, 'nomor_lantai' => $room->lantai->nomor_lantai]),
             ],
             'invoices' => [
                 'billing' => Tagihan::with(['mahasiswa.user', 'mahasiswa.prodi', 'jadwalCicilan', 'dokumen'])->latest()->get(),

@@ -183,6 +183,8 @@ Route::middleware(['auth', 'verified', EnsureResidenceAccountAccess::class])->gr
         Route::post('/residence-management/{kind}', [ResidenceManagementController::class, 'save'])->name('residence-management.save');
         Route::delete('/residence-management/{kind}', [ResidenceManagementController::class, 'destroy'])->name('residence-management.destroy');
         Route::post('/legacy-residents/import', [ResidenceManagementController::class, 'import'])->name('legacy-residents.import');
+        Route::post('/kipk-recipients/import', [ResidenceManagementController::class, 'importKipk'])->name('kipk-recipients.import');
+        Route::get('/kipk-recipients/template', [ResidenceManagementController::class, 'kipkTemplate'])->name('kipk-recipients.template');
         Route::post('/registrations/{registration}/sponsor', [ResidenceManagementController::class, 'approveSponsor'])->name('registrations.sponsor');
         Route::put('/invoices/{tagihan}/payment-settings', [InvoiceController::class, 'paymentSettings'])->name('invoices.settings');
         Route::post('/invoice-groups', [InvoiceController::class, 'store'])->name('invoice-groups.store');

@@ -982,6 +982,8 @@ export default function KelolaBangunan({ gedung }: Props) {
                             <option value="standar">Standar</option>
                             <option value="medium">Medium</option>
                             <option value="premium">Premium</option>
+                            <option value="umum">Umum</option>
+                            <option value="umum_vip">Umum VIP</option>
                         </select>
                         {kamarForm.errors.tipe_kamar && (
                             <p className="text-error text-sm">

@@ -6,6 +6,7 @@ use App\Actions\Registration\CompleteResidenceRegistration;
 use App\Models\Gedung;
 use App\Models\Kamar;
 use App\Models\KipkRecipient;
+use App\Models\Lantai;
 use App\Models\LegacyResidenceRate;
 use App\Models\LegacyResident;
 use App\Models\Periode;
@@ -13,6 +14,7 @@ use App\Models\ResidenceRate;
 use App\Models\ResidenceRegistration;
 use App\Services\MasterDataService;
 use App\Services\RoomEligibility;
+use App\Services\RoomReservations;
 use App\Services\StudentCohort;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -22,6 +24,9 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ResidenceManagementController extends Controller
 {
@@ -39,24 +44,57 @@ class ResidenceManagementController extends Controller
         if ($kind === 'legacy') {
             $this->saveLegacy($request->all(), $request->user()->id);
         } elseif ($kind === 'legacy-rate') {
-            $data = $request->validate(['angkatan' => ['required', 'integer', 'min:1950', 'max:2100'], 'gedung_id' => ['required', 'uuid', 'exists:gedung,id'], 'jumlah' => ['required', 'numeric', 'min:1']]);
+            $data = $request->validate(['angkatan' => ['required', 'integer', 'min:1950', 'max:2100'], 'gedung_id' => ['required', 'uuid', 'exists:gedung,id'], 'jumlah' => ['required', 'integer', 'min:1']]);
             LegacyResidenceRate::updateOrCreate(['angkatan' => $data['angkatan'], 'gedung_id' => $data['gedung_id']], ['jumlah' => $data['jumlah']]);
         } elseif ($kind === 'kipk') {
             $data = $request->validate(['nim' => ['required', 'string', 'max:50'], 'nama' => ['required', 'string', 'max:255']]);
             KipkRecipient::updateOrCreate(['nim' => $data['nim'], 'angkatan' => StudentCohort::fromNim($data['nim'])], ['nama' => $data['nama']]);
         } elseif ($kind === 'rate') {
-            $data = $request->validate(['gedung_id' => ['required', 'uuid', 'exists:gedung,id'], 'tipe_kamar' => ['required', 'in:standar,medium,premium'], 'unit' => ['required', 'in:year,month,day'], 'amount' => ['required', 'numeric', 'min:1'], 'facilities' => ['nullable', 'string', 'max:2000']]);
+            $data = $request->validate(['gedung_id' => ['required', 'uuid', 'exists:gedung,id'], 'tipe_kamar' => ['required', 'in:standar,medium,premium,umum,umum_vip'], 'unit' => ['required', 'in:year,month,day'], 'amount' => ['required', 'integer', 'min:0'], 'student_amount' => ['nullable', 'integer', 'min:0'], 'room_amount' => ['nullable', 'integer', 'min:0'], 'facilities' => ['nullable', 'string', 'max:2000']]);
             ResidenceRate::updateOrCreate(
                 ['gedung_id' => $data['gedung_id'], 'tipe_kamar' => $data['tipe_kamar'], 'unit' => $data['unit']],
-                ['amount' => $data['amount'], 'facilities' => $data['facilities'] ?? null],
+                ['amount' => $data['amount'], 'facilities' => $data['facilities'] ?? null, ...array_intersect_key($data, ['student_amount' => true, 'room_amount' => true])],
             );
             ResidenceRate::query()
                 ->where('gedung_id', $data['gedung_id'])
                 ->where('tipe_kamar', $data['tipe_kamar'])
                 ->update(['facilities' => $data['facilities'] ?? null]);
         } elseif ($kind === 'building') {
-            $data = $request->validate(['gedung_id' => ['required', 'uuid', 'exists:gedung,id'], 'allowed_categories' => ['required', 'array', 'min:1'], 'allowed_categories.*' => ['required', Rule::in(['local_kipk', 'local_non_kipk', 'international_student', 'international_free_facility', 'non_student'])]]);
-            Gedung::query()->whereKey($data['gedung_id'])->firstOrFail()->update(['allowed_categories' => $data['allowed_categories']]);
+            $data = $request->validate([
+                'gedung_id' => ['nullable', 'uuid', 'exists:gedung,id'],
+                'kode_gedung' => ['required_without:gedung_id', 'nullable', 'string', 'max:10', Rule::unique('gedung', 'kode_gedung')->ignore($request->input('gedung_id'))],
+                'nama_gedung' => ['nullable', 'required_without:gedung_id', 'string', 'max:150'],
+                'gender_peruntukan' => ['nullable', 'in:laki_laki,perempuan,campur'],
+                'allowed_categories' => ['required', 'array', 'min:1'],
+                'allowed_categories.*' => ['required', Rule::in(['local_kipk', 'local_non_kipk', 'student', 'international_student', 'international_free_facility', 'non_student', 'summer_course'])],
+            ]);
+            $building = ! empty($data['gedung_id']) ? Gedung::findOrFail($data['gedung_id']) : new Gedung;
+            $building->fill(array_filter(array_diff_key($data, ['gedung_id' => true]), fn (mixed $value): bool => $value !== null))->save();
+        } elseif ($kind === 'room') {
+            $data = $request->validate([
+                'id' => ['nullable', 'uuid', 'exists:kamar,id'], 'gedung_id' => ['required', 'uuid', 'exists:gedung,id'],
+                'nomor_lantai' => ['required', 'integer', 'min:1', 'max:100'], 'nomor_kamar' => ['required', 'string', 'max:50'],
+                'tipe_kamar' => ['required', 'in:standar,medium,premium,umum,umum_vip'], 'kapasitas' => ['required', 'integer', 'min:1', 'max:100'],
+                'status' => ['required', 'in:kosong,terisi_sebagian,penuh,maintenance'],
+            ]);
+            DB::transaction(function () use ($data): void {
+                $building = Gedung::query()->lockForUpdate()->findOrFail($data['gedung_id']);
+                $floor = Lantai::firstOrCreate(['gedung_id' => $building->id, 'nomor_lantai' => $data['nomor_lantai']], ['nama_lantai' => 'Lantai '.$data['nomor_lantai']]);
+                $room = ! empty($data['id']) ? Kamar::query()->lockForUpdate()->findOrFail($data['id']) : new Kamar;
+                if (Kamar::where('lantai_id', $floor->id)->where('nomor_kamar', $data['nomor_kamar'])->when($room->exists, fn ($query) => $query->whereKeyNot($room->id))->exists()) {
+                    throw ValidationException::withMessages(['nomor_kamar' => 'Nomor kamar sudah digunakan di lantai ini.']);
+                }
+                $active = $room->exists ? $room->penempatanKamar()->where('status', 'aktif')->count() : 0;
+                $reserved = $room->exists ? app(RoomReservations::class)->count($room) : 0;
+                if ($room->exists && $room->lantai_id !== $floor->id && $active + $reserved > 0) {
+                    throw ValidationException::withMessages(['gedung_id' => 'Kamar berpenghuni atau direservasi tidak dapat dipindahkan ke lantai/gedung lain.']);
+                }
+                if ($active + $reserved > (int) $data['kapasitas']) {
+                    throw ValidationException::withMessages(['kapasitas' => 'Kapasitas tidak boleh kurang dari penghuni dan reservasi aktif.']);
+                }
+                $status = $data['status'] === 'maintenance' ? 'maintenance' : ($active === 0 ? 'kosong' : ($active >= (int) $data['kapasitas'] ? 'penuh' : 'terisi_sebagian'));
+                $room->fill(['lantai_id' => $floor->id, 'nomor_kamar' => $data['nomor_kamar'], 'tipe_kamar' => $data['tipe_kamar'], 'kapasitas' => $data['kapasitas'], 'status' => $status])->save();
+            });
         } elseif ($kind === 'period') {
             $data = $request->validate(['id' => ['nullable', 'uuid', 'exists:periode,id'], 'nama_periode' => ['required', 'regex:/^20\d{2}\/(?:20\d{2}|2100)$/', 'max:10'], 'status' => ['required', 'in:aktif,nonaktif'], 'reservation_hours' => ['required', 'integer', 'min:1', 'max:720'], 'tanggal_mulai' => ['required', 'date'], 'tanggal_selesai' => ['required', 'date', 'after_or_equal:tanggal_mulai']]);
             if ((int) substr($data['nama_periode'], 5, 4) !== (int) substr($data['nama_periode'], 0, 4) + 1) {
@@ -89,7 +127,7 @@ class ResidenceManagementController extends Controller
         } elseif ($kind === 'rate') {
             $data = $request->validate([
                 'gedung_id' => ['required', 'uuid', 'exists:gedung,id'],
-                'tipe_kamar' => ['required', 'in:standar,medium,premium'],
+                'tipe_kamar' => ['required', 'in:standar,medium,premium,umum,umum_vip'],
                 'unit' => ['required', 'in:year,month,day'],
             ]);
             ResidenceRate::query()->where($data)->firstOrFail()->delete();
@@ -167,6 +205,66 @@ class ResidenceManagementController extends Controller
         });
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Arsip alumni berhasil diimpor.']);
+    }
+
+    public function importKipk(Request $request): RedirectResponse
+    {
+        $this->authorizePermission($request, 'registration.review');
+        $request->validate(['file' => ['required', 'file', 'mimes:xlsx,xls,csv,txt', 'max:5120']]);
+        try {
+            $path = $request->file('file')->getRealPath();
+            $reader = IOFactory::createReader(IOFactory::identify($path, ['Xlsx', 'Xls', 'Csv']));
+            $reader->setReadDataOnly(true);
+            $info = $reader->listWorksheetInfo($path);
+            if (count($info) !== 1 || $info[0]['totalRows'] > 501 || $info[0]['totalColumns'] !== 2) {
+                throw new \RuntimeException;
+            }
+            $book = $reader->load($path);
+            try {
+                $rows = $book->getSheet(0)->toArray(null, false, false);
+            } finally {
+                $book->disconnectWorksheets();
+            }
+        } catch (\Throwable $exception) {
+            throw ValidationException::withMessages(['file' => 'Gunakan Excel/CSV dua kolom nama,nim, satu sheet, maksimal 500 baris.']);
+        }
+        if (array_map(fn (mixed $value): string => strtolower(trim((string) $value)), array_shift($rows) ?? []) !== ['nama', 'nim']) {
+            throw ValidationException::withMessages(['file' => 'Kolom harus nama,nim.']);
+        }
+        DB::transaction(function () use ($rows): void {
+            $seen = [];
+            foreach ($rows as $index => $row) {
+                if (! array_filter($row, fn (mixed $value): bool => $value !== null && $value !== '')) {
+                    continue;
+                }
+                try {
+                    $data = Validator::make(['nama' => $row[0], 'nim' => (string) $row[1]], ['nama' => ['required', 'string', 'max:255'], 'nim' => ['required', 'string', 'max:50']])->validate();
+                    $year = StudentCohort::fromNim($data['nim']);
+                    if (isset($seen[$data['nim']])) {
+                        throw ValidationException::withMessages(['nim' => 'NIM duplikat dalam berkas.']);
+                    }
+                    $seen[$data['nim']] = true;
+                    KipkRecipient::updateOrCreate(['nim' => $data['nim'], 'angkatan' => $year], ['nama' => $data['nama']]);
+                } catch (ValidationException $exception) {
+                    throw ValidationException::withMessages(['file' => 'Baris '.($index + 2).': '.collect($exception->errors())->flatten()->implode(' ')]);
+                }
+            }
+        });
+
+        return back()->with('toast', ['type' => 'success', 'message' => 'Penerima KIP-K berhasil diimpor.']);
+    }
+
+    public function kipkTemplate(Request $request): StreamedResponse
+    {
+        $this->authorizePermission($request, 'registration.review');
+
+        return response()->streamDownload(function (): void {
+            $book = new Spreadsheet;
+            $book->getActiveSheet()->fromArray([['nama', 'nim']]);
+            $book->getActiveSheet()->getStyle('B:B')->getNumberFormat()->setFormatCode('@');
+            (new Xlsx($book))->save('php://output');
+            $book->disconnectWorksheets();
+        }, 'template-penerima-kipk.xlsx', ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']);
     }
 
     public function approveSponsor(Request $request, ResidenceRegistration $registration): RedirectResponse

@@ -61,7 +61,7 @@ test('seeder supplies every domain model with linked and financially consistent 
     }
     expect(Models\VirtualAccount::where('aktif', true)->count())->toBe(0);
     expect(Models\Periode::where('status', 'aktif')->count())->toBe(1);
-    expect(Models\ResidenceRate::where('unit', 'day')->count())->toBe(6);
+    expect(Models\ResidenceRate::where('unit', 'day')->whereIn('gedung_id', Models\Gedung::where('kode_gedung', 'like', 'DEMO-%')->select('id'))->count())->toBe(6);
     expect(Models\LegacyResidenceRate::whereNull('gedung_id')->count())->toBe(0);
     foreach (['kipk-aktif', 'internasional-gratis'] as $name) {
         expect(ResidenceScenarioSeeder::student($name)->residenceRegistrations()->firstOrFail()->tagihan->dokumen()->where('jenis', 'residence_receipt')->exists())->toBeFalse();

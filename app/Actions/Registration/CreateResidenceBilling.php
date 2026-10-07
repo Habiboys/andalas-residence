@@ -22,7 +22,13 @@ class CreateResidenceBilling
         $room = $registration->reserved_room_id ? Kamar::with('lantai.gedung')->findOrFail($registration->reserved_room_id) : null;
         $rateUnit = in_array($registration->rate_unit, ['period', 'year'], true) ? 'year' : $registration->rate_unit;
         $rate = $room === null ? null : ResidenceRate::where('gedung_id', $room->lantai->gedung_id)->where('tipe_kamar', $room->tipe_kamar)->where('unit', $rateUnit)->first();
+        if (! $rate && $room && $rateUnit === 'day') {
+            $rate = ResidenceRate::where('gedung_id', $room->lantai->gedung_id)->where('tipe_kamar', 'umum')->where('unit', 'day')->first();
+        }
         $amount = $rate ? (float) $rate->amount : (in_array($registration->rate_unit, ['period', 'year'], true) && $room !== null ? (float) $room->tarif_per_periode : 0);
+        if ($rate && $rateUnit === 'day' && $registration->studentProfile->user->client_profile_category?->value !== 'non_student' && $rate->student_amount !== null) {
+            $amount = (float) $rate->student_amount;
+        }
         if ($room && $amount <= 0) {
             throw ValidationException::withMessages(['preferences' => 'Tarif gedung, tipe kamar, dan satuan belum ditetapkan.']);
         }

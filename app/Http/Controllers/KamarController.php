@@ -71,7 +71,7 @@ class KamarController extends Controller
             'lantai_id' => 'required|uuid|exists:lantai,id',
             'nomor_kamar' => 'required|string|max:20',
             'kapasitas' => 'required|integer|min:1|max:10',
-            'tipe_kamar' => 'nullable|in:standar,medium,premium',
+            'tipe_kamar' => 'nullable|in:standar,medium,premium,umum,umum_vip',
             'tarif_per_periode' => 'nullable|numeric|min:0',
             'status' => 'nullable|in:kosong,terisi_sebagian,penuh,maintenance',
         ]);
@@ -95,7 +95,7 @@ class KamarController extends Controller
         $validated = $request->validate([
             'nomor_kamar' => 'sometimes|string|max:20',
             'kapasitas' => 'sometimes|integer|min:1|max:10',
-            'tipe_kamar' => 'sometimes|in:standar,medium,premium',
+            'tipe_kamar' => 'sometimes|in:standar,medium,premium,umum,umum_vip',
             'tarif_per_periode' => 'nullable|numeric|min:0',
             'status' => 'sometimes|in:kosong,terisi_sebagian,penuh,maintenance',
         ]);
