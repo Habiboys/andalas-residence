@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { useForm } from '@inertiajs/react';
+import { RefreshCw } from 'lucide-react';
 import { sync as syncWilayah } from '@/routes/admin/master-data/wilayah';
 import {
     PageHeader,
@@ -187,20 +188,6 @@ function MasterCrudSection({
                 <PageHeader
                     title={title}
                     subtitle="Data bersumber dari wilayah.id. Sinkronisasi juga memperbarui pilihan wilayah pada formulir mahasiswa."
-                    actions={
-                        <Button
-                            disabled={syncForm.processing}
-                            onClick={() =>
-                                syncForm.post(syncWilayah.url(), {
-                                    preserveScroll: true,
-                                })
-                            }
-                        >
-                            {syncForm.processing
-                                ? 'Menyinkronkan…'
-                                : 'Sinkronkan dari wilayah.id'}
-                        </Button>
-                    }
                 />
                 {syncForm.errors.wilayah && (
                     <p role="alert" className="text-error text-sm">
@@ -212,6 +199,24 @@ function MasterCrudSection({
                     data={data}
                     searchKeys={columns.map((column) => column.key)}
                     emptyMessage="Belum ada data wilayah. Klik Sinkronkan dari wilayah.id."
+                    actions={
+                        <Button
+                            disabled={syncForm.processing}
+                            onClick={() =>
+                                syncForm.post(syncWilayah.url(), {
+                                    preserveScroll: true,
+                                })
+                            }
+                        >
+                            <RefreshCw
+                                className={`size-4 ${syncForm.processing ? 'animate-spin' : ''}`}
+                                aria-hidden="true"
+                            />
+                            {syncForm.processing
+                                ? 'Menyinkronkan…'
+                                : 'Sinkronkan dari wilayah.id'}
+                        </Button>
+                    }
                 />
             </section>
         );
