@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Actions\Registration\CompleteResidenceRegistration;
+use App\Models\Aset;
+use App\Models\FasilitasUmum;
 use App\Models\Gedung;
 use App\Models\Kamar;
 use App\Models\KipkRecipient;
@@ -32,7 +34,11 @@ class ResidenceManagementController extends Controller
 {
     public function save(Request $request, string $kind): RedirectResponse
     {
-        $this->authorizePermission($request, in_array($kind, ['legacy', 'legacy-rate'], true) ? 'free-residence.review' : 'registration.review');
+        if (in_array($kind, ['rate', 'room-type', 'facility'], true)) {
+            $this->authorizeAnyPermission($request, ['gedung.manage', 'registration.review']);
+        } else {
+            $this->authorizePermission($request, in_array($kind, ['legacy', 'legacy-rate'], true) ? 'free-residence.review' : 'registration.review');
+        }
         if (in_array($kind, ['legacy', 'legacy-rate', 'rate'], true) && $request->filled('gedung_id') && ! Str::isUuid((string) $request->input('gedung_id'))) {
             $buildingValue = trim((string) $request->input('gedung_id'));
             $buildingId = Gedung::query()
@@ -82,11 +88,24 @@ class ResidenceManagementController extends Controller
                         throw ValidationException::withMessages(['type' => 'Tipe masih dipakai kamar berpenghuni atau direservasi; aturan baru tidak dapat diterapkan.']);
                     }
                 }
-                $types = collect($building->room_types ?? [])->reject(fn (array $type): bool => $type['type'] === $data['type'])->values()->all();
+                $existingTypes = $building->room_types ?? array_map(fn (string $type): array => ['type' => $type, 'enabled' => true, 'max_capacity' => null, 'facilities' => ''], ['standar', 'medium', 'premium', 'umum', 'umum_vip']);
+                $types = collect($existingTypes)->reject(fn (array $type): bool => $type['type'] === $data['type'])->values()->all();
                 $types[] = ['type' => $data['type'], 'enabled' => (bool) $data['enabled'], 'max_capacity' => $data['max_capacity'] ?? null, 'facilities' => $data['facilities'] ?? ''];
                 $building->update(['room_types' => $types]);
                 ResidenceRate::where('gedung_id', $building->id)->where('tipe_kamar', $data['type'])->update(['facilities' => $data['facilities'] ?? '']);
             });
+        } elseif ($kind === 'facility') {
+            $data = $request->validate([
+                'id' => ['nullable', 'uuid'],
+                'gedung_id' => ['required', 'uuid', 'exists:gedung,id'],
+                'lantai_id' => ['nullable', 'uuid', Rule::exists('lantai', 'id')->where('gedung_id', $request->input('gedung_id'))],
+                'nama_fasilitas' => ['required', 'string', 'max:100'],
+                'kategori' => ['required', 'string', 'max:50'],
+                'kondisi' => ['required', 'in:baik,rusak_ringan,rusak_berat'],
+            ]);
+            $facility = isset($data['id']) ? FasilitasUmum::where('gedung_id', $data['gedung_id'])->findOrFail($data['id']) : new FasilitasUmum;
+            unset($data['id']);
+            $facility->fill($data)->save();
         } elseif ($kind === 'building') {
             $data = $request->validate([
                 'gedung_id' => ['nullable', 'uuid', 'exists:gedung,id'],
@@ -144,7 +163,11 @@ class ResidenceManagementController extends Controller
 
     public function destroy(Request $request, string $kind): RedirectResponse
     {
-        $this->authorizePermission($request, in_array($kind, ['legacy', 'legacy-rate'], true) ? 'free-residence.review' : 'registration.review');
+        if (in_array($kind, ['rate', 'facility'], true)) {
+            $this->authorizeAnyPermission($request, ['gedung.manage', 'registration.review']);
+        } else {
+            $this->authorizePermission($request, in_array($kind, ['legacy', 'legacy-rate'], true) ? 'free-residence.review' : 'registration.review');
+        }
 
         if ($kind === 'legacy') {
             $data = $request->validate(['nim' => ['required', 'string', 'max:50']]);
@@ -162,6 +185,13 @@ class ResidenceManagementController extends Controller
                 'unit' => ['required', 'in:year,month,day'],
             ]);
             ResidenceRate::query()->where($data)->firstOrFail()->delete();
+        } elseif ($kind === 'facility') {
+            $data = $request->validate(['id' => ['required', 'uuid'], 'gedung_id' => ['required', 'uuid', 'exists:gedung,id']]);
+            $facility = FasilitasUmum::where('gedung_id', $data['gedung_id'])->findOrFail($data['id']);
+            if (Aset::where('fasilitas_umum_id', $facility->id)->exists()) {
+                throw ValidationException::withMessages(['facility' => 'Fasilitas masih memiliki aset. Pindahkan aset sebelum menghapus fasilitas.']);
+            }
+            $facility->delete();
         } elseif ($kind === 'building') {
             $data = $request->validate(['gedung_id' => ['required', 'uuid', 'exists:gedung,id']]);
             Gedung::query()->whereKey($data['gedung_id'])->firstOrFail()->update(['allowed_categories' => []]);

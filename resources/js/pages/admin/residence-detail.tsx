@@ -8,6 +8,8 @@ import { show as assetShow } from '@/routes/andalas/aset';
 import { show as residentShow } from '@/routes/andalas/mahasiswa';
 import { kelolaBangunan } from '@/routes/admin';
 import { kelolaBangunan as assetBuildings } from '@/routes/admin_aset';
+import BuildingWorkspace from '@/andalas/pages/admin/BuildingWorkspace';
+import RoomPhotoEditor from '@/andalas/components/RoomPhotoEditor';
 import KelolaBangunan from '@/andalas/pages/admin/KelolaBangunan';
 import UserProfileDetails, {
     type ProfileSummary,
@@ -56,6 +58,7 @@ type Room = {
     occupants_count?: number;
     aset_count?: number;
     tarif_per_periode?: string;
+    foto?: string | null;
     lantai?: Floor;
     aset?: Asset[];
     penempatan_kamar?: Placement[];
@@ -65,6 +68,7 @@ type Facility = {
     nama_fasilitas: string;
     kategori: string;
     kondisi: string;
+    lantai_id?: string | null;
     gedung?: Building;
 };
 type Asset = {
@@ -130,15 +134,6 @@ type Props = {
     can_manage?: boolean;
     can_view_assets?: boolean;
     can_view_residents?: boolean;
-};
-const categoryLabels: Record<string, string> = {
-    local_kipk: 'Maba lokal KIP-K',
-    local_non_kipk: 'Maba lokal non-KIP-K',
-    student: 'Mahasiswa S1 non-maba',
-    international_student: 'Internasional/S2/S3 pribadi',
-    international_free_facility: 'Internasional/S2/S3 ditanggung',
-    non_student: 'Non-mahasiswa',
-    summer_course: 'Summer Course',
 };
 const typeLabel = (value: string) =>
     value
@@ -572,7 +567,15 @@ export default function ResidenceDetail({
                               : 'Profil penghuni dan riwayat hunian.'
                 }
             />
-            {(kind === 'building' || kind === 'floor') && building && (
+            {kind === 'building' && building && (
+                <BuildingWorkspace
+                    key={building.id}
+                    building={building}
+                    rates={rates}
+                    canManage={can_manage}
+                />
+            )}
+            {kind === 'floor' && building && (
                 <>
                     <Section title="Informasi bangunan">
                         <Facts
@@ -608,75 +611,16 @@ export default function ResidenceDetail({
                                 {building.deskripsi}
                             </p>
                         )}
-                        {kind === 'building' && building.foto && (
-                            <img
-                                src={`/storage/${building.foto}`}
-                                alt={building.nama_gedung}
-                                className="max-h-80 rounded-lg object-cover"
-                            />
-                        )}
                     </Section>
-                    {kind === 'building' && (
-                        <Section title="Kategori penghuni dan master tipe kamar">
-                            <p>
-                                {building.allowed_categories === null
-                                    ? 'Kategori belum dikonfigurasi.'
-                                    : building.allowed_categories?.length
-                                      ? building.allowed_categories
-                                            .map((c) => categoryLabels[c] ?? c)
-                                            .join(' • ')
-                                      : 'Tidak menerima kategori penghuni.'}
-                            </p>
-                            <div className="overflow-x-auto">
-                                <table className="table">
-                                    <thead>
-                                        <tr>
-                                            <th>Tipe</th>
-                                            <th>Tersedia</th>
-                                            <th>Kapasitas maksimal</th>
-                                            <th>Fasilitas master</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {building.room_types?.map((t) => (
-                                            <tr key={t.type}>
-                                                <td>{typeLabel(t.type)}</td>
-                                                <td>
-                                                    {t.enabled ? 'Ya' : 'Tidak'}
-                                                </td>
-                                                <td>
-                                                    {t.max_capacity == null
-                                                        ? 'Belum diisi'
-                                                        : `${t.max_capacity} orang`}
-                                                </td>
-                                                <td>
-                                                    {t.facilities ||
-                                                        'Belum diisi'}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </Section>
-                    )}
-                    {kind === 'building' ? (
-                        <BuildingInventory floors={building.lantai ?? []} />
-                    ) : (
+                    {!can_manage && (
                         <Section title="Daftar kamar">
                             <RoomTable rooms={roomList} />
                         </Section>
                     )}
                     <Section title="Fasilitas umum">
                         <div className="divide-base-300 divide-y">
-                            {(kind === 'building'
-                                ? (building.fasilitas_umum ?? [])
-                                : facilities
-                            ).length ? (
-                                (kind === 'building'
-                                    ? (building.fasilitas_umum ?? [])
-                                    : facilities
-                                ).map((f) => (
+                            {facilities.length ? (
+                                facilities.map((f) => (
                                     <div
                                         key={f.id}
                                         className="flex justify-between py-3"
@@ -694,6 +638,103 @@ export default function ResidenceDetail({
             )}
             {kind === 'room' && room && (
                 <>
+                    <Card className="overflow-hidden">
+                        <div className="grid md:grid-cols-2">
+                            {room.foto ? (
+                                <img
+                                    src={`/storage/${room.foto}`}
+                                    alt={`Kamar ${room.nomor_kamar}`}
+                                    className="h-64 w-full object-cover"
+                                />
+                            ) : (
+                                <div className="bg-base-200 text-muted flex h-48 items-center justify-center">
+                                    Foto kamar belum ditambahkan
+                                </div>
+                            )}
+                            <div className="space-y-3 p-6">
+                                <span className="badge badge-outline">
+                                    {typeLabel(room.tipe_kamar)}
+                                </span>
+                                <h2 className="text-2xl font-semibold">
+                                    Kamar {room.nomor_kamar}
+                                </h2>
+                                <p className="text-muted">
+                                    {building?.nama_gedung} ?{' '}
+                                    {floor?.nama_lantai}
+                                </p>
+                                <StatusBadge status={room.status} />
+                                <p>
+                                    {room.kapasitas} tempat /{' '}
+                                    {Math.max(
+                                        0,
+                                        room.kapasitas -
+                                            active.length -
+                                            reservations_count,
+                                    )}{' '}
+                                    tersedia
+                                </p>
+                                {can_manage && <RoomPhotoEditor room={room} />}
+                            </div>
+                        </div>
+                    </Card>
+                    {rates.length > 0 && (
+                        <Section title="Tarif tercatat">
+                            <div className="overflow-x-auto">
+                                <table className="table">
+                                    <thead>
+                                        <tr>
+                                            <th>Tipe</th>
+                                            <th>Satuan</th>
+                                            <th>Per orang / umum</th>
+                                            <th>Harian mahasiswa</th>
+                                            <th>Tahunan per kamar</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {rates.map((rate) => (
+                                            <tr key={rate.id}>
+                                                <td>
+                                                    {typeLabel(rate.tipe_kamar)}
+                                                </td>
+                                                <td>
+                                                    {
+                                                        {
+                                                            year: 'Tahun',
+                                                            month: 'Bulan',
+                                                            day: 'Hari',
+                                                        }[rate.unit]
+                                                    }
+                                                </td>
+                                                <td>
+                                                    {formatRupiah(
+                                                        Number(rate.amount),
+                                                    )}
+                                                </td>
+                                                <td>
+                                                    {rate.student_amount == null
+                                                        ? '—'
+                                                        : formatRupiah(
+                                                              Number(
+                                                                  rate.student_amount,
+                                                              ),
+                                                          )}
+                                                </td>
+                                                <td>
+                                                    {rate.room_amount == null
+                                                        ? '—'
+                                                        : formatRupiah(
+                                                              Number(
+                                                                  rate.room_amount,
+                                                              ),
+                                                          )}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </Section>
+                    )}
                     <Section title="Informasi kamar">
                         <Facts
                             values={[
@@ -731,94 +772,50 @@ export default function ResidenceDetail({
                             ]}
                         />
                     </Section>
-                    <Section title="Aset di kamar">
-                        <AssetTable
-                            assets={room.aset ?? []}
-                            link={can_view_assets}
-                        />
-                    </Section>
-                    <Section title="Penghuni aktif">
-                        <Placements
-                            placements={active.map((p) => ({
-                                ...p,
-                                kamar: room,
-                            }))}
-                            residentLinks={can_view_residents}
-                        />
-                    </Section>
-                    <Section title="Riwayat penempatan">
-                        <Placements
-                            placements={(room.penempatan_kamar ?? [])
-                                .filter((p) => p.status !== 'aktif')
-                                .map((p) => ({ ...p, kamar: room }))}
-                            residentLinks={can_view_residents}
-                        />
-                    </Section>
+                    <details className="border-base-300 rounded-xl border" open>
+                        <summary className="cursor-pointer p-4 font-semibold">
+                            Inventaris kamar
+                        </summary>
+                        <Section title="Aset di kamar">
+                            <AssetTable
+                                assets={room.aset ?? []}
+                                link={can_view_assets}
+                            />
+                        </Section>
+                    </details>
+                    <details className="border-base-300 rounded-xl border">
+                        <summary className="cursor-pointer p-4 font-semibold">
+                            Penghuni & riwayat hunian
+                        </summary>
+                        <Section title="Penghuni aktif">
+                            <Placements
+                                placements={active.map((p) => ({
+                                    ...p,
+                                    kamar: room,
+                                }))}
+                                residentLinks={can_view_residents}
+                            />
+                        </Section>
+                        <Section title="Riwayat penempatan">
+                            <Placements
+                                placements={(room.penempatan_kamar ?? [])
+                                    .filter((p) => p.status !== 'aktif')
+                                    .map((p) => ({ ...p, kamar: room }))}
+                                residentLinks={can_view_residents}
+                            />
+                        </Section>
+                    </details>
                 </>
             )}
-            {rates.length > 0 && (
-                <Section title="Tarif tercatat">
-                    <div className="overflow-x-auto">
-                        <table className="table">
-                            <thead>
-                                <tr>
-                                    <th>Tipe</th>
-                                    <th>Satuan</th>
-                                    <th>Per orang / umum</th>
-                                    <th>Harian mahasiswa</th>
-                                    <th>Tahunan per kamar</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {rates.map((rate) => (
-                                    <tr key={rate.id}>
-                                        <td>{typeLabel(rate.tipe_kamar)}</td>
-                                        <td>
-                                            {
-                                                {
-                                                    year: 'Tahun',
-                                                    month: 'Bulan',
-                                                    day: 'Hari',
-                                                }[rate.unit]
-                                            }
-                                        </td>
-                                        <td>
-                                            {formatRupiah(Number(rate.amount))}
-                                        </td>
-                                        <td>
-                                            {rate.student_amount == null
-                                                ? '—'
-                                                : formatRupiah(
-                                                      Number(
-                                                          rate.student_amount,
-                                                      ),
-                                                  )}
-                                        </td>
-                                        <td>
-                                            {rate.room_amount == null
-                                                ? '—'
-                                                : formatRupiah(
-                                                      Number(rate.room_amount),
-                                                  )}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+            {can_manage && managementBuilding && kind === 'floor' && (
+                <Section title="Kelola lantai dan kamar">
+                    <KelolaBangunan
+                        gedung={[managementBuilding]}
+                        detail
+                        floorOnly
+                    />
                 </Section>
             )}
-            {can_manage &&
-                managementBuilding &&
-                ['building', 'floor'].includes(kind) && (
-                    <Section title="Kelola lantai dan kamar">
-                        <KelolaBangunan
-                            gedung={[managementBuilding]}
-                            detail
-                            floorOnly={kind !== 'building'}
-                        />
-                    </Section>
-                )}
             {kind === 'asset' && asset && (
                 <>
                     <Section title="Detail aset">

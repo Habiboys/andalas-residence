@@ -6,19 +6,36 @@ use App\Models\Gedung;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Inertia\Inertia;
+use Inertia\Response;
 
 class GedungController extends Controller
 {
+    public function create(Request $request): Response
+    {
+        $this->authorizePermission($request, 'gedung.manage');
+        $user = app(RolePageController::class)->userPayload($request);
+
+        return Inertia::render('admin/building-create', [
+            'initialUser' => $user, 'role' => $user['role'], 'page' => 'kelola-bangunan',
+        ]);
+    }
+
     public function store(Request $request): RedirectResponse
     {
         $this->authorizePermission($request, 'gedung.manage');
 
+        if ($request->boolean('configure_categories') && ! $request->has('allowed_categories')) {
+            $request->merge(['allowed_categories' => []]);
+        }
         $validated = $request->validate([
             'kode_gedung' => 'required|string|max:10|unique:gedung,kode_gedung',
             'nama_gedung' => 'required|string|max:150',
             'gender_peruntukan' => 'required|in:laki_laki,perempuan,campur',
             'alamat' => 'nullable|string',
             'deskripsi' => 'nullable|string',
+            'allowed_categories' => ['sometimes', 'array'],
+            'allowed_categories.*' => ['required', 'distinct', Rule::in(['local_kipk', 'local_non_kipk', 'student', 'international_student', 'international_free_facility', 'non_student', 'summer_course'])],
             'foto' => [
                 'nullable',
                 Rule::when($request->hasFile('foto'), ['image', 'mimes:jpeg,jpg,png,webp', 'max:2048'], ['string']),
@@ -31,7 +48,7 @@ class GedungController extends Controller
 
         $gedung = Gedung::create($validated);
 
-        return redirect()->back()->with('toast', [
+        return ($request->boolean('continue_setup') ? redirect()->route('andalas.gedung.show', $gedung) : redirect()->back())->with('toast', [
             'type' => 'success',
             'message' => "Gedung {$gedung->nama_gedung} berhasil ditambahkan.",
         ]);
@@ -41,12 +58,17 @@ class GedungController extends Controller
     {
         $this->authorizePermission($request, 'gedung.manage');
 
+        if ($request->boolean('configure_categories') && ! $request->has('allowed_categories')) {
+            $request->merge(['allowed_categories' => []]);
+        }
         $validated = $request->validate([
             'kode_gedung' => 'sometimes|string|max:10|unique:gedung,kode_gedung,'.$gedung->id,
             'nama_gedung' => 'sometimes|string|max:150',
             'gender_peruntukan' => 'sometimes|in:laki_laki,perempuan,campur',
             'alamat' => 'nullable|string',
             'deskripsi' => 'nullable|string',
+            'allowed_categories' => ['sometimes', 'array'],
+            'allowed_categories.*' => ['required', 'distinct', Rule::in(['local_kipk', 'local_non_kipk', 'student', 'international_student', 'international_free_facility', 'non_student', 'summer_course'])],
             'foto' => [
                 'nullable',
                 Rule::when($request->hasFile('foto'), ['image', 'mimes:jpeg,jpg,png,webp', 'max:2048'], ['string']),

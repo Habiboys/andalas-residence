@@ -7,6 +7,7 @@ use App\Models\Lantai;
 use App\Services\RoomEligibility;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 class KamarController extends Controller
@@ -77,11 +78,15 @@ class KamarController extends Controller
             'tipe_kamar' => 'nullable|in:standar,medium,premium,umum,umum_vip',
             'tarif_per_periode' => 'nullable|numeric|min:0',
             'status' => 'nullable|in:kosong,terisi_sebagian,penuh,maintenance',
+            'foto' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:2048'],
         ]);
 
         $building = Lantai::findOrFail($validated['lantai_id'])->gedung;
         if (! RoomEligibility::allowsType($building, $validated['tipe_kamar'] ?? 'standar', (int) $validated['kapasitas'])) {
             throw ValidationException::withMessages(['tipe_kamar' => 'Tipe tidak aktif atau kapasitas melebihi batas master tipe gedung.']);
+        }
+        if ($request->hasFile('foto')) {
+            $validated['foto'] = $request->file('foto')->store('kamar', 'public');
         }
         $kamar = Kamar::create([
             ...$validated,
@@ -105,12 +110,24 @@ class KamarController extends Controller
             'tipe_kamar' => 'sometimes|in:standar,medium,premium,umum,umum_vip',
             'tarif_per_periode' => 'nullable|numeric|min:0',
             'status' => 'sometimes|in:kosong,terisi_sebagian,penuh,maintenance',
+            'foto' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:2048'],
+            'remove_foto' => ['sometimes', 'boolean'],
         ]);
 
         if (! RoomEligibility::allowsType($kamar->lantai->gedung, $validated['tipe_kamar'] ?? $kamar->tipe_kamar, (int) ($validated['kapasitas'] ?? $kamar->kapasitas))) {
             throw ValidationException::withMessages(['tipe_kamar' => 'Tipe tidak aktif atau kapasitas melebihi batas master tipe gedung.']);
         }
+        $previousPhoto = $kamar->foto;
+        unset($validated['foto'], $validated['remove_foto']);
+        if ($request->hasFile('foto')) {
+            $validated['foto'] = $request->file('foto')->store('kamar', 'public');
+        } elseif ($request->boolean('remove_foto')) {
+            $validated['foto'] = null;
+        }
         $kamar->update($validated);
+        if ($previousPhoto && array_key_exists('foto', $validated) && $previousPhoto !== $kamar->foto) {
+            Storage::disk('public')->delete($previousPhoto);
+        }
 
         return redirect()->back()->with('toast', [
             'type' => 'success',
