@@ -88,15 +88,15 @@ describe('building management stages', () => {
         const html = renderToStaticMarkup(
             <BuildingWorkspace building={building} rates={rates} canManage />,
         );
-        expect(html).toContain('Tahap pengelolaan gedung');
-        expect(html).toContain('Tahap 1 dari 5');
+        expect(html).toContain('Tab informasi gedung');
+        expect(html).toContain('role="tablist"');
         expect(html).toContain('Edit informasi dasar');
         expect(html).not.toContain('Simpan tipe Standar');
         expect(html).not.toContain('Tambah Kamar');
     });
 
     it.each([
-        [1, 'Simpan kategori', 'Simpan tipe Standar'],
+        [1, 'Edit kategori', 'Edit tipe Standar'],
         [2, 'Tambah tarif', 'Edit tarif'],
         [3, 'Tambah fasilitas', 'Dapur bersama'],
         [4, 'Tambah Lantai', '/storage/kamar/101.jpg'],
@@ -111,6 +111,21 @@ describe('building management stages', () => {
         );
         expect(html).toContain(first);
         expect(html).toContain(second);
+    });
+
+    it('shows categories and room type data without edit fields or save buttons by default', () => {
+        const html = renderToStaticMarkup(
+            <BuildingWorkspace building={building} canManage initialStep={1} />,
+        );
+        expect(html).toContain('Mahasiswa S1 non-maba');
+        expect(html).toContain('Dipan, Lemari');
+        expect(html).toContain('2 orang');
+        expect(html).toContain('Edit kategori');
+        expect(html).toContain('Edit tipe Standar');
+        expect(html).not.toContain('<input');
+        expect(html).not.toContain('<textarea');
+        expect(html).not.toContain('Simpan kategori');
+        expect(html).not.toContain('Simpan tipe');
     });
 
     it('shows the room catalog without mutation controls to a viewer', () => {

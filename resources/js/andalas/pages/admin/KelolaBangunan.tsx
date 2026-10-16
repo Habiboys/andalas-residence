@@ -179,12 +179,12 @@ function BuildingFormSurface({
 }) {
     if (standalone)
         return (
-            <div className="mx-auto max-w-4xl space-y-5">
+            <div className="space-y-5">
                 <PageHeader
                     title={title}
                     subtitle="Lengkapi identitas dan kategori penghuni, lalu lanjutkan pengaturan layanan di detail gedung."
                 />
-                <div className="bg-base-100 border-base-300 rounded-xl border p-5 sm:p-8">
+                <div className="bg-base-100 border-base-300 rounded-xl border p-5">
                     {children}
                     <div className="border-base-300 mt-6 border-t pt-5">
                         {footer}

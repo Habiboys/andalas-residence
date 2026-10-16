@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { Link, useForm } from '@inertiajs/react';
-import { Building2, BedDouble, Check, ChevronRight } from 'lucide-react';
+import { Building2, BedDouble, ChevronRight } from 'lucide-react';
 import { save, destroy } from '@/routes/andalas/residence-management';
 import { show as floorShow } from '@/routes/andalas/lantai';
 import { show as roomShow } from '@/routes/andalas/kamar';
@@ -119,7 +119,13 @@ function Panel({
         </Card>
     );
 }
-function CategoriesEditor({ building }: { building: Building }) {
+function CategoriesEditor({
+    building,
+    onClose,
+}: {
+    building: Building;
+    onClose: () => void;
+}) {
     const form = useForm({
         allowed_categories:
             building.allowed_categories ?? Object.keys(categories),
@@ -131,6 +137,7 @@ function CategoriesEditor({ building }: { building: Building }) {
                 event.preventDefault();
                 form.put(buildingUpdate.url(building.id), {
                     preserveScroll: true,
+                    onSuccess: onClose,
                 });
             }}
         >
@@ -169,16 +176,28 @@ function CategoriesEditor({ building }: { building: Building }) {
                 penghuni.
             </p>
             <Errors errors={form.errors} />
-            <Button disabled={form.processing}>Simpan kategori</Button>
+            <div className="flex gap-2">
+                <Button disabled={form.processing}>Simpan kategori</Button>
+                <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={onClose}
+                    disabled={form.processing}
+                >
+                    Batal
+                </Button>
+            </div>
         </form>
     );
 }
 function TypeEditor({
     building,
     definition,
+    onClose,
 }: {
     building: Building;
     definition: RoomType;
+    onClose: () => void;
 }) {
     const form = useForm({
         gedung_id: building.id,
@@ -200,7 +219,10 @@ function TypeEditor({
                             ? null
                             : Number(data.max_capacity),
                 }));
-                form.post(save.url('room-type'), { preserveScroll: true });
+                form.post(save.url('room-type'), {
+                    preserveScroll: true,
+                    onSuccess: onClose,
+                });
             }}
         >
             <div className="flex items-center justify-between">
@@ -251,6 +273,15 @@ function TypeEditor({
             <div className="flex items-center gap-3">
                 <Button size="sm" disabled={form.processing}>
                     Simpan tipe {label(definition.type)}
+                </Button>
+                <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    onClick={onClose}
+                    disabled={form.processing}
+                >
+                    Batal
                 </Button>
                 {form.recentlySuccessful && (
                     <span role="status" className="text-success text-sm">
@@ -509,6 +540,8 @@ export default function BuildingWorkspace({
     initialStep?: number;
 }) {
     const [step, setStep] = useState(initialStep);
+    const [editingCategories, setEditingCategories] = useState(false);
+    const [editingType, setEditingType] = useState<string | null>(null);
     const [rateTarget, setRateTarget] = useState<Rate | 'new' | null>(null);
     const [facilityTarget, setFacilityTarget] = useState<
         Facility | 'new' | null
@@ -585,398 +618,486 @@ export default function BuildingWorkspace({
                 </div>
             </Card>
             <nav
-                aria-label="Tahap pengelolaan gedung"
-                className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5"
+                aria-label="Tab informasi gedung"
+                role="tablist"
+                className="border-base-300 flex gap-5 overflow-x-auto border-b"
             >
                 {steps.map((title, index) => (
                     <button
                         key={title}
+                        id={`building-tab-${index}`}
+                        role="tab"
                         type="button"
-                        aria-current={step === index ? 'step' : undefined}
+                        aria-selected={step === index}
+                        aria-controls="building-tab-panel"
                         onClick={() => {
                             setStep(index);
+                            setEditingCategories(false);
+                            setEditingType(null);
                             setRateTarget(null);
                             setFacilityTarget(null);
                         }}
-                        className={`flex items-center gap-3 rounded-xl border p-3 text-left text-sm ${step === index ? 'border-primary bg-primary/10 text-primary' : 'border-base-300 bg-base-100'}`}
+                        className={`shrink-0 border-b-2 px-1 py-3 text-sm font-medium ${step === index ? 'border-primary text-primary' : 'text-muted hover:text-base-content border-transparent'}`}
                     >
-                        <span
-                            className={`flex size-7 shrink-0 items-center justify-center rounded-full ${completed[index] ? 'bg-success/15 text-success' : 'bg-base-200'}`}
-                        >
-                            {completed[index] ? (
-                                <Check className="size-4" />
-                            ) : (
-                                index + 1
-                            )}
-                        </span>
                         {title}
                     </button>
                 ))}
             </nav>
-            {step === 0 && (
-                <Panel
-                    title="Informasi dasar"
-                    description="Identitas gedung dan ringkasan kesiapan pengaturan."
-                >
-                    <p className="whitespace-pre-wrap">
-                        {building.deskripsi || 'Deskripsi belum diisi.'}
-                    </p>
-                    <p>
-                        Peruntukan:{' '}
-                        {
-                            {
-                                laki_laki: 'Laki-laki',
-                                perempuan: 'Perempuan',
-                                campur: 'Campuran',
-                            }[building.gender_peruntukan ?? 'campur']
-                        }
-                    </p>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                        {steps.slice(1).map((title, index) => (
-                            <button
-                                key={title}
-                                className="border-base-300 flex items-center justify-between rounded-lg border p-4 text-left"
-                                onClick={() => setStep(index + 1)}
-                            >
-                                <span>
-                                    {title}
-                                    <span className="text-muted mt-1 block text-xs">
-                                        {completed[index + 1]
-                                            ? 'Sudah tercatat · lihat atau ubah'
-                                            : 'Belum lengkap · lengkapi pengaturan'}
-                                    </span>
-                                </span>
-                                <ChevronRight className="size-4" />
-                            </button>
-                        ))}
-                    </div>
-                    {canManage && (
-                        <KelolaBangunan gedung={[building]} detail infoOnly />
-                    )}
-                </Panel>
-            )}
-            {step === 1 && (
-                <>
+            <div
+                id="building-tab-panel"
+                role="tabpanel"
+                aria-labelledby={`building-tab-${step}`}
+                className="space-y-5"
+            >
+                {step === 0 && (
                     <Panel
-                        title="Kategori penghuni"
-                        description="Tentukan siapa yang boleh mendaftar di gedung ini."
+                        title="Informasi dasar"
+                        description="Identitas gedung dan ringkasan kesiapan pengaturan."
                     >
-                        {canManage ? (
-                            <CategoriesEditor building={building} />
-                        ) : (
-                            <p>
-                                {building.allowed_categories == null
-                                    ? 'Semua kategori (belum dibatasi).'
-                                    : building.allowed_categories
-                                          .map(
-                                              (category) =>
-                                                  categories[category] ??
-                                                  category,
-                                          )
-                                          .join(' • ') ||
-                                      'Tidak menerima kategori penghuni.'}
+                        <p className="whitespace-pre-wrap">
+                            {building.deskripsi || 'Deskripsi belum diisi.'}
+                        </p>
+                        <p>
+                            Peruntukan:{' '}
+                            {
+                                {
+                                    laki_laki: 'Laki-laki',
+                                    perempuan: 'Perempuan',
+                                    campur: 'Campuran',
+                                }[building.gender_peruntukan ?? 'campur']
+                            }
+                        </p>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                            {steps.slice(1).map((title, index) => (
+                                <button
+                                    key={title}
+                                    className="border-base-300 flex items-center justify-between rounded-lg border p-4 text-left"
+                                    onClick={() => setStep(index + 1)}
+                                >
+                                    <span>
+                                        {title}
+                                        <span className="text-muted mt-1 block text-xs">
+                                            {completed[index + 1]
+                                                ? 'Sudah tercatat · lihat atau ubah'
+                                                : 'Belum lengkap · lengkapi pengaturan'}
+                                        </span>
+                                    </span>
+                                    <ChevronRight className="size-4" />
+                                </button>
+                            ))}
+                        </div>
+                        {canManage && (
+                            <KelolaBangunan
+                                gedung={[building]}
+                                detail
+                                infoOnly
+                            />
+                        )}
+                    </Panel>
+                )}
+                {step === 1 && (
+                    <>
+                        <Panel
+                            title="Kategori penghuni"
+                            description="Tentukan siapa yang boleh mendaftar di gedung ini."
+                        >
+                            {canManage && editingCategories ? (
+                                <CategoriesEditor
+                                    building={building}
+                                    onClose={() => setEditingCategories(false)}
+                                />
+                            ) : (
+                                <>
+                                    <div className="flex flex-wrap gap-2">
+                                        {building.allowed_categories == null ? (
+                                            <p className="text-muted text-sm">
+                                                Semua kategori (belum dibatasi).
+                                            </p>
+                                        ) : building.allowed_categories
+                                              .length ? (
+                                            building.allowed_categories.map(
+                                                (category) => (
+                                                    <span
+                                                        key={category}
+                                                        className="badge badge-ghost h-auto py-2"
+                                                    >
+                                                        {categories[category] ??
+                                                            category}
+                                                    </span>
+                                                ),
+                                            )
+                                        ) : (
+                                            <p className="text-muted text-sm">
+                                                Tidak menerima kategori
+                                                penghuni.
+                                            </p>
+                                        )}
+                                    </div>
+                                    {canManage && (
+                                        <Button
+                                            size="sm"
+                                            variant="secondary"
+                                            onClick={() =>
+                                                setEditingCategories(true)
+                                            }
+                                        >
+                                            Edit kategori
+                                        </Button>
+                                    )}
+                                </>
+                            )}
+                        </Panel>
+                        <Panel
+                            title="Master tipe kamar"
+                            description="Aktifkan tipe dan tentukan kapasitas serta fasilitas sebelum menambahkan kamar. Fasilitas master adalah standar layanan; inventaris fisik dicatat di menu aset."
+                        >
+                            <div className="overflow-x-auto">
+                                <table className="table">
+                                    <thead>
+                                        <tr>
+                                            <th>Tipe kamar</th>
+                                            <th>Tersedia</th>
+                                            <th>Kapasitas maksimal</th>
+                                            <th>Fasilitas master</th>
+                                            {canManage && (
+                                                <th>
+                                                    <span className="sr-only">
+                                                        Aksi
+                                                    </span>
+                                                </th>
+                                            )}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {types.map((type) => {
+                                            const definition =
+                                                building.room_types?.find(
+                                                    (item) =>
+                                                        item.type === type,
+                                                ) ?? {
+                                                    type,
+                                                    enabled:
+                                                        building.room_types ==
+                                                        null,
+                                                    max_capacity: null,
+                                                    facilities: '',
+                                                };
+                                            return (
+                                                <tr key={type}>
+                                                    <td className="font-medium">
+                                                        {label(type)}
+                                                    </td>
+                                                    <td>
+                                                        <span
+                                                            className={
+                                                                definition.enabled
+                                                                    ? 'badge badge-success badge-soft'
+                                                                    : 'badge badge-ghost'
+                                                            }
+                                                        >
+                                                            {definition.enabled
+                                                                ? 'Ya'
+                                                                : 'Tidak'}
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        {definition.max_capacity ==
+                                                        null
+                                                            ? 'Belum dibatasi'
+                                                            : `${definition.max_capacity} orang`}
+                                                    </td>
+                                                    <td className="max-w-sm whitespace-pre-wrap">
+                                                        {definition.facilities ||
+                                                            'Belum diisi'}
+                                                    </td>
+                                                    {canManage && (
+                                                        <td className="text-right">
+                                                            <Button
+                                                                size="sm"
+                                                                variant="secondary"
+                                                                onClick={() =>
+                                                                    setEditingType(
+                                                                        type,
+                                                                    )
+                                                                }
+                                                                aria-label={`Edit tipe ${label(type)}`}
+                                                            >
+                                                                Edit
+                                                            </Button>
+                                                        </td>
+                                                    )}
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {canManage && editingType && (
+                                <TypeEditor
+                                    key={editingType}
+                                    building={building}
+                                    definition={
+                                        building.room_types?.find(
+                                            (item) => item.type === editingType,
+                                        ) ?? {
+                                            type: editingType,
+                                            enabled:
+                                                building.room_types == null,
+                                            max_capacity: null,
+                                            facilities: '',
+                                        }
+                                    }
+                                    onClose={() => setEditingType(null)}
+                                />
+                            )}
+                        </Panel>
+                    </>
+                )}
+                {step === 2 && (
+                    <Panel
+                        title="Tarif hunian"
+                        description="Kelola tarif per tipe kamar dan satuan waktu. Angka dalam rupiah tanpa titik atau koma."
+                    >
+                        {canManage && (
+                            <Button onClick={() => setRateTarget('new')}>
+                                Tambah tarif
+                            </Button>
+                        )}
+                        {rateTarget && (
+                            <RateEditor
+                                key={
+                                    rateTarget === 'new' ? 'new' : rateTarget.id
+                                }
+                                building={building}
+                                rate={
+                                    rateTarget === 'new'
+                                        ? undefined
+                                        : rateTarget
+                                }
+                                onClose={() => setRateTarget(null)}
+                            />
+                        )}
+                        <div className="grid gap-4 lg:grid-cols-2">
+                            {rates.map((rate) => (
+                                <div
+                                    key={rate.id}
+                                    className="border-base-300 space-y-3 rounded-xl border p-4"
+                                >
+                                    <h3 className="font-semibold">
+                                        {label(rate.tipe_kamar)}{' '}
+                                        <span className="badge badge-ghost">
+                                            {
+                                                {
+                                                    year: 'Tahunan',
+                                                    month: 'Bulanan',
+                                                    day: 'Harian',
+                                                }[rate.unit]
+                                            }
+                                        </span>
+                                    </h3>
+                                    <p className="text-primary text-2xl font-semibold">
+                                        {formatRupiah(Number(rate.amount))}
+                                        <span className="text-muted text-xs font-normal">
+                                            {' '}
+                                            / orang ·{' '}
+                                            {
+                                                {
+                                                    year: 'tahun',
+                                                    month: 'bulan',
+                                                    day: 'hari',
+                                                }[rate.unit]
+                                            }
+                                        </span>
+                                    </p>
+                                    <p className="text-sm">
+                                        Harian mahasiswa:{' '}
+                                        {rate.student_amount == null
+                                            ? 'Belum diisi'
+                                            : formatRupiah(
+                                                  Number(rate.student_amount),
+                                              )}
+                                    </p>
+                                    <p className="text-sm">
+                                        Tahunan per kamar:{' '}
+                                        {rate.room_amount == null
+                                            ? 'Belum diisi'
+                                            : formatRupiah(
+                                                  Number(rate.room_amount),
+                                              )}
+                                    </p>
+                                    {canManage && (
+                                        <div className="flex gap-2">
+                                            <Button
+                                                size="sm"
+                                                variant="secondary"
+                                                onClick={() =>
+                                                    setRateTarget(rate)
+                                                }
+                                            >
+                                                Edit tarif
+                                            </Button>
+                                            <button
+                                                className="btn btn-ghost btn-sm text-error"
+                                                onClick={() =>
+                                                    setDeleteTarget({
+                                                        kind: 'rate',
+                                                        value: rate,
+                                                    })
+                                                }
+                                            >
+                                                Hapus
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                        {rates.length === 0 && (
+                            <p className="text-muted">
+                                Belum ada tarif. Aktifkan tipe kamar pada tahap
+                                sebelumnya, lalu tambahkan tarif.
                             </p>
                         )}
                     </Panel>
+                )}
+                {step === 3 && (
                     <Panel
-                        title="Master tipe kamar"
-                        description="Aktifkan tipe dan tentukan kapasitas serta fasilitas sebelum menambahkan kamar. Fasilitas master adalah standar layanan; inventaris fisik dicatat di menu aset."
+                        title="Fasilitas umum"
+                        description="Catat fasilitas bersama di gedung atau lantai, seperti dapur, ruang belajar, dan ruang ibadah."
                     >
-                        <div className="grid gap-4 lg:grid-cols-2">
-                            {types.map((type) => {
-                                const definition = building.room_types?.find(
-                                    (item) => item.type === type,
-                                ) ?? {
-                                    type,
-                                    enabled: building.room_types == null,
-                                    max_capacity: null,
-                                    facilities: '',
-                                };
-                                return canManage ? (
-                                    <TypeEditor
-                                        key={`${type}-${JSON.stringify(definition)}`}
-                                        building={building}
-                                        definition={definition}
-                                    />
-                                ) : (
-                                    <div
-                                        key={type}
-                                        className="border-base-300 rounded-lg border p-4"
-                                    >
-                                        <h3 className="font-semibold">
-                                            {label(type)} ·{' '}
-                                            {definition.enabled
-                                                ? 'Tersedia'
-                                                : 'Tidak tersedia'}
-                                        </h3>
-                                        <p>
-                                            Kapasitas:{' '}
-                                            {definition.max_capacity ??
-                                                'Belum dibatasi'}
-                                        </p>
-                                        <p>
-                                            {definition.facilities ||
-                                                'Fasilitas belum diisi'}
-                                        </p>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </Panel>
-                </>
-            )}
-            {step === 2 && (
-                <Panel
-                    title="Tarif hunian"
-                    description="Kelola tarif per tipe kamar dan satuan waktu. Angka dalam rupiah tanpa titik atau koma."
-                >
-                    {canManage && (
-                        <Button onClick={() => setRateTarget('new')}>
-                            Tambah tarif
-                        </Button>
-                    )}
-                    {rateTarget && (
-                        <RateEditor
-                            key={rateTarget === 'new' ? 'new' : rateTarget.id}
-                            building={building}
-                            rate={rateTarget === 'new' ? undefined : rateTarget}
-                            onClose={() => setRateTarget(null)}
-                        />
-                    )}
-                    <div className="grid gap-4 lg:grid-cols-2">
-                        {rates.map((rate) => (
-                            <div
-                                key={rate.id}
-                                className="border-base-300 space-y-3 rounded-xl border p-4"
-                            >
-                                <h3 className="font-semibold">
-                                    {label(rate.tipe_kamar)}{' '}
-                                    <span className="badge badge-ghost">
-                                        {
-                                            {
-                                                year: 'Tahunan',
-                                                month: 'Bulanan',
-                                                day: 'Harian',
-                                            }[rate.unit]
-                                        }
-                                    </span>
-                                </h3>
-                                <p className="text-primary text-2xl font-semibold">
-                                    {formatRupiah(Number(rate.amount))}
-                                    <span className="text-muted text-xs font-normal">
-                                        {' '}
-                                        / orang ·{' '}
-                                        {
-                                            {
-                                                year: 'tahun',
-                                                month: 'bulan',
-                                                day: 'hari',
-                                            }[rate.unit]
-                                        }
-                                    </span>
-                                </p>
-                                <p className="text-sm">
-                                    Harian mahasiswa:{' '}
-                                    {rate.student_amount == null
-                                        ? 'Belum diisi'
-                                        : formatRupiah(
-                                              Number(rate.student_amount),
-                                          )}
-                                </p>
-                                <p className="text-sm">
-                                    Tahunan per kamar:{' '}
-                                    {rate.room_amount == null
-                                        ? 'Belum diisi'
-                                        : formatRupiah(
-                                              Number(rate.room_amount),
-                                          )}
-                                </p>
-                                {canManage && (
-                                    <div className="flex gap-2">
-                                        <Button
-                                            size="sm"
-                                            variant="secondary"
-                                            onClick={() => setRateTarget(rate)}
-                                        >
-                                            Edit tarif
-                                        </Button>
-                                        <button
-                                            className="btn btn-ghost btn-sm text-error"
-                                            onClick={() =>
-                                                setDeleteTarget({
-                                                    kind: 'rate',
-                                                    value: rate,
-                                                })
-                                            }
-                                        >
-                                            Hapus
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                        ))}
-                    </div>
-                    {rates.length === 0 && (
-                        <p className="text-muted">
-                            Belum ada tarif. Aktifkan tipe kamar pada tahap
-                            sebelumnya, lalu tambahkan tarif.
-                        </p>
-                    )}
-                </Panel>
-            )}
-            {step === 3 && (
-                <Panel
-                    title="Fasilitas umum"
-                    description="Catat fasilitas bersama di gedung atau lantai, seperti dapur, ruang belajar, dan ruang ibadah."
-                >
-                    {canManage && (
-                        <Button onClick={() => setFacilityTarget('new')}>
-                            Tambah fasilitas
-                        </Button>
-                    )}
-                    {facilityTarget && (
-                        <FacilityEditor
-                            key={
-                                facilityTarget === 'new'
-                                    ? 'new'
-                                    : facilityTarget.id
-                            }
-                            building={building}
-                            facility={
-                                facilityTarget === 'new'
-                                    ? undefined
-                                    : facilityTarget
-                            }
-                            onClose={() => setFacilityTarget(null)}
-                        />
-                    )}
-                    <div className="grid gap-3 sm:grid-cols-2">
-                        {building.fasilitas_umum?.map((facility) => (
-                            <div
-                                key={facility.id}
-                                className="border-base-300 space-y-3 rounded-xl border p-4"
-                            >
-                                <div className="flex items-center justify-between gap-2">
-                                    <h3 className="font-semibold">
-                                        {facility.nama_fasilitas}
-                                    </h3>
-                                    <StatusBadge status={facility.kondisi} />
-                                </div>
-                                <p className="text-muted text-sm">
-                                    {facility.kategori} ·{' '}
-                                    {building.lantai?.find(
-                                        (floor) =>
-                                            floor.id === facility.lantai_id,
-                                    )?.nama_lantai ?? 'Area gedung'}
-                                </p>
-                                {canManage && (
-                                    <div className="flex gap-2">
-                                        <Button
-                                            size="sm"
-                                            variant="secondary"
-                                            onClick={() =>
-                                                setFacilityTarget(facility)
-                                            }
-                                        >
-                                            Edit fasilitas
-                                        </Button>
-                                        <button
-                                            className="btn btn-ghost btn-sm text-error"
-                                            onClick={() =>
-                                                setDeleteTarget({
-                                                    kind: 'facility',
-                                                    value: facility,
-                                                })
-                                            }
-                                        >
-                                            Hapus
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                        ))}
-                    </div>
-                    {!building.fasilitas_umum?.length && (
-                        <p className="text-muted">
-                            Belum ada fasilitas umum yang didata.
-                        </p>
-                    )}
-                </Panel>
-            )}
-            {step === 4 && (
-                <Panel
-                    title="Lantai dan kamar"
-                    description="Tambahkan lantai, lalu kamar beserta foto dan kapasitasnya. Buka detail kamar untuk melihat fasilitas, aset, dan penghuni."
-                >
-                    {canManage ? (
-                        <KelolaBangunan gedung={[building]} detail />
-                    ) : (
-                        building.lantai?.map((floor) => (
-                            <div key={floor.id} className="space-y-3">
-                                <Link
-                                    className="link link-primary font-semibold"
-                                    href={floorShow.url(floor.id)}
+                        {canManage && (
+                            <Button onClick={() => setFacilityTarget('new')}>
+                                Tambah fasilitas
+                            </Button>
+                        )}
+                        {facilityTarget && (
+                            <FacilityEditor
+                                key={
+                                    facilityTarget === 'new'
+                                        ? 'new'
+                                        : facilityTarget.id
+                                }
+                                building={building}
+                                facility={
+                                    facilityTarget === 'new'
+                                        ? undefined
+                                        : facilityTarget
+                                }
+                                onClose={() => setFacilityTarget(null)}
+                            />
+                        )}
+                        <div className="grid gap-3 sm:grid-cols-2">
+                            {building.fasilitas_umum?.map((facility) => (
+                                <div
+                                    key={facility.id}
+                                    className="border-base-300 space-y-3 rounded-xl border p-4"
                                 >
-                                    {floor.nama_lantai}
-                                </Link>
-                                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                                    {floor.kamar?.map((room) => (
-                                        <Link
-                                            key={room.id}
-                                            href={roomShow.url(room.id)}
-                                            className="border-base-300 overflow-hidden rounded-xl border"
-                                        >
-                                            {room.foto ? (
-                                                <img
-                                                    src={`/storage/${room.foto}`}
-                                                    alt={`Kamar ${room.nomor_kamar}`}
-                                                    className="h-40 w-full object-cover"
-                                                />
-                                            ) : (
-                                                <div className="bg-base-200 text-base-content/30 flex h-32 items-center justify-center">
-                                                    <BedDouble className="size-10" />
-                                                </div>
-                                            )}
-                                            <div className="space-y-2 p-4">
-                                                <h3 className="font-semibold">
-                                                    Kamar {room.nomor_kamar}
-                                                </h3>
-                                                <p className="text-muted text-sm">
-                                                    {label(room.tipe_kamar)} ·{' '}
-                                                    {room.kapasitas} orang
-                                                </p>
-                                                <StatusBadge
-                                                    status={room.status}
-                                                />
-                                            </div>
-                                        </Link>
-                                    ))}
+                                    <div className="flex items-center justify-between gap-2">
+                                        <h3 className="font-semibold">
+                                            {facility.nama_fasilitas}
+                                        </h3>
+                                        <StatusBadge
+                                            status={facility.kondisi}
+                                        />
+                                    </div>
+                                    <p className="text-muted text-sm">
+                                        {facility.kategori} ·{' '}
+                                        {building.lantai?.find(
+                                            (floor) =>
+                                                floor.id === facility.lantai_id,
+                                        )?.nama_lantai ?? 'Area gedung'}
+                                    </p>
+                                    {canManage && (
+                                        <div className="flex gap-2">
+                                            <Button
+                                                size="sm"
+                                                variant="secondary"
+                                                onClick={() =>
+                                                    setFacilityTarget(facility)
+                                                }
+                                            >
+                                                Edit fasilitas
+                                            </Button>
+                                            <button
+                                                className="btn btn-ghost btn-sm text-error"
+                                                onClick={() =>
+                                                    setDeleteTarget({
+                                                        kind: 'facility',
+                                                        value: facility,
+                                                    })
+                                                }
+                                            >
+                                                Hapus
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
-                            </div>
-                        ))
-                    )}
-                    {!building.lantai?.length && !canManage && (
-                        <p>Belum ada lantai tercatat.</p>
-                    )}
-                </Panel>
-            )}
-            <div className="flex items-center justify-between">
-                <Button
-                    variant="secondary"
-                    disabled={step === 0}
-                    onClick={() => setStep(step - 1)}
-                >
-                    Sebelumnya
-                </Button>
-                <span className="text-muted text-xs">
-                    Tahap {step + 1} dari {steps.length}
-                </span>
-                <Button
-                    disabled={step === steps.length - 1}
-                    onClick={() => setStep(step + 1)}
-                >
-                    Lanjut
-                </Button>
+                            ))}
+                        </div>
+                        {!building.fasilitas_umum?.length && (
+                            <p className="text-muted">
+                                Belum ada fasilitas umum yang didata.
+                            </p>
+                        )}
+                    </Panel>
+                )}
+                {step === 4 && (
+                    <Panel
+                        title="Lantai dan kamar"
+                        description="Tambahkan lantai, lalu kamar beserta foto dan kapasitasnya. Buka detail kamar untuk melihat fasilitas, aset, dan penghuni."
+                    >
+                        {canManage ? (
+                            <KelolaBangunan gedung={[building]} detail />
+                        ) : (
+                            building.lantai?.map((floor) => (
+                                <div key={floor.id} className="space-y-3">
+                                    <Link
+                                        className="link link-primary font-semibold"
+                                        href={floorShow.url(floor.id)}
+                                    >
+                                        {floor.nama_lantai}
+                                    </Link>
+                                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                                        {floor.kamar?.map((room) => (
+                                            <Link
+                                                key={room.id}
+                                                href={roomShow.url(room.id)}
+                                                className="border-base-300 overflow-hidden rounded-xl border"
+                                            >
+                                                {room.foto ? (
+                                                    <img
+                                                        src={`/storage/${room.foto}`}
+                                                        alt={`Kamar ${room.nomor_kamar}`}
+                                                        className="h-40 w-full object-cover"
+                                                    />
+                                                ) : (
+                                                    <div className="bg-base-200 text-base-content/30 flex h-32 items-center justify-center">
+                                                        <BedDouble className="size-10" />
+                                                    </div>
+                                                )}
+                                                <div className="space-y-2 p-4">
+                                                    <h3 className="font-semibold">
+                                                        Kamar {room.nomor_kamar}
+                                                    </h3>
+                                                    <p className="text-muted text-sm">
+                                                        {label(room.tipe_kamar)}{' '}
+                                                        · {room.kapasitas} orang
+                                                    </p>
+                                                    <StatusBadge
+                                                        status={room.status}
+                                                    />
+                                                </div>
+                                            </Link>
+                                        ))}
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                        {!building.lantai?.length && !canManage && (
+                            <p>Belum ada lantai tercatat.</p>
+                        )}
+                    </Panel>
+                )}
             </div>
             <Errors errors={deletion.errors} />
             <ConfirmDialog
