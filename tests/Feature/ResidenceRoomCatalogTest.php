@@ -39,12 +39,12 @@ it('imports checked and unchecked types capacities facilities and exact occupant
     $building = Gedung::where('kode_gedung', 'A')->sole();
     expect($building->allowed_categories)->toBe(['local_kipk', 'local_non_kipk', 'student', 'non_student', 'summer_course']);
     $types = collect($building->room_types)->keyBy('type');
-    expect($types['standar'])->toBe(['type' => 'standar', 'enabled' => true, 'max_capacity' => 2, 'facilities' => 'Dipan, Lemari, Meja Belajar'])
+    expect($types['standar'])->toBe(['type' => 'standar', 'enabled' => true, 'max_capacity' => 4, 'facilities' => 'Dipan, Lemari, Meja Belajar'])
         ->and($types['umum']['enabled'])->toBeTrue()
         ->and($types['premium']['enabled'])->toBeFalse()
         ->and($types['medium']['enabled'])->toBeFalse();
     $h = Gedung::where('kode_gedung', 'H')->sole();
-    expect(Kamar::whereHas('lantai', fn ($q) => $q->where('gedung_id', $h->id))->whereIn('nomor_kamar', ['102', '311'])->pluck('status')->all())->toBe(['maintenance', 'maintenance']);
+    expect(Kamar::whereHas('lantai', fn ($q) => $q->where('gedung_id', $h->id))->whereIn('nomor_kamar', ['102', '311'])->pluck('status')->all())->toBe(['kosong', 'kosong']);
 });
 
 it('retains enabled types without tariffs and tariffs provided only per room', function () {
@@ -81,7 +81,20 @@ it('rolls back the entire master sync when an inconsistent source room has activ
     $building->update(['nama_gedung' => 'Nama dipertahankan']);
     $rpx = Gedung::where('kode_gedung', 'A')->sole();
     $rpx->update(['nama_gedung' => 'RPX sebelum impor']);
-    expect(fn () => $this->seed(ResidenceMasterSeeder::class))->toThrow(LogicException::class);
+    $import = app(ResidenceMasterImport::class);
+    $data = $import->read(base_path('Data Asrama.xlsx'));
+    foreach ($data['buildings'] as &$sourceBuilding) {
+        if ($sourceBuilding['kode_gedung'] === 'H') {
+            foreach ($sourceBuilding['rooms'] as &$sourceRoom) {
+                if ($sourceRoom['nomor_kamar'] === '102') {
+                    $sourceRoom['blocked'] = true;
+                }
+            }
+            unset($sourceRoom);
+        }
+    }
+    unset($sourceBuilding);
+    expect(fn () => $import->apply($data['buildings']))->toThrow(LogicException::class);
     expect($building->fresh()->nama_gedung)->toBe('Nama dipertahankan')
         ->and($rpx->fresh()->nama_gedung)->toBe('RPX sebelum impor');
     $this->assertDatabaseCount('penempatan_kamar', 1);

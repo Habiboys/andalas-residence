@@ -15,13 +15,35 @@ it('imports actual buildings rooms and separate tariffs without duplicates on re
     $this->seed(ResidenceMasterSeeder::class);
     $this->seed(ResidenceMasterSeeder::class);
     $this->assertDatabaseCount('gedung', 10);
-    $this->assertDatabaseCount('kamar', 798);
+    $this->assertDatabaseCount('kamar', 799);
     $building = Gedung::where('kode_gedung', 'A')->sole();
-    expect(Kamar::whereHas('lantai', fn ($query) => $query->where('gedung_id', $building->id))->count())->toBe(131);
+    expect(Kamar::whereHas('lantai', fn ($query) => $query->where('gedung_id', $building->id))->count())->toBe(132);
     $this->assertDatabaseHas('residence_rates', ['gedung_id' => $building->id, 'tipe_kamar' => 'standar', 'unit' => 'year', 'amount' => 2500000, 'room_amount' => 5000000]);
     $this->assertDatabaseHas('residence_rates', ['gedung_id' => $building->id, 'tipe_kamar' => 'umum', 'unit' => 'day', 'amount' => 100000, 'student_amount' => 75000]);
     $asn = Gedung::where('kode_gedung', 'ASN')->sole();
-    expect(Kamar::whereHas('lantai', fn ($query) => $query->where('gedung_id', $asn->id))->where('kapasitas', 0)->where('status', 'maintenance')->count())->toBe(44);
+    expect(Kamar::whereHas('lantai', fn ($query) => $query->where('gedung_id', $asn->id))->where('kapasitas', 2)->where('status', 'kosong')->count())->toBe(44);
+    foreach (['2A.17' => 4, '3A.17' => 4, '4A.17' => 4, '1B.16' => 2] as $number => $capacity) {
+        $room = Kamar::whereHas('lantai', fn ($query) => $query->where('gedung_id', $building->id))->where('nomor_kamar', $number)->sole();
+        expect($room->kapasitas)->toBe($capacity);
+        expect($room->status)->toBe('kosong');
+    }
+});
+
+it('fills previously blocked zero capacity ASN rooms while preserving configured capacities and maintenance', function () {
+    $this->seed(ResidenceMasterSeeder::class);
+    $rooms = Kamar::whereHas('lantai.gedung', fn ($query) => $query->where('kode_gedung', 'ASN'))->limit(3)->get();
+    $rooms[0]->update(['kapasitas' => 0, 'status' => 'maintenance']);
+    $rooms[1]->update(['kapasitas' => 4]);
+    $rooms[2]->update(['status' => 'maintenance']);
+
+    $this->seed(ResidenceMasterSeeder::class);
+
+    expect($rooms[0]->fresh()->kapasitas)->toBe(2);
+    expect($rooms[0]->fresh()->status)->toBe('kosong');
+    expect($rooms[1]->fresh()->kapasitas)->toBe(4);
+    $building = $rooms[1]->lantai->gedung;
+    expect(collect($building->room_types)->firstWhere('type', $rooms[1]->tipe_kamar)['max_capacity'])->toBeGreaterThanOrEqual(4);
+    expect($rooms[2]->fresh()->status)->toBe('maintenance');
 });
 
 it('validates the workbook without writing data in dry run', function () {

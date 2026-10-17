@@ -7,6 +7,7 @@ use App\Models\Kamar;
 use App\Models\Lantai;
 use App\Models\ResidenceRate;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 
 class ResidenceMasterImport
@@ -84,14 +85,21 @@ class ResidenceMasterImport
                     $floor = (int) ($values['D'] ?? 0);
                     $capacityText = trim((string) ($values['E'] ?? ''));
                     $capacity = preg_match('/^\d+/', $capacityText, $capacityMatch) ? (int) $capacityMatch[0] : 0;
+                    $assumedCapacity = $code === 'ASN' && $capacityText === '';
+                    if ($assumedCapacity) {
+                        $capacity = 2;
+                    }
                     $type = strtolower(str_replace(' ', '_', trim((string) ($values['C'] ?? ''))));
                     if ($floor < 1 || ! in_array($type, ['standar', 'medium', 'premium', 'umum', 'umum_vip'], true)) {
                         throw new \InvalidArgumentException($name.' baris '.$row.': lantai, tipe, atau nomor kamar tidak valid/duplikat.');
                     }
                     $roomData = ['nomor_kamar' => $number, 'nomor_lantai' => $floor, 'kapasitas' => $capacity, 'tipe_kamar' => $type];
+                    if ($assumedCapacity) {
+                        $roomData['assumed_capacity'] = true;
+                    }
                     $definition = collect($roomTypes)->firstWhere('type', $type);
-                    if (! ($definition['enabled'] ?? false) || ($definition['max_capacity'] !== null && $capacity > $definition['max_capacity'])) {
-                        $warnings[] = $name.' / '.$number.': tipe tidak aktif atau kapasitas melebihi master tipe; kamar diblokir sampai data diperbaiki.';
+                    if (! ($definition['enabled'] ?? false)) {
+                        $warnings[] = $name.' / '.$number.': tipe tidak aktif; kamar diblokir sampai data diperbaiki.';
                         $roomData['blocked'] = true;
                     }
                     if (isset($seen[$number])) {
@@ -108,6 +116,13 @@ class ResidenceMasterImport
                     }
                     $rooms[] = $roomData;
                 }
+                foreach ($roomTypes as &$roomType) {
+                    $roomType['max_capacity'] = max($roomType['max_capacity'] ?? 0, collect($rooms)->where('tipe_kamar', $roomType['type'])->max('kapasitas') ?? 0) ?: null;
+                }
+                unset($roomType);
+                if (collect($rooms)->contains('assumed_capacity', true)) {
+                    $warnings[] = $name.': kapasitas kosong memakai asumsi sementara 2 orang per unit; kapasitas yang sudah diatur tetap dipertahankan.';
+                }
                 $buildings[] = ['kode_gedung' => $code, 'nama_gedung' => $name, 'allowed_categories' => $categories, 'room_types' => $roomTypes, 'rooms' => $rooms, 'rates' => $rates];
             }
         } finally {
@@ -115,6 +130,57 @@ class ResidenceMasterImport
         }
 
         return compact('buildings', 'warnings');
+    }
+
+    /**
+     * Check-in rows establish a minimum observed occupancy, not a guessed capacity for empty rooms.
+     *
+     * @param  list<array<string, mixed>>  $buildings
+     * @param  array<string, mixed>  $students
+     * @return list<array<string, mixed>>
+     */
+    public function withCheckinOccupancy(array $buildings, array $students): array
+    {
+        $matching = app(Residence2026StudentMatching::class);
+        $rows = collect($students['students'])->flatMap(fn (array $student): array => $student['checkins'])
+            ->concat(collect($students['unresolved'])->where('source', 'checkins'));
+        foreach ($buildings as &$building) {
+            $counts = [];
+            $lookup = [];
+            foreach ($building['rooms'] as $index => $room) {
+                $lookup[$matching->roomKey($building['kode_gedung'], $room['nomor_kamar'])][] = $index;
+            }
+            foreach ($rows as $row) {
+                if ($matching->buildingCode($row['sheet']) !== $building['kode_gedung']) {
+                    continue;
+                }
+                $aliases = array_map(fn (string $alias): string => $matching->roomKey($building['kode_gedung'], $alias), explode('/', $row['room']));
+                $exact = $lookup[$matching->roomKey($building['kode_gedung'], $row['room'])] ?? [];
+                $indices = $exact ?: array_values(array_unique(array_merge([], ...array_map(fn (string $alias): array => $lookup[$alias] ?? [], $aliases))));
+                if ($indices === [] && preg_match('/^(\d+)[AB]\.\d+$/', $row['room'], $floor)) {
+                    $indices[] = count($building['rooms']);
+                    $building['rooms'][] = ['nomor_kamar' => $row['room'], 'nomor_lantai' => (int) $floor[1], 'kapasitas' => 0, 'tipe_kamar' => 'standar'];
+                    $lookup[$matching->roomKey($building['kode_gedung'], $row['room'])] = $indices;
+                }
+                if (count($indices) !== 1) {
+                    continue;
+                }
+                $identity = preg_match('/^2[456]\d{8}$/D', $row['nim'])
+                    ? $row['nim'].'|'.preg_replace('/[^a-z0-9]/', '', Str::lower(Str::ascii($row['nama'] ?? '')))
+                    : $row['sheet'].':'.$row['row'];
+                $counts[$indices[0]][$identity] = true;
+            }
+            foreach ($counts as $index => $occupants) {
+                $building['rooms'][$index]['kapasitas'] = max($building['rooms'][$index]['kapasitas'], count($occupants));
+            }
+            foreach ($building['room_types'] as &$type) {
+                $type['max_capacity'] = max($type['max_capacity'] ?? 0, collect($building['rooms'])->where('tipe_kamar', $type['type'])->max('kapasitas') ?? 0) ?: null;
+            }
+            unset($type);
+        }
+        unset($building);
+
+        return $buildings;
     }
 
     /** @param list<array<string, mixed>> $buildings */
@@ -138,6 +204,10 @@ class ResidenceMasterImport
                 foreach ($data['rooms'] as $roomData) {
                     $floor = Lantai::firstOrCreate(['gedung_id' => $building->id, 'nomor_lantai' => $roomData['nomor_lantai']], ['nama_lantai' => 'Lantai '.$roomData['nomor_lantai']]);
                     $room = Kamar::firstOrNew(['lantai_id' => $floor->id, 'nomor_kamar' => $roomData['nomor_kamar']]);
+                    $wasMissingCapacity = $room->exists && $room->kapasitas === 0;
+                    if (($roomData['assumed_capacity'] ?? false) && $room->exists && $room->kapasitas > 0) {
+                        $roomData['kapasitas'] = $room->kapasitas;
+                    }
                     $active = $room->exists ? $room->penempatanKamar()->where('status', 'aktif')->count() : 0;
                     $reserved = $room->exists ? app(RoomReservations::class)->count($room) : 0;
                     if (($roomData['blocked'] ?? false) && $active + $reserved > 0) {
@@ -147,8 +217,19 @@ class ResidenceMasterImport
                         throw new \LogicException('Kapasitas '.$building->nama_gedung.' / '.$roomData['nomor_kamar'].' lebih kecil dari penghuni/reservasi aktif. Tidak ada data yang diubah.');
                     }
                     $annual = collect($data['rates'])->first(fn (array $rate): bool => $rate['tipe_kamar'] === $roomData['tipe_kamar'] && $rate['unit'] === 'year');
-                    $status = ($room->exists && $room->status === 'maintenance') || ($roomData['blocked'] ?? false) || $roomData['kapasitas'] === 0 ? 'maintenance' : ($active === 0 ? 'kosong' : ($active + $reserved >= $roomData['kapasitas'] ? 'penuh' : 'terisi_sebagian'));
+                    $keepMaintenance = $room->exists && $room->status === 'maintenance' && ! ($wasMissingCapacity && ($roomData['assumed_capacity'] ?? false));
+                    $status = $keepMaintenance || ($roomData['blocked'] ?? false) || $roomData['kapasitas'] === 0 ? 'maintenance' : ($active === 0 ? 'kosong' : ($active + $reserved >= $roomData['kapasitas'] ? 'penuh' : 'terisi_sebagian'));
                     $room->fill(['kapasitas' => $roomData['kapasitas'], 'tipe_kamar' => $roomData['tipe_kamar'], 'tarif_per_periode' => $annual['amount'] ?? 0, 'status' => $status])->save();
+                }
+                if (collect($data['rooms'])->contains('assumed_capacity', true)) {
+                    $types = $building->room_types;
+                    foreach ($types as &$type) {
+                        $capacity = Kamar::whereHas('lantai', fn ($query) => $query->where('gedung_id', $building->id))
+                            ->where('tipe_kamar', $type['type'])->max('kapasitas');
+                        $type['max_capacity'] = max($type['max_capacity'] ?? 0, $capacity ?? 0) ?: null;
+                    }
+                    unset($type);
+                    $building->update(['room_types' => $types]);
                 }
             }
         });

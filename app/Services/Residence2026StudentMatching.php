@@ -15,6 +15,11 @@ class Residence2026StudentMatching
         'RMS' => 'E', 'OREN' => 'F', 'HIJAU' => 'G', 'PUPERA PUTERA' => 'H',
     ];
 
+    public function buildingCode(string $sheet): ?string
+    {
+        return self::BuildingCodes[$sheet] ?? null;
+    }
+
     public function roomKey(string $code, string $number): string
     {
         $normalized = preg_replace('/\s+/u', '', Str::upper(trim($number, " \t\n\r\0\x0B()[]")));

@@ -627,129 +627,119 @@ export default function BuildingWorkspace({
                                     photos={photoPaths(building)}
                                     title={building.nama_gedung}
                                 />
-                                <div className="overflow-x-auto">
-                                    <table className="table-sm table">
-                                        <tbody>
-                                            {[
-                                                [
-                                                    'Kode gedung',
-                                                    building.kode_gedung,
-                                                ],
-                                                [
-                                                    'Peruntukan',
-                                                    {
-                                                        laki_laki: 'Laki-laki',
-                                                        perempuan: 'Perempuan',
-                                                        campur: 'Campuran',
-                                                    }[
-                                                        building.gender_peruntukan ??
-                                                            'campur'
-                                                    ],
-                                                ],
-                                                [
-                                                    'Alamat',
-                                                    building.alamat ||
-                                                        'Belum diisi',
-                                                ],
-                                                [
-                                                    'Deskripsi',
-                                                    building.deskripsi ||
-                                                        'Belum diisi',
-                                                ],
-                                            ].map(([title, value]) => (
-                                                <tr key={title}>
-                                                    <th
-                                                        scope="row"
-                                                        className="text-muted w-44 align-top font-medium"
-                                                    >
-                                                        {title}
-                                                    </th>
-                                                    <td className="whitespace-pre-wrap">
-                                                        {value}
-                                                    </td>
-                                                    <td />
-                                                </tr>
-                                            ))}
-                                            <tr>
-                                                <th
-                                                    scope="row"
-                                                    className="text-muted align-top font-medium"
-                                                >
-                                                    Kategori penghuni
-                                                </th>
-                                                <td>
-                                                    {building.allowed_categories ==
-                                                    null
-                                                        ? 'Semua kategori (belum dibatasi).'
-                                                        : building.allowed_categories
-                                                              .map(
-                                                                  (category) =>
-                                                                      categories[
-                                                                          category
-                                                                      ] ??
-                                                                      category,
-                                                              )
-                                                              .join(' / ') ||
-                                                          'Tidak menerima kategori penghuni.'}
-                                                </td>
-                                                <td className="text-right">
-                                                    {canManage && (
-                                                        <IconButton
-                                                            label="Edit kategori"
-                                                            icon={Pencil}
-                                                            tone="text-warning hover:bg-warning/10"
-                                                            onClick={() =>
-                                                                setEditingCategories(
-                                                                    true,
-                                                                )
-                                                            }
-                                                        />
-                                                    )}
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <th
-                                                    scope="row"
-                                                    className="text-muted font-medium"
-                                                >
-                                                    Jumlah lantai
-                                                </th>
-                                                <td colSpan={2}>
-                                                    {building.lantai?.length ??
-                                                        0}
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <th
-                                                    scope="row"
-                                                    className="text-muted font-medium"
-                                                >
-                                                    Jumlah kamar
-                                                </th>
-                                                <td colSpan={2}>
-                                                    {rooms.length}
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <th
-                                                    scope="row"
-                                                    className="text-muted font-medium"
-                                                >
-                                                    Kapasitas penghuni
-                                                </th>
-                                                <td colSpan={2}>
-                                                    {rooms.reduce(
-                                                        (sum, room) =>
-                                                            sum +
-                                                            room.kapasitas,
-                                                        0,
-                                                    )}{' '}
-                                                    orang
-                                                </td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </div>
+                                <section
+                                    aria-label="Profil gedung"
+                                    className="min-w-0 space-y-6"
+                                >
+                                    <div className="space-y-3">
+                                        <p className="text-muted text-sm">
+                                            Kode gedung: {building.kode_gedung}
+                                        </p>
+                                        <h2 className="text-base-content text-2xl font-bold tracking-tight sm:text-3xl">
+                                            {building.nama_gedung}
+                                        </h2>
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <span className="bg-primary/10 text-primary rounded-full px-3 py-1 text-sm font-medium">
+                                                {{
+                                                    laki_laki: 'Laki-laki',
+                                                    perempuan: 'Perempuan',
+                                                    campur: 'Campuran',
+                                                    campuran: 'Campuran',
+                                                }[
+                                                    building.gender_peruntukan ??
+                                                        'campur'
+                                                ] ?? 'Belum diisi'}
+                                            </span>
+                                        </div>
+                                        <dl className="space-y-1 text-sm">
+                                            <dt className="text-muted">
+                                                Alamat
+                                            </dt>
+                                            <dd className="text-base-content whitespace-pre-wrap">
+                                                {building.alamat ||
+                                                    'Alamat belum diisi'}
+                                            </dd>
+                                        </dl>
+                                        {building.deskripsi && (
+                                            <p className="text-muted text-sm leading-relaxed whitespace-pre-wrap">
+                                                {building.deskripsi}
+                                            </p>
+                                        )}
+                                    </div>
+                                    <dl className="border-base-300 grid grid-cols-2 gap-x-5 gap-y-4 border-y py-5 sm:grid-cols-3">
+                                        {[
+                                            [
+                                                'Jumlah lantai',
+                                                building.lantai?.length ?? 0,
+                                            ],
+                                            ['Jumlah kamar', rooms.length],
+                                            [
+                                                'Kapasitas penghuni',
+                                                `${rooms.reduce((sum, room) => sum + room.kapasitas, 0)} orang`,
+                                            ],
+                                        ].map(([title, value]) => (
+                                            <div
+                                                key={title}
+                                                className="space-y-1"
+                                            >
+                                                <dt className="text-muted text-xs sm:text-sm">
+                                                    {title}
+                                                </dt>
+                                                <dd className="text-base-content text-lg font-semibold">
+                                                    {value}
+                                                </dd>
+                                            </div>
+                                        ))}
+                                    </dl>
+                                    <div className="space-y-3">
+                                        <div className="flex items-center justify-between gap-3">
+                                            <h3 className="text-sm font-semibold">
+                                                Kategori penghuni
+                                            </h3>
+                                            {canManage && (
+                                                <IconButton
+                                                    label="Edit kategori"
+                                                    icon={Pencil}
+                                                    tone="text-warning hover:bg-warning/10"
+                                                    onClick={() =>
+                                                        setEditingCategories(
+                                                            true,
+                                                        )
+                                                    }
+                                                />
+                                            )}
+                                        </div>
+                                        {building.allowed_categories == null ? (
+                                            <p className="text-muted text-sm">
+                                                Semua kategori (belum dibatasi).
+                                            </p>
+                                        ) : building.allowed_categories
+                                              .length === 0 ? (
+                                            <p className="text-muted text-sm">
+                                                Tidak menerima kategori
+                                                penghuni.
+                                            </p>
+                                        ) : (
+                                            <ul
+                                                className="flex flex-wrap gap-2"
+                                                aria-label="Kategori penghuni yang diterima"
+                                            >
+                                                {building.allowed_categories.map(
+                                                    (category) => (
+                                                        <li
+                                                            key={category}
+                                                            className="bg-base-200 text-base-content rounded-md px-2.5 py-1 text-sm"
+                                                        >
+                                                            {categories[
+                                                                category
+                                                            ] ?? category}
+                                                        </li>
+                                                    ),
+                                                )}
+                                            </ul>
+                                        )}
+                                    </div>
+                                </section>
                             </div>
                         </Panel>
                         <Panel title="Master tipe kamar">

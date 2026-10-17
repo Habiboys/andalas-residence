@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Services\Residence2026StudentImport;
 use App\Services\ResidenceMasterImport;
 use Illuminate\Database\Seeder;
 
@@ -14,7 +15,7 @@ class ResidenceMasterSeeder extends Seeder
     {
         $import = app(ResidenceMasterImport::class);
         $data = $import->read(base_path('Data Asrama.xlsx'));
-        $import->apply($data['buildings']);
+        $import->apply($import->withCheckinOccupancy($data['buildings'], app(Residence2026StudentImport::class)->read()));
         $this->call(ResidencePhotoSeeder::class);
         foreach ($data['warnings'] as $warning) {
             $this->command?->warn($warning);

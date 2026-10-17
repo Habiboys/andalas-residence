@@ -7118,16 +7118,14 @@
       "nim": "2600521001",
       "nama": "Mutiara Nabila",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "mutiaranabila676@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "Akuntansi D3"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -7143,7 +7141,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2600521002",
@@ -7621,16 +7623,14 @@
       "nim": "2600523023",
       "nama": "NAYLA RIZKA NOVA",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "naylarizkanova@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "D3 Akuntansi"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -7646,7 +7646,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2600523033",
@@ -7801,16 +7805,14 @@
       "nim": "2600531011",
       "nama": "Yumna Nazhiva",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "yumnanazifa21@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "Administrasi Perkantoran"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -7826,7 +7828,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2600531013",
@@ -7970,17 +7976,14 @@
       "nim": "2600539001",
       "nama": "Seventino Putra",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": null,
       "gender": "laki_laki",
       "prodi_names": [
         "D3 Adm Perkantoran"
       ],
-      "issues": [
-        "category_unconfirmed",
-        "special_status_needs_review"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "OREN",
@@ -7996,7 +7999,12 @@
           "payment_amount": "Rp."
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed",
+        "special_status_needs_review"
+      ]
     },
     {
       "nim": "2600541001",
@@ -10373,16 +10381,14 @@
       "nim": "2610112117",
       "nama": "Mardatila",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "marbelajar16@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "Hukum"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -10398,7 +10404,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610112119",
@@ -10736,17 +10746,14 @@
       "nim": "2610119001",
       "nama": "M. Aidil Akbar",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": null,
       "gender": "laki_laki",
       "prodi_names": [
         "Hukum"
       ],
-      "issues": [
-        "category_unconfirmed",
-        "special_status_needs_review"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "OREN",
@@ -10762,23 +10769,25 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed",
+        "special_status_needs_review"
+      ]
     },
     {
       "nim": "2610119002",
       "nama": "Carlos Daniel Ndraha",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": null,
       "gender": "laki_laki",
       "prodi_names": [
         "Hukum"
       ],
-      "issues": [
-        "category_unconfirmed",
-        "special_status_needs_review"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "OREN",
@@ -10794,7 +10803,12 @@
           "payment_amount": "Rp."
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed",
+        "special_status_needs_review"
+      ]
     },
     {
       "nim": "2610120567",
@@ -11664,16 +11678,14 @@
       "nim": "2610211066",
       "nama": "Hilwa",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "hilwa4678@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "Agroteknologi"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -11689,7 +11701,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610211069",
@@ -12445,16 +12461,14 @@
       "nim": "2610212046",
       "nama": "Titi lizarni",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "titilizarni6@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "agroteknologi"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -12470,7 +12484,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610212048",
@@ -12862,17 +12880,14 @@
       "nim": "2610219001",
       "nama": "Tirsya Lora",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": null,
       "gender": "perempuan",
       "prodi_names": [
         "Agroteknologi"
       ],
-      "issues": [
-        "category_unconfirmed",
-        "special_status_needs_review"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RMS",
@@ -12888,22 +12903,25 @@
           "payment_amount": "Rp."
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed",
+        "special_status_needs_review"
+      ]
     },
     {
       "nim": "2610221002",
       "nama": "NAYLA MULIA PUTRI",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "naylamuliaputri@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "Agribisnis"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -12919,7 +12937,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610221003",
@@ -13072,16 +13094,14 @@
       "nim": "2610221010",
       "nama": "LAIBRA AZ-SYAHRANI",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "laibraazsyahranii@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "Agribisnis"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -13097,7 +13117,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610221019",
@@ -13794,16 +13818,14 @@
       "nim": "2610221071",
       "nama": "Raisyah Putri Nur",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "putriraisah100@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "Agribisnis"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -13819,7 +13841,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610221073",
@@ -14495,16 +14521,14 @@
       "nim": "2610222068",
       "nama": "NURUL AZIZAH",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "nunuujijahhh@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "Agribisnis"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -14520,7 +14544,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610222071",
@@ -15983,16 +16011,14 @@
       "nim": "2610232017",
       "nama": "ZULLUTHFI",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": null,
       "gender": "laki_laki",
       "prodi_names": [
         "Ilmu Tanah"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "HIJAU",
@@ -16008,7 +16034,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610232019",
@@ -16301,16 +16331,14 @@
       "nim": "2610233021",
       "nama": "Nabila Azalia Yuliani",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "nabilaay278@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "ilmu tanah"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -16326,7 +16354,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610233025",
@@ -16957,16 +16989,14 @@
       "nim": "2610251049",
       "nama": "NAZRA TULLAH",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "nazratullah97@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "proteksi tanaman"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "MENPERA",
@@ -16982,7 +17012,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610251050",
@@ -17057,16 +17091,14 @@
       "nim": "2610251054",
       "nama": "Nurullia Yulianti",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "mbhlali12@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "proteksi tanaman"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -17082,7 +17114,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610251055",
@@ -17346,16 +17382,14 @@
       "nim": "2610252025",
       "nama": "Azhra Hayatul Husna",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "azhrahusna6@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "Proteksi tanaman"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "MENPERA",
@@ -17371,7 +17405,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610252032",
@@ -17872,16 +17910,14 @@
       "nim": "2610252082",
       "nama": "Khairuzzadiah",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "auzaswl@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "protan"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -17897,7 +17933,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610271003",
@@ -18590,16 +18630,14 @@
       "nim": "2610311015",
       "nama": "Raisya Putri Rizki",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "raisyaputririzki@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "kedokteran"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -18615,7 +18653,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610311045",
@@ -18690,16 +18732,14 @@
       "nim": "2610312011",
       "nama": "Izzah Qurrata'ain Latief",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "yulisyafitri1984@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "kedokteran"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -18715,7 +18755,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610312016",
@@ -18877,16 +18921,14 @@
       "nim": "2610313036",
       "nama": "Nabila Zahra Mutmainnah",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "nabila.zahra.mutmainnah@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "kedokteran"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -18902,22 +18944,24 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610313089",
       "nama": "Sabita Izzati Aqila",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "triginanovayolanda1980@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "pendidikan dokter"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -18933,22 +18977,24 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610313099",
       "nama": "Yusriyah Qurata 'Aini",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "yusriyhaini@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "Kedokteran"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -18964,7 +19010,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610313108",
@@ -18999,16 +19049,14 @@
       "nim": "2610322008",
       "nama": "Rafifah Meiyanda",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "rafifahmeiyanda887@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "Psikologi"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -19024,7 +19072,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610322045",
@@ -19217,16 +19269,14 @@
       "nim": "2610331016",
       "nama": "Mely Hanum",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "melyhanum23@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "kebidanan"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -19242,7 +19292,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610331019",
@@ -19314,16 +19368,14 @@
       "nim": "2610332002",
       "nama": "CHELSY DWI AULIA PUTRI",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "chelsydwiauliaputrichelsy@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "kebidanan"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -19339,7 +19391,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610332004",
@@ -19561,17 +19617,14 @@
       "nim": "2610339001",
       "nama": "sefri rahma gusmeliani",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": null,
       "gender": "perempuan",
       "prodi_names": [
         "Kebidanan"
       ],
-      "issues": [
-        "category_unconfirmed",
-        "special_status_needs_review"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RMS",
@@ -19587,7 +19640,12 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed",
+        "special_status_needs_review"
+      ]
     },
     {
       "nim": "2610343010",
@@ -19622,14 +19680,12 @@
       "nim": "2610349001",
       "nama": "Isnabilla Ulfa Landany",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "ulfaisnabilla@gmail.com",
       "gender": "perempuan",
       "prodi_names": [],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -19645,7 +19701,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610411001",
@@ -19971,16 +20031,14 @@
       "nim": "2610412003",
       "nama": "Nayyara Faiza Qalbi",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "nayyarafaizaqalbi@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "kimia"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -19996,7 +20054,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610412006",
@@ -20851,16 +20913,14 @@
       "nim": "2610422028",
       "nama": "Nadia Olivia",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "nadiaolivia397@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "Biologi"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "MENPERA",
@@ -20876,7 +20936,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610422033",
@@ -21018,16 +21082,14 @@
       "nim": "2610423018",
       "nama": "Nadari Rendini",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "nadarirendini07@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "biologi"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -21043,22 +21105,24 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610423021",
       "nama": "Nur ziyadatuz zahro",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "ziyazahr19@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "biologi"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -21074,23 +21138,24 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610429001",
       "nama": "Eka Humairah",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": null,
       "gender": "perempuan",
       "prodi_names": [
         "Biologi"
       ],
-      "issues": [
-        "category_unconfirmed",
-        "special_status_needs_review"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RMS",
@@ -21106,23 +21171,25 @@
           "payment_amount": "Rp."
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed",
+        "special_status_needs_review"
+      ]
     },
     {
       "nim": "2610429002",
       "nama": "Aqusya winitra jibran",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": null,
       "gender": "laki_laki",
       "prodi_names": [
         "Biologi"
       ],
-      "issues": [
-        "category_unconfirmed",
-        "special_status_needs_review"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "OREN",
@@ -21138,7 +21205,12 @@
           "payment_amount": "Rp."
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed",
+        "special_status_needs_review"
+      ]
     },
     {
       "nim": "2610431002",
@@ -23544,16 +23616,14 @@
       "nim": "2610451001",
       "nama": "ABELYA PUTRI ARIYANI",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "abelyaputriariyani@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "Statistika"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -23569,7 +23639,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610451005",
@@ -23684,16 +23758,14 @@
       "nim": "2610452007",
       "nama": "aisyah azzahra fikria imam",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "aisyahazzahrafikria@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "statistik"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -23709,7 +23781,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610452016",
@@ -24822,16 +24898,14 @@
       "nim": "2610521022",
       "nama": "DILVIA ANGGUN FITRIANI",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "dilviaanggunfitriani@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "Manajemen"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -24847,7 +24921,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610521025",
@@ -25258,16 +25336,14 @@
       "nim": "2610522058",
       "nama": "Rahma Dian Fadhillah",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "dilla.iryan@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "Manajemen"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -25283,7 +25359,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610522062",
@@ -25465,16 +25545,14 @@
       "nim": "2610522082",
       "nama": "Afifah Najlah Naqiyyah",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "afifahnajlah.nqy@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "manajemen"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -25490,7 +25568,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610522084",
@@ -25634,17 +25716,14 @@
       "nim": "2610529001",
       "nama": "Farhan Khairansyah",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": null,
       "gender": "laki_laki",
       "prodi_names": [
         "Manajemen"
       ],
-      "issues": [
-        "category_unconfirmed",
-        "special_status_needs_review"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "OREN",
@@ -25660,7 +25739,12 @@
           "payment_amount": "Rp."
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed",
+        "special_status_needs_review"
+      ]
     },
     {
       "nim": "2610531003",
@@ -26096,16 +26180,14 @@
       "nim": "2610531044",
       "nama": "HAYYATUL NUFUS",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "hayyatulnufus3@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "Akuntansi"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -26121,7 +26203,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610532016",
@@ -26412,16 +26498,14 @@
       "nim": "2610533014",
       "nama": "Azzahra Putriyoza",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "azzahraputriyoza07@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "Akuntansi"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -26437,7 +26521,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610533023",
@@ -26472,16 +26560,14 @@
       "nim": "2610533046",
       "nama": "HANNA NEYSA",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "aanneysaa@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "akuntansi"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -26497,22 +26583,24 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610537001",
       "nama": "Aqila Afrinal",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "aqilaafrinal415@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "akuntansi"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -26528,22 +26616,24 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610571001",
       "nama": "Azizah Nurul Mumtaza",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "azizahmumtaza@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "ekonomi"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -26559,7 +26649,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610571005",
@@ -26881,16 +26975,14 @@
       "nim": "2610572012",
       "nama": "Shazia Syamzayani",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "ssyamzayani@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "ekonomi Islam"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -26906,7 +26998,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610572013",
@@ -27412,16 +27508,14 @@
       "nim": "2610611007",
       "nama": "BUSTANUN ULUM",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": null,
       "gender": "laki_laki",
       "prodi_names": [
         "peternakan"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "HIJAU",
@@ -27437,7 +27531,11 @@
           "payment_amount": "Rp."
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610611008",
@@ -27668,16 +27766,14 @@
       "nim": "2610611016",
       "nama": "Mutiara",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "muthiara.040508@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "Peternakan"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "MENPERA",
@@ -27693,7 +27789,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610611018",
@@ -28416,16 +28516,14 @@
       "nim": "2610611049",
       "nama": "USWATUN HASANAH",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "uswatun030508@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "Peternakan"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -28441,7 +28539,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610611050",
@@ -29131,14 +29233,12 @@
       "nim": "2610611094",
       "nama": "RAFI ARDIANSYAH",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": null,
       "gender": "laki_laki",
       "prodi_names": [],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "HIJAU",
@@ -29154,7 +29254,11 @@
           "payment_amount": "Rp."
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610611099",
@@ -29338,16 +29442,14 @@
       "nim": "2610611126",
       "nama": "Nazwa Khailani",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "nazwakhailani@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "Peternakan"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -29363,7 +29465,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610611128",
@@ -29574,16 +29680,14 @@
       "nim": "2610612006",
       "nama": "AYUNI AYDINI PUTRI HASIBUAN",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "ayunihasibuan792@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "Peternakan"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "MENPERA",
@@ -29599,7 +29703,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610612007",
@@ -29874,16 +29982,14 @@
       "nim": "2610612019",
       "nama": "KEYSHA VANIA PUTRI",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": null,
       "gender": "perempuan",
       "prodi_names": [
         "peternakan"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "MENPERA",
@@ -29899,7 +30005,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610612021",
@@ -30363,16 +30473,14 @@
       "nim": "2610612054",
       "nama": "Nadya Aulia",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "nadyaaulia24434@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "Peternakan"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -30388,7 +30496,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610612056",
@@ -30543,16 +30655,14 @@
       "nim": "2610612087",
       "nama": "Sartika chandra winata",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "sartikacandra153@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "Peternakan"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "MENPERA",
@@ -30568,7 +30678,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610612099",
@@ -34168,16 +34282,14 @@
       "nim": "2610731022",
       "nama": "Azhumi",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "azhumi2008@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "sasing"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -34193,7 +34305,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610731025",
@@ -34485,16 +34601,14 @@
       "nim": "2610732009",
       "nama": "Syafina Nailah Nasir",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "syafinanailahnasir@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "sasing"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -34510,7 +34624,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610732011",
@@ -34556,16 +34674,14 @@
       "nim": "2610732012",
       "nama": "Mutia fitriani wariz",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "fitrianim696@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "sasing"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -34581,7 +34697,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610732016",
@@ -36313,16 +36433,14 @@
       "nim": "2610752018",
       "nama": "Rachel Zahra Tusyita",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "racheltusyita@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "Sastra Jepang"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "MENPERA",
@@ -36338,7 +36456,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610752019",
@@ -36620,16 +36742,14 @@
       "nim": "2610753007",
       "nama": "Khayla Ratu Lisa",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "khaylaratu2008@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "sajep"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -36645,22 +36765,24 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610753011",
       "nama": "Rahma Calista",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "rahmacalista603@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "sajep"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -36676,7 +36798,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610761002",
@@ -36722,16 +36848,14 @@
       "nim": "2610761003",
       "nama": "HAIKAL",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": null,
       "gender": "laki_laki",
       "prodi_names": [
         "Arkeologi"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "HIJAU",
@@ -36747,7 +36871,11 @@
           "payment_amount": "Rp."
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610761007",
@@ -37613,17 +37741,14 @@
       "nim": "2610819001",
       "nama": "HS Andesmal Tambunan",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": null,
       "gender": "laki_laki",
       "prodi_names": [
         "Sosiologi"
       ],
-      "issues": [
-        "category_unconfirmed",
-        "special_status_needs_review"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "OREN",
@@ -37639,7 +37764,12 @@
           "payment_amount": "Rp."
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed",
+        "special_status_needs_review"
+      ]
     },
     {
       "nim": "2610821004",
@@ -38819,16 +38949,14 @@
       "nim": "2610832028",
       "nama": "SALSABILA DEVI",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "sbiladevi@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "Ilmu Politik"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -38844,7 +38972,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610832029",
@@ -38959,16 +39091,14 @@
       "nim": "2610832042",
       "nama": "Dwi Nurhasana Rahmadani",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "dwinurhasanar@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "Ilmu politik"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -38984,7 +39114,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610833001",
@@ -39036,17 +39170,14 @@
       "nim": "2610839001",
       "nama": "Mirna Rezila",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": null,
       "gender": "perempuan",
       "prodi_names": [
         "Ilmu Politik"
       ],
-      "issues": [
-        "category_unconfirmed",
-        "special_status_needs_review"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RMS",
@@ -39062,7 +39193,12 @@
           "payment_amount": "Rp."
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed",
+        "special_status_needs_review"
+      ]
     },
     {
       "nim": "2610841016",
@@ -39388,15 +39524,12 @@
       "nim": "2610849001",
       "nama": "S M Suci Tairarak",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": null,
       "gender": "perempuan",
       "prodi_names": [],
-      "issues": [
-        "category_unconfirmed",
-        "special_status_needs_review"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RMS",
@@ -39412,7 +39545,12 @@
           "payment_amount": "Rp."
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed",
+        "special_status_needs_review"
+      ]
     },
     {
       "nim": "2610851003",
@@ -39529,14 +39667,12 @@
       "nim": "2610851018",
       "nama": "Naurah Afifah Salfa",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "naurahafifahsalfa@gmail.com",
       "gender": "perempuan",
       "prodi_names": [],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -39552,7 +39688,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610851020",
@@ -40562,16 +40702,14 @@
       "nim": "2610863030",
       "nama": "Aisya Farah Haqqi",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "aisyafarahhaqqi@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "ilkom"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -40587,7 +40725,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610863031",
@@ -40651,17 +40793,14 @@
       "nim": "2610869001",
       "nama": "Mutia Meilani",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": null,
       "gender": "perempuan",
       "prodi_names": [
         "Ilmu Komunikasi"
       ],
-      "issues": [
-        "category_unconfirmed",
-        "special_status_needs_review"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RMS",
@@ -40677,7 +40816,12 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed",
+        "special_status_needs_review"
+      ]
     },
     {
       "nim": "2610911004",
@@ -41153,16 +41297,14 @@
       "nim": "2610921016",
       "nama": "Dzulfani Lailatul Badriyah",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "dzulfanilailatul@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "teknik sipil"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -41178,22 +41320,24 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610921017",
       "nama": "Mutiara Maharani",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "mutiaramhrni2008@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "teknik sipil"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -41209,7 +41353,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610922010",
@@ -41518,16 +41666,14 @@
       "nim": "2610923049",
       "nama": "Nadien Raina Salma",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": null,
       "gender": "perempuan",
       "prodi_names": [
         "Teknik sipil"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -41543,7 +41689,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610931002",
@@ -41923,16 +42073,14 @@
       "nim": "2610931034",
       "nama": "Dea Permata Aldosi",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "deapermata641@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "Teknik Industri"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -41948,7 +42096,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610932008",
@@ -42212,16 +42364,14 @@
       "nim": "2610933023",
       "nama": "Huriyyah Adzka Hazimah",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "huriyyah037@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "Teknik Industri"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -42237,20 +42387,22 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610933039",
       "nama": "AIRA ARIFATUNNISA",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "aira.arifatunnisa@gmail.com",
       "gender": "perempuan",
       "prodi_names": [],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -42266,7 +42418,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610941001",
@@ -42737,17 +42893,14 @@
       "nim": "2610949001",
       "nama": "Benzema Ubay Yanzein",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": null,
       "gender": "laki_laki",
       "prodi_names": [
         "Teknik Lingkungan"
       ],
-      "issues": [
-        "category_unconfirmed",
-        "special_status_needs_review"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "OREN",
@@ -42763,7 +42916,12 @@
           "payment_amount": "Rp."
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed",
+        "special_status_needs_review"
+      ]
     },
     {
       "nim": "2610951001",
@@ -42809,16 +42967,14 @@
       "nim": "2610951007",
       "nama": "Dzulfina Lailatul Badriyah",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "dzulfinalailatul@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "teknik elektro"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -42834,7 +42990,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610951011",
@@ -43185,16 +43345,14 @@
       "nim": "2610952025",
       "nama": "NASYA DWI AMANDA",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "nasyadwii01@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "teknik elektro"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -43210,7 +43368,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610952027",
@@ -43245,16 +43407,14 @@
       "nim": "2610952036",
       "nama": "Syifa Khalillah Effendi",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "mafuuvers@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "teknik elektro"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -43270,7 +43430,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2610952039",
@@ -43461,17 +43625,14 @@
       "nim": "2610959001",
       "nama": "Fajrul Hakim",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": null,
       "gender": "laki_laki",
       "prodi_names": [
         "Teknik Elektro"
       ],
-      "issues": [
-        "category_unconfirmed",
-        "special_status_needs_review"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "OREN",
@@ -43487,23 +43648,25 @@
           "payment_amount": "Rp."
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed",
+        "special_status_needs_review"
+      ]
     },
     {
       "nim": "2610959002",
       "nama": "Shayra Adli",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": null,
       "gender": "perempuan",
       "prodi_names": [
         "Teknik Elektro"
       ],
-      "issues": [
-        "category_unconfirmed",
-        "special_status_needs_review"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RMS",
@@ -43519,7 +43682,12 @@
           "payment_amount": "Rp."
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed",
+        "special_status_needs_review"
+      ]
     },
     {
       "nim": "2610961003",
@@ -43725,16 +43893,14 @@
       "nim": "2611011037",
       "nama": "Amelia Zahra",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "ameliazahraaza@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "Farmasi"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -43750,22 +43916,24 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2611011040",
       "nama": "JESIVE BR HASIBUAN",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "hasibuanjesive@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "Farmasi"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -43781,7 +43949,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2611012011",
@@ -43907,16 +44079,14 @@
       "nim": "2611012031",
       "nama": "Saarah Nurfaizah Sani",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "saarahnurfaizahsani@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "farmasi"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -43932,7 +44102,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2611012035",
@@ -44074,16 +44248,14 @@
       "nim": "2611017002",
       "nama": "Suhaila Nurfauza",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": null,
       "gender": "perempuan",
       "prodi_names": [
         "farmasi"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -44099,22 +44271,24 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2611017003",
       "nama": "Raisya Laila Ramadhani",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "raisyalaila32@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "Farmasi"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -44130,23 +44304,24 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2611019001",
       "nama": "Sri Maulida Hasibuan",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": null,
       "gender": "perempuan",
       "prodi_names": [
         "Farmasi"
       ],
-      "issues": [
-        "category_unconfirmed",
-        "special_status_needs_review"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RMS",
@@ -44162,7 +44337,12 @@
           "payment_amount": "Rp."
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed",
+        "special_status_needs_review"
+      ]
     },
     {
       "nim": "2611023025",
@@ -44317,16 +44497,14 @@
       "nim": "2611111014",
       "nama": "Rania Putri Afelin",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "raniafelin@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "TPB"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -44342,7 +44520,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2611111015",
@@ -46236,16 +46418,14 @@
       "nim": "2611122040",
       "nama": "Nasyla Hafifah Putri",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "nasylahafifah@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "tekpang"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -46261,22 +46441,24 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2611123024",
       "nama": "Rayhana Dwi Rahanto",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "rayhanadwi01@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "tekpang"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -46292,7 +46474,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2611131003",
@@ -46416,16 +46602,14 @@
       "nim": "2611131012",
       "nama": "Siti Mauliza Rahmi",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "sitimaulizarahmi2007@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "Teknologi Industri Pertanian"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -46441,7 +46625,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2611131014",
@@ -46663,16 +46851,14 @@
       "nim": "2611131033",
       "nama": "jenni afriani",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "jenniafriani206@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "teknologi industri pertanian"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "MENPERA",
@@ -46688,7 +46874,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2611131037",
@@ -47427,16 +47617,14 @@
       "nim": "2611211028",
       "nama": "Nabilatul Afifah",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "nabilatulafifah11@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "ikm"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -47452,7 +47640,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2611211029",
@@ -47676,16 +47868,14 @@
       "nim": "2611212013",
       "nama": "Rafeylah Rahimah",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "rafeylahrara@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "IKM"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -47701,7 +47891,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2611212014",
@@ -47816,16 +48010,14 @@
       "nim": "2611212024",
       "nama": "Nafisa Nurul Fadhillah",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "nafisanurulfadhillah009@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "IKM"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -47841,7 +48033,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2611212026",
@@ -47916,16 +48112,14 @@
       "nim": "2611212053",
       "nama": "Najwa Puti Resya Arla",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "najwaf.717@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "kesmas"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -47941,7 +48135,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2611212071",
@@ -47976,16 +48174,14 @@
       "nim": "2611213007",
       "nama": "Najla syachyra boyle",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "najlasyachyra@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "kesmas"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -48001,22 +48197,24 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2611213078",
       "nama": "Nabila Syifa El-Zuhdi",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "nabilasyifa0728@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "ikm"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -48032,7 +48230,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2611221009",
@@ -48118,16 +48320,14 @@
       "nim": "2611221013",
       "nama": "KHAIRA INSANI ARMELA",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "armelakhairainsani@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "Gizi"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -48143,22 +48343,24 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2611221020",
       "nama": "Indah Pratiwi",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "indahpratiwiw345@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "Gizi"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -48174,7 +48376,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2611221024",
@@ -48385,16 +48591,14 @@
       "nim": "2611222032",
       "nama": "Nasywa Luthfia Anandisa",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "anandisanasywa@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "gizi"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -48410,22 +48614,24 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2611222040",
       "nama": "Fathiyyah Azka Sajidah",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": null,
       "gender": "perempuan",
       "prodi_names": [
         "Gizi"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -48441,22 +48647,24 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2611222043",
       "nama": "SISKYA PERMATA MAIER",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "siskyayea@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "gizi"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -48472,7 +48680,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2611222046",
@@ -48518,16 +48730,14 @@
       "nim": "2611222048",
       "nama": "Eca Julia Adriani",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": null,
       "gender": "perempuan",
       "prodi_names": [
         "Kesehatan masyarakat"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "PUPERA PUTRI",
@@ -48543,7 +48753,11 @@
           "payment_amount": "Rp."
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2611223025",
@@ -48578,16 +48792,14 @@
       "nim": "2611227004",
       "nama": "Intan Aurellia",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "intanaurellia0907@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "gizi"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -48603,7 +48815,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2611311006",
@@ -49147,16 +49363,14 @@
       "nim": "2611313019",
       "nama": "Nurhilwa Awwalu Mulyadi",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "hilwa5489@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "keperawatan"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -49172,22 +49386,24 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2611313026",
       "nama": "Tissya Asrilia",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "asriliatissya02@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "Keperawatan"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -49203,7 +49419,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2611313059",
@@ -49238,16 +49458,14 @@
       "nim": "2611313081",
       "nama": "Alif via rahma",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "alifviarahma77@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "keperawatan"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -49263,7 +49481,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2611317004",
@@ -49790,16 +50012,14 @@
       "nim": "2611521022",
       "nama": "Aqila Minhatul Mawla",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "aqilaminhatulm@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "sistem informasi"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -49815,7 +50035,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2611521024",
@@ -50010,16 +50234,14 @@
       "nim": "2611522035",
       "nama": "Anindya Putri",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "nnindyy@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "sistem informasi"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -50035,7 +50257,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2611522043",
@@ -50110,16 +50336,14 @@
       "nim": "2611531001",
       "nama": "Fatimah Azzahra",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "fa4243051@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "informatika"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -50135,7 +50359,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2611531002",
@@ -50236,16 +50464,14 @@
       "nim": "2611531017",
       "nama": "Rahadatul Aisha Tetriana Putri",
       "angkatan": 2026,
-      "category": null,
+      "category": "local_non_kipk",
       "is_kipk": false,
       "email": "rahadatultetriana8@gmail.com",
       "gender": "perempuan",
       "prodi_names": [
         "informatika"
       ],
-      "issues": [
-        "category_unconfirmed"
-      ],
+      "issues": [],
       "checkins": [
         {
           "sheet": "RUSUNAWA",
@@ -50261,7 +50487,11 @@
           "payment_amount": ""
         }
       ],
-      "kipk_deductions": []
+      "kipk_deductions": [],
+      "category_basis": "temporary_non_kipk_user_confirmed",
+      "source_review_notes": [
+        "category_unconfirmed"
+      ]
     },
     {
       "nim": "2611531018",

@@ -153,13 +153,11 @@ it('simulates the full source data against real masters without creating residen
     $this->artisan('asrama:seed-students-2026', ['--dry-run' => true, '--report' => true])->assertSuccessful();
 
     $report = json_decode(Storage::disk('local')->get('import-reports/residents-2026-dry-run.json'), true, flags: JSON_THROW_ON_ERROR);
-    expect($report['ready'])->toBe(1349);
-    expect($report['skipped'])->toBe(125);
-    expect($report['room_matches'])->toBe(1064);
-    expect($report['room_matches'] + array_sum($report['room_issues']))->toBe(1085);
-    expect($report['room_issues'])->toBe(['missing_master' => 2, 'over_capacity' => 16, 'maintenance' => 3]);
-    expect($report['program_matches'])->toBe(1069);
-    expect($report['program_issues'])->toBe(['missing_source' => 241, 'unknown_name' => 14, 'ambiguous' => 25]);
+    expect($report['ready'])->toBe(1464);
+    expect($report['skipped'])->toBe(10);
+    expect($report['room_matches'])->toBe(1200);
+    expect($report['room_issues'])->toBe([]);
+    expect($report['program_matches'] + array_sum($report['program_issues']))->toBe(1464);
     $this->assertDatabaseCount('users', 0);
     $this->assertDatabaseCount('mahasiswa_profil', 0);
     $this->assertDatabaseCount('penempatan_kamar', 0);

@@ -59,7 +59,10 @@ class Residence2026StudentImport
                         || (int) $record['angkatan'] !== (int) ('20'.substr($nim, 0, 2))
                         || ! in_array($record['category'], ['student', 'local_kipk', 'local_non_kipk'], true)) {
                         $result['skipped']++;
-                        $result['warnings'][] = $nim.': perlu rekonsiliasi sumber ('.implode(', ', $record['issues']).').';
+                        $labels = ['name_mismatch' => 'nama berbeda untuk NIM yang sama', 'multiple_rooms' => 'NIM tercatat pada beberapa kamar', 'kipk_status_conflict' => 'status KIP-K bertentangan', 'category_unconfirmed' => 'kategori belum terkonfirmasi', 'special_status_needs_review' => 'status khusus perlu diperiksa'];
+                        $details = array_map(fn (string $issue): string => $labels[$issue] ?? $issue, $record['issues']);
+                        $locations = array_map(fn (array $row): string => $row['sheet'].' baris '.$row['row'], $record['checkins']);
+                        $result['warnings'][] = $nim.': ditunda karena '.implode('; ', $details).'. Sumber: '.implode(', ', $locations).'.';
 
                         continue;
                     }
@@ -199,7 +202,7 @@ class Residence2026StudentImport
         foreach ($data['students'] as $record) {
             if ($record['issues'] !== []) {
                 $report['skipped']++;
-                $report['source_issues'][] = ['nim' => $record['nim'], 'issues' => $record['issues']];
+                $report['source_issues'][] = ['nim' => $record['nim'], 'issues' => $record['issues'], 'checkins' => $record['checkins'], 'kipk_deductions' => $record['kipk_deductions']];
 
                 continue;
             }

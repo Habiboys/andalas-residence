@@ -107,6 +107,15 @@ describe('building management stages', () => {
         expect(html).toContain('Hunian mahasiswa');
         expect(html).toContain('Perempuan');
         expect(html).toContain('Kapasitas penghuni');
+        const profile = html.slice(
+            html.indexOf('aria-label="Profil gedung"'),
+            html.indexOf('Master tipe kamar'),
+        );
+        expect(profile).not.toContain('<table');
+        expect(profile).toContain('font-bold');
+        expect(profile).toContain('Gedung Baru');
+        expect(profile).toContain('<dl');
+        expect(profile).toContain('Kategori penghuni yang diterima');
         expect(html).not.toContain('Foto gedung belum tersedia');
         expect(html).not.toContain('Sudah tercatat');
         expect(html).not.toContain('lengkapi pengaturan');

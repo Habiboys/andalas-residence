@@ -24,6 +24,7 @@ class DatabaseSeeder extends Seeder
         }
 
         $this->call(RolePermissionSeeder::class);
+        $this->call(SuperadminSeeder::class);
 
         $roles = ['superadmin', 'pimpinan', 'staff_admin', 'admin_layanan', 'admin_aset', 'fasilitator', 'teknisi', 'mahasiswa', 'orang_tua', 'go'];
         foreach ($roles as $role) {
