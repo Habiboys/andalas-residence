@@ -14,12 +14,16 @@ use App\Models\Kegiatan;
 use App\Models\Lantai;
 use App\Models\MahasiswaProfil;
 use App\Models\PenempatanKamar;
+use App\Models\PengajuanIzinPulang;
 use App\Models\Periode;
 use App\Models\ResidenceHistory;
 use App\Models\User;
+use App\Services\AttendanceStatusResolver;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Inertia\Testing\AssertableInertia;
 use Spatie\Permission\Models\Permission;
 
 function attendanceStudent(array $overrides = [], int $periodCohort = 2026): MahasiswaProfil
@@ -301,4 +305,82 @@ it('allows a facilitator to manage only their activities and preserves attendanc
     $this->post(route('andalas.kegiatan.store'), [
         'judul' => 'Invalid schedule', 'tanggal_mulai' => now()->toDateTimeString(),
     ])->assertSessionHasErrors(['jenis_kegiatan_id', 'duration_minutes']);
+});
+
+it('resolves approved leave by the session date without replacing scans or manual corrections', function () {
+    $this->travelTo(Carbon::parse('2026-10-17 09:00:00'));
+    $student = attendanceStudent();
+    $data = attendanceSession();
+    $session = $data['session'];
+    $buildingId = $student->penempatanKamar()->first()->kamar->lantai->gedung_id;
+    $session->kegiatan->update(['gedung_id' => $buildingId]);
+    $session->participants()->create(['mahasiswa_id' => $student->id, 'floor' => 'Lantai 1', 'room' => '101']);
+    $leave = PengajuanIzinPulang::create([
+        'mahasiswa_id' => $student->id, 'gedung_id' => $buildingId, 'jenis' => 'pulkam',
+        'tanggal_mulai' => '2026-10-17', 'tanggal_kembali' => '2026-10-18', 'alasan' => 'Keperluan keluarga', 'status' => 'diajukan',
+    ]);
+    $resolve = fn () => app(AttendanceStatusResolver::class)->forSession($session->fresh())->first();
+    expect($resolve()['attendance_status'])->toBe('belum_absen');
+    $leave->update(['status' => 'sedang_izin']);
+    expect($resolve()['attendance_status'])->toBe('izin');
+    $this->travel(11)->minutes();
+    expect($resolve()['attendance_status'])->toBe('izin');
+    $leave->update(['tanggal_mulai' => '2026-10-18']);
+    expect($resolve()['attendance_status'])->toBe('alfa');
+    $leave->update(['tanggal_mulai' => '2026-10-17', 'status' => 'selesai_kembali', 'kembali_pada' => '2026-10-17 08:00:00']);
+    expect($resolve()['attendance_status'])->toBe('alfa');
+    $leave->update(['status' => 'sedang_izin', 'kembali_pada' => null]);
+    $record = ActivityAttendance::create(['attendance_session_id' => $session->id, 'mahasiswa_id' => $student->id, 'attended_at' => now(), 'is_present' => true]);
+    expect($resolve()['attendance_status'])->toBe('hadir');
+    $record->update(['is_present' => false, 'corrected_at' => now(), 'correction_reason' => 'Koreksi oleh fasilitator']);
+    expect($resolve()['attendance_status'])->toBe('alfa')
+        ->and($resolve()['status_source'])->toBe('manual');
+    expect($leave->fresh()->status->value)->toBe('sedang_izin');
+});
+
+it('updates student history and facilitator attendance automatically after sick leave is approved', function () {
+    $this->seed(RolePermissionSeeder::class);
+    Storage::fake('local');
+    $this->travelTo(Carbon::parse('2026-10-17 09:00:00'));
+    $student = attendanceStudent();
+    $student->user->assignRole('mahasiswa');
+    $session = attendanceSession()['session'];
+    $facilitator = $session->facilitator->assignRole('fasilitator');
+    $buildingId = $student->penempatanKamar()->first()->kamar->lantai->gedung_id;
+    FasilitatorWilayah::create(['user_id' => $facilitator->id, 'gedung_id' => $buildingId]);
+    $session->kegiatan->update(['gedung_id' => $buildingId]);
+    $session->participants()->create(['mahasiswa_id' => $student->id, 'floor' => 'Lantai 1', 'room' => '101']);
+    Storage::disk('local')->put('medical/bukti.pdf', 'medical evidence');
+    $leave = PengajuanIzinPulang::create([
+        'mahasiswa_id' => $student->id, 'gedung_id' => $buildingId, 'jenis' => 'sakit',
+        'tanggal_mulai' => '2026-10-17', 'tanggal_kembali' => '2026-10-18', 'alasan' => 'Sakit', 'status' => 'diajukan', 'dokumen_path' => 'medical/bukti.pdf',
+    ]);
+    $this->travel(11)->minutes();
+    $this->actingAs($facilitator)->get(route('andalas.absensi.sesi.show', $session))->assertJsonPath('participants.0.attendance_status', 'alfa');
+    $this->post(route('andalas.perizinan.review', $leave), ['status' => 'disetujui'])->assertSessionHasNoErrors();
+    $this->get(route('andalas.absensi.sesi.show', $session))->assertJsonPath('participants.0.attendance_status', 'sakit')->assertJsonPath('participants.0.status_source', 'leave');
+    $this->actingAs($student->user)->get(route('mahasiswa.absensi'))->assertInertia(fn (AssertableInertia $page) => $page->has('absensi', 1)->where('absensi.0.attendance_status', 'sakit'));
+    $this->assertDatabaseCount('activity_attendances', 0);
+});
+
+it('preserves student attendance history from sessions without a captured participant roster', function () {
+    $this->travelTo(Carbon::parse('2026-10-17 09:00:00'));
+    $student = attendanceStudent();
+    $session = attendanceSession()['session'];
+    ActivityAttendance::create(['attendance_session_id' => $session->id, 'mahasiswa_id' => $student->id, 'attended_at' => now(), 'is_present' => true]);
+    $history = app(AttendanceStatusResolver::class)->historyFor($student);
+    expect($history)->toHaveCount(1);
+    expect($history->first()['attendance_status'])->toBe('hadir');
+    expect($session->participants()->count())->toBe(0);
+});
+
+it('matches leave to the WIB date of an early morning activity instead of the UTC date', function () {
+    $this->travelTo(Carbon::parse('2026-10-16 23:30:00', 'UTC'));
+    $student = attendanceStudent();
+    $session = attendanceSession()['session'];
+    $buildingId = $student->penempatanKamar()->first()->kamar->lantai->gedung_id;
+    $session->kegiatan->update(['gedung_id' => $buildingId]);
+    $session->participants()->create(['mahasiswa_id' => $student->id, 'floor' => 'Lantai 1', 'room' => '101']);
+    PengajuanIzinPulang::create(['mahasiswa_id' => $student->id, 'gedung_id' => $buildingId, 'jenis' => 'pulkam', 'tanggal_mulai' => '2026-10-17', 'tanggal_kembali' => '2026-10-17', 'status' => 'sedang_izin', 'alasan' => 'Keperluan keluarga']);
+    expect(app(AttendanceStatusResolver::class)->forSession($session->fresh())->first()['attendance_status'])->toBe('izin');
 });

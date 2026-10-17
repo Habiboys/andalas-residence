@@ -11,10 +11,12 @@ use App\Models\Periode;
 use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
+    $this->travelTo(Carbon::parse('2026-10-17 09:00:00'));
     $this->withoutVite();
     $this->seed(RolePermissionSeeder::class);
     Storage::fake('local');
@@ -38,14 +40,21 @@ function leavePayload(): array
     return ['jenis' => 'kegiatan', 'tanggal_mulai' => today()->toDateString(), 'tanggal_kembali' => today()->addDay()->toDateString(), 'alasan' => 'Mengikuti kegiatan kampus', 'tujuan_alamat' => 'Padang'];
 }
 
-test('automatic leave approval uses the previous application count boundary', function (int $previous, string $status) {
+test('enforces six calendar days per month instead of counting previous applications', function (int $usedDays, bool $allowed) {
+    $this->travelTo(Carbon::parse('2026-10-17 09:00:00'));
     $placement = leaveResident();
-    for ($i = 0; $i < $previous; $i++) {
-        PengajuanIzinPulang::create([...leavePayload(), 'mahasiswa_id' => $placement->mahasiswa_id, 'status' => 'selesai_kembali']);
+    if ($usedDays > 0) {
+        PengajuanIzinPulang::create([...leavePayload(), 'mahasiswa_id' => $placement->mahasiswa_id, 'tanggal_mulai' => '2026-10-01', 'tanggal_kembali' => '2026-10-'.str_pad((string) $usedDays, 2, '0', STR_PAD_LEFT), 'status' => 'selesai_kembali']);
     }
-    $this->actingAs($placement->mahasiswa->user)->post(route('andalas.perizinan.store'), leavePayload())->assertSessionHasNoErrors();
-    $this->assertDatabaseHas('pengajuan_izin_pulang', ['mahasiswa_id' => $placement->mahasiswa_id, 'status' => $status, 'jenis' => 'kegiatan', 'gedung_id' => $placement->kamar->lantai->gedung_id]);
-})->with([[0, 'sedang_izin'], [6, 'sedang_izin'], [7, 'diajukan']]);
+    $response = $this->actingAs($placement->mahasiswa->user)->post(route('andalas.perizinan.store'), leavePayload());
+    if ($allowed) {
+        $response->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('pengajuan_izin_pulang', ['mahasiswa_id' => $placement->mahasiswa_id, 'status' => 'sedang_izin']);
+    } else {
+        $response->assertSessionHasErrors('tanggal_kembali');
+        $this->assertDatabaseCount('pengajuan_izin_pulang', 1);
+    }
+})->with([[0, true], [4, true], [5, false]]);
 
 test('a pending leave cannot be bypassed by submitting another application', function () {
     $placement = leaveResident();
@@ -105,4 +114,69 @@ test('students and service admins cannot approve leave or access the old approva
     $admin->assignRole('admin_layanan');
     $this->actingAs($admin)->post(route('andalas.perizinan.review', $leave), ['status' => 'disetujui'])->assertForbidden();
     $this->post('/andalas/pengajuan/izin-pulang/'.$leave->id.'/approve', ['status' => 'disetujui'])->assertNotFound();
+});
+
+test('splits leave across months and rejects a seven day span inside one month', function () {
+    $this->travelTo(Carbon::parse('2026-10-17 09:00:00'));
+    $placement = leaveResident();
+    $this->actingAs($placement->mahasiswa->user)->post(route('andalas.perizinan.store'), [...leavePayload(), 'tanggal_mulai' => '2026-10-20', 'tanggal_kembali' => '2026-10-26'])->assertSessionHasErrors('tanggal_kembali');
+    $this->assertDatabaseCount('pengajuan_izin_pulang', 0);
+    $this->post(route('andalas.perizinan.store'), [...leavePayload(), 'tanggal_mulai' => '2026-10-29', 'tanggal_kembali' => '2026-11-03'])->assertSessionHasNoErrors();
+    $this->assertDatabaseCount('pengajuan_izin_pulang', 1);
+});
+
+test('does not spend this months leave allowance on rejected sick or previous month records', function () {
+    $this->travelTo(Carbon::parse('2026-10-17 09:00:00'));
+    $placement = leaveResident();
+    foreach ([['kegiatan', 'ditolak', '2026-10-01', '2026-10-06'], ['sakit', 'disetujui', '2026-10-01', '2026-10-06'], ['pulkam', 'selesai_kembali', '2026-09-01', '2026-09-06']] as [$type, $status, $start, $end]) {
+        PengajuanIzinPulang::create([...leavePayload(), 'mahasiswa_id' => $placement->mahasiswa_id, 'jenis' => $type, 'status' => $status, 'tanggal_mulai' => $start, 'tanggal_kembali' => $end]);
+    }
+    $this->actingAs($placement->mahasiswa->user)->post(route('andalas.perizinan.store'), [...leavePayload(), 'tanggal_mulai' => '2026-10-20', 'tanggal_kembali' => '2026-10-25'])->assertSessionHasNoErrors();
+    $this->assertDatabaseHas('pengajuan_izin_pulang', ['status' => 'sedang_izin']);
+});
+
+test('requires private medical evidence and an assigned facilitators approval for sick leave', function () {
+    $placement = leaveResident();
+    $payload = [...leavePayload(), 'jenis' => 'sakit', 'tujuan_alamat' => null];
+    $this->actingAs($placement->mahasiswa->user)->post(route('andalas.perizinan.store'), $payload)->assertSessionHasErrors('dokumen');
+    $this->post(route('andalas.perizinan.store'), [...$payload, 'dokumen' => UploadedFile::fake()->create('bukti.pdf', 10, 'application/pdf')])->assertSessionHasNoErrors();
+    $leave = PengajuanIzinPulang::sole();
+    expect($leave->status->value)->toBe('diajukan')
+        ->and($leave->berangkat_pada)->toBeNull();
+    Storage::disk('local')->assertExists($leave->dokumen_path);
+    $outside = User::factory()->create()->assignRole('fasilitator');
+    $this->actingAs($outside)->post(route('andalas.perizinan.review', $leave), ['status' => 'disetujui'])->assertForbidden();
+    $reviewer = User::factory()->create()->assignRole('fasilitator');
+    FasilitatorWilayah::create(['user_id' => $reviewer->id, 'gedung_id' => $placement->kamar->lantai->gedung_id]);
+    $this->actingAs($reviewer)->post(route('andalas.perizinan.review', $leave), ['status' => 'disetujui'])->assertSessionHasNoErrors();
+    expect($leave->fresh()->status->value)->toBe('disetujui')
+        ->and($leave->fresh()->disetujui_oleh)->toBe($reviewer->id);
+    $this->actingAs($placement->mahasiswa->user)->post(route('andalas.perizinan.proof', [$leave, 'sampai']), [])->assertUnprocessable();
+});
+
+test('applies the six day limit independently to both calendar months and across years', function (string $start, string $end, bool $allowed) {
+    $this->travelTo(Carbon::parse('2026-10-17 09:00:00'));
+    $placement = leaveResident();
+    $response = $this->actingAs($placement->mahasiswa->user)->post(route('andalas.perizinan.store'), [...leavePayload(), 'tanggal_mulai' => $start, 'tanggal_kembali' => $end]);
+    if ($allowed) {
+        $response->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertDatabaseCount('pengajuan_izin_pulang', 1);
+    } else {
+        $response->assertSessionHasErrors('tanggal_kembali');
+        $this->assertDatabaseCount('pengajuan_izin_pulang', 0);
+    }
+})->with([
+    ['2026-10-26', '2026-11-06', true],
+    ['2026-10-31', '2026-11-07', false],
+    ['2026-12-26', '2027-01-06', true],
+]);
+
+test('counts overlapping historical days once and releases days after an evidenced early return', function () {
+    $this->travelTo(Carbon::parse('2026-10-17 09:00:00'));
+    $placement = leaveResident();
+    foreach ([['2026-10-01', '2026-10-03', null], ['2026-10-02', '2026-10-06', '2026-10-03 15:00:00']] as [$start, $end, $returned]) {
+        PengajuanIzinPulang::create([...leavePayload(), 'mahasiswa_id' => $placement->mahasiswa_id, 'tanggal_mulai' => $start, 'tanggal_kembali' => $end, 'status' => 'selesai_kembali', 'kembali_pada' => $returned]);
+    }
+    $this->actingAs($placement->mahasiswa->user)->post(route('andalas.perizinan.store'), [...leavePayload(), 'tanggal_mulai' => '2026-10-20', 'tanggal_kembali' => '2026-10-22'])->assertRedirect()->assertSessionHasNoErrors();
+    $this->assertDatabaseCount('pengajuan_izin_pulang', 3);
 });

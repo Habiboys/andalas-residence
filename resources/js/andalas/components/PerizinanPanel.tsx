@@ -38,6 +38,7 @@ type Leave = {
 };
 const statuses: Record<string, string> = {
     diajukan: 'Menunggu verifikasi',
+    disetujui: 'Disetujui',
     sedang_izin: 'Sedang izin',
     sudah_sampai: 'Sudah sampai',
     selesai_kembali: 'Sudah kembali',
@@ -70,7 +71,15 @@ export default function PerizinanPanel({
     const approval = useForm({ status: 'disetujui', catatan_verifikasi: '' });
     const evidenceForm = useForm({ foto: null as File | null });
     const pending = perizinan.some(
-        (leave) => !['selesai_kembali', 'ditolak'].includes(leave.status),
+        (leave) =>
+            !['selesai_kembali', 'ditolak'].includes(leave.status) &&
+            !(
+                leave.jenis === 'sakit' &&
+                leave.status === 'disetujui' &&
+                new Date(
+                    leave.tanggal_kembali.slice(0, 10) + 'T23:59:59+07:00',
+                ) < new Date()
+            ),
     );
     const open = (leave: Leave) => {
         setSelected(leave);
@@ -143,7 +152,7 @@ export default function PerizinanPanel({
                 subtitle={
                     reviewer
                         ? 'Verifikasi dan pantau izin mahasiswa pada gedung penugasan Anda.'
-                        : 'Ajukan izin pulang kampung atau kegiatan, lalu unggah bukti sampai dan kembali.'
+                        : 'Ajukan izin pulang kampung, kegiatan, atau sakit. Sakit wajib disertai bukti dan persetujuan fasilitator.'
                 }
             />
             {!reviewer && (
@@ -164,8 +173,11 @@ export default function PerizinanPanel({
                                 Ajukan izin baru
                             </summary>
                             <p className="text-muted my-4 text-sm">
-                                Izin perlu verifikasi fasilitator jika jumlah
-                                pengajuan sebelumnya lebih dari 6.
+                                Izin pulang kampung dan kegiatan maksimal 6 hari
+                                per bulan. Tanggal mulai dan kembali ikut
+                                dihitung. Izin lintas bulan memakai kuota
+                                masing-masing bulan. Sakit tidak mengurangi
+                                kuota dan wajib diverifikasi fasilitator.
                             </p>
                             <form
                                 onSubmit={submit}
@@ -188,11 +200,18 @@ export default function PerizinanPanel({
                                         <option value="kegiatan">
                                             Kegiatan
                                         </option>
+                                        <option value="sakit">Sakit</option>
                                     </select>
                                 </FormField>
-                                <FormField label="Tujuan / alamat">
+                                <FormField
+                                    label={
+                                        form.data.jenis === 'sakit'
+                                            ? 'Lokasi istirahat / perawatan (opsional)'
+                                            : 'Tujuan / alamat'
+                                    }
+                                >
                                     <input
-                                        required
+                                        required={form.data.jenis !== 'sakit'}
                                         maxLength={255}
                                         className={inputClass}
                                         value={form.data.tujuan_alamat}
@@ -218,7 +237,13 @@ export default function PerizinanPanel({
                                         }
                                     />
                                 </FormField>
-                                <FormField label="Rencana kembali">
+                                <FormField
+                                    label={
+                                        form.data.jenis === 'sakit'
+                                            ? 'Berlaku sampai'
+                                            : 'Rencana kembali'
+                                    }
+                                >
                                     <input
                                         required
                                         type="date"
@@ -248,9 +273,18 @@ export default function PerizinanPanel({
                                     />
                                 </FormField>
                                 <div className="space-y-4">
-                                    <FormField label="Dokumen pendukung (opsional)">
+                                    <FormField
+                                        label={
+                                            form.data.jenis === 'sakit'
+                                                ? 'Bukti sakit (wajib)'
+                                                : 'Dokumen pendukung (opsional)'
+                                        }
+                                    >
                                         <input
                                             type="file"
+                                            required={
+                                                form.data.jenis === 'sakit'
+                                            }
                                             accept=".pdf,.jpg,.jpeg,.png,.webp"
                                             className={inputClass}
                                             onChange={(event) =>
@@ -341,12 +375,15 @@ export default function PerizinanPanel({
                                         label: 'Pulang kampung',
                                     },
                                     { value: 'kegiatan', label: 'Kegiatan' },
+                                    { value: 'sakit', label: 'Sakit' },
                                 ],
                             },
                             render: (row) =>
                                 row.jenis === 'pulkam'
                                     ? 'Pulang kampung'
-                                    : 'Kegiatan',
+                                    : row.jenis === 'sakit'
+                                      ? 'Sakit'
+                                      : 'Kegiatan',
                         },
                         {
                             key: 'tanggal_mulai',
@@ -355,7 +392,7 @@ export default function PerizinanPanel({
                         },
                         {
                             key: 'tanggal_kembali',
-                            label: 'Rencana kembali',
+                            label: 'Berakhir / rencana kembali',
                             render: (row) => row.tanggal_kembali.slice(0, 10),
                         },
                         {
@@ -526,6 +563,7 @@ export default function PerizinanPanel({
                             </div>
                         )}
                         {!reviewer &&
+                            selected.jenis !== 'sakit' &&
                             ['sedang_izin', 'sudah_sampai'].includes(
                                 selected.status,
                             ) && (

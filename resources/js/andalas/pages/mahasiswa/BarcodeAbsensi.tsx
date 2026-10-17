@@ -7,11 +7,13 @@ import { recordActivity } from '@/actions/App/Http/Controllers/AbsensiController
 import { Button, Card, PageHeader, Table } from '../../components/ui';
 
 type Attendance = {
-    attended_at: string;
+    attended_at?: string | null;
+    attendance_status?: string;
+    status_source?: string;
     is_present: boolean;
     corrected_at?: string | null;
     correction_reason?: string | null;
-    session?: { kegiatan?: { judul: string } };
+    session?: { opens_at?: string; kegiatan?: { judul: string } };
 };
 type Attempt = {
     rejection_reason?: string | null;
@@ -176,22 +178,49 @@ export default function BarcodeAbsensi({
                             row.session?.kegiatan?.judul ?? '-',
                     },
                     {
+                        key: 'session.opens_at',
+                        label: 'Waktu kegiatan',
+                        render: (row: Attendance) =>
+                            row.session?.opens_at
+                                ? new Date(row.session.opens_at).toLocaleString(
+                                      'id-ID',
+                                  )
+                                : '-',
+                    },
+                    {
                         key: 'attended_at',
                         label: 'Waktu pencatatan',
                         render: (row: Attendance) =>
-                            new Date(row.attended_at).toLocaleString('id-ID'),
+                            row.attended_at
+                                ? new Date(row.attended_at).toLocaleString(
+                                      'id-ID',
+                                  )
+                                : 'Tidak melakukan scan',
                     },
                     {
                         key: 'is_present',
                         label: 'Kehadiran',
                         render: (row: Attendance) =>
-                            row.is_present ? 'Hadir' : 'Tidak hadir',
+                            ({
+                                hadir: 'Hadir',
+                                izin: 'Izin',
+                                sakit: 'Sakit',
+                                alfa: 'Alfa',
+                                belum_absen: 'Belum absen',
+                            })[row.attendance_status ?? ''] ??
+                            (row.is_present ? 'Hadir' : 'Tidak hadir'),
                     },
                     {
                         key: 'corrected_at',
                         label: 'Pencatatan',
                         render: (row: Attendance) =>
-                            row.corrected_at ? 'Koreksi manual' : 'Scan QR',
+                            row.corrected_at
+                                ? 'Koreksi manual'
+                                : row.status_source === 'leave'
+                                  ? 'Izin/sakit disetujui'
+                                  : row.attended_at
+                                    ? 'Scan QR'
+                                    : 'Status sesi',
                     },
                     {
                         key: 'correction_reason',

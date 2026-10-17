@@ -40,6 +40,7 @@ use App\Models\TransaksiKeuangan;
 use App\Models\User;
 use App\Models\VirtualAccount;
 use App\Services\AttendanceEligibility;
+use App\Services\AttendanceStatusResolver;
 use App\Services\FloorRoomAvailability;
 use App\Services\MasterDataService;
 use App\Services\ResidenceBuildingAccess;
@@ -162,10 +163,11 @@ class RolePageController extends Controller
             'tiket-masuk', 'update-tiket' => ['tiket' => $this->tickets($request)],
             'jadwal-kegiatan' => $this->activitiesPayload($request),
             'absensi' => [
-                'absensi' => ActivityAttendance::with(['mahasiswa.user', 'session.kegiatan'])
-                    ->when($request->user()->hasRole('mahasiswa'), fn ($query) => $query->where('mahasiswa_id', $request->user()->mahasiswaProfil?->id))
-                    ->when($request->user()->hasRole('fasilitator'), fn ($query) => $query->whereHas('session', fn ($sessions) => $sessions->where('facilitator_id', $request->user()->id)))
-                    ->latest('attended_at')->get(),
+                'absensi' => $request->user()->hasRole('mahasiswa')
+                    ? app(AttendanceStatusResolver::class)->historyFor($request->user()->mahasiswaProfil)
+                    : ActivityAttendance::with(['mahasiswa.user', 'session.kegiatan'])
+                        ->when($request->user()->hasRole('fasilitator'), fn ($query) => $query->whereHas('session', fn ($sessions) => $sessions->where('facilitator_id', $request->user()->id)))
+                        ->latest('attended_at')->get(),
                 'attendance_attempt' => $request->session()->get('attendance_attempt'),
             ],
             'monitoring-kamar' => ['gedung' => $this->gedungTree($request->user())],

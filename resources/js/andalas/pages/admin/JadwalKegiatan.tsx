@@ -40,6 +40,8 @@ type Participant = {
     floor: string;
     room: string;
     is_present: boolean;
+    attendance_status?: 'hadir' | 'izin' | 'sakit' | 'alfa' | 'belum_absen';
+    status_source?: string;
     scanned: boolean;
     attended_at?: string;
     corrected_at?: string;
@@ -220,15 +222,36 @@ export default function AdminJadwalKegiatan({
 
     const participants = (preview?.participants ?? []).map((row) => ({
         ...row,
-        status: row.is_present ? 'Hadir' : 'Belum hadir',
+        status: row.attendance_status
+            ? {
+                  hadir: 'Hadir',
+                  izin: 'Izin',
+                  sakit: 'Sakit',
+                  alfa: 'Alfa',
+                  belum_absen: 'Belum absen',
+              }[row.attendance_status]
+            : row.is_present
+              ? 'Hadir'
+              : 'Belum hadir',
         source: row.corrected_at
             ? 'Koreksi manual'
-            : row.scanned
-              ? 'Scan QR'
-              : 'Belum scan',
+            : row.status_source === 'leave'
+              ? 'Izin/sakit disetujui'
+              : row.scanned
+                ? 'Scan QR'
+                : 'Belum scan',
     }));
     const visible = participants.filter(
-        (row) => tab === 0 || (tab === 1 ? row.is_present : !row.is_present),
+        (row) =>
+            tab === 0 ||
+            (tab === 1
+                ? row.is_present
+                : tab === 3
+                  ? row.attendance_status === 'izin'
+                  : tab === 4
+                    ? row.attendance_status === 'sakit'
+                    : !row.is_present &&
+                      !['izin', 'sakit'].includes(row.attendance_status ?? '')),
     );
     return (
         <div className="space-y-4">
@@ -607,9 +630,24 @@ export default function AdminJadwalKegiatan({
                                     participants.filter((r) => r.is_present)
                                         .length +
                                     ')',
-                                'Belum hadir (' +
-                                    participants.filter((r) => !r.is_present)
-                                        .length +
+                                'Belum absen / Alfa (' +
+                                    participants.filter(
+                                        (r) =>
+                                            !r.is_present &&
+                                            !['izin', 'sakit'].includes(
+                                                r.attendance_status ?? '',
+                                            ),
+                                    ).length +
+                                    ')',
+                                'Izin (' +
+                                    participants.filter(
+                                        (r) => r.attendance_status === 'izin',
+                                    ).length +
+                                    ')',
+                                'Sakit (' +
+                                    participants.filter(
+                                        (r) => r.attendance_status === 'sakit',
+                                    ).length +
                                     ')',
                             ]}
                             active={tab}
@@ -643,6 +681,7 @@ export default function AdminJadwalKegiatan({
                                         options: [
                                             'Scan QR',
                                             'Koreksi manual',
+                                            'Izin/sakit disetujui',
                                             'Belum scan',
                                         ],
                                     },

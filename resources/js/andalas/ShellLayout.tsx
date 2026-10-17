@@ -113,26 +113,18 @@ function ShellInner({
             const item = group.items.find((i) => i.page === currentPage);
             if (item) {
                 return {
-                    dashboardLabel:
-                        groups
-                            .find((g) =>
-                                g.items.some((i) => i.page === 'dashboard'),
-                            )
-                            ?.items.find((i) => i.page === 'dashboard')
-                            ?.label ?? 'Beranda',
                     group:
                         currentPage === 'dashboard'
                             ? null
                             : (group.group ?? null),
-                    current: item.label,
+                    current: currentPage === 'dashboard' ? null : item.label,
                 };
             }
         }
 
         return {
-            dashboardLabel: 'Beranda',
             group: null,
-            current: title,
+            current: currentPage === 'dashboard' ? null : title,
         };
     })();
 
@@ -373,24 +365,24 @@ function ShellInner({
                 </header>
 
                 <main className="w-full min-w-0 flex-1 p-4 md:p-6">
-                    <button
-                        type="button"
-                        onClick={() => {
-                            if (window.history.length > 1) {
-                                window.history.back();
+                    {currentPage !== 'dashboard' && (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                if (window.history.length > 1) {
+                                    window.history.back();
 
-                                return;
-                            }
+                                    return;
+                                }
 
-                            if (currentPage !== 'dashboard') {
                                 nav('dashboard');
-                            }
-                        }}
-                        className="btn btn-ghost btn-sm mb-3 gap-1.5 px-2"
-                    >
-                        <ArrowLeft className="size-4" aria-hidden="true" />
-                        Kembali
-                    </button>
+                            }}
+                            className="btn btn-ghost btn-sm mb-3 gap-1.5 px-2"
+                        >
+                            <ArrowLeft className="size-4" aria-hidden="true" />
+                            Kembali
+                        </button>
+                    )}
                     <nav
                         className="breadcrumbs text-base-content/60 mb-4 text-xs"
                         aria-label="Navigasi halaman"
@@ -402,13 +394,15 @@ function ShellInner({
                                     onClick={() => nav('dashboard')}
                                     className="hover:text-primary font-medium"
                                 >
-                                    {breadcrumb.dashboardLabel}
+                                    Home
                                 </button>
                             </li>
                             {breadcrumb.group && <li>{breadcrumb.group}</li>}
-                            <li className="text-base-content font-semibold">
-                                {breadcrumb.current}
-                            </li>
+                            {breadcrumb.current && (
+                                <li className="text-base-content font-semibold">
+                                    {breadcrumb.current}
+                                </li>
+                            )}
                         </ul>
                     </nav>
                     {children}

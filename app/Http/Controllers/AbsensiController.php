@@ -8,6 +8,7 @@ use App\Models\ActivityAttendance;
 use App\Models\AttendanceSession;
 use App\Models\AuditLog;
 use App\Models\MahasiswaProfil;
+use App\Services\AttendanceStatusResolver;
 use Endroid\QrCode\Builder\Builder;
 use Endroid\QrCode\Writer\SvgWriter;
 use Illuminate\Http\JsonResponse;
@@ -31,7 +32,6 @@ class AbsensiController extends Controller
         $qr = $active && $session->qr_token && $session->facilitator_id === $request->user()->id
             ? (new Builder(writer: new SvgWriter, data: route('mahasiswa.absensi', ['session_id' => $session->id, 'token' => $session->qr_token]), size: 320, margin: 12))->build()->getDataUri()
             : null;
-        $attendance = $session->attendances->keyBy('mahasiswa_id');
 
         return response()->json([
             'id' => $session->id, 'activity' => $session->kegiatan->judul,
@@ -41,17 +41,7 @@ class AbsensiController extends Controller
             'active' => $active, 'opens_at' => $session->opens_at, 'expires_at' => $session->expires_at,
             'latitude' => $session->anchor_latitude, 'longitude' => $session->anchor_longitude,
             'radius_meters' => $session->radius_meters, 'qr_code' => $qr,
-            'participants' => $session->participants->map(function ($participant) use ($attendance) {
-                $record = $attendance->get($participant->mahasiswa_id);
-
-                return [
-                    'id' => $participant->mahasiswa_id, 'name' => $participant->mahasiswa->user->nama,
-                    'nim' => $participant->mahasiswa->user->nim_nip, 'floor' => $participant->floor, 'room' => $participant->room,
-                    'is_present' => (bool) $record?->is_present, 'scanned' => $record?->attendance_attempt_id !== null,
-                    'attended_at' => $record?->attended_at, 'correction_reason' => $record?->correction_reason,
-                    'corrected_at' => $record?->corrected_at,
-                ];
-            }),
+            'participants' => app(AttendanceStatusResolver::class)->forSession($session),
         ])->header('Cache-Control', 'private, no-store');
     }
 
