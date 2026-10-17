@@ -1,4 +1,8 @@
-import { PhotoEditor, photoFields, photoPaths } from '../../components/PhotoGallery';
+import {
+    PhotoEditor,
+    photoFields,
+    photoPaths,
+} from '../../components/PhotoGallery';
 import { Pencil } from 'lucide-react';
 import { FloorAvailabilityButton } from '../../components/FloorAvailability';
 import { useState, type ReactNode } from 'react';
@@ -130,7 +134,6 @@ const kamarDefaults = {
     status: 'kosong',
     tarif_per_periode: '',
     ...photoFields(),
-
 };
 
 function peruntukanLabel(value: string | undefined): string {
@@ -221,7 +224,9 @@ export default function KelolaBangunan({
     const [selectedFloorId, setSelectedFloorId] = useState('');
     const [gedungStep, setGedungStep] = useState(0);
     const [gedungOpen, setGedungOpen] = useState(createPage);
-    const [editingGedung, setEditingGedung] = useState<Gedung | null>(createPage ? gedung[0] ?? null : null);
+    const [editingGedung, setEditingGedung] = useState<Gedung | null>(
+        createPage ? (gedung[0] ?? null) : null,
+    );
     const [lantaiTarget, setLantaiTarget] = useState<LantaiTarget | null>(null);
     const [kamarTarget, setKamarTarget] = useState<KamarTarget | null>(null);
     const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
@@ -229,48 +234,29 @@ export default function KelolaBangunan({
 
     const gedungForm = useForm({
         ...gedungDefaults,
-        ...(editingGedung ? {
-            kode_gedung: editingGedung.kode_gedung ?? '',
-            nama_gedung: editingGedung.nama_gedung ?? '',
-            gender_peruntukan: editingGedung.gender_peruntukan ?? 'campur',
-            alamat: editingGedung.alamat ?? '',
-            deskripsi: editingGedung.deskripsi ?? '',
-            allowed_categories: editingGedung.allowed_categories ?? gedungDefaults.allowed_categories,
-            ...photoFields(photoPaths(editingGedung)),
-            continue_setup: false,
-        } : {}),
+        ...(editingGedung
+            ? {
+                  kode_gedung: editingGedung.kode_gedung ?? '',
+                  nama_gedung: editingGedung.nama_gedung ?? '',
+                  gender_peruntukan:
+                      editingGedung.gender_peruntukan ?? 'campur',
+                  alamat: editingGedung.alamat ?? '',
+                  deskripsi: editingGedung.deskripsi ?? '',
+                  allowed_categories:
+                      editingGedung.allowed_categories ??
+                      gedungDefaults.allowed_categories,
+                  ...photoFields(photoPaths(editingGedung)),
+                  continue_setup: false,
+              }
+            : {}),
     });
     const lantaiForm = useForm(lantaiDefaults);
     const kamarForm = useForm(kamarDefaults);
 
     function openGedungForm(gedung?: Gedung) {
-        if (gedung) {
-            router.visit(buildingEdit.url(gedung.id));
-            return;
-        }
-        setGedungStep(0);
-        setEditingGedung(gedung ?? null);
-        gedungForm.resetAndClearErrors();
-        gedungForm.setData({
-            kode_gedung: gedung?.kode_gedung ?? '',
-            nama_gedung: gedung?.nama_gedung ?? '',
-            gender_peruntukan: gedung?.gender_peruntukan ?? 'laki_laki',
-            alamat: gedung?.alamat ?? '',
-            deskripsi: gedung?.deskripsi ?? '',
-            ...photoFields(),
-            allowed_categories: gedung?.allowed_categories ?? [
-                'local_kipk',
-                'local_non_kipk',
-                'student',
-                'international_student',
-                'international_free_facility',
-                'non_student',
-                'summer_course',
-            ],
-            continue_setup: !gedung,
-            configure_categories: true,
-        });
-        setGedungOpen(true);
+        router.visit(
+            gedung ? buildingEdit.url(gedung.id) : buildingCreate.url(),
+        );
     }
 
     function closeGedungForm() {
@@ -338,6 +324,7 @@ export default function KelolaBangunan({
         if (lantaiTarget.lantai) {
             lantaiForm.put(lantaiUpdate.url({ id: lantaiTarget.lantai.id }), {
                 onSuccess,
+                forceFormData: true,
             });
         } else {
             lantaiForm.post(lantaiStore.url(), { onSuccess });
@@ -365,7 +352,7 @@ export default function KelolaBangunan({
         if (kamar) {
             kamarForm.setData({
                 ...photoFields(photoPaths(kamar)),
-            
+
                 nomor_kamar: kamar.nomor_kamar ?? '',
                 kapasitas: String(kamar.kapasitas ?? '2'),
                 tipe_kamar: kamar.tipe_kamar ?? 'standar',
@@ -386,7 +373,10 @@ export default function KelolaBangunan({
         }
         kamarForm.transform((form) => {
             const base = {
-                photos: form.photos, retained_photos: form.retained_photos, photo_order: form.photo_order, manage_gallery: true,
+                photos: form.photos,
+                retained_photos: form.retained_photos,
+                photo_order: form.photo_order,
+                manage_gallery: true,
                 ...(kamarTarget.kamar ? { _method: 'put' } : {}),
                 nomor_kamar: form.nomor_kamar,
                 kapasitas: Number(form.kapasitas),
@@ -405,9 +395,13 @@ export default function KelolaBangunan({
         if (kamarTarget.kamar) {
             kamarForm.post(kamarUpdate.url({ id: kamarTarget.kamar.id }), {
                 onSuccess,
+                forceFormData: true,
             });
         } else {
-            kamarForm.post(kamarStore.url(), { onSuccess });
+            kamarForm.post(kamarStore.url(), {
+                onSuccess,
+                forceFormData: true,
+            });
         }
     }
 
@@ -747,7 +741,26 @@ export default function KelolaBangunan({
                                 />
                             </FormField>
                             <FormField label="Foto Gedung">
-                                <PhotoEditor value={gedungForm.data} onChange={(next) => gedungForm.setData((current) => ({ ...current, ...next }))} error={Object.entries(gedungForm.errors).filter(([key]) => key.startsWith('photos') || key.startsWith('photo_order') || key.startsWith('retained_photos')).map(([, message]) => message).join(' ')} />
+                                <PhotoEditor
+                                    value={gedungForm.data}
+                                    onChange={(next) =>
+                                        gedungForm.setData((current) => ({
+                                            ...current,
+                                            ...next,
+                                        }))
+                                    }
+                                    error={Object.entries(gedungForm.errors)
+                                        .filter(
+                                            ([key]) =>
+                                                key.startsWith('photos') ||
+                                                key.startsWith('photo_order') ||
+                                                key.startsWith(
+                                                    'retained_photos',
+                                                ),
+                                        )
+                                        .map(([, message]) => message)
+                                        .join(' ')}
+                                />
                             </FormField>
                             <Button
                                 type="button"
@@ -824,7 +837,12 @@ export default function KelolaBangunan({
             )}
 
             {infoOnly && manage && (
-                <IconButton label="Edit informasi dasar" icon={Pencil} tone="text-warning hover:bg-warning/10" onClick={() => openGedungForm(manage)} />
+                <IconButton
+                    label="Edit informasi dasar"
+                    icon={Pencil}
+                    tone="text-warning hover:bg-warning/10"
+                    onClick={() => openGedungForm(manage)}
+                />
             )}
             {!infoOnly && manage && (
                 <section
@@ -1105,7 +1123,24 @@ export default function KelolaBangunan({
                             tipe gedung.
                         </p>
                         <FormField label="Foto kamar">
-                            <PhotoEditor value={kamarForm.data} onChange={(next) => kamarForm.setData((current) => ({ ...current, ...next }))} error={Object.entries(kamarForm.errors).filter(([key]) => key.startsWith('photos') || key.startsWith('photo_order') || key.startsWith('retained_photos')).map(([, message]) => message).join(' ')} />
+                            <PhotoEditor
+                                value={kamarForm.data}
+                                onChange={(next) =>
+                                    kamarForm.setData((current) => ({
+                                        ...current,
+                                        ...next,
+                                    }))
+                                }
+                                error={Object.entries(kamarForm.errors)
+                                    .filter(
+                                        ([key]) =>
+                                            key.startsWith('photos') ||
+                                            key.startsWith('photo_order') ||
+                                            key.startsWith('retained_photos'),
+                                    )
+                                    .map(([, message]) => message)
+                                    .join(' ')}
+                            />
                         </FormField>
                         <FormField label="Nomor Kamar">
                             <input

@@ -4,7 +4,20 @@ on:
   push:
     branches:
       - main # Ganti dengan branch dev Anda jika bukan main (misal: development / staging)
-  workflow_dispatch: # Memungkinkan trigger manual lewat tombol 'Run workflow' di GitHub
+  workflow_dispatch:
+    inputs:
+      database_mode:
+        description: 'Database: migrate mempertahankan data; fresh-seed MENGHAPUS SEMUA DATA lalu seed ulang'
+        required: true
+        type: choice
+        default: migrate
+        options:
+          - migrate
+          - fresh-seed
+
+concurrency:
+  group: deploy-dev
+  cancel-in-progress: false
 
 jobs:
   deploy:
@@ -13,7 +26,12 @@ jobs:
 
     steps:
       - name: Deploy new code & Rebuild Docker
+        shell: bash
+        env:
+          DATABASE_MODE: ${{ inputs.database_mode || 'migrate' }}
+          DEPLOY_EVENT: ${{ github.event_name }}
         run: |
+          set -euo pipefail
           echo "🚀 Menjalankan deployment di server development..."
           
           # Masuk ke folder proyek andalas-residence di server
@@ -41,9 +59,28 @@ jobs:
           # Bersihkan cache route lama sebelum migrasi dan cache ulang.
           docker compose exec -T andalas-app php artisan route:clear
 
-          # 4. Jalankan migrasi baru dengan mempertahankan data yang ada.
-          echo "Menjalankan migrasi database..."
-          docker compose exec -T andalas-app php artisan migrate --force --no-interaction
+          # 4. Push selalu memakai migrate; reset hanya tersedia lewat Run workflow.
+          case "$DATABASE_MODE" in
+            migrate)
+              echo "Menjalankan migrasi tanpa menghapus data..."
+              docker compose exec -T andalas-app php artisan migrate --force --no-interaction
+              ;;
+            fresh-seed)
+              if [ "$DEPLOY_EVENT" != "workflow_dispatch" ]; then
+                echo "::error::Reset database hanya boleh dipilih melalui Run workflow."
+                exit 1
+              fi
+              echo "Menghapus semua tabel, menjalankan migrasi dari awal, dan mengisi seeder..."
+              # DatabaseSeeder memuat akun contoh dan dibatasi ke local/testing.
+              # Override ini hanya untuk proses CLI reset di server development.
+              docker compose exec -T andalas-app php artisan config:clear
+              docker compose exec -T -e APP_ENV=local andalas-app php artisan migrate:fresh --seed --force --no-interaction
+              ;;
+            *)
+              echo "::error::Mode database tidak dikenal: $DATABASE_MODE"
+              exit 1
+              ;;
+          esac
 
           # 5. Bersihkan cache aplikasi
           docker compose exec -T andalas-app php artisan optimize:clear

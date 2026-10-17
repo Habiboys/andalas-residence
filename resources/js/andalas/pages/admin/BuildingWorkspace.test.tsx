@@ -201,4 +201,44 @@ describe('building management stages', () => {
         expect(html).not.toContain('role="dialog"');
         expect(html).not.toContain('Cari gedung');
     });
+    it('opens building edits as the full form with all existing gallery photos', () => {
+        const html = renderToStaticMarkup(
+            <BuildingCreate
+                building={{
+                    ...building,
+                    photos: ['gedung/cover.jpg', 'gedung/inside.jpg'],
+                }}
+            />,
+        );
+        expect(html).toContain('Edit Gedung');
+        expect(html).toContain('Simpan perubahan');
+        expect(html).toContain('/storage/gedung/cover.jpg');
+        expect(html).toContain('/storage/gedung/inside.jpg');
+        expect(html).not.toContain('role="dialog"');
+    });
+    it('uses icon actions and places the gallery beside the basic information', () => {
+        const html = renderToStaticMarkup(
+            <BuildingWorkspace
+                building={{
+                    ...building,
+                    photos: ['gedung/cover.jpg', 'gedung/inside.jpg'],
+                }}
+                rates={[
+                    {
+                        id: 'rate-1',
+                        tipe_kamar: 'standar',
+                        unit: 'year',
+                        amount: '2500000',
+                    },
+                ]}
+                canManage
+            />,
+        );
+        expect(html).toContain('aria-label="Galeri Gedung Baru"');
+        expect(html).toContain('aria-label="Edit informasi dasar"');
+        expect(html).toContain('aria-label="Edit tarif"');
+        expect(html).toContain('aria-label="Edit tipe Standar"');
+        expect(html).not.toContain('>Edit tarif</button>');
+        expect(html.split('<dialog')[0]).not.toContain('>Hapus</button>');
+    });
 });

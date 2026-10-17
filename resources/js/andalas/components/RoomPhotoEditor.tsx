@@ -1,105 +1,94 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useForm } from '@inertiajs/react';
+import { Pencil } from 'lucide-react';
 import { update } from '@/routes/andalas/kamar';
-import { Button } from './ui';
+import { Button, Drawer, IconButton } from './ui';
+import { PhotoEditor, photoFields, photoPaths } from './PhotoGallery';
 
 export default function RoomPhotoEditor({
     room,
+    initialOpen = false,
 }: {
-    room: { id: string; foto?: string | null };
+    room: { id: string; foto?: string | null; photos?: string[] | null };
+    initialOpen?: boolean;
 }) {
-    const form = useForm({ foto: null as File | null, remove_foto: false });
-    const [preview, setPreview] = useState<string | null>(null);
-    useEffect(() => {
-        if (!form.data.foto) {
-            setPreview(null);
-            return;
-        }
-        const url = URL.createObjectURL(form.data.foto);
-        setPreview(url);
-        return () => URL.revokeObjectURL(url);
-    }, [form.data.foto]);
-
+    const [open, setOpen] = useState(initialOpen);
+    const form = useForm(photoFields(photoPaths(room)));
     return (
-        <form
-            className="space-y-3"
-            onSubmit={(event) => {
-                event.preventDefault();
-                form.transform((data) => ({
-                    _method: 'put',
-                    remove_foto: data.remove_foto,
-                    ...(data.foto ? { foto: data.foto } : {}),
-                }));
-                form.post(update.url(room.id), {
-                    preserveScroll: true,
-                    onSuccess: () => form.reset(),
-                });
-            }}
-        >
-            <label className="block space-y-1 text-sm">
-                <span>Upload foto kamar</span>
-                <input
-                    className="file-input file-input-sm w-full"
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    onChange={(event) => {
-                        form.setData('foto', event.target.files?.[0] ?? null);
-                        form.setData('remove_foto', false);
-                    }}
-                />
-            </label>
-            <p className="text-muted text-xs">
-                JPG, PNG, WebP · maksimal 2 MB.
-            </p>
-            {preview && (
-                <img
-                    src={preview}
-                    alt="Pratinjau foto kamar"
-                    className="h-36 w-full rounded-lg object-cover"
-                />
-            )}
-            {room.foto && (
-                <label className="flex items-center gap-2 text-sm">
-                    <input
-                        className="checkbox checkbox-sm"
-                        type="checkbox"
-                        checked={form.data.remove_foto}
-                        onChange={(event) => {
-                            form.setData('remove_foto', event.target.checked);
-                            if (event.target.checked)
-                                form.setData('foto', null);
+        <>
+            <IconButton
+                label="Edit foto kamar"
+                icon={Pencil}
+                tone="text-warning hover:bg-warning/10"
+                onClick={() => {
+                    form.resetAndClearErrors();
+                    form.setData(photoFields(photoPaths(room)));
+                    setOpen(true);
+                }}
+            />
+            {open && (
+                <Drawer
+                    open={open}
+                    onClose={() => setOpen(false)}
+                    title="Galeri foto kamar"
+                    width="w-full max-w-xl"
+                    footer={
+                        <div className="flex justify-end gap-2">
+                            <Button
+                                variant="secondary"
+                                onClick={() => setOpen(false)}
+                            >
+                                Batal
+                            </Button>
+                            <Button
+                                type="submit"
+                                form="room-gallery"
+                                disabled={form.processing}
+                            >
+                                Simpan foto
+                            </Button>
+                        </div>
+                    }
+                >
+                    <form
+                        id="room-gallery"
+                        className="space-y-3"
+                        onSubmit={(event) => {
+                            event.preventDefault();
+                            form.transform((data) => ({
+                                ...data,
+                                _method: 'put',
+                            }));
+                            form.post(update.url(room.id), {
+                                forceFormData: true,
+                                preserveScroll: true,
+                                onSuccess: () => setOpen(false),
+                            });
                         }}
-                    />
-                    Hapus foto saat ini
-                </label>
+                    >
+                        <PhotoEditor
+                            value={form.data}
+                            onChange={(next) => form.setData(next)}
+                        />
+                        {Object.entries(form.errors).map(([key, message]) => (
+                            <p
+                                key={key}
+                                role="alert"
+                                className="text-error text-sm"
+                            >
+                                {message}
+                            </p>
+                        ))}
+                        {form.progress && (
+                            <progress
+                                className="progress progress-primary"
+                                value={form.progress.percentage}
+                                max={100}
+                            />
+                        )}
+                    </form>
+                </Drawer>
             )}
-            {Object.entries(form.errors).map(([key, error]) => (
-                <p className="text-error text-sm" role="alert" key={key}>
-                    {error}
-                </p>
-            ))}
-            {form.progress && (
-                <progress
-                    className="progress progress-primary"
-                    value={form.progress.percentage}
-                    max={100}
-                />
-            )}
-            <Button
-                type="submit"
-                size="sm"
-                disabled={
-                    form.processing ||
-                    (!form.data.foto && !form.data.remove_foto)
-                }
-            >
-                Simpan foto
-            </Button>
-            {form.recentlySuccessful && (
-                <p role="status" className="text-success text-sm">
-                    Foto kamar diperbarui.
-                </p>
-            )}
-        </form>
+        </>
     );
 }

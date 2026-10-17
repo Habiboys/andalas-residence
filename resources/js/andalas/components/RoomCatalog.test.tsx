@@ -142,7 +142,7 @@ it('shows floor release status and priority without edit fields until requested'
 
 it('uses a submit action when saving room photos for the catalog', () => {
     const html = renderToStaticMarkup(
-        <RoomPhotoEditor room={{ id: room.id, foto: room.foto }} />,
+        <RoomPhotoEditor room={{ id: room.id, foto: room.foto }} initialOpen />,
     );
     expect(html).toMatch(/<button type="submit"[^>]*>Simpan foto<\/button>/);
 });

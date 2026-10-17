@@ -16,11 +16,11 @@ class ResidencePhotoGallery
     {
         return [
             'manage_gallery' => ['sometimes', 'boolean'],
-            'photos' => ['sometimes', 'array', 'max:10'],
+            'photos' => ['sometimes', 'array', 'list', 'max:10'],
             'photos.*' => ['required', 'image', 'mimes:jpeg,jpg,png,webp', 'max:2048'],
-            'retained_photos' => ['sometimes', 'array', 'max:10'],
+            'retained_photos' => ['sometimes', 'array', 'list', 'max:10'],
             'retained_photos.*' => ['required', 'string', 'distinct'],
-            'photo_order' => ['sometimes', 'array', 'max:10'],
+            'photo_order' => ['sometimes', 'array', 'list', 'max:10'],
             'photo_order.*' => ['required', 'string', 'distinct'],
         ];
     }
@@ -29,12 +29,13 @@ class ResidencePhotoGallery
     public function save(Gedung|Kamar $model, Request $request, array $attributes): void
     {
         $uploaded = [];
+        $removed = [];
         $directory = $model instanceof Gedung ? 'gedung' : 'kamar';
         try {
-            DB::transaction(function () use ($model, $request, $attributes, $directory, &$uploaded): void {
+            DB::transaction(function () use ($model, $request, $attributes, $directory, &$uploaded, &$removed): void {
                 if ($model->exists) {
-                    $model->refresh();
-                    $model->newQuery()->whereKey($model->id)->lockForUpdate()->firstOrFail();
+                    $locked = $model->newQuery()->whereKey($model->id)->lockForUpdate()->firstOrFail();
+                    $model->setRawAttributes($locked->getAttributes(), true);
                 }
                 $previous = $model->photos ?: ($model->foto ? [$model->foto] : []);
                 $galleryChanged = $request->boolean('manage_gallery') || $request->hasFile('photos');
@@ -76,12 +77,12 @@ class ResidencePhotoGallery
                 $model->save();
                 if ($galleryChanged) {
                     $removed = array_values(array_filter(array_diff($previous, $paths), fn (string $path): bool => str_starts_with($path, $directory.'/') && ! str_contains($path, '..')));
-                    DB::afterCommit(fn () => Storage::disk('public')->delete($removed));
                 }
             });
         } catch (\Throwable $exception) {
             Storage::disk('public')->delete($uploaded);
             throw $exception;
         }
+        Storage::disk('public')->delete($removed);
     }
 }

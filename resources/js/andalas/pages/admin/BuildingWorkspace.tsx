@@ -623,123 +623,133 @@ export default function BuildingWorkspace({
                             }
                         >
                             <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
-                                <PhotoCarousel photos={photoPaths(building)} title={building.nama_gedung} />
-                            <div className="overflow-x-auto">
-                                <table className="table-sm table">
-                                    <tbody>
-                                        {[
-                                            [
-                                                'Kode gedung',
-                                                building.kode_gedung,
-                                            ],
-                                            [
-                                                'Peruntukan',
-                                                {
-                                                    laki_laki: 'Laki-laki',
-                                                    perempuan: 'Perempuan',
-                                                    campur: 'Campuran',
-                                                }[
-                                                    building.gender_peruntukan ??
-                                                        'campur'
+                                <PhotoCarousel
+                                    photos={photoPaths(building)}
+                                    title={building.nama_gedung}
+                                />
+                                <div className="overflow-x-auto">
+                                    <table className="table-sm table">
+                                        <tbody>
+                                            {[
+                                                [
+                                                    'Kode gedung',
+                                                    building.kode_gedung,
                                                 ],
-                                            ],
-                                            [
-                                                'Alamat',
-                                                building.alamat ||
-                                                    'Belum diisi',
-                                            ],
-                                            [
-                                                'Deskripsi',
-                                                building.deskripsi ||
-                                                    'Belum diisi',
-                                            ],
-                                        ].map(([title, value]) => (
-                                            <tr key={title}>
+                                                [
+                                                    'Peruntukan',
+                                                    {
+                                                        laki_laki: 'Laki-laki',
+                                                        perempuan: 'Perempuan',
+                                                        campur: 'Campuran',
+                                                    }[
+                                                        building.gender_peruntukan ??
+                                                            'campur'
+                                                    ],
+                                                ],
+                                                [
+                                                    'Alamat',
+                                                    building.alamat ||
+                                                        'Belum diisi',
+                                                ],
+                                                [
+                                                    'Deskripsi',
+                                                    building.deskripsi ||
+                                                        'Belum diisi',
+                                                ],
+                                            ].map(([title, value]) => (
+                                                <tr key={title}>
+                                                    <th
+                                                        scope="row"
+                                                        className="text-muted w-44 align-top font-medium"
+                                                    >
+                                                        {title}
+                                                    </th>
+                                                    <td className="whitespace-pre-wrap">
+                                                        {value}
+                                                    </td>
+                                                    <td />
+                                                </tr>
+                                            ))}
+                                            <tr>
                                                 <th
                                                     scope="row"
-                                                    className="text-muted w-44 align-top font-medium"
+                                                    className="text-muted align-top font-medium"
                                                 >
-                                                    {title}
+                                                    Kategori penghuni
                                                 </th>
-                                                <td className="whitespace-pre-wrap">
-                                                    {value}
+                                                <td>
+                                                    {building.allowed_categories ==
+                                                    null
+                                                        ? 'Semua kategori (belum dibatasi).'
+                                                        : building.allowed_categories
+                                                              .map(
+                                                                  (category) =>
+                                                                      categories[
+                                                                          category
+                                                                      ] ??
+                                                                      category,
+                                                              )
+                                                              .join(' / ') ||
+                                                          'Tidak menerima kategori penghuni.'}
                                                 </td>
-                                                <td />
+                                                <td className="text-right">
+                                                    {canManage && (
+                                                        <IconButton
+                                                            label="Edit kategori"
+                                                            icon={Pencil}
+                                                            tone="text-warning hover:bg-warning/10"
+                                                            onClick={() =>
+                                                                setEditingCategories(
+                                                                    true,
+                                                                )
+                                                            }
+                                                        />
+                                                    )}
+                                                </td>
                                             </tr>
-                                        ))}
-                                        <tr>
-                                            <th
-                                                scope="row"
-                                                className="text-muted align-top font-medium"
-                                            >
-                                                Kategori penghuni
-                                            </th>
-                                            <td>
-                                                {building.allowed_categories ==
-                                                null
-                                                    ? 'Semua kategori (belum dibatasi).'
-                                                    : building.allowed_categories
-                                                          .map(
-                                                              (category) =>
-                                                                  categories[
-                                                                      category
-                                                                  ] ?? category,
-                                                          )
-                                                          .join(' / ') ||
-                                                      'Tidak menerima kategori penghuni.'}
-                                            </td>
-                                            <td className="text-right">
-                                                {canManage && (
-                                                    <IconButton label="Edit kategori" icon={Pencil} tone="text-warning hover:bg-warning/10"
-                                                        onClick={() =>
-                                                            setEditingCategories(
-                                                                true,
-                                                            )
-                                                        }
-                                                     />
-                                                )}
-                                            </td>
-                                        </tr>
-                                        <tr>
-                                            <th
-                                                scope="row"
-                                                className="text-muted font-medium"
-                                            >
-                                                Jumlah lantai
-                                            </th>
-                                            <td colSpan={2}>
-                                                {building.lantai?.length ?? 0}
-                                            </td>
-                                        </tr>
-                                        <tr>
-                                            <th
-                                                scope="row"
-                                                className="text-muted font-medium"
-                                            >
-                                                Jumlah kamar
-                                            </th>
-                                            <td colSpan={2}>{rooms.length}</td>
-                                        </tr>
-                                        <tr>
-                                            <th
-                                                scope="row"
-                                                className="text-muted font-medium"
-                                            >
-                                                Kapasitas penghuni
-                                            </th>
-                                            <td colSpan={2}>
-                                                {rooms.reduce(
-                                                    (sum, room) =>
-                                                        sum + room.kapasitas,
-                                                    0,
-                                                )}{' '}
-                                                orang
-                                            </td>
-                                        </tr>
-
-                                    </tbody>
-                                </table>
-                            </div>
+                                            <tr>
+                                                <th
+                                                    scope="row"
+                                                    className="text-muted font-medium"
+                                                >
+                                                    Jumlah lantai
+                                                </th>
+                                                <td colSpan={2}>
+                                                    {building.lantai?.length ??
+                                                        0}
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <th
+                                                    scope="row"
+                                                    className="text-muted font-medium"
+                                                >
+                                                    Jumlah kamar
+                                                </th>
+                                                <td colSpan={2}>
+                                                    {rooms.length}
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <th
+                                                    scope="row"
+                                                    className="text-muted font-medium"
+                                                >
+                                                    Kapasitas penghuni
+                                                </th>
+                                                <td colSpan={2}>
+                                                    {rooms.reduce(
+                                                        (sum, room) =>
+                                                            sum +
+                                                            room.kapasitas,
+                                                        0,
+                                                    )}{' '}
+                                                    orang
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
                         </Panel>
                         <Panel title="Master tipe kamar">
@@ -794,18 +804,16 @@ export default function BuildingWorkspace({
                                                     </td>
                                                     {canManage && (
                                                         <td className="text-right">
-                                                            <button
-                                                                type="button"
-                                                                aria-label={`Edit tipe ${label(type)}`}
-                                                                className="btn btn-ghost btn-sm"
+                                                            <IconButton
+                                                                label={`Edit tipe ${label(type)}`}
+                                                                icon={Pencil}
+                                                                tone="text-warning hover:bg-warning/10"
                                                                 onClick={() =>
                                                                     setEditingType(
                                                                         type,
                                                                     )
                                                                 }
-                                                            >
-                                                                Edit
-                                                            </button>
+                                                            />
                                                         </td>
                                                     )}
                                                 </tr>
@@ -894,14 +902,24 @@ export default function BuildingWorkspace({
                                                     {canManage && (
                                                         <td>
                                                             <div className="flex justify-end gap-1">
-                                                                <IconButton label="Edit tarif" icon={Pencil} tone="text-warning hover:bg-warning/10"
+                                                                <IconButton
+                                                                    label="Edit tarif"
+                                                                    icon={
+                                                                        Pencil
+                                                                    }
+                                                                    tone="text-warning hover:bg-warning/10"
                                                                     onClick={() =>
                                                                         setRateTarget(
                                                                             rate,
                                                                         )
                                                                     }
-                                                                 />
-                                                                <IconButton label="Hapus" icon={Trash2} tone="text-error hover:bg-error/10"
+                                                                />
+                                                                <IconButton
+                                                                    label="Hapus"
+                                                                    icon={
+                                                                        Trash2
+                                                                    }
+                                                                    tone="text-error hover:bg-error/10"
                                                                     onClick={() =>
                                                                         setDeleteTarget(
                                                                             {
@@ -910,7 +928,7 @@ export default function BuildingWorkspace({
                                                                             },
                                                                         )
                                                                     }
-                                                                 />
+                                                                />
                                                             </div>
                                                         </td>
                                                     )}
@@ -989,14 +1007,24 @@ export default function BuildingWorkspace({
                                                         {canManage && (
                                                             <td>
                                                                 <div className="flex justify-end gap-1">
-                                                                    <IconButton label="Edit fasilitas" icon={Pencil} tone="text-warning hover:bg-warning/10"
+                                                                    <IconButton
+                                                                        label="Edit fasilitas"
+                                                                        icon={
+                                                                            Pencil
+                                                                        }
+                                                                        tone="text-warning hover:bg-warning/10"
                                                                         onClick={() =>
                                                                             setFacilityTarget(
                                                                                 facility,
                                                                             )
                                                                         }
-                                                                     />
-                                                                    <IconButton label="Hapus" icon={Trash2} tone="text-error hover:bg-error/10"
+                                                                    />
+                                                                    <IconButton
+                                                                        label="Hapus"
+                                                                        icon={
+                                                                            Trash2
+                                                                        }
+                                                                        tone="text-error hover:bg-error/10"
                                                                         onClick={() =>
                                                                             setDeleteTarget(
                                                                                 {
@@ -1005,7 +1033,7 @@ export default function BuildingWorkspace({
                                                                                 },
                                                                             )
                                                                         }
-                                                                     />
+                                                                    />
                                                                 </div>
                                                             </td>
                                                         )}

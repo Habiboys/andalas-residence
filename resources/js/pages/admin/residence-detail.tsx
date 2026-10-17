@@ -157,9 +157,17 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
         </Card>
     );
 }
-function Facts({ values }: { values: Array<[string, ReactNode]> }) {
+function Facts({
+    values,
+    compact = false,
+}: {
+    values: Array<[string, ReactNode]>;
+    compact?: boolean;
+}) {
     return (
-        <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
+        <dl
+            className={`grid gap-x-6 gap-y-4 sm:grid-cols-2 ${compact ? '' : 'lg:grid-cols-3'}`}
+        >
             {values.map(([label, value]) => (
                 <div key={label}>
                     <dt className="text-base-content/60 text-sm">{label}</dt>
@@ -593,35 +601,39 @@ export default function ResidenceDetail({
                 <>
                     <Section title="Informasi bangunan">
                         <div className="grid items-start gap-6 lg:grid-cols-2">
-                            <PhotoCarousel photos={photoPaths(building)} title={building.nama_gedung} />
-                        <Facts
-                            values={[
-                                ['Kode gedung', building.kode_gedung],
-                                [
-                                    'Peruntukan',
-                                    typeLabel(
-                                        building.gender_peruntukan ?? 'campur',
-                                    ),
-                                ],
-                                ['Alamat', building.alamat],
-                                ['Jumlah kamar', roomList.length],
-                                [
-                                    'Kapasitas total',
-                                    roomList.reduce(
-                                        (sum, r) => sum + r.kapasitas,
-                                        0,
-                                    ),
-                                ],
-                                [
-                                    'Penghuni aktif',
-                                    roomList.reduce(
-                                        (sum, r) =>
-                                            sum + (r.occupants_count ?? 0),
-                                        0,
-                                    ),
-                                ],
-                            ]}
-                        />
+                            <PhotoCarousel
+                                photos={photoPaths(building)}
+                                title={building.nama_gedung}
+                            />
+                            <Facts
+                                values={[
+                                    ['Kode gedung', building.kode_gedung],
+                                    [
+                                        'Peruntukan',
+                                        typeLabel(
+                                            building.gender_peruntukan ??
+                                                'campur',
+                                        ),
+                                    ],
+                                    ['Alamat', building.alamat],
+                                    ['Jumlah kamar', roomList.length],
+                                    [
+                                        'Kapasitas total',
+                                        roomList.reduce(
+                                            (sum, r) => sum + r.kapasitas,
+                                            0,
+                                        ),
+                                    ],
+                                    [
+                                        'Penghuni aktif',
+                                        roomList.reduce(
+                                            (sum, r) =>
+                                                sum + (r.occupants_count ?? 0),
+                                            0,
+                                        ),
+                                    ],
+                                ]}
+                            />
                         </div>
                         {building.deskripsi && (
                             <p className="whitespace-pre-wrap">
@@ -657,30 +669,78 @@ export default function ResidenceDetail({
                 <>
                     <Card className="overflow-hidden">
                         <div className="grid md:grid-cols-2">
-                            <div className="p-4"><PhotoCarousel photos={photoPaths(room)} title={`Kamar ${room.nomor_kamar}`} /></div>
-                            <div className="space-y-3 p-6">
-                                <span className="badge badge-outline">
-                                    {typeLabel(room.tipe_kamar)}
-                                </span>
-                                <h2 className="text-2xl font-semibold">
-                                    Kamar {room.nomor_kamar}
-                                </h2>
-                                <p className="text-muted">
-                                    {building?.nama_gedung} ?{' '}
-                                    {floor?.nama_lantai}
-                                </p>
-                                <StatusBadge status={room.status} />
-                                <p>
-                                    {room.kapasitas} tempat /{' '}
-                                    {Math.max(
-                                        0,
-                                        room.kapasitas -
-                                            active.length -
+                            <div className="p-4">
+                                <PhotoCarousel
+                                    photos={photoPaths(room)}
+                                    title={`Kamar ${room.nomor_kamar}`}
+                                />
+                            </div>
+                            <div className="space-y-4 p-5">
+                                <div className="flex items-center justify-between gap-3">
+                                    <h2 className="font-semibold">
+                                        Informasi kamar
+                                    </h2>
+                                    {can_manage && (
+                                        <RoomPhotoEditor room={room} />
+                                    )}
+                                </div>
+                                <Facts
+                                    compact
+                                    values={[
+                                        [
+                                            'Tipe kamar',
+                                            typeLabel(room.tipe_kamar),
+                                        ],
+                                        [
+                                            'Status',
+                                            <StatusBadge
+                                                status={room.status}
+                                            />,
+                                        ],
+                                        [
+                                            'Kapasitas',
+                                            `${room.kapasitas} orang`,
+                                        ],
+                                        ['Penghuni aktif', active.length],
+                                        [
+                                            'Tempat tersedia',
+                                            Math.max(
+                                                0,
+                                                room.kapasitas -
+                                                    active.length -
+                                                    reservations_count,
+                                            ),
+                                        ],
+                                        [
+                                            'Tempat ditahan / reservasi',
                                             reservations_count,
-                                    )}{' '}
-                                    tersedia
-                                </p>
-                                {can_manage && <RoomPhotoEditor room={room} />}
+                                        ],
+                                        [
+                                            'Kapasitas maksimal tipe',
+                                            type_definition?.max_capacity ==
+                                            null
+                                                ? 'Belum diisi'
+                                                : `${type_definition.max_capacity} orang`,
+                                        ],
+                                        [
+                                            'Tipe tersedia',
+                                            type_definition
+                                                ? type_definition.enabled
+                                                    ? 'Ya'
+                                                    : 'Tidak'
+                                                : 'Belum dikonfigurasi',
+                                        ],
+                                        [
+                                            'Fasilitas menurut master',
+                                            type_definition?.facilities ||
+                                                'Belum diisi',
+                                        ],
+                                        [
+                                            'Aset tercatat',
+                                            room.aset?.length ?? 0,
+                                        ],
+                                    ]}
+                                />
                             </div>
                         </div>
                     </Card>
@@ -742,43 +802,7 @@ export default function ResidenceDetail({
                             </div>
                         </Section>
                     )}
-                    <Section title="Informasi kamar">
-                        <Facts
-                            values={[
-                                ['Tipe kamar', typeLabel(room.tipe_kamar)],
-                                [
-                                    'Status',
-                                    <StatusBadge status={room.status} />,
-                                ],
-                                ['Kapasitas', `${room.kapasitas} orang`],
-                                ['Penghuni aktif', active.length],
-                                [
-                                    'Tempat ditahan / reservasi',
-                                    reservations_count,
-                                ],
-                                [
-                                    'Kapasitas maksimal tipe',
-                                    type_definition?.max_capacity == null
-                                        ? 'Belum diisi'
-                                        : `${type_definition.max_capacity} orang`,
-                                ],
-                                [
-                                    'Tipe tersedia',
-                                    type_definition
-                                        ? type_definition.enabled
-                                            ? 'Ya'
-                                            : 'Tidak'
-                                        : 'Belum dikonfigurasi',
-                                ],
-                                [
-                                    'Fasilitas menurut master',
-                                    type_definition?.facilities ||
-                                        'Belum diisi',
-                                ],
-                                ['Aset tercatat', room.aset?.length ?? 0],
-                            ]}
-                        />
-                    </Section>
+
                     <details className="border-base-300 rounded-xl border" open>
                         <summary className="cursor-pointer p-4 font-semibold">
                             Inventaris kamar

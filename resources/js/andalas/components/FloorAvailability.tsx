@@ -1,7 +1,8 @@
+import { Settings2 } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from '@inertiajs/react';
 import { availability } from '@/routes/andalas/lantai';
-import { Button, Modal, FormField, inputClass } from './ui';
+import { Button, IconButton, Modal, FormField, inputClass } from './ui';
 
 type Floor = {
     id: string;
@@ -93,9 +94,11 @@ export function FloorAvailabilityButton({ floor }: { floor: Floor }) {
     const [open, setOpen] = useState(false);
     return (
         <>
-            <Button size="sm" variant="ghost" onClick={() => setOpen(true)}>
-                Atur lantai
-            </Button>
+            <IconButton
+                label="Atur lantai"
+                icon={Settings2}
+                onClick={() => setOpen(true)}
+            />
             {open && (
                 <Modal
                     open

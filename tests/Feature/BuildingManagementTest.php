@@ -162,7 +162,7 @@ test('edit gedung tanpa foto baru mempertahankan foto lama', function () {
     $this->actingAs($this->admin)
         ->from(route('admin.kelola-bangunan'))
         ->put(route('andalas.gedung.update', $gedung), ['nama_gedung' => 'Gedung Diubah'])
-        ->assertRedirect(route('admin.kelola-bangunan'))
+        ->assertRedirect(route('andalas.gedung.show', $gedung))
         ->assertSessionHas('toast.type', 'success');
 
     expect($gedung->fresh()->foto)->toBe('gedung/lama.jpg');
@@ -275,4 +275,93 @@ test('fasilitas umum dapat dikelola dan tidak bisa dipindahkan lintas gedung ata
     $this->delete(route('andalas.residence-management.destroy', 'facility'), ['gedung_id' => $building->id, 'id' => $facility->id])->assertSessionHasNoErrors();
     $this->assertDatabaseMissing('fasilitas_umum', ['id' => $facility->id]);
     $this->actingAs(User::factory()->create()->assignRole('mahasiswa'))->post(route('andalas.residence-management.save', 'facility'), $data)->assertForbidden();
+});
+
+test('galeri gedung dan kamar mendukung multi upload cover urutan dan penghapusan individual', function (string $kind) {
+    Storage::fake('public');
+    ['gedung' => $building, 'lantai' => $floor] = buildingFixture();
+    $attributes = $kind === 'gedung'
+        ? ['kode_gedung' => 'GALERI', 'nama_gedung' => 'Gedung Galeri', 'gender_peruntukan' => 'campur']
+        : ['lantai_id' => $floor->id, 'nomor_kamar' => 'GALERI', 'kapasitas' => 2, 'tipe_kamar' => 'standar'];
+    $this->actingAs($this->admin)->post(route('andalas.'.$kind.'.store'), [
+        ...$attributes, 'manage_gallery' => true,
+        'photos' => [UploadedFile::fake()->image('depan.jpg'), UploadedFile::fake()->image('dalam.png')],
+    ])->assertSessionHasNoErrors();
+    $model = $kind === 'gedung' ? Gedung::where('kode_gedung', 'GALERI')->sole() : Kamar::where('nomor_kamar', 'GALERI')->sole();
+    $original = $model->photos;
+    expect($original)->toHaveCount(2);
+    expect($model->foto)->toBe($original[0]);
+    foreach ($original as $path) {
+        Storage::disk('public')->assertExists($path);
+    }
+
+    $this->post(route('andalas.'.$kind.'.update', $model), [
+        '_method' => 'put', 'manage_gallery' => true, 'retained_photos' => $original,
+        'photo_order' => [$original[1], 'new:0', $original[0]],
+        'photos' => [UploadedFile::fake()->image('lain.webp')],
+    ])->assertSessionHasNoErrors();
+    $model->refresh();
+    expect($model->photos)->toHaveCount(3);
+    expect($model->foto)->toBe($original[1]);
+    expect($model->photos[2])->toBe($original[0]);
+    $new = $model->photos[1];
+
+    $this->put(route('andalas.'.$kind.'.update', $model), [
+        'manage_gallery' => true, 'retained_photos' => [$new], 'photo_order' => [$new],
+    ])->assertSessionHasNoErrors();
+    expect($model->fresh()->foto)->toBe($new);
+    Storage::disk('public')->assertMissing($original[0]);
+    Storage::disk('public')->assertMissing($original[1]);
+    Storage::disk('public')->assertExists($new);
+
+    $this->get(route('andalas.'.$kind.'.show', $model))->assertInertia(fn (Assert $page) => $page->where(($kind === 'gedung' ? 'building' : 'room').'.photos', [$new]));
+
+    $this->put(route('andalas.'.$kind.'.update', $model), ['manage_gallery' => true])->assertSessionHasNoErrors();
+    expect($model->fresh()->photos)->toBe([]);
+    expect($model->fresh()->foto)->toBeNull();
+    Storage::disk('public')->assertMissing($new);
+})->with(['gedung', 'kamar']);
+
+test('galeri menolak path foto milik objek lain dan urutan yang tidak lengkap', function (string $kind) {
+    Storage::fake('public');
+    ['gedung' => $building, 'kamar' => $room] = buildingFixture();
+    $model = $kind === 'gedung' ? $building : $room;
+    $model->update(['foto' => $kind.'/milik-sendiri.jpg']);
+    $before = $model->foto;
+    $this->actingAs($this->admin)->put(route('andalas.'.$kind.'.update', $model), [
+        'manage_gallery' => true, 'retained_photos' => [$kind.'/milik-orang-lain.jpg'],
+    ])->assertSessionHasErrors('photos');
+    $this->post(route('andalas.'.$kind.'.update', $model), [
+        '_method' => 'put', 'manage_gallery' => true, 'retained_photos' => [$before],
+        'photo_order' => ['new:0'], 'photos' => [UploadedFile::fake()->image('baru.jpg')],
+    ])->assertSessionHasErrors('photos');
+    expect($model->fresh()->foto)->toBe($before);
+    expect(Storage::disk('public')->allFiles())->toBe([]);
+})->with(['gedung', 'kamar']);
+
+test('upload galeri menolak file non gambar batas ukuran dan jumlah foto', function (string $kind, string $failure) {
+    Storage::fake('public');
+    ['gedung' => $building, 'kamar' => $room] = buildingFixture();
+    $model = $kind === 'gedung' ? $building : $room;
+    $files = match ($failure) {
+        'type' => [UploadedFile::fake()->create('script.php', 1, 'application/x-php')],
+        'size' => [UploadedFile::fake()->image('besar.jpg')->size(2049)],
+        'count' => array_map(fn ($index) => UploadedFile::fake()->image('foto-'.$index.'.jpg'), range(1, 11)),
+    };
+    $this->actingAs($this->admin)->post(route('andalas.'.$kind.'.update', $model), [
+        '_method' => 'put', 'manage_gallery' => true, 'photos' => $files,
+    ])->assertSessionHasErrors($failure === 'count' ? 'photos' : 'photos.0');
+    expect($model->fresh()->foto)->toBeNull();
+    expect(Storage::disk('public')->allFiles())->toBe([]);
+})->with(['gedung', 'kamar'])->with(['type', 'size', 'count']);
+
+test('edit gedung memakai halaman lengkap dan menolak pengguna tanpa permission', function () {
+    ['gedung' => $building, 'kamar' => $room] = buildingFixture();
+    $building->update(['photos' => ['gedung/satu.jpg', 'gedung/dua.jpg'], 'foto' => 'gedung/satu.jpg']);
+    $this->actingAs($this->admin)->get(route('andalas.gedung.edit', $building))->assertInertia(fn (Assert $page) => $page
+        ->component('admin/building-create')->where('building.id', $building->id)->where('building.photos', $building->photos));
+    $this->actingAs(User::factory()->create()->assignRole('mahasiswa'))->get(route('andalas.gedung.edit', $building))->assertForbidden();
+    $this->post(route('andalas.kamar.update', $room), [
+        '_method' => 'put', 'manage_gallery' => true, 'photos' => [UploadedFile::fake()->image('tanpa-izin.jpg')],
+    ])->assertForbidden();
 });
