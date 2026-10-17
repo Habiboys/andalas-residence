@@ -197,3 +197,18 @@ it('renders neutral and unrecognised statuses with a light badge and preserves t
     expect(roleBadgeClass('staff_admin')).toContain('badge-primary');
     expect(roleBadgeClass('staff_admin')).not.toContain('badge-ghost');
 });
+
+it.each([
+    ['terisi_sebagian', 'Terisi sebagian', 'badge-warning'],
+    ['maintenance', 'Dalam perawatan', 'badge-ghost'],
+    ['menunggu_verifikasi', 'Menunggu verifikasi', 'badge-warning'],
+    ['submitted', 'Diajukan', 'badge-info'],
+    ['accepted', 'Diterima', 'badge-success'],
+    ['sebagian', 'Dibayar sebagian', 'badge-warning'],
+    [' status_baru ', 'Status baru', 'badge-ghost'],
+    ['', 'Belum tersedia', 'badge-ghost'],
+])('presents status %s as a readable label', (status, label, tone) => {
+    const html = renderToStaticMarkup(<StatusBadge status={status} />);
+    expect(html).toContain(`>${label}</span>`);
+    expect(html).toContain(tone);
+});

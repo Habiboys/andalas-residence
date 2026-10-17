@@ -68,27 +68,8 @@ export function Badge({ color = 'gray', children }: BadgeProps) {
 
 // ─── STATUS BADGE ───────────────────────────────────────────────────────────
 
-type Status =
-    | 'pending'
-    | 'terverifikasi'
-    | 'ditolak'
-    | 'disetujui'
-    | 'baru'
-    | 'diproses'
-    | 'selesai'
-    | 'baik'
-    | 'rusak_ringan'
-    | 'rusak_berat'
-    | 'hilang'
-    | 'kosong'
-    | 'terisi'
-    | 'penuh'
-    | 'maintenance'
-    | 'aktif'
-    | 'nonaktif';
-
-const statusMap: Record<Status, { label: string; color: BadgeColor }> = {
-    pending: { label: 'Pending', color: 'yellow' },
+const statusMap: Record<string, { label: string; color: BadgeColor }> = {
+    pending: { label: 'Menunggu', color: 'yellow' },
     terverifikasi: { label: 'Terverifikasi', color: 'green' },
     ditolak: { label: 'Ditolak', color: 'red' },
     disetujui: { label: 'Disetujui', color: 'green' },
@@ -100,16 +81,41 @@ const statusMap: Record<Status, { label: string; color: BadgeColor }> = {
     rusak_berat: { label: 'Rusak Berat', color: 'red' },
     hilang: { label: 'Hilang', color: 'gray' },
     kosong: { label: 'Kosong', color: 'green' },
+    terisi_sebagian: { label: 'Terisi sebagian', color: 'yellow' },
     terisi: { label: 'Terisi', color: 'yellow' },
     penuh: { label: 'Penuh', color: 'red' },
-    maintenance: { label: 'Maintenance', color: 'gray' },
+    maintenance: { label: 'Dalam perawatan', color: 'gray' },
     aktif: { label: 'Aktif', color: 'green' },
     nonaktif: { label: 'Nonaktif', color: 'gray' },
+    draft: { label: 'Draf', color: 'gray' },
+    submitted: { label: 'Diajukan', color: 'blue' },
+    verified: { label: 'Terverifikasi', color: 'green' },
+    accepted: { label: 'Diterima', color: 'green' },
+    rejected: { label: 'Ditolak', color: 'red' },
+    cancelled: { label: 'Dibatalkan', color: 'gray' },
+    menunggu_verifikasi: { label: 'Menunggu verifikasi', color: 'yellow' },
+    menunggu_triage: { label: 'Menunggu pemeriksaan', color: 'yellow' },
+    didisposisikan: { label: 'Ditugaskan', color: 'blue' },
+    sedang_dikerjakan: { label: 'Sedang dikerjakan', color: 'yellow' },
+    dibatalkan: { label: 'Dibatalkan', color: 'gray' },
+    diajukan: { label: 'Diajukan', color: 'blue' },
+    diverifikasi: { label: 'Terverifikasi', color: 'green' },
+    selesai_kembali: { label: 'Selesai kembali', color: 'green' },
+    terbit: { label: 'Terbit', color: 'blue' },
+    sebagian: { label: 'Dibayar sebagian', color: 'yellow' },
+    lunas: { label: 'Lunas', color: 'green' },
+    batal: { label: 'Dibatalkan', color: 'gray' },
+    kadaluarsa: { label: 'Kedaluwarsa', color: 'gray' },
 };
 
 export function StatusBadge({ status }: { status: string }) {
-    const s = statusMap[status as Status] ?? {
-        label: status,
+    const value = status.trim();
+    const s = statusMap[value.toLowerCase()] ?? {
+        label:
+            value
+                .replace(/[_-]+/g, ' ')
+                .replace(/^./, (letter) => letter.toUpperCase()) ||
+            'Belum tersedia',
         color: 'gray' as BadgeColor,
     };
     return <Badge color={s.color}>{s.label}</Badge>;

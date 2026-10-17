@@ -132,6 +132,8 @@ it('links room assets occupants and parent locations to separate detail pages', 
     ]) {
         expect(html).toContain(`href="${destination}"`);
     }
+    expect(html).toContain('Terisi sebagian');
+    expect(html).not.toContain('terisi_sebagian');
     expect(html).toContain('Fasilitas menurut master');
     expect(html).toContain('Dipan, Lemari');
     expect(html).toContain('Penghuni Kamar');
@@ -187,4 +189,55 @@ it('links asset locations back to rooms', () => {
     );
     expect(html).toContain(`href="${roomShow.url('room-1')}"`);
     expect(html).toContain('Belum ada laporan kerusakan');
+});
+
+it('shows room pricing beside the room information without a separate pricing table', () => {
+    const html = renderToStaticMarkup(
+        <ResidenceDetail
+            kind="room"
+            room={room}
+            rates={[
+                {
+                    id: 'annual',
+                    tipe_kamar: 'standar',
+                    unit: 'year',
+                    amount: '2500000',
+                    room_amount: '10000000',
+                },
+                {
+                    id: 'daily',
+                    tipe_kamar: 'umum',
+                    unit: 'day',
+                    amount: '100000',
+                    student_amount: '75000',
+                },
+            ]}
+        />,
+    );
+    const pricing =
+        html.split('aria-label="Tarif kamar"')[1]?.split('</section>')[0] ?? '';
+    expect(pricing).toContain('Standar - Per orang / tahun');
+    expect(pricing).toContain('Standar - Per kamar / tahun');
+    expect(pricing).toContain('Umum - Mahasiswa / hari');
+    for (const amount of ['2.500.000', '10.000.000', '100.000', '75.000'])
+        expect(pricing).toContain(amount);
+    expect(pricing).not.toContain('<table');
+    expect(html).not.toContain('Tarif tercatat');
+    expect(html.indexOf('aria-label="Tarif kamar"')).toBeLessThan(
+        html.indexOf('Inventaris kamar'),
+    );
+});
+it('shows the room annual fallback or an explicit missing tariff', () => {
+    const fallback = renderToStaticMarkup(
+        <ResidenceDetail
+            kind="room"
+            room={{ ...room, tarif_per_periode: '1500000' }}
+        />,
+    );
+    expect(fallback).toContain('Per orang / tahun');
+    expect(fallback).toContain('1.500.000');
+    const empty = renderToStaticMarkup(
+        <ResidenceDetail kind="room" room={room} />,
+    );
+    expect(empty).toContain('Tarif belum ditetapkan.');
 });

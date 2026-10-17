@@ -535,6 +535,31 @@ export default function ResidenceDetail({
               lantai: kind === 'floor' ? [floor!] : building.lantai,
           }
         : null;
+    const roomRateFacts: Array<[string, ReactNode]> = rates.flatMap((rate) => {
+        const unit =
+            { year: 'tahun', month: 'bulan', day: 'hari' }[rate.unit] ??
+            rate.unit;
+        const type = typeLabel(rate.tipe_kamar);
+        const facts: Array<[string, ReactNode]> = [
+            [
+                `${type} - Per orang / ${unit}`,
+                formatRupiah(Number(rate.amount)),
+            ],
+        ];
+        if (rate.student_amount != null) {
+            facts.push([
+                `${type} - Mahasiswa / ${unit}`,
+                formatRupiah(Number(rate.student_amount)),
+            ]);
+        }
+        if (rate.room_amount != null) {
+            facts.push([
+                `${type} - Per kamar / ${unit}`,
+                formatRupiah(Number(rate.room_amount)),
+            ]);
+        }
+        return facts;
+    });
     const active =
         room?.penempatan_kamar?.filter((p) => p.status === 'aktif') ?? [];
     return (
@@ -757,68 +782,38 @@ export default function ResidenceDetail({
                                         ],
                                     ]}
                                 />
+                                <section
+                                    aria-label="Tarif kamar"
+                                    className="border-base-300 space-y-3 border-t pt-4"
+                                >
+                                    <h3 className="font-semibold">
+                                        Tarif kamar
+                                    </h3>
+                                    {rates.length > 0 ? (
+                                        <Facts compact values={roomRateFacts} />
+                                    ) : Number(room.tarif_per_periode) > 0 ? (
+                                        <Facts
+                                            compact
+                                            values={[
+                                                [
+                                                    'Per orang / tahun',
+                                                    formatRupiah(
+                                                        Number(
+                                                            room.tarif_per_periode,
+                                                        ),
+                                                    ),
+                                                ],
+                                            ]}
+                                        />
+                                    ) : (
+                                        <p className="text-base-content/60 text-sm">
+                                            Tarif belum ditetapkan.
+                                        </p>
+                                    )}
+                                </section>
                             </div>
                         </div>
                     </Card>
-                    {rates.length > 0 && (
-                        <Section title="Tarif tercatat">
-                            <div className="overflow-x-auto">
-                                <table className="table">
-                                    <thead>
-                                        <tr>
-                                            <th>Tipe</th>
-                                            <th>Satuan</th>
-                                            <th>Per orang / umum</th>
-                                            <th>Harian mahasiswa</th>
-                                            <th>Tahunan per kamar</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {rates.map((rate) => (
-                                            <tr key={rate.id}>
-                                                <td>
-                                                    {typeLabel(rate.tipe_kamar)}
-                                                </td>
-                                                <td>
-                                                    {
-                                                        {
-                                                            year: 'Tahun',
-                                                            month: 'Bulan',
-                                                            day: 'Hari',
-                                                        }[rate.unit]
-                                                    }
-                                                </td>
-                                                <td>
-                                                    {formatRupiah(
-                                                        Number(rate.amount),
-                                                    )}
-                                                </td>
-                                                <td>
-                                                    {rate.student_amount == null
-                                                        ? '—'
-                                                        : formatRupiah(
-                                                              Number(
-                                                                  rate.student_amount,
-                                                              ),
-                                                          )}
-                                                </td>
-                                                <td>
-                                                    {rate.room_amount == null
-                                                        ? '—'
-                                                        : formatRupiah(
-                                                              Number(
-                                                                  rate.room_amount,
-                                                              ),
-                                                          )}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </Section>
-                    )}
-
                     <details className="border-base-300 rounded-xl border" open>
                         <summary className="cursor-pointer p-4 font-semibold">
                             Inventaris kamar
