@@ -241,3 +241,54 @@ it('shows the room annual fallback or an explicit missing tariff', () => {
     );
     expect(empty).toContain('Tarif belum ditetapkan.');
 });
+
+it.each([true, false])(
+    'shows one floor overview without building photography or repeated floor tables for manager %s',
+    (canManage) => {
+        const html = renderToStaticMarkup(
+            <ResidenceDetail
+                kind="floor"
+                building={{
+                    ...building,
+                    foto: 'gedung/foto.jpg',
+                    deskripsi: 'Deskripsi gedung yang tidak diperlukan',
+                }}
+                floor={{
+                    ...floor,
+                    booking_open: true,
+                    booking_priority: 2,
+                    kamar: [{ ...room, occupants_count: 1 }],
+                }}
+                can_manage={canManage}
+                can_manage_availability={canManage}
+            />,
+        );
+        const overview =
+            html.split('Informasi lantai</h2>')[1]?.split('</dl>')[0] ?? '';
+        expect(overview).toContain('<dl');
+        expect(overview).toContain('Nomor lantai');
+        expect(overview).toContain('2 orang');
+        expect(overview).toContain('1 orang');
+        expect(overview).toContain('Prioritas 2');
+        expect(overview).toContain('Dibuka, mengikuti urutan pengisian');
+        expect(overview).not.toContain('<table');
+        expect(html).not.toContain('gedung/foto.jpg');
+        expect(html).not.toContain('Deskripsi gedung yang tidak diperlukan');
+        expect(html).not.toContain('<th>Lantai</th>');
+        expect(html).not.toContain('Pembukaan dan prioritas lantai');
+        expect(html).toContain('101');
+        expect(html.includes('Atur lantai')).toBe(canManage);
+        expect(html.includes('Tambah Kamar')).toBe(canManage);
+    },
+);
+it('shows closed room selection and empty capacity on an empty floor', () => {
+    const html = renderToStaticMarkup(
+        <ResidenceDetail
+            kind="floor"
+            building={building}
+            floor={{ ...floor, booking_open: false, kamar: [] }}
+        />,
+    );
+    expect(html).toContain('Ditutup untuk pilihan baru');
+    expect(html).toContain('0 orang');
+});

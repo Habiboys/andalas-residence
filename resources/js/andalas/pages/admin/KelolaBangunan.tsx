@@ -852,145 +852,189 @@ export default function KelolaBangunan({
                     aria-label="Kelola lantai dan kamar"
                     className="space-y-6"
                 >
-                    <div className="space-y-3">
-                        <header className="flex flex-wrap items-center justify-between gap-3">
-                            <h2 className="font-semibold">Lantai</h2>
-                            {!floorOnly && (
-                                <Button
-                                    size="sm"
-                                    onClick={() => openLantaiForm(manage.id)}
-                                >
-                                    Tambah Lantai
-                                </Button>
-                            )}
-                        </header>
-                        <div className="overflow-x-auto">
-                            <table className="table-sm table">
-                                <thead>
-                                    <tr>
-                                        <th>Lantai</th>
-                                        <th>Jumlah kamar</th>
-                                        <th>Kapasitas</th>
-                                        <th>Prioritas</th>
-                                        <th>Pemilihan kamar</th>
-                                        <th className="text-right">Aksi</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {manage.lantai?.length ? (
-                                        manage.lantai.map((floor) => (
-                                            <tr key={floor.id}>
-                                                <td>
-                                                    <Link
-                                                        className="link link-primary"
-                                                        href={floorShow.url(
-                                                            floor.id,
-                                                        )}
-                                                    >
-                                                        {lantaiLabel(floor)}
-                                                    </Link>
-                                                </td>
-                                                <td>
-                                                    {floor.kamar?.length ?? 0}
-                                                </td>
-                                                <td>
-                                                    {floor.kamar?.reduce(
-                                                        (sum, room) =>
-                                                            sum +
-                                                            (room.kapasitas ??
-                                                                0),
-                                                        0,
-                                                    ) ?? 0}
-                                                </td>
-                                                <td>
-                                                    {floor.booking_priority ??
-                                                        1}
-                                                </td>
-                                                <td>
-                                                    {(floor.booking_open ??
-                                                    true)
-                                                        ? 'Dibuka'
-                                                        : 'Ditutup'}
-                                                </td>
-                                                <td>
-                                                    <div className="flex items-center justify-end gap-2">
-                                                        <FloorAvailabilityButton
-                                                            floor={{
-                                                                ...floor,
-                                                                nama_lantai:
-                                                                    lantaiLabel(
+                    {!floorOnly && (
+                        <div className="space-y-3">
+                            <header className="flex flex-wrap items-center justify-between gap-3">
+                                <h2 className="font-semibold">Lantai</h2>
+                                {!floorOnly && (
+                                    <Button
+                                        size="sm"
+                                        onClick={() =>
+                                            openLantaiForm(manage.id)
+                                        }
+                                    >
+                                        Tambah Lantai
+                                    </Button>
+                                )}
+                            </header>
+                            <div className="overflow-x-auto">
+                                <table className="table-sm table">
+                                    <thead>
+                                        <tr>
+                                            <th>Lantai</th>
+                                            <th>Jumlah kamar</th>
+                                            <th>Kapasitas</th>
+                                            <th>Prioritas</th>
+                                            <th>Pemilihan kamar</th>
+                                            <th className="text-right">Aksi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {manage.lantai?.length ? (
+                                            manage.lantai.map((floor) => (
+                                                <tr key={floor.id}>
+                                                    <td>
+                                                        <Link
+                                                            className="link link-primary"
+                                                            href={floorShow.url(
+                                                                floor.id,
+                                                            )}
+                                                        >
+                                                            {lantaiLabel(floor)}
+                                                        </Link>
+                                                    </td>
+                                                    <td>
+                                                        {floor.kamar?.length ??
+                                                            0}
+                                                    </td>
+                                                    <td>
+                                                        {floor.kamar?.reduce(
+                                                            (sum, room) =>
+                                                                sum +
+                                                                (room.kapasitas ??
+                                                                    0),
+                                                            0,
+                                                        ) ?? 0}
+                                                    </td>
+                                                    <td>
+                                                        {floor.booking_priority ??
+                                                            1}
+                                                    </td>
+                                                    <td>
+                                                        {(floor.booking_open ??
+                                                        true)
+                                                            ? 'Dibuka'
+                                                            : 'Ditutup'}
+                                                    </td>
+                                                    <td>
+                                                        <div className="flex items-center justify-end gap-2">
+                                                            <FloorAvailabilityButton
+                                                                floor={{
+                                                                    ...floor,
+                                                                    nama_lantai:
+                                                                        lantaiLabel(
+                                                                            floor,
+                                                                        ),
+                                                                    nomor_lantai:
+                                                                        floor.nomor_lantai ??
+                                                                        0,
+                                                                }}
+                                                            />
+                                                            <RowActions
+                                                                onDetail={() =>
+                                                                    router.visit(
+                                                                        floorShow.url(
+                                                                            floor.id,
+                                                                        ),
+                                                                    )
+                                                                }
+                                                                onEdit={() =>
+                                                                    openLantaiForm(
+                                                                        manage.id,
                                                                         floor,
-                                                                    ),
-                                                                nomor_lantai:
-                                                                    floor.nomor_lantai ??
-                                                                    0,
-                                                            }}
-                                                        />
-                                                        <RowActions
-                                                            onDetail={() =>
-                                                                router.visit(
-                                                                    floorShow.url(
-                                                                        floor.id,
-                                                                    ),
-                                                                )
-                                                            }
-                                                            onEdit={() =>
-                                                                openLantaiForm(
-                                                                    manage.id,
-                                                                    floor,
-                                                                )
-                                                            }
-                                                            onDelete={() =>
-                                                                setDeleteTarget(
-                                                                    {
-                                                                        kind: 'lantai',
-                                                                        lantai: floor,
-                                                                    },
-                                                                )
-                                                            }
-                                                        />
-                                                    </div>
+                                                                    )
+                                                                }
+                                                                onDelete={() =>
+                                                                    setDeleteTarget(
+                                                                        {
+                                                                            kind: 'lantai',
+                                                                            lantai: floor,
+                                                                        },
+                                                                    )
+                                                                }
+                                                            />
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        ) : (
+                                            <tr>
+                                                <td
+                                                    colSpan={6}
+                                                    className="text-muted"
+                                                >
+                                                    Belum ada lantai. Tambahkan
+                                                    lantai sebelum membuat
+                                                    kamar.
                                                 </td>
                                             </tr>
-                                        ))
-                                    ) : (
-                                        <tr>
-                                            <td
-                                                colSpan={6}
-                                                className="text-muted"
-                                            >
-                                                Belum ada lantai. Tambahkan
-                                                lantai sebelum membuat kamar.
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
-                    </div>
-                    <div className="border-base-200 space-y-3 border-t pt-5">
+                    )}
+                    <div
+                        className={
+                            floorOnly
+                                ? 'space-y-3'
+                                : 'border-base-200 space-y-3 border-t pt-5'
+                        }
+                    >
                         <header className="flex flex-wrap items-center justify-between gap-3">
                             <h2 className="font-semibold">Kamar</h2>
                             <div className="flex flex-wrap items-center gap-2">
-                                <select
-                                    className="select select-sm w-auto"
-                                    aria-label="Pilih lantai untuk mengelola kamar"
-                                    value={selectedFloor?.id ?? ''}
-                                    onChange={(event) =>
-                                        setSelectedFloorId(event.target.value)
-                                    }
-                                >
-                                    {!manage.lantai?.length && (
-                                        <option value="">
-                                            Belum ada lantai
-                                        </option>
-                                    )}
-                                    {manage.lantai?.map((floor) => (
-                                        <option key={floor.id} value={floor.id}>
-                                            {lantaiLabel(floor)}
-                                        </option>
-                                    ))}
-                                </select>
+                                {floorOnly && selectedFloor && (
+                                    <div
+                                        role="group"
+                                        aria-label="Aksi lantai"
+                                        className="flex items-center gap-2"
+                                    >
+                                        <span className="text-muted text-sm">
+                                            Lantai
+                                        </span>
+                                        <RowActions
+                                            onEdit={() =>
+                                                openLantaiForm(
+                                                    manage.id,
+                                                    selectedFloor,
+                                                )
+                                            }
+                                            onDelete={() =>
+                                                setDeleteTarget({
+                                                    kind: 'lantai',
+                                                    lantai: selectedFloor,
+                                                })
+                                            }
+                                        />
+                                    </div>
+                                )}
+                                {!floorOnly && (
+                                    <select
+                                        className="select select-sm w-auto"
+                                        aria-label="Pilih lantai untuk mengelola kamar"
+                                        value={selectedFloor?.id ?? ''}
+                                        onChange={(event) =>
+                                            setSelectedFloorId(
+                                                event.target.value,
+                                            )
+                                        }
+                                    >
+                                        {!manage.lantai?.length && (
+                                            <option value="">
+                                                Belum ada lantai
+                                            </option>
+                                        )}
+                                        {manage.lantai?.map((floor) => (
+                                            <option
+                                                key={floor.id}
+                                                value={floor.id}
+                                            >
+                                                {lantaiLabel(floor)}
+                                            </option>
+                                        ))}
+                                    </select>
+                                )}
                                 <Button
                                     size="sm"
                                     disabled={!selectedFloor}

@@ -12,7 +12,7 @@ import { kelolaBangunan } from '@/routes/admin';
 import { kelolaBangunan as assetBuildings } from '@/routes/admin_aset';
 import BuildingWorkspace from '@/andalas/pages/admin/BuildingWorkspace';
 import RoomPhotoEditor from '@/andalas/components/RoomPhotoEditor';
-import FloorAvailability from '@/andalas/components/FloorAvailability';
+import { FloorAvailabilityButton } from '@/andalas/components/FloorAvailability';
 import KelolaBangunan from '@/andalas/pages/admin/KelolaBangunan';
 import UserProfileDetails, {
     type ProfileSummary,
@@ -633,55 +633,55 @@ export default function ResidenceDetail({
                     canManageAvailability={can_manage_availability}
                 />
             )}
-            {kind === 'floor' && floor && can_manage_availability && (
-                <Card className="p-5">
-                    <FloorAvailability floors={[floor]} />
-                </Card>
-            )}
-            {kind === 'floor' && building && (
+            {kind === 'floor' && floor && (
                 <>
-                    <Section title="Informasi bangunan">
-                        <div className="grid items-start gap-6 lg:grid-cols-2">
-                            <PhotoCarousel
-                                photos={photoPaths(building)}
-                                title={building.nama_gedung}
-                            />
-                            <Facts
-                                values={[
-                                    ['Kode gedung', building.kode_gedung],
-                                    [
-                                        'Peruntukan',
-                                        typeLabel(
-                                            building.gender_peruntukan ??
-                                                'campur',
-                                        ),
-                                    ],
-                                    ['Alamat', building.alamat],
-                                    ['Jumlah kamar', roomList.length],
-                                    [
-                                        'Kapasitas total',
-                                        roomList.reduce(
-                                            (sum, r) => sum + r.kapasitas,
-                                            0,
-                                        ),
-                                    ],
-                                    [
-                                        'Penghuni aktif',
-                                        roomList.reduce(
-                                            (sum, r) =>
-                                                sum + (r.occupants_count ?? 0),
-                                            0,
-                                        ),
-                                    ],
-                                ]}
-                            />
-                        </div>
-                        {building.deskripsi && (
-                            <p className="whitespace-pre-wrap">
-                                {building.deskripsi}
-                            </p>
-                        )}
-                    </Section>
+                    <Card className="space-y-4 p-5">
+                        <header className="flex items-center justify-between gap-3">
+                            <h2 className="text-lg font-semibold">
+                                Informasi lantai
+                            </h2>
+                            {can_manage_availability && (
+                                <FloorAvailabilityButton floor={floor} />
+                            )}
+                        </header>
+                        <Facts
+                            values={[
+                                [
+                                    'Gedung',
+                                    building ? (
+                                        <Link
+                                            className="link link-primary"
+                                            href={buildingShow.url(building.id)}
+                                        >
+                                            {building.nama_gedung}
+                                        </Link>
+                                    ) : (
+                                        'Belum tersedia'
+                                    ),
+                                ],
+                                ['Nomor lantai', floor.nomor_lantai],
+                                ['Jumlah kamar', roomList.length],
+                                [
+                                    'Kapasitas penghuni',
+                                    `${roomList.reduce((sum, item) => sum + item.kapasitas, 0)} orang`,
+                                ],
+                                [
+                                    'Penghuni aktif',
+                                    `${roomList.reduce((sum, item) => sum + (item.occupants_count ?? 0), 0)} orang`,
+                                ],
+                                [
+                                    'Prioritas pengisian',
+                                    `Prioritas ${floor.booking_priority ?? 1}`,
+                                ],
+                                [
+                                    'Pemilihan kamar',
+                                    (floor.booking_open ?? true)
+                                        ? 'Dibuka, mengikuti urutan pengisian'
+                                        : 'Ditutup untuk pilihan baru',
+                                ],
+                            ]}
+                        />
+                    </Card>
                     {!can_manage && (
                         <Section title="Daftar kamar">
                             <RoomTable rooms={roomList} />
@@ -850,13 +850,13 @@ export default function ResidenceDetail({
                 </>
             )}
             {can_manage && managementBuilding && kind === 'floor' && (
-                <Section title="Kelola lantai dan kamar">
+                <Card className="p-5">
                     <KelolaBangunan
                         gedung={[managementBuilding]}
                         detail
                         floorOnly
                     />
-                </Section>
+                </Card>
             )}
             {kind === 'asset' && asset && (
                 <>
