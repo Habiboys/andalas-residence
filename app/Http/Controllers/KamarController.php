@@ -6,6 +6,7 @@ use App\Models\Kamar;
 use App\Models\Lantai;
 use App\Services\ResidenceBuildingAccess;
 use App\Services\RoomEligibility;
+use App\Services\ResidencePhotoGallery;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -89,6 +90,7 @@ class KamarController extends Controller
         $this->authorizePermission($request, 'gedung.manage');
 
         $validated = $request->validate([
+            ...app(ResidencePhotoGallery::class)->rules(),
             'lantai_id' => 'required|uuid|exists:lantai,id',
             'nomor_kamar' => 'required|string|max:20',
             'kapasitas' => 'required|integer|min:1|max:10',
@@ -102,10 +104,8 @@ class KamarController extends Controller
         if (! RoomEligibility::allowsType($building, $validated['tipe_kamar'] ?? 'standar', (int) $validated['kapasitas'])) {
             throw ValidationException::withMessages(['tipe_kamar' => 'Tipe tidak aktif atau kapasitas melebihi batas master tipe gedung.']);
         }
-        if ($request->hasFile('foto')) {
-            $validated['foto'] = $request->file('foto')->store('kamar', 'public');
-        }
-        $kamar = Kamar::create([
+        $kamar = new Kamar;
+        app(ResidencePhotoGallery::class)->save($kamar, $request, [
             ...$validated,
             'status' => $validated['status'] ?? 'kosong',
             'tipe_kamar' => $validated['tipe_kamar'] ?? 'standar',
@@ -122,6 +122,7 @@ class KamarController extends Controller
         $this->authorizePermission($request, 'gedung.manage');
 
         $validated = $request->validate([
+            ...app(ResidencePhotoGallery::class)->rules(),
             'nomor_kamar' => 'sometimes|string|max:20',
             'kapasitas' => 'sometimes|integer|min:1|max:10',
             'tipe_kamar' => 'sometimes|in:standar,medium,premium,umum,umum_vip',
@@ -134,17 +135,7 @@ class KamarController extends Controller
         if (! RoomEligibility::allowsType($kamar->lantai->gedung, $validated['tipe_kamar'] ?? $kamar->tipe_kamar, (int) ($validated['kapasitas'] ?? $kamar->kapasitas))) {
             throw ValidationException::withMessages(['tipe_kamar' => 'Tipe tidak aktif atau kapasitas melebihi batas master tipe gedung.']);
         }
-        $previousPhoto = $kamar->foto;
-        unset($validated['foto'], $validated['remove_foto']);
-        if ($request->hasFile('foto')) {
-            $validated['foto'] = $request->file('foto')->store('kamar', 'public');
-        } elseif ($request->boolean('remove_foto')) {
-            $validated['foto'] = null;
-        }
-        $kamar->update($validated);
-        if ($previousPhoto && array_key_exists('foto', $validated) && $previousPhoto !== $kamar->foto) {
-            Storage::disk('public')->delete($previousPhoto);
-        }
+        app(ResidencePhotoGallery::class)->save($kamar, $request, $validated);
 
         return redirect()->back()->with('toast', [
             'type' => 'success',

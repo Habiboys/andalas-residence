@@ -598,10 +598,10 @@ class RolePageController extends Controller
     private function buildingManagementTree(): array
     {
         return Gedung::query()
-            ->select(['id', 'kode_gedung', 'nama_gedung', 'gender_peruntukan', 'alamat', 'deskripsi', 'foto', 'room_types', 'allowed_categories'])
+            ->select(['id', 'kode_gedung', 'nama_gedung', 'gender_peruntukan', 'alamat', 'deskripsi', 'foto', 'photos', 'room_types', 'allowed_categories'])
             ->with([
                 'lantai:id,gedung_id,nomor_lantai,nama_lantai,booking_open,booking_priority',
-                'lantai.kamar:id,lantai_id,nomor_kamar,kapasitas,status,tipe_kamar,tarif_per_periode,foto',
+                'lantai.kamar:id,lantai_id,nomor_kamar,kapasitas,status,tipe_kamar,tarif_per_periode,foto,photos',
             ])
             ->orderBy('kode_gedung')
             ->get()

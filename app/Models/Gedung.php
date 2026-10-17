@@ -20,11 +20,11 @@ class Gedung extends BaseModel
 
     protected $table = 'gedung';
 
-    protected $fillable = ['kode_gedung', 'nama_gedung', 'gender_peruntukan', 'alamat', 'deskripsi', 'foto', 'allowed_categories', 'room_types'];
+    protected $fillable = ['kode_gedung', 'nama_gedung', 'gender_peruntukan', 'alamat', 'deskripsi', 'foto', 'photos', 'allowed_categories', 'room_types'];
 
     protected function casts(): array
     {
-        return ['allowed_categories' => 'array', 'room_types' => 'array'];
+        return ['photos' => 'array', 'allowed_categories' => 'array', 'room_types' => 'array'];
     }
 
     public function lantai(): HasMany

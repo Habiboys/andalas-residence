@@ -1,3 +1,5 @@
+import { Pencil, Trash2 } from 'lucide-react';
+import { PhotoCarousel, photoPaths } from '../../components/PhotoGallery';
 import { useState, type ReactNode } from 'react';
 import { Link, useForm } from '@inertiajs/react';
 import { save, destroy } from '@/routes/andalas/residence-management';
@@ -6,6 +8,7 @@ import { show as roomShow } from '@/routes/andalas/kamar';
 import { update as buildingUpdate } from '@/routes/andalas/gedung';
 import {
     Button,
+    IconButton,
     FormField,
     inputClass,
     selectClass,
@@ -31,6 +34,7 @@ type Room = {
     status: string;
     tipe_kamar: string;
     foto?: string | null;
+    photos?: string[] | null;
     occupants_count?: number;
     tarif_per_periode?: string;
 };
@@ -62,6 +66,7 @@ type Building = {
     kode_gedung: string;
     nama_gedung: string;
     foto?: string;
+    photos?: string[] | null;
     alamat?: string;
     deskripsi?: string;
     gender_peruntukan?: string;
@@ -617,6 +622,8 @@ export default function BuildingWorkspace({
                                 )
                             }
                         >
+                            <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
+                                <PhotoCarousel photos={photoPaths(building)} title={building.nama_gedung} />
                             <div className="overflow-x-auto">
                                 <table className="table-sm table">
                                     <tbody>
@@ -683,17 +690,13 @@ export default function BuildingWorkspace({
                                             </td>
                                             <td className="text-right">
                                                 {canManage && (
-                                                    <Button
-                                                        size="sm"
-                                                        variant="ghost"
+                                                    <IconButton label="Edit kategori" icon={Pencil} tone="text-warning hover:bg-warning/10"
                                                         onClick={() =>
                                                             setEditingCategories(
                                                                 true,
                                                             )
                                                         }
-                                                    >
-                                                        Edit kategori
-                                                    </Button>
+                                                     />
                                                 )}
                                             </td>
                                         </tr>
@@ -733,25 +736,10 @@ export default function BuildingWorkspace({
                                                 orang
                                             </td>
                                         </tr>
-                                        {building.foto && (
-                                            <tr>
-                                                <th
-                                                    scope="row"
-                                                    className="text-muted align-top font-medium"
-                                                >
-                                                    Foto gedung
-                                                </th>
-                                                <td colSpan={2}>
-                                                    <img
-                                                        src={`/storage/${building.foto}`}
-                                                        alt={`Foto ${building.nama_gedung}`}
-                                                        className="max-h-32 max-w-48 rounded-md object-cover"
-                                                    />
-                                                </td>
-                                            </tr>
-                                        )}
+
                                     </tbody>
                                 </table>
+                            </div>
                             </div>
                         </Panel>
                         <Panel title="Master tipe kamar">
@@ -906,21 +894,14 @@ export default function BuildingWorkspace({
                                                     {canManage && (
                                                         <td>
                                                             <div className="flex justify-end gap-1">
-                                                                <Button
-                                                                    size="sm"
-                                                                    variant="ghost"
+                                                                <IconButton label="Edit tarif" icon={Pencil} tone="text-warning hover:bg-warning/10"
                                                                     onClick={() =>
                                                                         setRateTarget(
                                                                             rate,
                                                                         )
                                                                     }
-                                                                >
-                                                                    Edit tarif
-                                                                </Button>
-                                                                <Button
-                                                                    size="sm"
-                                                                    variant="ghost"
-                                                                    className="text-error"
+                                                                 />
+                                                                <IconButton label="Hapus" icon={Trash2} tone="text-error hover:bg-error/10"
                                                                     onClick={() =>
                                                                         setDeleteTarget(
                                                                             {
@@ -929,9 +910,7 @@ export default function BuildingWorkspace({
                                                                             },
                                                                         )
                                                                     }
-                                                                >
-                                                                    Hapus
-                                                                </Button>
+                                                                 />
                                                             </div>
                                                         </td>
                                                     )}
@@ -1010,22 +989,14 @@ export default function BuildingWorkspace({
                                                         {canManage && (
                                                             <td>
                                                                 <div className="flex justify-end gap-1">
-                                                                    <Button
-                                                                        size="sm"
-                                                                        variant="ghost"
+                                                                    <IconButton label="Edit fasilitas" icon={Pencil} tone="text-warning hover:bg-warning/10"
                                                                         onClick={() =>
                                                                             setFacilityTarget(
                                                                                 facility,
                                                                             )
                                                                         }
-                                                                    >
-                                                                        Edit
-                                                                        fasilitas
-                                                                    </Button>
-                                                                    <Button
-                                                                        size="sm"
-                                                                        variant="ghost"
-                                                                        className="text-error"
+                                                                     />
+                                                                    <IconButton label="Hapus" icon={Trash2} tone="text-error hover:bg-error/10"
                                                                         onClick={() =>
                                                                             setDeleteTarget(
                                                                                 {
@@ -1034,9 +1005,7 @@ export default function BuildingWorkspace({
                                                                                 },
                                                                             )
                                                                         }
-                                                                    >
-                                                                        Hapus
-                                                                    </Button>
+                                                                     />
                                                                 </div>
                                                             </td>
                                                         )}

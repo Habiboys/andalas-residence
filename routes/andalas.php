@@ -132,6 +132,7 @@ Route::middleware(['auth', 'verified', EnsureResidenceAccountAccess::class])->gr
 
         // Gedung / lantai / kamar
         Route::get('/gedung/create', [GedungController::class, 'create'])->name('gedung.create');
+        Route::get('/gedung/{gedung}/edit', [GedungController::class, 'edit'])->name('gedung.edit');
         Route::get('/gedung/{gedung}', [ResidenceDetailController::class, 'building'])->name('gedung.show');
         Route::get('/lantai/{lantai}', [ResidenceDetailController::class, 'floor'])->name('lantai.show');
         Route::get('/kamar/{kamar}', [ResidenceDetailController::class, 'room'])->name('kamar.show');

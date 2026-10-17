@@ -9,11 +9,11 @@ class Kamar extends BaseModel
 {
     protected $table = 'kamar';
 
-    protected $fillable = ['lantai_id', 'nomor_kamar', 'kapasitas', 'status', 'tipe_kamar', 'tarif_per_periode', 'foto'];
+    protected $fillable = ['lantai_id', 'nomor_kamar', 'kapasitas', 'status', 'tipe_kamar', 'tarif_per_periode', 'foto', 'photos'];
 
     protected function casts(): array
     {
-        return ['tarif_per_periode' => 'decimal:2'];
+        return ['photos' => 'array', 'tarif_per_periode' => 'decimal:2'];
     }
 
     /** @return BelongsTo<Lantai, $this> */

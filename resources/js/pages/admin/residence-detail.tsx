@@ -1,3 +1,4 @@
+import { PhotoCarousel, photoPaths } from '@/andalas/components/PhotoGallery';
 import { Head, Link } from '@inertiajs/react';
 import { useState, type ReactNode } from 'react';
 import { LayoutGrid, List } from 'lucide-react';
@@ -37,6 +38,7 @@ type Building = {
     alamat?: string;
     deskripsi?: string;
     foto?: string;
+    photos?: string[] | null;
     gender_peruntukan?: string;
     allowed_categories?: string[] | null;
     room_types?: RoomType[] | null;
@@ -62,6 +64,7 @@ type Room = {
     aset_count?: number;
     tarif_per_periode?: string;
     foto?: string | null;
+    photos?: string[] | null;
     lantai?: Floor;
     aset?: Asset[];
     penempatan_kamar?: Placement[];
@@ -589,6 +592,8 @@ export default function ResidenceDetail({
             {kind === 'floor' && building && (
                 <>
                     <Section title="Informasi bangunan">
+                        <div className="grid items-start gap-6 lg:grid-cols-2">
+                            <PhotoCarousel photos={photoPaths(building)} title={building.nama_gedung} />
                         <Facts
                             values={[
                                 ['Kode gedung', building.kode_gedung],
@@ -617,6 +622,7 @@ export default function ResidenceDetail({
                                 ],
                             ]}
                         />
+                        </div>
                         {building.deskripsi && (
                             <p className="whitespace-pre-wrap">
                                 {building.deskripsi}
@@ -651,17 +657,7 @@ export default function ResidenceDetail({
                 <>
                     <Card className="overflow-hidden">
                         <div className="grid md:grid-cols-2">
-                            {room.foto ? (
-                                <img
-                                    src={`/storage/${room.foto}`}
-                                    alt={`Kamar ${room.nomor_kamar}`}
-                                    className="h-64 w-full object-cover"
-                                />
-                            ) : (
-                                <div className="bg-base-200 text-muted flex h-48 items-center justify-center">
-                                    Foto kamar belum ditambahkan
-                                </div>
-                            )}
+                            <div className="p-4"><PhotoCarousel photos={photoPaths(room)} title={`Kamar ${room.nomor_kamar}`} /></div>
                             <div className="space-y-3 p-6">
                                 <span className="badge badge-outline">
                                     {typeLabel(room.tipe_kamar)}

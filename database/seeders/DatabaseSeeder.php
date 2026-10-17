@@ -33,13 +33,9 @@ class DatabaseSeeder extends Seeder
         $this->call(UnandAcademicSeeder::class);
         $prodi = Prodi::where('code', '15-03-01')->firstOrFail();
 
-        $this->call(ResidenceMasterSeeder::class);
+        $this->call([ResidenceMasterSeeder::class, Residence2026StudentSeeder::class]);
 
-        $periode = Periode::firstOrCreate(['nama_periode' => '2025/2026 Ganjil'], [
-            'status' => 'nonaktif',
-            'tanggal_mulai' => '2025-08-01',
-            'tanggal_selesai' => '2026-01-31',
-        ]);
+        $periode = Periode::where('nama_periode', '2026/2027')->sole();
 
         KategoriTransaksi::firstOrCreate(['nama_kategori' => 'Pembayaran Sewa Asrama', 'tipe' => 'pemasukan']);
         KategoriTransaksi::firstOrCreate(['nama_kategori' => 'Operasional Gedung', 'tipe' => 'pengeluaran']);
@@ -54,10 +50,8 @@ class DatabaseSeeder extends Seeder
             ['nim_nip' => 'TEK001', 'nama' => 'Teknisi A', 'email' => 'teknisi@unand.ac.id', 'role' => 'teknisi'],
             ['nim_nip' => 'GO001', 'nama' => 'GO Cleaning Service', 'email' => 'go@unand.ac.id', 'role' => 'go'],
             ['nim_nip' => 'ORT001', 'nama' => 'Orang Tua Demo', 'email' => 'orang.tua@unand.ac.id', 'role' => 'orang_tua', 'category' => ClientProfileCategory::Parent],
-            ['nim_nip' => '2211521001', 'nama' => 'Client Lokal KIPK', 'email' => 'mahasiswa.kipk@unand.ac.id', 'role' => 'mahasiswa', 'category' => ClientProfileCategory::LocalKipk, 'angkatan' => '2026'],
-            ['nim_nip' => '2211521002', 'nama' => 'Client Lokal Non-KIPK', 'email' => 'mahasiswa.nonkipk@unand.ac.id', 'role' => 'mahasiswa', 'category' => ClientProfileCategory::LocalNonKipk, 'angkatan' => '2026'],
-            ['nim_nip' => '2211521003', 'nama' => 'Mahasiswa Penghuni Lokal', 'email' => 'mahasiswa.penghuni@unand.ac.id', 'role' => 'mahasiswa', 'category' => ClientProfileCategory::LocalNonKipk, 'angkatan' => '2025'],
             ['nim_nip' => 'INT001', 'nama' => 'Mahasiswa Internasional Gratis', 'email' => 'international@unand.ac.id', 'role' => 'mahasiswa', 'category' => ClientProfileCategory::InternationalFreeFacility, 'angkatan' => '2026'],
+            ['nim_nip' => 'INT002', 'nama' => 'Mahasiswa Internasional Berbayar', 'email' => 'international.paid@unand.ac.id', 'role' => 'mahasiswa', 'category' => ClientProfileCategory::InternationalStudent, 'angkatan' => '2026'],
             ['nim_nip' => 'NMS001', 'nama' => 'Client Non Mahasiswa', 'email' => 'nonmahasiswa@unand.ac.id', 'role' => 'mahasiswa', 'category' => ClientProfileCategory::NonStudent],
         ];
 
@@ -65,7 +59,7 @@ class DatabaseSeeder extends Seeder
         foreach ($users as $data) {
             $originalNumber = $data['nim_nip'];
             if (isset($data['angkatan'])) {
-                $data['nim_nip'] = substr($data['angkatan'], -2).($originalNumber === 'INT001' ? '99001001' : substr($originalNumber, 2));
+                $data['nim_nip'] = substr($data['angkatan'], -2).(str_starts_with($originalNumber, 'INT') ? '99001'.substr($originalNumber, -3) : substr($originalNumber, 2));
             }
             $user = User::firstOrCreate(['email' => $data['email']], [
                 'nim_nip' => $data['nim_nip'],
@@ -96,7 +90,7 @@ class DatabaseSeeder extends Seeder
         }
 
         $parent = User::where('email', 'orang.tua@unand.ac.id')->firstOrFail();
-        $student = $studentProfiles['mahasiswa.kipk@unand.ac.id'];
+        $student = $studentProfiles['international@unand.ac.id'];
         ParentStudentLink::firstOrCreate(
             ['parent_user_id' => $parent->id, 'student_profile_id' => $student->id],
             ['relationship' => 'guardian', 'is_primary_contact' => true],
@@ -136,22 +130,14 @@ class DatabaseSeeder extends Seeder
             }
         }
 
-        $this->call([LandingContentSeeder::class, DocumentSystemSeeder::class, ResidenceScenarioSeeder::class, ResidenceOperationsSeeder::class]);
-        $this->command?->table(['Akun demo', 'Kegunaan'], [
-            ['superadmin@example.test', 'Seluruh pengelolaan dan audit'],
-            ['admin_layanan@example.test', 'Pendaftaran, tagihan, pembayaran, surat'],
-            ['admin_aset@example.test', 'Stok, lokasi, dan jumlah aset'],
-            ['fasilitator@example.test', 'QR absensi, izin, checkout gedung DEMO-P/W'],
-            ['go@example.test', 'Pemeriksaan kamar checkout'],
-            ['teknisi@example.test', 'Tiket dan bukti perbaikan'],
-            ['pimpinan@example.test', 'Laporan dan dashboard'],
-            ['orang_tua@example.test', 'Pemantauan anak: binaan-aktif'],
-            ['binaan-aktif@example.test', 'Penghuni tahun pertama dan scan QR'],
-            ['bayar-verifikasi@example.test', 'Pembayaran menunggu verifikasi'],
-            ['cicilan-aktif@example.test', 'Cicilan pertama lunas, termin berikutnya terbuka'],
-            ['checkout-siap@example.test', 'Inspeksi GO selesai, menunggu fasilitator'],
-            ['legacy-belum-lunas@example.test', 'Tagihan alumni sebelum terbit surat'],
+        $this->call([LandingContentSeeder::class, DocumentSystemSeeder::class]);
+        $this->command?->info('Mahasiswa lokal memakai data Excel 2026/2027. Contoh penghuni hanya untuk kategori internasional dan non-mahasiswa; contoh orang tua dipertahankan.');
+        $this->command?->table(['Akun contoh', 'Kategori'], [
+            ['international@unand.ac.id', 'Internasional fasilitas gratis'],
+            ['international.paid@unand.ac.id', 'Internasional berbayar'],
+            ['nonmahasiswa@unand.ac.id', 'Non-mahasiswa'],
+            ['orang.tua@unand.ac.id', 'Orang tua mahasiswa internasional contoh'],
         ]);
-        $this->command?->info('Password awal semua akun demo: password. Daftar 54 skenario tersedia di ResidenceScenarioSeeder::scenarios().');
+        $this->command?->info('Password akun contoh: password. Akun mahasiswa impor memakai password acak dan memerlukan pengaturan akses sendiri.');
     }
 }

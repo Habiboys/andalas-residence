@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Gedung;
+use App\Services\ResidencePhotoGallery;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -21,6 +22,17 @@ class GedungController extends Controller
         ]);
     }
 
+    public function edit(Request $request, Gedung $gedung): Response
+    {
+        $this->authorizePermission($request, 'gedung.manage');
+        $user = app(RolePageController::class)->userPayload($request);
+
+        return Inertia::render('admin/building-create', [
+            'initialUser' => $user, 'role' => $user['role'], 'page' => 'kelola-bangunan',
+            'building' => $gedung,
+        ]);
+    }
+
     public function store(Request $request): RedirectResponse
     {
         $this->authorizePermission($request, 'gedung.manage');
@@ -29,6 +41,7 @@ class GedungController extends Controller
             $request->merge(['allowed_categories' => []]);
         }
         $validated = $request->validate([
+            ...app(ResidencePhotoGallery::class)->rules(),
             'kode_gedung' => 'required|string|max:10|unique:gedung,kode_gedung',
             'nama_gedung' => 'required|string|max:150',
             'gender_peruntukan' => 'required|in:laki_laki,perempuan,campur',
@@ -42,11 +55,8 @@ class GedungController extends Controller
             ],
         ]);
 
-        if ($request->hasFile('foto')) {
-            $validated['foto'] = $request->file('foto')->store('gedung', 'public');
-        }
-
-        $gedung = Gedung::create($validated);
+        $gedung = new Gedung;
+        app(ResidencePhotoGallery::class)->save($gedung, $request, $validated);
 
         return ($request->boolean('continue_setup') ? redirect()->route('andalas.gedung.show', $gedung) : redirect()->back())->with('toast', [
             'type' => 'success',
@@ -62,6 +72,7 @@ class GedungController extends Controller
             $request->merge(['allowed_categories' => []]);
         }
         $validated = $request->validate([
+            ...app(ResidencePhotoGallery::class)->rules(),
             'kode_gedung' => 'sometimes|string|max:10|unique:gedung,kode_gedung,'.$gedung->id,
             'nama_gedung' => 'sometimes|string|max:150',
             'gender_peruntukan' => 'sometimes|in:laki_laki,perempuan,campur',
@@ -75,13 +86,9 @@ class GedungController extends Controller
             ],
         ]);
 
-        if ($request->hasFile('foto')) {
-            $validated['foto'] = $request->file('foto')->store('gedung', 'public');
-        }
+        app(ResidencePhotoGallery::class)->save($gedung, $request, $validated);
 
-        $gedung->update($validated);
-
-        return redirect()->back()->with('toast', [
+        return redirect()->route('andalas.gedung.show', $gedung)->with('toast', [
             'type' => 'success',
             'message' => "Gedung {$gedung->nama_gedung} diperbarui.",
         ]);

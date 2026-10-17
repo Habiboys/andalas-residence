@@ -6,7 +6,7 @@ use App\Jobs\GenerateFreeResidenceLetter;
 use App\Models;
 use App\Services\AttendanceEligibility;
 use App\Services\FreeResidenceLetterFormat;
-use Database\Seeders\DatabaseSeeder;
+use Database\Seeders\ResidenceDemoSeeder;
 use Database\Seeders\ResidenceScenarioSeeder;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Notification;
@@ -22,7 +22,7 @@ beforeEach(function () {
 });
 
 test('seeder supplies every domain model with linked and financially consistent demo records', function () {
-    $this->seed(DatabaseSeeder::class);
+    $this->seed(ResidenceDemoSeeder::class);
 
     foreach (File::files(app_path('Models')) as $file) {
         $class = 'App\\Models\\'.$file->getFilenameWithoutExtension();
@@ -73,7 +73,7 @@ test('seeder supplies every domain model with linked and financially consistent 
 });
 
 test('seeded accounts can continue payment checkout permit and attendance journeys', function () {
-    $this->seed(DatabaseSeeder::class);
+    $this->seed(ResidenceDemoSeeder::class);
     Queue::fake([GenerateBillingDocument::class, GenerateFreeResidenceLetter::class]);
     $admin = ResidenceScenarioSeeder::staff('admin_layanan');
     $facilitator = ResidenceScenarioSeeder::staff('fasilitator');
@@ -130,7 +130,7 @@ test('seeded accounts can continue payment checkout permit and attendance journe
 });
 
 test('seeded role dashboards and populated resident pages render successfully', function () {
-    $this->seed(DatabaseSeeder::class);
+    $this->seed(ResidenceDemoSeeder::class);
     foreach (['superadmin' => 'admin', 'staff_admin' => 'admin', 'admin_layanan' => 'admin_layanan', 'admin_aset' => 'admin_aset',
         'fasilitator' => 'fasilitator', 'teknisi' => 'teknisi', 'go' => 'go', 'pimpinan' => 'pimpinan', 'orang_tua' => 'orang_tua'] as $role => $prefix) {
         $this->actingAs(ResidenceScenarioSeeder::staff($role))->get('/'.$prefix.'/dashboard')->assertOk();
@@ -145,7 +145,7 @@ test('seeded role dashboards and populated resident pages render successfully', 
 test('demo seeding refuses a production environment before creating accounts', function () {
     app()->instance('env', 'production');
     try {
-        expect(fn () => $this->seed(DatabaseSeeder::class))->toThrow(LogicException::class);
+        expect(fn () => $this->seed(ResidenceDemoSeeder::class))->toThrow(LogicException::class);
         expect(Models\User::count())->toBe(0);
     } finally {
         app()->instance('env', 'testing');
@@ -153,7 +153,7 @@ test('demo seeding refuses a production environment before creating accounts', f
 });
 
 test('reseeding preserves user changes and does not duplicate demo relationships', function () {
-    $this->seed(DatabaseSeeder::class);
+    $this->seed(ResidenceDemoSeeder::class);
     $unverified = Models\User::factory()->create(['nim_nip' => '2612345678', 'client_profile_category' => 'local_kipk']);
     Models\MahasiswaProfil::create(['user_id' => $unverified->id, 'angkatan' => '2026', 'barcode_code' => 'UNVERIFIED', 'status_huni' => 'calon']);
     $counts = collect(File::files(app_path('Models')))->mapWithKeys(function ($file) {
@@ -178,7 +178,7 @@ test('reseeding preserves user changes and does not duplicate demo relationships
     $custom->update(['nim_nip' => '2699999999']);
     Models\Kamar::where('nomor_kamar', '101')->firstOrFail()->update(['status' => 'maintenance']);
 
-    $this->seed(DatabaseSeeder::class);
+    $this->seed(ResidenceDemoSeeder::class);
 
     expect(Models\KipkRecipient::where('nim', $unverified->nim_nip)->exists())->toBeFalse();
     foreach ($counts as $class => $count) {
@@ -200,7 +200,7 @@ test('reseeding preserves user changes and does not duplicate demo relationships
 
 test('first demo seed preserves an admission period already activated by admin', function () {
     $period = Models\Periode::create(['nama_periode' => 'Penerimaan admin', 'status' => 'aktif', 'angkatan_maba' => 2026, 'tanggal_mulai' => '2026-08-01', 'tanggal_selesai' => '2027-07-31']);
-    $this->seed(DatabaseSeeder::class);
+    $this->seed(ResidenceDemoSeeder::class);
     expect(Models\Periode::where('status', 'aktif')->sole()->id)->toBe($period->id);
     expect(Models\Periode::where('nama_periode', 'DEMO 2026/2027')->sole()->status)->toBe('nonaktif');
 });
