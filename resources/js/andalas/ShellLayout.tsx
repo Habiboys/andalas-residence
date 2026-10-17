@@ -2,7 +2,7 @@ import { manage as landingManage } from '@/routes/andalas/landing';
 import { useEffect, useState } from 'react';
 import { Link, usePage, router } from '@inertiajs/react';
 import { edit as profileEdit } from '@/routes/profile';
-import { ChevronDown, LogOut, Menu, Search } from 'lucide-react';
+import { ArrowLeft, ChevronDown, LogOut, Menu, Search } from 'lucide-react';
 import * as adminRoutes from '@/routes/admin';
 import * as adminLayananRoutes from '@/routes/admin_layanan';
 import * as adminAsetRoutes from '@/routes/admin_aset';
@@ -373,6 +373,24 @@ function ShellInner({
                 </header>
 
                 <main className="w-full min-w-0 flex-1 p-4 md:p-6">
+                    <button
+                        type="button"
+                        onClick={() => {
+                            if (window.history.length > 1) {
+                                window.history.back();
+
+                                return;
+                            }
+
+                            if (currentPage !== 'dashboard') {
+                                nav('dashboard');
+                            }
+                        }}
+                        className="btn btn-ghost btn-sm mb-3 gap-1.5 px-2"
+                    >
+                        <ArrowLeft className="size-4" aria-hidden="true" />
+                        Kembali
+                    </button>
                     <nav
                         className="breadcrumbs text-base-content/60 mb-4 text-xs"
                         aria-label="Navigasi halaman"
