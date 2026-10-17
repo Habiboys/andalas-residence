@@ -9,7 +9,12 @@ class Lantai extends BaseModel
 {
     protected $table = 'lantai';
 
-    protected $fillable = ['gedung_id', 'nomor_lantai', 'nama_lantai'];
+    protected $fillable = ['gedung_id', 'nomor_lantai', 'nama_lantai', 'booking_open', 'booking_priority'];
+
+    protected function casts(): array
+    {
+        return ['booking_open' => 'boolean', 'booking_priority' => 'integer'];
+    }
 
     /** @return BelongsTo<Gedung, $this> */
     public function gedung(): BelongsTo

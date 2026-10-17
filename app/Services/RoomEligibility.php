@@ -70,5 +70,6 @@ class RoomEligibility
         if ($room->status === 'maintenance' || $room->penempatanKamar()->where('status', 'aktif')->count() + app(RoomReservations::class)->count($room, $registrationId) >= $room->kapasitas) {
             throw ValidationException::withMessages([$field => 'Kamar tidak tersedia atau sudah penuh. Pilih kamar lain.']);
         }
+        app(FloorRoomAvailability::class)->validate($room, $user, $field, $registrationId);
     }
 }

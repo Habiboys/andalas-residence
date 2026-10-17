@@ -31,6 +31,7 @@ class RolePermissionSeeder extends Seeder
 
         // ── Gedung, Lantai & Kamar ──
         'gedung.view' => 'Melihat gedung/lantai/kamar',
+        'room-availability.manage' => 'Membuka dan mengurutkan prioritas pengisian lantai',
         'gedung.manage' => 'Kelola gedung, lantai & kamar',
 
         // ── Aset & Fasilitas ──
@@ -139,6 +140,7 @@ class RolePermissionSeeder extends Seeder
             'master.view',
             'gedung.view',
             'gedung.manage',
+            'room-availability.manage',
             'aset.view',
             'aset.create',
             'aset.update',
@@ -167,6 +169,7 @@ class RolePermissionSeeder extends Seeder
             'mahasiswa.delete',
             'gedung.view',
             'gedung.manage',
+            'room-availability.manage',
             'aset.view',
             'aset.create',
             'aset.update',
@@ -194,6 +197,7 @@ class RolePermissionSeeder extends Seeder
             'teknisi.performance.view',
         ],
         'fasilitator' => [
+            'room-availability.manage',
             'perizinan.review',
             'aset.view',
             'aset.create',

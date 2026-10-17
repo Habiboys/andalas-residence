@@ -86,6 +86,7 @@ export default function RoomPhotoEditor({
                 />
             )}
             <Button
+                type="submit"
                 size="sm"
                 disabled={
                     form.processing ||

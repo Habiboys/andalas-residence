@@ -10,6 +10,7 @@ import { kelolaBangunan } from '@/routes/admin';
 import { kelolaBangunan as assetBuildings } from '@/routes/admin_aset';
 import BuildingWorkspace from '@/andalas/pages/admin/BuildingWorkspace';
 import RoomPhotoEditor from '@/andalas/components/RoomPhotoEditor';
+import FloorAvailability from '@/andalas/components/FloorAvailability';
 import KelolaBangunan from '@/andalas/pages/admin/KelolaBangunan';
 import UserProfileDetails, {
     type ProfileSummary,
@@ -46,6 +47,8 @@ type Floor = {
     id: string;
     nomor_lantai: number;
     nama_lantai: string;
+    booking_open?: boolean;
+    booking_priority?: number;
     kamar?: Room[];
     gedung?: Building;
 };
@@ -132,6 +135,7 @@ type Props = {
     type_definition?: RoomType | null;
     reservations_count?: number;
     can_manage?: boolean;
+    can_manage_availability?: boolean;
     can_view_assets?: boolean;
     can_view_residents?: boolean;
 };
@@ -480,6 +484,7 @@ export default function ResidenceDetail({
     type_definition,
     reservations_count = 0,
     can_manage = false,
+    can_manage_availability = false,
     can_view_assets = false,
     can_view_residents = false,
 }: Props) {
@@ -573,7 +578,13 @@ export default function ResidenceDetail({
                     building={building}
                     rates={rates}
                     canManage={can_manage}
+                    canManageAvailability={can_manage_availability}
                 />
+            )}
+            {kind === 'floor' && floor && can_manage_availability && (
+                <Card className="p-5">
+                    <FloorAvailability floors={[floor]} />
+                </Card>
             )}
             {kind === 'floor' && building && (
                 <>

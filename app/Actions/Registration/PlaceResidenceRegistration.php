@@ -2,6 +2,7 @@
 
 namespace App\Actions\Registration;
 
+use App\Models\Gedung;
 use App\Models\Kamar;
 use App\Models\MahasiswaProfil;
 use App\Models\PenempatanKamar;
@@ -15,6 +16,8 @@ class PlaceResidenceRegistration
     public function handle(ResidenceRegistration $registration, string $roomId, string $officerId): PenempatanKamar
     {
         MahasiswaProfil::query()->lockForUpdate()->findOrFail($registration->student_profile_id);
+        $candidate = Kamar::with('lantai')->findOrFail($roomId);
+        Gedung::query()->lockForUpdate()->findOrFail($candidate->lantai->gedung_id);
         $room = Kamar::query()->lockForUpdate()->findOrFail($roomId);
         RoomEligibility::validate($room, $registration->studentProfile->user, 'kamar_id', $registration->id);
 

@@ -70,6 +70,11 @@ class ResidenceRegistration extends BaseModel
         return $this->belongsTo(PenempatanKamar::class, 'penempatan_kamar_id');
     }
 
+    public function reservedRoom(): BelongsTo
+    {
+        return $this->belongsTo(Kamar::class, 'reserved_room_id');
+    }
+
     /** @return BelongsTo<Tagihan, $this> */
     public function tagihan(): BelongsTo
     {

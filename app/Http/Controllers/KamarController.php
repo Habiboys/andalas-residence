@@ -4,14 +4,31 @@ namespace App\Http\Controllers;
 
 use App\Models\Kamar;
 use App\Models\Lantai;
+use App\Services\ResidenceBuildingAccess;
 use App\Services\RoomEligibility;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 class KamarController extends Controller
 {
+    public function updateAvailability(Request $request, Lantai $lantai): RedirectResponse
+    {
+        $this->authorizeAnyPermission($request, ['gedung.manage', 'room-availability.manage']);
+        if ($request->user()->hasRole('fasilitator') && ! $request->user()->hasRole('superadmin')) {
+            abort_unless(ResidenceBuildingAccess::allows($request->user(), $lantai->gedung_id), 403);
+        }
+        $data = $request->validate(['booking_open' => ['required', 'boolean'], 'booking_priority' => ['required', 'integer', 'min:1', 'max:1000']]);
+        DB::transaction(function () use ($lantai, $data): void {
+            $lantai->gedung()->lockForUpdate()->firstOrFail();
+            $lantai->update($data);
+        });
+
+        return back()->with('toast', ['type' => 'success', 'message' => 'Pembukaan dan prioritas lantai disimpan. Reservasi yang sudah dibuat tetap berlaku.']);
+    }
+
     public function storeLantai(Request $request): RedirectResponse
     {
         $this->authorizePermission($request, 'gedung.manage');
@@ -22,7 +39,7 @@ class KamarController extends Controller
             'nama_lantai' => 'required|string|max:100',
         ]);
 
-        $lantai = Lantai::create($validated);
+        $lantai = Lantai::create([...$validated, 'booking_open' => false]);
 
         return redirect()->back()->with('toast', [
             'type' => 'success',

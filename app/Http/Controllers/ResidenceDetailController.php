@@ -93,6 +93,7 @@ class ResidenceDetailController extends Controller
         return Inertia::render('admin/residence-detail', [
             'initialUser' => $user, 'role' => $user['role'], 'page' => $kind === 'asset' ? 'kelola-aset' : ($kind === 'resident' ? 'data-mahasiswa' : 'kelola-bangunan'),
             'kind' => $kind, 'can_manage' => $request->user()->can('gedung.manage'),
+            'can_manage_availability' => $request->user()->can('gedung.manage') || $request->user()->can('room-availability.manage'),
             'can_view_assets' => $request->user()->can('aset.view'),
             'can_view_residents' => $request->user()->hasAnyPermission(['mahasiswa.view', 'penempatan.view']),
             ...$data,

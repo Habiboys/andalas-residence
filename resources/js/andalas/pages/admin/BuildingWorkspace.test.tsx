@@ -128,6 +128,22 @@ describe('building management stages', () => {
         expect(html).not.toContain('Simpan tipe');
     });
 
+    it.each([1, 2, 3])('keeps forms closed when opening tab %s', (tab) => {
+        const html = renderToStaticMarkup(
+            <BuildingWorkspace
+                building={building}
+                rates={rates}
+                canManage
+                initialStep={tab}
+            />,
+        );
+        expect(html).not.toContain('<input');
+        expect(html).not.toContain('<textarea');
+        expect(html).not.toContain('<select');
+        expect(html).not.toContain('Simpan tarif');
+        expect(html).not.toContain('Simpan fasilitas');
+    });
+
     it('shows the room catalog without mutation controls to a viewer', () => {
         const html = renderToStaticMarkup(
             <BuildingWorkspace building={building} initialStep={4} />,

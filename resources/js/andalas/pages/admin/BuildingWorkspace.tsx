@@ -13,8 +13,11 @@ import {
     selectClass,
     StatusBadge,
     ConfirmDialog,
+    Drawer,
+    Modal,
 } from '../../components/ui';
 import { formatRupiah } from '../../lib/format';
+import FloorAvailability from '../../components/FloorAvailability';
 import KelolaBangunan from './KelolaBangunan';
 
 type RoomType = {
@@ -37,6 +40,8 @@ type Floor = {
     id: string;
     nomor_lantai: number;
     nama_lantai: string;
+    booking_open?: boolean;
+    booking_priority?: number;
     kamar?: Room[];
 };
 type Facility = {
@@ -177,7 +182,9 @@ function CategoriesEditor({
             </p>
             <Errors errors={form.errors} />
             <div className="flex gap-2">
-                <Button disabled={form.processing}>Simpan kategori</Button>
+                <Button type="submit" disabled={form.processing}>
+                    Simpan kategori
+                </Button>
                 <Button
                     type="button"
                     variant="secondary"
@@ -209,7 +216,7 @@ function TypeEditor({
     });
     return (
         <form
-            className="border-base-300 space-y-3 rounded-xl border p-4"
+            className="space-y-3"
             onSubmit={(event) => {
                 event.preventDefault();
                 form.transform((data) => ({
@@ -271,7 +278,7 @@ function TypeEditor({
             </FormField>
             <Errors errors={form.errors} />
             <div className="flex items-center gap-3">
-                <Button size="sm" disabled={form.processing}>
+                <Button type="submit" size="sm" disabled={form.processing}>
                     Simpan tipe {label(definition.type)}
                 </Button>
                 <Button
@@ -318,7 +325,7 @@ function RateEditor({
     });
     return (
         <form
-            className="bg-base-200 space-y-4 rounded-xl p-4"
+            className="space-y-4"
             onSubmit={(event) => {
                 event.preventDefault();
                 form.transform((data) => ({
@@ -418,7 +425,9 @@ function RateEditor({
             )}
             <Errors errors={form.errors} />
             <div className="flex gap-2">
-                <Button disabled={form.processing}>Simpan tarif</Button>
+                <Button type="submit" disabled={form.processing}>
+                    Simpan tarif
+                </Button>
                 <Button type="button" variant="secondary" onClick={onClose}>
                     Batal
                 </Button>
@@ -445,7 +454,7 @@ function FacilityEditor({
     });
     return (
         <form
-            className="bg-base-200 space-y-3 rounded-xl p-4"
+            className="space-y-3"
             onSubmit={(event) => {
                 event.preventDefault();
                 form.post(save.url('facility'), {
@@ -519,7 +528,9 @@ function FacilityEditor({
             </div>
             <Errors errors={form.errors} />
             <div className="flex gap-2">
-                <Button disabled={form.processing}>Simpan fasilitas</Button>
+                <Button type="submit" disabled={form.processing}>
+                    Simpan fasilitas
+                </Button>
                 <Button type="button" variant="secondary" onClick={onClose}>
                     Batal
                 </Button>
@@ -532,11 +543,13 @@ export default function BuildingWorkspace({
     building,
     rates = [],
     canManage = false,
+    canManageAvailability = false,
     initialStep = 0,
 }: {
     building: Building;
     rates?: Rate[];
     canManage?: boolean;
+    canManageAvailability?: boolean;
     initialStep?: number;
 }) {
     const [step, setStep] = useState(initialStep);
@@ -701,51 +714,42 @@ export default function BuildingWorkspace({
                             title="Kategori penghuni"
                             description="Tentukan siapa yang boleh mendaftar di gedung ini."
                         >
-                            {canManage && editingCategories ? (
-                                <CategoriesEditor
-                                    building={building}
-                                    onClose={() => setEditingCategories(false)}
-                                />
-                            ) : (
-                                <>
-                                    <div className="flex flex-wrap gap-2">
-                                        {building.allowed_categories == null ? (
-                                            <p className="text-muted text-sm">
-                                                Semua kategori (belum dibatasi).
-                                            </p>
-                                        ) : building.allowed_categories
-                                              .length ? (
-                                            building.allowed_categories.map(
-                                                (category) => (
-                                                    <span
-                                                        key={category}
-                                                        className="badge badge-ghost h-auto py-2"
-                                                    >
-                                                        {categories[category] ??
-                                                            category}
-                                                    </span>
-                                                ),
-                                            )
-                                        ) : (
-                                            <p className="text-muted text-sm">
-                                                Tidak menerima kategori
-                                                penghuni.
-                                            </p>
-                                        )}
-                                    </div>
-                                    {canManage && (
-                                        <Button
-                                            size="sm"
-                                            variant="secondary"
-                                            onClick={() =>
-                                                setEditingCategories(true)
-                                            }
-                                        >
-                                            Edit kategori
-                                        </Button>
+                            <>
+                                <div className="flex flex-wrap gap-2">
+                                    {building.allowed_categories == null ? (
+                                        <p className="text-muted text-sm">
+                                            Semua kategori (belum dibatasi).
+                                        </p>
+                                    ) : building.allowed_categories.length ? (
+                                        building.allowed_categories.map(
+                                            (category) => (
+                                                <span
+                                                    key={category}
+                                                    className="badge badge-ghost h-auto py-2"
+                                                >
+                                                    {categories[category] ??
+                                                        category}
+                                                </span>
+                                            ),
+                                        )
+                                    ) : (
+                                        <p className="text-muted text-sm">
+                                            Tidak menerima kategori penghuni.
+                                        </p>
                                     )}
-                                </>
-                            )}
+                                </div>
+                                {canManage && (
+                                    <Button
+                                        size="sm"
+                                        variant="secondary"
+                                        onClick={() =>
+                                            setEditingCategories(true)
+                                        }
+                                    >
+                                        Edit kategori
+                                    </Button>
+                                )}
+                            </>
                         </Panel>
                         <Panel
                             title="Master tipe kamar"
@@ -812,9 +816,9 @@ export default function BuildingWorkspace({
                                                     </td>
                                                     {canManage && (
                                                         <td className="text-right">
-                                                            <Button
-                                                                size="sm"
-                                                                variant="secondary"
+                                                            <button
+                                                                type="button"
+                                                                className="btn btn-ghost btn-sm"
                                                                 onClick={() =>
                                                                     setEditingType(
                                                                         type,
@@ -823,7 +827,7 @@ export default function BuildingWorkspace({
                                                                 aria-label={`Edit tipe ${label(type)}`}
                                                             >
                                                                 Edit
-                                                            </Button>
+                                                            </button>
                                                         </td>
                                                     )}
                                                 </tr>
@@ -832,24 +836,6 @@ export default function BuildingWorkspace({
                                     </tbody>
                                 </table>
                             </div>
-                            {canManage && editingType && (
-                                <TypeEditor
-                                    key={editingType}
-                                    building={building}
-                                    definition={
-                                        building.room_types?.find(
-                                            (item) => item.type === editingType,
-                                        ) ?? {
-                                            type: editingType,
-                                            enabled:
-                                                building.room_types == null,
-                                            max_capacity: null,
-                                            facilities: '',
-                                        }
-                                    }
-                                    onClose={() => setEditingType(null)}
-                                />
-                            )}
                         </Panel>
                     </>
                 )}
@@ -863,26 +849,10 @@ export default function BuildingWorkspace({
                                 Tambah tarif
                             </Button>
                         )}
-                        {rateTarget && (
-                            <RateEditor
-                                key={
-                                    rateTarget === 'new' ? 'new' : rateTarget.id
-                                }
-                                building={building}
-                                rate={
-                                    rateTarget === 'new'
-                                        ? undefined
-                                        : rateTarget
-                                }
-                                onClose={() => setRateTarget(null)}
-                            />
-                        )}
+
                         <div className="grid gap-4 lg:grid-cols-2">
                             {rates.map((rate) => (
-                                <div
-                                    key={rate.id}
-                                    className="border-base-300 space-y-3 rounded-xl border p-4"
-                                >
+                                <div key={rate.id} className="space-y-3">
                                     <h3 className="font-semibold">
                                         {label(rate.tipe_kamar)}{' '}
                                         <span className="badge badge-ghost">
@@ -970,28 +940,10 @@ export default function BuildingWorkspace({
                                 Tambah fasilitas
                             </Button>
                         )}
-                        {facilityTarget && (
-                            <FacilityEditor
-                                key={
-                                    facilityTarget === 'new'
-                                        ? 'new'
-                                        : facilityTarget.id
-                                }
-                                building={building}
-                                facility={
-                                    facilityTarget === 'new'
-                                        ? undefined
-                                        : facilityTarget
-                                }
-                                onClose={() => setFacilityTarget(null)}
-                            />
-                        )}
+
                         <div className="grid gap-3 sm:grid-cols-2">
                             {building.fasilitas_umum?.map((facility) => (
-                                <div
-                                    key={facility.id}
-                                    className="border-base-300 space-y-3 rounded-xl border p-4"
-                                >
+                                <div key={facility.id} className="space-y-3">
                                     <div className="flex items-center justify-between gap-2">
                                         <h3 className="font-semibold">
                                             {facility.nama_fasilitas}
@@ -1046,6 +998,9 @@ export default function BuildingWorkspace({
                         title="Lantai dan kamar"
                         description="Tambahkan lantai, lalu kamar beserta foto dan kapasitasnya. Buka detail kamar untuk melihat fasilitas, aset, dan penghuni."
                     >
+                        {(canManage || canManageAvailability) && (
+                            <FloorAvailability floors={building.lantai ?? []} />
+                        )}
                         {canManage ? (
                             <KelolaBangunan gedung={[building]} detail />
                         ) : (
@@ -1099,6 +1054,83 @@ export default function BuildingWorkspace({
                     </Panel>
                 )}
             </div>
+            {canManage && editingCategories && (
+                <Drawer
+                    open
+                    onClose={() => setEditingCategories(false)}
+                    title="Edit kategori penghuni"
+                    width="max-w-xl"
+                >
+                    <CategoriesEditor
+                        building={building}
+                        onClose={() => setEditingCategories(false)}
+                    />
+                </Drawer>
+            )}
+            {canManage && editingType && (
+                <Modal
+                    open
+                    onClose={() => setEditingType(null)}
+                    title="Edit tipe kamar"
+                    width="max-w-xl"
+                >
+                    <TypeEditor
+                        key={editingType}
+                        building={building}
+                        definition={
+                            building.room_types?.find(
+                                (item) => item.type === editingType,
+                            ) ?? {
+                                type: editingType,
+                                enabled: building.room_types == null,
+                                max_capacity: null,
+                                facilities: '',
+                            }
+                        }
+                        onClose={() => setEditingType(null)}
+                    />
+                </Modal>
+            )}
+            {canManage && rateTarget && (
+                <Drawer
+                    open
+                    onClose={() => setRateTarget(null)}
+                    title={rateTarget === 'new' ? 'Tambah tarif' : 'Edit tarif'}
+                    width="max-w-xl"
+                >
+                    <RateEditor
+                        key={rateTarget === 'new' ? 'new' : rateTarget.id}
+                        building={building}
+                        rate={rateTarget === 'new' ? undefined : rateTarget}
+                        onClose={() => setRateTarget(null)}
+                    />
+                </Drawer>
+            )}
+            {canManage && facilityTarget && (
+                <Modal
+                    open
+                    onClose={() => setFacilityTarget(null)}
+                    title={
+                        facilityTarget === 'new'
+                            ? 'Tambah fasilitas'
+                            : 'Edit fasilitas'
+                    }
+                    width="max-w-xl"
+                >
+                    <FacilityEditor
+                        key={
+                            facilityTarget === 'new' ? 'new' : facilityTarget.id
+                        }
+                        building={building}
+                        facility={
+                            facilityTarget === 'new'
+                                ? undefined
+                                : facilityTarget
+                        }
+                        onClose={() => setFacilityTarget(null)}
+                    />
+                </Modal>
+            )}
             <Errors errors={deletion.errors} />
             <ConfirmDialog
                 open={!!deleteTarget}

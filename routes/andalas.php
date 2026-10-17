@@ -28,6 +28,7 @@ use App\Http\Controllers\ProvinsiController;
 use App\Http\Controllers\ResidenceDetailController;
 use App\Http\Controllers\ResidenceManagementController;
 use App\Http\Controllers\ResidenceRegistrationController;
+use App\Http\Controllers\RoomInvitationController;
 use App\Http\Controllers\StokAsetController;
 use App\Http\Controllers\TeknisiController;
 use App\Http\Controllers\TemporaryStayController;
@@ -140,6 +141,7 @@ Route::middleware(['auth', 'verified', EnsureResidenceAccountAccess::class])->gr
         Route::delete('/gedung/{gedung}', [GedungController::class, 'destroy'])->name('gedung.destroy');
         Route::post('/lantai', [KamarController::class, 'storeLantai'])->name('lantai.store');
         Route::put('/lantai/{lantai}', [KamarController::class, 'updateLantai'])->name('lantai.update');
+        Route::put('/lantai/{lantai}/availability', [KamarController::class, 'updateAvailability'])->name('lantai.availability');
         Route::delete('/lantai/{lantai}', [KamarController::class, 'destroyLantai'])->name('lantai.destroy');
         Route::post('/kamar', [KamarController::class, 'store'])->name('kamar.store');
         Route::put('/kamar/{kamar}', [KamarController::class, 'update'])->name('kamar.update');
@@ -188,6 +190,9 @@ Route::middleware(['auth', 'verified', EnsureResidenceAccountAccess::class])->gr
         Route::post('/absensi/sesi/{session}/record', [AbsensiController::class, 'recordActivity'])->name('absensi.sesi.record');
         Route::post('/penilaian/{laporan}', [TeknisiController::class, 'storePenilaian'])->name('penilaian.store');
         Route::post('/residence-management/{kind}', [ResidenceManagementController::class, 'save'])->name('residence-management.save');
+        Route::post('/room-invitations', [RoomInvitationController::class, 'store'])->middleware('throttle:20,1')->name('room-invitations.store');
+        Route::put('/room-invitations/{invitation}', [RoomInvitationController::class, 'update'])->name('room-invitations.update');
+        Route::delete('/room-invitations/{invitation}', [RoomInvitationController::class, 'destroy'])->name('room-invitations.destroy');
         Route::delete('/residence-management/{kind}', [ResidenceManagementController::class, 'destroy'])->name('residence-management.destroy');
         Route::post('/legacy-residents/import', [ResidenceManagementController::class, 'import'])->name('legacy-residents.import');
         Route::post('/kipk-recipients/import', [ResidenceManagementController::class, 'importKipk'])->name('kipk-recipients.import');

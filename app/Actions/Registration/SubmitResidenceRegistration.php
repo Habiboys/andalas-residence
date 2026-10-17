@@ -3,6 +3,7 @@
 namespace App\Actions\Registration;
 
 use App\Enums\ResidenceRegistrationStatus;
+use App\Models\Gedung;
 use App\Models\Kamar;
 use App\Models\MahasiswaProfil;
 use App\Models\Periode;
@@ -40,6 +41,8 @@ class SubmitResidenceRegistration
             $preferences = $data['is_kipk'] ? [] : ($data['preferences'] ?? []);
             if (! $data['is_kipk']) {
                 foreach ($preferences as $preference) {
+                    $candidate = Kamar::with('lantai')->findOrFail($preference['kamar_id']);
+                    Gedung::query()->lockForUpdate()->findOrFail($candidate->lantai->gedung_id);
                     $room = Kamar::query()->lockForUpdate()->findOrFail($preference['kamar_id']);
                     RoomEligibility::validate($room, $student->user, 'preferences');
                     if (($data['billing_basis'] ?? 'person') === 'room' && ($room->penempatanKamar()->where('status', 'aktif')->exists() || app(RoomReservations::class)->count($room) > 0)) {

@@ -33,12 +33,14 @@ use App\Models\Periode;
 use App\Models\Prodi;
 use App\Models\ResidenceRate;
 use App\Models\ResidenceRegistration;
+use App\Models\RoomInvitation;
 use App\Models\StokAset;
 use App\Models\Tagihan;
 use App\Models\TransaksiKeuangan;
 use App\Models\User;
 use App\Models\VirtualAccount;
 use App\Services\AttendanceEligibility;
+use App\Services\FloorRoomAvailability;
 use App\Services\LandingContentService;
 use App\Services\MasterDataService;
 use App\Services\ResidenceBuildingAccess;
@@ -48,6 +50,7 @@ use App\Services\RoomReservations;
 use App\Services\UserProfileSummary;
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
@@ -115,14 +118,7 @@ class RolePageController extends Controller
                     'gedung_report' => $this->buildingReport(),
                 ] : []),
             ],
-            'registration' => [
-                'rates' => ResidenceRate::all(),
-                'periode' => Periode::where('status', 'aktif')->get(),
-                'billing' => Tagihan::with(['items', 'jadwalCicilan', 'dokumen'])->where('mahasiswa_id', $request->user()->mahasiswaProfil?->id)->latest()->get(),
-                'rooms' => RoomEligibility::available()->get()->filter(fn ($room) => RoomEligibility::allows($room->lantai->gedung, $request->user()) && RoomEligibility::allowsType($room->lantai->gedung, $room->tipe_kamar, $room->kapasitas) && $room->penempatanKamar()->where('status', 'aktif')->count() + app(RoomReservations::class)->count($room) < $room->kapasitas)->values(),
-                'gedung' => Gedung::orderBy('kode_gedung')->get()->filter(fn ($building) => RoomEligibility::allows($building, $request->user()))->values(),
-                'registration' => ResidenceRegistration::with(['roomPreferences.kamar', 'periode', 'tagihan'])->where('student_profile_id', $request->user()->mahasiswaProfil?->id)->latest()->get(),
-            ],
+            'registration' => $this->registrationPayload($request),
             'registration-review' => $this->registrationReviewPayload($request),
             'checkout-approval', 'checkout-inspection' => [
                 'checkout' => CheckoutRequest::with(['inspection.findings.aset', 'placement.kamar.lantai.gedung', 'placement.kamar.aset', 'mahasiswa.user'])
@@ -549,12 +545,62 @@ class RolePageController extends Controller
         ];
     }
 
+    /** @return array<string, mixed> */
+    private function registrationPayload(Request $request): array
+    {
+        $student = $request->user()->mahasiswaProfil;
+        $rooms = app(FloorRoomAvailability::class)->catalog($request->user());
+        $rates = ResidenceRate::all();
+        $registrations = ResidenceRegistration::with(['roomPreferences.kamar', 'reservedRoom.lantai.gedung', 'placement.kamar', 'periode', 'tagihan'])->where('student_profile_id', $student?->id)->latest()->get();
+        $heldIds = app(RoomReservations::class)->held()->where('student_profile_id', $student?->id)->pluck('id')->all();
+        $canInvite = $student && app(ResidenceLifecycle::class)->isLocal($student) && ! app(ResidenceLifecycle::class)->isKipk($student);
+        foreach ($registrations as $registration) {
+            $registration->setAttribute('can_invite', $canInvite && ! $registration->is_kipk && $registration->billing_basis !== 'room' && ! $registration->ended_at && $registration->periode?->status === 'aktif'
+                && $rooms->contains('id', $registration->reserved_room_id ?? $registration->placement?->kamar_id)
+                && ($registration->completed_at ? $registration->placement?->status === 'aktif' : in_array($registration->id, $heldIds, true)));
+        }
+        $invitations = RoomInvitation::where(fn ($query) => $query->where('sender_id', $request->user()->id)->orWhere('invitee_id', $request->user()->id))
+            ->with(['sender:id,nama', 'invitee:id,nama', 'room.lantai.gedung', 'registration'])->latest()->get()->map(fn (RoomInvitation $invitation): array => $this->invitationPayload($invitation, $request->user(), $rates));
+
+        return [
+            'rates' => $rates, 'periode' => Periode::where('status', 'aktif')->get(),
+            'billing' => Tagihan::with(['items', 'jadwalCicilan', 'dokumen'])->where('mahasiswa_id', $student?->id)->latest()->get(),
+            'rooms' => $rooms,
+            'registration' => $registrations, 'room_invitations' => $invitations,
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function invitationPayload(RoomInvitation $invitation, User $user, Collection $rates): array
+    {
+        $host = $invitation->registration;
+        $room = $invitation->room;
+        $unit = in_array($host->rate_unit, ['year', 'period'], true) ? 'year' : $host->rate_unit;
+        $rate = $rates->first(fn ($rate) => $rate->gedung_id === $room->lantai->gedung_id && $rate->tipe_kamar === $room->tipe_kamar && $rate->unit === $unit)
+            ?? ($unit === 'day' ? $rates->first(fn ($rate) => $rate->gedung_id === $room->lantai->gedung_id && $rate->tipe_kamar === 'umum' && $rate->unit === 'day') : null);
+        $amount = (float) ($unit === 'day' ? ($rate?->student_amount ?? $rate?->amount ?? 0) : ($rate?->amount ?? ($unit === 'year' ? $room->tarif_per_periode : 0)));
+        $starts = $host->starts_at?->max(today()) ?? today();
+        $days = $host->ends_at ? max(1, (int) $starts->diffInDays($host->ends_at)) : 1;
+        $quantity = match ($unit) {
+            'day' => $days, 'month' => max(1, (int) ceil($days / 30)), default => 1
+        };
+
+        return [
+            'id' => $invitation->id, 'incoming' => $invitation->invitee_id === $user->id,
+            'status' => $invitation->status === 'pending' && $invitation->expires_at->isPast() ? 'expired' : $invitation->status,
+            'expires_at' => $invitation->expires_at->toIso8601String(), 'sender_name' => $invitation->sender->nama, 'invitee_name' => $invitation->invitee->nama,
+            'room_number' => $room->nomor_kamar, 'building_name' => $room->lantai->gedung->nama_gedung,
+            'floor_name' => $room->lantai->nama_lantai, 'rate_unit' => $unit,
+            'estimated_total' => $amount * $quantity, 'starts_at' => $starts->toDateString(), 'ends_at' => $host->ends_at?->toDateString(),
+        ];
+    }
+
     private function buildingManagementTree(): array
     {
         return Gedung::query()
             ->select(['id', 'kode_gedung', 'nama_gedung', 'gender_peruntukan', 'alamat', 'deskripsi', 'foto', 'room_types', 'allowed_categories'])
             ->with([
-                'lantai:id,gedung_id,nomor_lantai,nama_lantai',
+                'lantai:id,gedung_id,nomor_lantai,nama_lantai,booking_open,booking_priority',
                 'lantai.kamar:id,lantai_id,nomor_kamar,kapasitas,status,tipe_kamar,tarif_per_periode,foto',
             ])
             ->orderBy('kode_gedung')
