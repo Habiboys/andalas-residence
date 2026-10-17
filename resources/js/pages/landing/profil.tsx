@@ -1,3 +1,7 @@
+import OrganizationChart, {
+    type OrganizationNode,
+} from '@/andalas/components/OrganizationChart';
+import { mediaUrl } from '@/andalas/lib/landing-settings';
 import { Head, Link } from '@inertiajs/react';
 import LandingLayout from '@/andalas/components/LandingLayout';
 import LandingRichContent from '@/andalas/components/LandingRichContent';
@@ -12,6 +16,7 @@ type Content = {
 };
 
 type Props = {
+    positions?: OrganizationNode[];
     section: string;
     sections: Record<string, string>;
     content: Content;
@@ -82,7 +87,21 @@ export default function ProfilPage(props: Props) {
 
                         {/* Content */}
                         <div className="lg:col-span-3">
-                            <LandingRichContent html={content.content} />
+                            {content.image && (
+                                <img
+                                    src={mediaUrl(content.image)}
+                                    alt={content.title}
+                                    className="mb-6 max-h-96 w-full rounded-lg object-cover"
+                                />
+                            )}
+                            {section === 'struktur_organisasi' && (
+                                <OrganizationChart
+                                    positions={props.positions ?? []}
+                                />
+                            )}
+                            {section !== 'struktur_organisasi' && (
+                                <LandingRichContent html={content.content} />
+                            )}
 
                             {/* Stats strip — angka aktual dari database */}
                             <div className="mt-14 grid gap-4 sm:grid-cols-3">

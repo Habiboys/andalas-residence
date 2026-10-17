@@ -6,6 +6,7 @@ use App\Models\Gedung;
 use App\Models\Kamar;
 use App\Models\Lantai;
 use App\Models\ResidenceRate;
+use App\Models\RoomType;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use PhpOffice\PhpSpreadsheet\IOFactory;
@@ -15,6 +16,7 @@ class ResidenceMasterImport
     /** @return array{buildings: list<array<string, mixed>>, warnings: list<string>} */
     public function read(string $path): array
     {
+        $knownTypes = RoomType::pluck('code')->all();
         $reader = IOFactory::createReader('Xlsx');
         $reader->setReadDataOnly(true);
         $book = $reader->load($path);
@@ -46,7 +48,7 @@ class ResidenceMasterImport
                         continue;
                     }
                     $type = strtolower(str_replace(' ', '_', trim((string) ($values['G'] ?? ''))));
-                    if (! in_array($type, ['standar', 'medium', 'premium', 'umum', 'umum_vip'], true)) {
+                    if (! in_array($type, $knownTypes, true)) {
                         throw new \InvalidArgumentException($name.' baris '.$row.': tipe tarif tidak dikenal.');
                     }
                     $capacityText = trim((string) ($values['I'] ?? ''));
@@ -90,7 +92,7 @@ class ResidenceMasterImport
                         $capacity = 2;
                     }
                     $type = strtolower(str_replace(' ', '_', trim((string) ($values['C'] ?? ''))));
-                    if ($floor < 1 || ! in_array($type, ['standar', 'medium', 'premium', 'umum', 'umum_vip'], true)) {
+                    if ($floor < 1 || ! in_array($type, $knownTypes, true)) {
                         throw new \InvalidArgumentException($name.' baris '.$row.': lantai, tipe, atau nomor kamar tidak valid/duplikat.');
                     }
                     $roomData = ['nomor_kamar' => $number, 'nomor_lantai' => $floor, 'kapasitas' => $capacity, 'tipe_kamar' => $type];

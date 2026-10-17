@@ -1,3 +1,4 @@
+import { useRoomTypeCatalog } from '@/andalas/lib/room-types';
 import { router, useForm } from '@inertiajs/react';
 import { useState, type ReactNode } from 'react';
 import { formatRupiah } from '../../lib/format';
@@ -672,6 +673,9 @@ export default function ResidenceManagement({
     residence_rates = [],
     rooms = [],
 }: Props) {
+    const typeOptions: Array<[string, string]> = useRoomTypeCatalog()
+        .filter((type) => type.active)
+        .map((type) => [type.code, type.name]);
     const [tab, setTab] = useState('legacy');
     const [importModalOpen, setImportModalOpen] = useState(false);
     const [kipkImportOpen, setKipkImportOpen] = useState(false);
@@ -1033,13 +1037,7 @@ export default function ResidenceManagement({
                             {
                                 name: 'type',
                                 label: 'Tipe',
-                                options: [
-                                    ['standar', 'Standar'],
-                                    ['medium', 'Medium'],
-                                    ['premium', 'Premium'],
-                                    ['umum', 'Umum'],
-                                    ['umum_vip', 'Umum VIP'],
-                                ],
+                                options: typeOptions,
                             },
                             {
                                 name: 'enabled',
@@ -1074,13 +1072,7 @@ export default function ResidenceManagement({
                             {
                                 name: 'tipe_kamar',
                                 label: 'Tipe',
-                                options: [
-                                    ['standar', 'Standar'],
-                                    ['medium', 'Medium'],
-                                    ['premium', 'Premium'],
-                                    ['umum', 'Umum'],
-                                    ['umum_vip', 'Umum VIP'],
-                                ],
+                                options: typeOptions,
                             },
                             {
                                 name: 'unit',
@@ -1134,13 +1126,7 @@ export default function ResidenceManagement({
                             {
                                 name: 'tipe_kamar',
                                 label: 'Tipe',
-                                options: [
-                                    ['standar', 'Standar'],
-                                    ['medium', 'Medium'],
-                                    ['premium', 'Premium'],
-                                    ['umum', 'Umum'],
-                                    ['umum_vip', 'Umum VIP'],
-                                ],
+                                options: typeOptions,
                             },
                             {
                                 name: 'kapasitas',

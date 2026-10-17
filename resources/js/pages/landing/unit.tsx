@@ -1,3 +1,4 @@
+import { type LandingSettings } from '@/andalas/lib/landing-settings';
 import { Head } from '@inertiajs/react';
 import LandingLayout from '@/andalas/components/LandingLayout';
 import LandingPageHero from '@/andalas/components/LandingPageHero';
@@ -16,6 +17,7 @@ type Gedung = {
 
 type Props = {
     gedung: Gedung[];
+    landingSettings?: LandingSettings;
 };
 
 function genderLabel(v?: string) {
@@ -40,7 +42,7 @@ export default function UnitPage(props: Props) {
             <Head title="Unit" />
             <LandingLayout active="unit">
                 <LandingPageHero
-                    title="Unit Andalas Residence"
+                    title={props.landingSettings?.headings.unit_title ?? 'Unit'}
                     breadcrumb="Unit"
                 />
 
@@ -51,15 +53,10 @@ export default function UnitPage(props: Props) {
                                 Gedung Kami
                             </div>
                             <h2 className="text-base-content mb-4 font-[DM_Serif_Display,Georgia,serif] text-4xl leading-tight">
-                                Unit Hunian
-                                <br />
-                                di Andalas Residence
+                                {props.landingSettings?.headings.unit_heading}
                             </h2>
                             <p className="text-base-content/70 text-base leading-relaxed">
-                                Andalas Residence terdiri dari berbagai gedung
-                                unit hunian yang masing-masing dirancang untuk
-                                mendukung kenyamanan dan aktivitas akademik
-                                mahasiswa.
+                                {props.landingSettings?.headings.unit_intro}
                             </p>
                         </div>
 

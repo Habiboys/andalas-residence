@@ -8,6 +8,8 @@ use App\Models\Kuesioner;
 use App\Models\KuesionerOpsi;
 use App\Models\KuesionerPertanyaan;
 use App\Models\MahasiswaProfil;
+use App\Models\MediaAsset;
+use App\Models\OrganizationPosition;
 use App\Models\ParentStudentLink;
 use App\Models\Periode;
 use App\Models\Prodi;
@@ -35,6 +37,8 @@ class ResidenceDemoSeeder extends Seeder
         $prodi = Prodi::where('code', '15-03-01')->firstOrFail();
 
         $this->call(ResidenceMasterSeeder::class);
+        MediaAsset::firstOrCreate(['path' => 'seed/residence/building.jpg'], ['name' => 'Contoh foto gedung', 'mime_type' => 'image/jpeg', 'size' => 0]);
+        OrganizationPosition::firstOrCreate(['title' => 'Contoh jabatan organisasi'], ['name' => 'Contoh pengelola', 'photo' => 'seed/residence/building.jpg', 'published' => false, 'sort_order' => 0]);
 
         $periode = Periode::firstOrCreate(['nama_periode' => '2025/2026 Ganjil'], [
             'status' => 'nonaktif',

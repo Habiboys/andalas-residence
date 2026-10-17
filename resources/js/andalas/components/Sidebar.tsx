@@ -283,6 +283,11 @@ const ADMIN_NAV: NavGroup[] = [
                 icon: Building2,
             },
             { label: 'Prodi', page: 'master-data/prodi', icon: Database },
+            {
+                label: 'Tipe Kamar',
+                page: 'master-data/tipe-kamar',
+                icon: Building2,
+            },
             { label: 'Periode', page: 'master-data/periode', icon: Calendar },
             { label: 'Provinsi', page: 'master-data/provinsi', icon: Map },
             { label: 'Kota / Kabupaten', page: 'master-data/kota', icon: Map },
@@ -354,19 +359,45 @@ const ADMIN_NAV: NavGroup[] = [
         ],
     },
     {
-        group: 'Landing',
+        group: 'Landing Page',
         items: [
-            { label: 'Kelola Profil', page: 'kelola-profil', icon: Pencil },
             {
-                label: 'Kelola Informasi',
-                page: 'kelola-informasi',
+                label: 'Beranda & Hero',
+                page: 'landing-page/beranda',
+                icon: Home,
+            },
+            { label: 'Sejarah', page: 'landing-page/sejarah', icon: FileText },
+            { label: 'Visi & Misi', page: 'landing-page/visi-misi', icon: Eye },
+            {
+                label: 'Struktur Organisasi',
+                page: 'landing-page/struktur-organisasi',
+                icon: Users,
+            },
+            { label: 'Berita', page: 'landing-page/berita', icon: Megaphone },
+            {
+                label: 'Pengumuman',
+                page: 'landing-page/pengumuman',
                 icon: Megaphone,
             },
-            { label: 'Kelola Program', page: 'kelola-program', icon: List },
             {
-                label: 'Kelola Testimoni',
-                page: 'kelola-testimoni',
-                icon: Quote,
+                label: 'Regulasi',
+                page: 'landing-page/regulasi',
+                icon: FileText,
+            },
+            { label: 'SOP', page: 'landing-page/sop', icon: FileText },
+            { label: 'Panduan', page: 'landing-page/panduan', icon: FileText },
+            { label: 'Program', page: 'landing-page/program', icon: List },
+            { label: 'Testimoni', page: 'landing-page/testimoni', icon: Quote },
+            { label: 'Galeri', page: 'landing-page/galeri', icon: FileText },
+            {
+                label: 'Kontak & Identitas Situs',
+                page: 'landing-page/kontak',
+                icon: Pencil,
+            },
+            {
+                label: 'Pustaka Media',
+                page: 'landing-page/media',
+                icon: FileText,
             },
         ],
     },
@@ -508,7 +539,7 @@ export default function Sidebar({
                 aria-label="Navigasi utama"
             >
                 {groups.map((g, gi) =>
-                    g.group === 'Data Master' ? (
+                    ['Data Master', 'Landing Page'].includes(g.group ?? '') ? (
                         <ul key={g.group} className="menu w-full p-0">
                             <li>
                                 <details
@@ -517,20 +548,16 @@ export default function Sidebar({
                                     )}
                                 >
                                     <summary
-                                        title={
-                                            collapsed
-                                                ? 'Data Master'
-                                                : undefined
-                                        }
+                                        title={collapsed ? g.group : undefined}
                                         className="text-base-content/80 gap-3 py-2.5 text-xs font-semibold"
                                     >
                                         <Database
                                             className="size-[18px] shrink-0"
                                             aria-hidden="true"
                                         />
-                                        {!collapsed && <span>Data Master</span>}
+                                        {!collapsed && <span>{g.group}</span>}
                                     </summary>
-                                    <ul aria-label="Submenu Data Master">
+                                    <ul aria-label={`Submenu ${g.group}`}>
                                         {g.items.map((item) => {
                                             const Icon = item.icon;
                                             const active =

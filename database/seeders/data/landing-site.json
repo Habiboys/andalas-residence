@@ -1,0 +1,121 @@
+{
+  "steps": [
+    {
+      "title": "Buat akun dan lengkapi identitas",
+      "text": "Pilih kategori penghuni. Mahasiswa juga mencantumkan tahun masuk kuliah."
+    },
+    {
+      "title": "Tentukan kamar dan masa tinggal",
+      "text": "Pilih tipe serta nomor kamar yang tersedia. Khusus KIPK, pengelola yang menentukan penempatan."
+    },
+    {
+      "title": "Periksa dan selesaikan tagihan",
+      "text": "Ikuti invoice di akun. Pengajuan cicilan ditinjau admin layanan; kategori bebas biaya mengikuti hasil verifikasi."
+    },
+    {
+      "title": "Terima kwitansi dan informasi hunian",
+      "text": "Kwitansi memuat pembayaran, gedung, tipe serta nomor kamar, dan lama masa tinggal."
+    }
+  ],
+  "categories": [
+    {
+      "title": "Mahasiswa lokal",
+      "text": "Mahasiswa baru KIPK dan non-KIPK, serta mahasiswa yang melanjutkan masa hunian."
+    },
+    {
+      "title": "Mahasiswa internasional",
+      "text": "Kategori reguler atau fasilitas gratis asrama, sesuai verifikasi pengelola."
+    },
+    {
+      "title": "Non-mahasiswa",
+      "text": "Pendaftaran mengikuti ketersediaan kamar dan ketentuan pengelola asrama."
+    }
+  ],
+  "services": [
+    {
+      "title": "Tagihan dan kwitansi",
+      "text": "Lihat rincian tagihan, ajukan cicilan, dan unduh kwitansi pembayaran."
+    },
+    {
+      "title": "Pelaporan kerusakan",
+      "text": "Tentukan barang dan lokasi kamar, lampirkan foto, lalu pantau penanganan teknisi."
+    },
+    {
+      "title": "Kegiatan mahasiswa binaan",
+      "text": "Lihat jadwal dan pindai QR kehadiran di lokasi kegiatan selama tahun pertama pembinaan."
+    },
+    {
+      "title": "Checkout dan bebas asrama",
+      "text": "Ajukan akhir masa tinggal dan urus surat sesuai pemeriksaan kamar serta status tagihan."
+    }
+  ],
+  "faqs": [
+    {
+      "q": "Bagaimana cara mulai mendaftar?",
+      "a": "Buat akun melalui tombol Daftar hunian, pilih kategori penghuni, dan lengkapi profil. Setelah masuk, buka menu Pendaftaran Hunian untuk memilih periode dan kamar yang tersedia."
+    },
+    {
+      "q": "Apakah semua calon penghuni memilih kamar sendiri?",
+      "a": "Calon penghuni dapat memilih tipe dan nomor kamar yang tersedia. Untuk mahasiswa KIPK, pilihan kamar dilewati dan penempatan dilakukan oleh pengelola."
+    },
+    {
+      "q": "Bagaimana pembayaran dan pengajuan cicilan dilakukan?",
+      "a": "Tagihan muncul di akun setelah pendaftaran diproses. Ikuti petunjuk pembayaran pada invoice dan unggah bukti bila diminta. Cicilan dapat diajukan melalui menu Tagihan dan jadwalnya ditetapkan admin. Pembayaran saat ini melalui verifikasi pengelola."
+    },
+    {
+      "q": "Mengapa tidak semua penghuni dapat melakukan absensi?",
+      "a": "Absensi kegiatan ditujukan untuk mahasiswa lokal binaan pada tahun pertama, mulai angkatan 2026. Penghuni yang sudah checkout dan masuk kembali tidak termasuk binaan. QR harus masih berlaku dan mahasiswa serta fasilitator berada dalam radius kegiatan."
+    },
+    {
+      "q": "Bagaimana mengurus surat bebas asrama untuk angkatan lama?",
+      "a": "Buat akun dan buka layanan Bebas Asrama. Untuk angkatan 2025 ke bawah, admin memverifikasi status alumni dan pelunasannya karena riwayatnya belum tercatat dalam sistem. Angkatan 2026 ke atas mengikuti riwayat hunian, checkout, dan tagihan yang tercatat."
+    }
+  ],
+  "hero": {
+    "eyebrow": "Universitas Andalas",
+    "title": "Andalas Residence",
+    "description": "Lebih dari sekadar asrama, rumah kedua bagi mahasiswa Unand, dengan pembinaan karakter dan layanan terdigitalisasi dalam satu platform.",
+    "image": "https://images.unsplash.com/photo-1732115234692-3ee71d5363af?w=1600&h=1000&fit=crop&auto=format",
+    "image_alt": "Ilustrasi bangunan hunian"
+  },
+  "headings": {
+    "registration": "Kenali kategori Anda sebelum memilih kamar.",
+    "registration_intro": "Alur penempatan dan tagihan mengikuti kategori penghuni. Semua tahapan dapat dipantau melalui akun Andalas Residence.",
+    "steps": "Tahapan pendaftaran",
+    "gallery": "Kehidupan di Andalas Residence",
+    "gallery_intro": "Lihat lingkungan hunian dan kegiatan pembinaan di kampus.",
+    "announcements": "Pengumuman terbaru",
+    "announcements_intro": "Informasi resmi dari pengelola Andalas Residence.",
+    "news": "Berita terbaru",
+    "services": "Layanan selama masa tinggal.",
+    "services_intro": "Masuk ke akun untuk mengakses layanan sesuai status hunian Anda.",
+    "faq": "Pertanyaan umum",
+    "faq_intro": "Tentang pendaftaran, pembayaran, dan layanan administrasi.",
+    "location": "Di lingkungan kampus Limau Manis.",
+    "location_note": "Pastikan gedung tujuan sesuai informasi penempatan kamar sebelum berkunjung.",
+    "testimonials": "Cerita penghuni",
+    "testimonials_intro": "Pengalaman tinggal dan bertumbuh di Andalas Residence.",
+    "unit_title": "Unit Hunian",
+    "unit_intro": "Kenali gedung dan pilihan hunian Andalas Residence.",
+    "program_title": "Program Andalas Residence",
+    "program_heading": "Program Pembinaan Mahasiswa",
+    "program_intro": "Berbagai program pembinaan dirancang untuk membentuk karakter, keagamaan, dan prestasi akademik mahasiswa Andalas Residence.",
+    "unit_heading": "Pilihan hunian di Andalas Residence"
+  },
+  "site": {
+    "name": "Andalas Residence",
+    "tagline": "Hunian Universitas Andalas",
+    "description": "Hunian dan pembinaan mahasiswa Universitas Andalas.",
+    "address": "Universitas Andalas, Limau Manis, Kecamatan Pauh, Kota Padang, Sumatera Barat",
+    "email": "andalasresidence@unand.ac.id",
+    "phone": "",
+    "hours": "Senin - Jumat, 08.00 - 16.00 WIB",
+    "maps_url": "https://www.google.com/maps/search/?api=1&query=Asrama+Universitas+Andalas+Limau+Manis",
+    "map_embed": "https://maps.google.com/maps?q=Asrama%20Universitas%20Andalas%20Limau%20Manis&output=embed",
+    "contact_title": "Hubungi Kami",
+    "contact_intro": "Butuh informasi hunian atau layanan asrama? Hubungi pengelola melalui kontak berikut.",
+    "footer": "Andalas Residence, Universitas Andalas",
+    "logo": ""
+  },
+  "gallery": []
+}

@@ -4,15 +4,18 @@ namespace App\Http\Controllers;
 
 use App\Models\Informasi;
 use App\Models\LandingContent;
+use App\Models\MediaAsset;
 use App\Models\Program;
 use App\Models\ProgramSub;
 use App\Models\Testimoni;
 use App\Services\LandingContentService;
+use App\Services\LandingMedia;
 use App\Services\LandingRichText;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -53,14 +56,21 @@ class LandingContentController extends Controller
             }
         }
 
+        $menuSection = match ($section) {
+            'profil' => str_replace('_', '-', $record['key'] ?? 'sejarah'),
+            'informasi' => $record['kategori'] ?? $request->query('kategori', 'pengumuman'),
+            'program-sub' => 'program', default => $section,
+        };
+
         return Inertia::render('admin/landing-editor', [
             'initialUser' => app(RolePageController::class)->userPayload($request),
             'role' => $request->user()->hasRole('superadmin') ? 'superadmin' : 'staff_admin',
-            'page' => 'kelola-'.($section === 'program-sub' ? 'program' : $section),
+            'page' => 'landing-page/'.$menuSection,
             'section' => $section,
             'record' => $record,
             'parentProgram' => $program?->only(['id', 'nama']),
-            'returnUrl' => route('admin.kelola-'.($section === 'program-sub' ? 'program' : $section)),
+            'defaultCategory' => in_array($request->query('kategori'), Informasi::KATEGORI, true) ? $request->query('kategori') : null,
+            'returnUrl' => route('andalas.landing.manage', ['section' => $menuSection]),
         ]);
     }
 
@@ -68,7 +78,7 @@ class LandingContentController extends Controller
     {
         $this->authorizePermission($request, 'landing.manage');
         $request->validate(['image' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048']]);
-        $path = $request->file('image')->store('landing/editor', 'public');
+        $path = app(LandingMedia::class)->store($request->file('image'), 'landing/editor')->path;
 
         return response()->json(['url' => Storage::disk('public')->url($path)]);
     }
@@ -82,14 +92,22 @@ class LandingContentController extends Controller
         $validated = $request->validate([
             'title' => 'sometimes|string|max:200',
             'content' => 'nullable|string|max:2000000',
-            'image' => 'nullable|string|max:255',
+            'image' => ['nullable', 'string', 'max:255', Rule::in([$content->image, ...MediaAsset::where('mime_type', 'like', 'image/%')->pluck('path')->all()])],
+            'media_id' => 'nullable|uuid|exists:media_assets,id',
+            'remove_image' => 'sometimes|boolean',
             'urutan' => 'sometimes|integer|min:0',
             'published' => 'sometimes|boolean',
         ]);
 
+        if ($request->filled('media_id')) {
+            $validated['image'] = app(LandingMedia::class)->path($validated['media_id'], true);
+        } elseif ($request->boolean('remove_image')) {
+            $validated['image'] = null;
+        }
+        unset($validated['media_id'], $validated['remove_image']);
         $result = LandingContentService::updateContent($content, $validated);
 
-        return redirect()->route('admin.kelola-profil')->with('toast', [
+        return redirect()->route('andalas.landing.manage', ['section' => str_replace('_', '-', $content->key)])->with('toast', [
             'type' => 'success',
             'message' => 'Konten profil berhasil diperbarui.',
         ]);
@@ -105,7 +123,7 @@ class LandingContentController extends Controller
 
         $informasi = LandingContentService::storeInformasi($validated, $request->file('file'));
 
-        return redirect()->route('admin.kelola-informasi')->with('toast', [
+        return redirect()->route('andalas.landing.manage', ['section' => $informasi->kategori])->with('toast', [
             'type' => 'success',
             'message' => "Informasi {$informasi->judul} berhasil ditambahkan.",
         ]);
@@ -119,7 +137,7 @@ class LandingContentController extends Controller
 
         $result = LandingContentService::updateInformasi($informasi, $validated, $request->file('file'));
 
-        return redirect()->route('admin.kelola-informasi')->with('toast', [
+        return redirect()->route('andalas.landing.manage', ['section' => $informasi->kategori])->with('toast', [
             'type' => 'success',
             'message' => "Informasi {$informasi->judul} diperbarui.",
         ]);
@@ -130,7 +148,7 @@ class LandingContentController extends Controller
         $this->authorizePermission(request(), 'landing.manage');
         LandingContentService::destroyInformasi($informasi);
 
-        return redirect()->route('admin.kelola-informasi')->with('toast', [
+        return redirect()->route('andalas.landing.manage', ['section' => $informasi->kategori])->with('toast', [
             'type' => 'success',
             'message' => 'Informasi dihapus.',
         ]);
@@ -140,14 +158,21 @@ class LandingContentController extends Controller
     {
         $kategori = $update ? 'sometimes' : 'required';
 
-        return $request->validate([
+        $validated = $request->validate([
             'kategori' => "{$kategori}|in:".implode(',', Informasi::KATEGORI),
             'judul' => $update ? 'sometimes|string|max:200' : 'required|string|max:200',
             'konten' => 'nullable|string|max:2000000',
+            'media_id' => 'nullable|uuid|exists:media_assets,id',
             'file' => 'nullable|file|mimes:pdf,doc,docx|max:10240',
             'tanggal' => 'nullable|date',
             'published' => 'sometimes|boolean',
         ]);
+        if ($request->filled('media_id')) {
+            $validated['file'] = app(LandingMedia::class)->path($validated['media_id'], false);
+        }
+        unset($validated['media_id']);
+
+        return $validated;
     }
 
     // ─── Program + sub-program ────────────────────────────────────────────
@@ -160,7 +185,7 @@ class LandingContentController extends Controller
 
         $program = LandingContentService::storeProgram($validated);
 
-        return redirect()->route('admin.kelola-program')->with('toast', [
+        return redirect()->route('andalas.landing.manage', ['section' => 'program'])->with('toast', [
             'type' => 'success',
             'message' => "Program {$program->nama} berhasil ditambahkan.",
         ]);
@@ -174,7 +199,7 @@ class LandingContentController extends Controller
 
         $result = LandingContentService::updateProgram($program, $validated);
 
-        return redirect()->route('admin.kelola-program')->with('toast', [
+        return redirect()->route('andalas.landing.manage', ['section' => 'program'])->with('toast', [
             'type' => 'success',
             'message' => "Program {$program->nama} diperbarui.",
         ]);
@@ -185,7 +210,7 @@ class LandingContentController extends Controller
         $this->authorizePermission(request(), 'landing.manage');
         LandingContentService::destroyProgram($program);
 
-        return redirect()->route('admin.kelola-program')->with('toast', [
+        return redirect()->route('andalas.landing.manage', ['section' => 'program'])->with('toast', [
             'type' => 'success',
             'message' => 'Program dihapus.',
         ]);
@@ -210,7 +235,7 @@ class LandingContentController extends Controller
 
         $programSub = LandingContentService::storeProgramSub($validated, $request->file('gambar'));
 
-        return redirect()->route('admin.kelola-program')->with('toast', [
+        return redirect()->route('andalas.landing.manage', ['section' => 'program'])->with('toast', [
             'type' => 'success',
             'message' => "Sub-program {$programSub->judul} berhasil ditambahkan.",
         ]);
@@ -224,7 +249,7 @@ class LandingContentController extends Controller
 
         $result = LandingContentService::updateProgramSub($programSub, $validated, $request->file('gambar'));
 
-        return redirect()->route('admin.kelola-program')->with('toast', [
+        return redirect()->route('andalas.landing.manage', ['section' => 'program'])->with('toast', [
             'type' => 'success',
             'message' => "Sub-program {$programSub->judul} diperbarui.",
         ]);
@@ -235,7 +260,7 @@ class LandingContentController extends Controller
         $this->authorizePermission(request(), 'landing.manage');
         LandingContentService::destroyProgramSub($programSub);
 
-        return redirect()->route('admin.kelola-program')->with('toast', [
+        return redirect()->route('andalas.landing.manage', ['section' => 'program'])->with('toast', [
             'type' => 'success',
             'message' => 'Sub-program dihapus.',
         ]);
@@ -245,6 +270,7 @@ class LandingContentController extends Controller
     {
         $rules = [
             'judul' => 'sometimes|string|max:200',
+            'media_id' => 'nullable|uuid|exists:media_assets,id',
             'gambar' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
             'deskripsi' => 'nullable|string|max:15000',
             'urutan' => 'sometimes|integer|min:0',
@@ -255,7 +281,13 @@ class LandingContentController extends Controller
             $rules['judul'] = 'required|string|max:200';
         }
 
-        return $request->validate($rules);
+        $validated = $request->validate($rules);
+        if ($request->filled('media_id')) {
+            $validated['gambar'] = app(LandingMedia::class)->path($validated['media_id'], true);
+        }
+        unset($validated['media_id']);
+
+        return $validated;
     }
 
     // ─── Testimoni ────────────────────────────────────────────────────────
@@ -268,7 +300,7 @@ class LandingContentController extends Controller
 
         $testimoni = LandingContentService::storeTestimoni($validated, $request->file('foto'));
 
-        return redirect()->route('admin.kelola-testimoni')->with('toast', [
+        return redirect()->route('andalas.landing.manage', ['section' => 'testimoni'])->with('toast', [
             'type' => 'success',
             'message' => "Testimoni {$testimoni->nama} berhasil ditambahkan.",
         ]);
@@ -282,7 +314,7 @@ class LandingContentController extends Controller
 
         $result = LandingContentService::updateTestimoni($testimoni, $validated, $request->file('foto'));
 
-        return redirect()->route('admin.kelola-testimoni')->with('toast', [
+        return redirect()->route('andalas.landing.manage', ['section' => 'testimoni'])->with('toast', [
             'type' => 'success',
             'message' => "Testimoni {$testimoni->nama} diperbarui.",
         ]);
@@ -293,7 +325,7 @@ class LandingContentController extends Controller
         $this->authorizePermission(request(), 'landing.manage');
         LandingContentService::destroyTestimoni($testimoni);
 
-        return redirect()->route('admin.kelola-testimoni')->with('toast', [
+        return redirect()->route('andalas.landing.manage', ['section' => 'testimoni'])->with('toast', [
             'type' => 'success',
             'message' => 'Testimoni dihapus.',
         ]);
@@ -304,6 +336,7 @@ class LandingContentController extends Controller
         $rules = [
             'nama' => 'sometimes|string|max:150',
             'prodi' => 'nullable|string|max:150',
+            'media_id' => 'nullable|uuid|exists:media_assets,id',
             'foto' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
             'teks' => 'sometimes|string',
             'urutan' => 'sometimes|integer|min:0',
@@ -315,6 +348,12 @@ class LandingContentController extends Controller
             $rules['teks'] = 'required|string';
         }
 
-        return $request->validate($rules);
+        $validated = $request->validate($rules);
+        if ($request->filled('media_id')) {
+            $validated['foto'] = app(LandingMedia::class)->path($validated['media_id'], true);
+        }
+        unset($validated['media_id']);
+
+        return $validated;
     }
 }

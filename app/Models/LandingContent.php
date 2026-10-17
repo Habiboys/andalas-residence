@@ -6,9 +6,10 @@ class LandingContent extends BaseModel
 {
     protected $table = 'landing_contents';
 
-    protected $fillable = ['key', 'title', 'content', 'image', 'urutan', 'published'];
+    protected $fillable = ['key', 'title', 'content', 'image', 'urutan', 'published', 'settings'];
 
     protected $casts = [
         'published' => 'boolean',
+        'settings' => 'array',
     ];
 }

@@ -1,3 +1,4 @@
+import { useRoomTypeCatalog, roomTypeName } from '@/andalas/lib/room-types';
 import { useMemo, useState } from 'react';
 import { BedDouble, Check, MapPin, Users } from 'lucide-react';
 import { formatRupiah } from '../lib/format';
@@ -77,6 +78,7 @@ export default function RoomCatalog({
     basis: string;
     isStudent?: boolean;
 }) {
+    const catalog = useRoomTypeCatalog();
     const [building, setBuilding] = useState('');
     const [type, setType] = useState('');
     const [search, setSearch] = useState('');
@@ -151,7 +153,7 @@ export default function RoomCatalog({
                         new Set(rooms.map((room) => room.tipe_kamar)),
                     ).map((value) => (
                         <option key={value} value={value}>
-                            {value.replaceAll('_', ' ')}
+                            {roomTypeName(catalog, value)}
                         </option>
                     ))}
                 </select>
@@ -206,7 +208,7 @@ export default function RoomCatalog({
                             <div className="space-y-3 p-4">
                                 <div className="flex items-center justify-between gap-2">
                                     <span className="badge badge-ghost capitalize">
-                                        {room.tipe_kamar.replaceAll('_', ' ')}
+                                        {roomTypeName(catalog, room.tipe_kamar)}
                                     </span>
                                     {selected === room.id && (
                                         <span className="text-primary flex items-center gap-1 text-sm">

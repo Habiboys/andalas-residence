@@ -1,5 +1,5 @@
 import { renderToStaticMarkup } from 'react-dom/server';
-import { expect, it } from 'vite-plus/test';
+import { expect, it, vi } from 'vite-plus/test';
 import ResidenceManagement from './ResidenceManagement';
 
 it('loads building room type masters without treating nested metadata as a table value', () => {
@@ -32,3 +32,26 @@ it('loads building room type masters without treating nested metadata as a table
     expect(html).toContain('Pengaturan Layanan');
     expect(html).not.toContain('[object Object]');
 });
+
+vi.mock('@inertiajs/react', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@inertiajs/react')>()),
+    usePage: () => ({
+        props: {
+            roomTypeCatalog: [
+                'standar',
+                'medium',
+                'premium',
+                'umum',
+                'umum_vip',
+            ].map((code) => ({
+                id: code,
+                code,
+                name:
+                    code === 'umum_vip'
+                        ? 'Umum VIP'
+                        : code.charAt(0).toUpperCase() + code.slice(1),
+                active: true,
+            })),
+        },
+    }),
+}));

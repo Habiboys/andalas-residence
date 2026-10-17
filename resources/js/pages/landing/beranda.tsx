@@ -1,3 +1,5 @@
+import { informasi as informasiPage } from '@/routes/landing';
+import { type LandingSettings, mediaUrl } from '@/andalas/lib/landing-settings';
 import { Head, Link } from '@inertiajs/react';
 import { ChevronDown } from 'lucide-react';
 import LandingLayout from '@/andalas/components/LandingLayout';
@@ -15,91 +17,37 @@ type GalleryPhoto = {
     kategori: string;
 };
 type Props = {
+    landingSettings?: LandingSettings;
+    berita?: Notice[];
     testimoni: Testimoni[];
     pengumuman?: Notice[];
     galeri?: GalleryPhoto[];
     statistik: { gedung: number; kamar: number; penghuni: number };
 };
 
-const steps = [
-    {
-        title: 'Buat akun dan lengkapi identitas',
-        text: 'Pilih kategori penghuni. Mahasiswa juga mencantumkan tahun masuk kuliah.',
-    },
-    {
-        title: 'Tentukan kamar dan masa tinggal',
-        text: 'Pilih tipe serta nomor kamar yang tersedia. Khusus KIPK, pengelola yang menentukan penempatan.',
-    },
-    {
-        title: 'Periksa dan selesaikan tagihan',
-        text: 'Ikuti invoice di akun. Pengajuan cicilan ditinjau admin layanan; kategori bebas biaya mengikuti hasil verifikasi.',
-    },
-    {
-        title: 'Terima kwitansi dan informasi hunian',
-        text: 'Kwitansi memuat pembayaran, gedung, tipe serta nomor kamar, dan lama masa tinggal.',
-    },
-];
-const categories = [
-    {
-        title: 'Mahasiswa lokal',
-        text: 'Mahasiswa baru KIPK dan non-KIPK, serta mahasiswa yang melanjutkan masa hunian.',
-    },
-    {
-        title: 'Mahasiswa internasional',
-        text: 'Kategori reguler atau fasilitas gratis asrama, sesuai verifikasi pengelola.',
-    },
-    {
-        title: 'Non-mahasiswa',
-        text: 'Pendaftaran mengikuti ketersediaan kamar dan ketentuan pengelola asrama.',
-    },
-];
-const services = [
-    {
-        title: 'Tagihan dan kwitansi',
-        text: 'Lihat rincian tagihan, ajukan cicilan, dan unduh kwitansi pembayaran.',
-    },
-    {
-        title: 'Pelaporan kerusakan',
-        text: 'Tentukan barang dan lokasi kamar, lampirkan foto, lalu pantau penanganan teknisi.',
-    },
-    {
-        title: 'Kegiatan mahasiswa binaan',
-        text: 'Lihat jadwal dan pindai QR kehadiran di lokasi kegiatan selama tahun pertama pembinaan.',
-    },
-    {
-        title: 'Checkout dan bebas asrama',
-        text: 'Ajukan akhir masa tinggal dan urus surat sesuai pemeriksaan kamar serta status tagihan.',
-    },
-];
-const faqs = [
-    {
-        q: 'Bagaimana cara mulai mendaftar?',
-        a: 'Buat akun melalui tombol Daftar hunian, pilih kategori penghuni, dan lengkapi profil. Setelah masuk, buka menu Pendaftaran Hunian untuk memilih periode dan kamar yang tersedia.',
-    },
-    {
-        q: 'Apakah semua calon penghuni memilih kamar sendiri?',
-        a: 'Calon penghuni dapat memilih tipe dan nomor kamar yang tersedia. Untuk mahasiswa KIPK, pilihan kamar dilewati dan penempatan dilakukan oleh pengelola.',
-    },
-    {
-        q: 'Bagaimana pembayaran dan pengajuan cicilan dilakukan?',
-        a: 'Tagihan muncul di akun setelah pendaftaran diproses. Ikuti petunjuk pembayaran pada invoice dan unggah bukti bila diminta. Cicilan dapat diajukan melalui menu Tagihan dan jadwalnya ditetapkan admin. Pembayaran saat ini melalui verifikasi pengelola.',
-    },
-    {
-        q: 'Mengapa tidak semua penghuni dapat melakukan absensi?',
-        a: 'Absensi kegiatan ditujukan untuk mahasiswa lokal binaan pada tahun pertama, mulai angkatan 2026. Penghuni yang sudah checkout dan masuk kembali tidak termasuk binaan. QR harus masih berlaku dan mahasiswa serta fasilitator berada dalam radius kegiatan.',
-    },
-    {
-        q: 'Bagaimana mengurus surat bebas asrama untuk angkatan lama?',
-        a: 'Buat akun dan buka layanan Bebas Asrama. Untuk angkatan 2025 ke bawah, admin memverifikasi status alumni dan pelunasannya karena riwayatnya belum tercatat dalam sistem. Angkatan 2026 ke atas mengikuti riwayat hunian, checkout, dan tagihan yang tercatat.',
-    },
-];
-
 export default function Beranda({
+    landingSettings,
+    berita = [],
     testimoni = [],
     pengumuman = [],
     galeri = [],
     statistik = { gedung: 0, kamar: 0, penghuni: 0 },
 }: Props) {
+    const {
+        hero = {
+            title: '',
+            eyebrow: '',
+            description: '',
+            image: '',
+            image_alt: '',
+        },
+        headings = {},
+        site = {},
+        steps = [],
+        categories = [],
+        services = [],
+        faqs = [],
+    } = landingSettings ?? {};
     const stats = [
         { val: String(statistik.gedung), label: 'Gedung' },
         { val: String(statistik.kamar), label: 'Kamar' },
@@ -107,34 +55,29 @@ export default function Beranda({
     ];
     return (
         <>
-            <Head title="Andalas Residence — Hunian Universitas Andalas">
-                <meta
-                    name="description"
-                    content="Informasi hunian Universitas Andalas, pendaftaran kamar, kegiatan pembinaan, dan layanan administrasi penghuni."
-                />
+            <Head title={`${site.name ?? ''} - ${site.tagline ?? ''}`}>
+                <meta name="description" content={site.description} />
             </Head>
             <LandingLayout active="beranda">
                 {/* HERO */}
                 <section className="bg-hero relative flex min-h-svh items-center overflow-hidden">
                     <div className="absolute inset-0">
-                        <img
-                            src="https://images.unsplash.com/photo-1732115234692-3ee71d5363af?w=1600&h=1000&fit=crop&auto=format"
-                            alt="Ilustrasi bangunan hunian"
-                            className="h-full w-full object-cover"
-                        />
+                        {hero.image && (
+                            <img
+                                src={mediaUrl(hero.image)}
+                                alt={hero.image_alt}
+                                className="h-full w-full object-cover"
+                            />
+                        )}
                     </div>
                     <div className="from-hero/95 via-hero/40 absolute inset-0 bg-gradient-to-t to-black/25" />
                     <div className="relative z-10 mx-auto w-full max-w-7xl px-4 py-28 md:px-6 md:py-32">
-                        <p className="text-sm text-white/70">
-                            Universitas Andalas
-                        </p>
+                        <p className="text-sm text-white/70">{hero.eyebrow}</p>
                         <h1 className="font-display mt-3 max-w-3xl text-4xl leading-tight text-white md:text-6xl">
-                            Andalas Residence
+                            {hero.title}
                         </h1>
                         <p className="mt-4 max-w-xl text-base leading-relaxed text-white/80 md:text-lg">
-                            Lebih dari sekadar asrama, rumah kedua bagi
-                            mahasiswa Unand, dengan pembinaan karakter dan
-                            layanan terdigitalisasi dalam satu platform.
+                            {hero.description}
                         </p>
                         <div className="mt-8 flex flex-wrap gap-3">
                             <a
@@ -179,14 +122,10 @@ export default function Beranda({
                                 Pendaftaran hunian
                             </p>
                             <h2 className="font-display mt-3 text-3xl leading-tight md:text-4xl">
-                                Kenali kategori Anda
-                                <br className="hidden sm:block" /> sebelum
-                                memilih kamar.
+                                {headings.registration}
                             </h2>
                             <p className="text-muted mt-5 max-w-lg leading-7">
-                                Alur penempatan dan tagihan mengikuti kategori
-                                penghuni. Semua tahapan dapat dipantau melalui
-                                akun Andalas Residence.
+                                {headings.registration_intro}
                             </p>
                             <dl className="divide-base-300 border-base-300 mt-8 divide-y border-y">
                                 {categories.map((item) => (
@@ -212,7 +151,7 @@ export default function Beranda({
                         </div>
                         <div className="lg:pt-9">
                             <h3 className="font-display text-xl">
-                                Tahapan pendaftaran
+                                {headings.steps}
                             </h3>
                             <ol className="mt-6 space-y-6">
                                 {steps.map((step, index) => (
@@ -252,11 +191,10 @@ export default function Beranda({
                         <div className="flex flex-wrap items-end justify-between gap-4">
                             <div>
                                 <h2 className="font-display text-2xl md:text-3xl">
-                                    Galeri hunian dan kegiatan
+                                    {headings.gallery}
                                 </h2>
                                 <p className="text-muted mt-3 max-w-xl text-sm leading-6">
-                                    Dokumentasi gedung dan program yang
-                                    diterbitkan pengelola.
+                                    {headings.gallery_intro}
                                 </p>
                             </div>
                             <Link
@@ -321,11 +259,10 @@ export default function Beranda({
                     <div className="mx-auto grid max-w-7xl gap-8 px-4 md:px-6 lg:grid-cols-3 lg:gap-16">
                         <div>
                             <h2 className="font-display text-2xl md:text-3xl">
-                                Pengumuman
+                                {headings.announcements}
                             </h2>
                             <p className="text-muted mt-3 text-sm leading-6">
-                                Informasi terbaru dari pengelola Andalas
-                                Residence.
+                                {headings.announcements_intro}
                             </p>
                             <Link
                                 href="/informasi/pengumuman"
@@ -388,13 +325,10 @@ export default function Beranda({
                                 Untuk penghuni
                             </p>
                             <h2 className="font-display mt-4 text-3xl leading-tight">
-                                Layanan selama
-                                <br />
-                                masa tinggal.
+                                {headings.services}
                             </h2>
                             <p className="mt-5 text-sm leading-7 text-white/80">
-                                Masuk ke akun untuk mengakses layanan sesuai
-                                status hunian Anda.
+                                {headings.services_intro}
                             </p>
                             <Link
                                 href={login.url()}
@@ -421,17 +355,59 @@ export default function Beranda({
                     </div>
                 </section>
 
-                <TestimonialSlider items={testimoni} />
+                {berita.length > 0 && (
+                    <section className="bg-base-200 py-16">
+                        <div className="mx-auto max-w-7xl space-y-6 px-4 md:px-6">
+                            <div className="flex items-center justify-between gap-4">
+                                <h2 className="font-display text-3xl">
+                                    {headings.news}
+                                </h2>
+                                <Link
+                                    href={informasiPage.url('berita')}
+                                    className="link link-primary"
+                                >
+                                    Semua berita
+                                </Link>
+                            </div>
+                            <ul className="grid gap-6 md:grid-cols-3">
+                                {berita.map((item) => (
+                                    <li
+                                        key={item.id}
+                                        className="border-base-300 bg-base-100 rounded-lg border p-5"
+                                    >
+                                        <p className="text-muted text-xs">
+                                            {item.tanggal
+                                                ? new Date(
+                                                      item.tanggal,
+                                                  ).toLocaleDateString('id-ID')
+                                                : ''}
+                                        </p>
+                                        <Link
+                                            href={informasiPage.url('berita')}
+                                            className="mt-2 block text-lg font-semibold"
+                                        >
+                                            {item.judul}
+                                        </Link>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    </section>
+                )}
+                <TestimonialSlider
+                    items={testimoni}
+                    title={headings.testimonials}
+                    description={headings.testimonials_intro}
+                />
 
                 <section className="bg-base-100 py-16 md:py-24">
                     <div className="mx-auto grid max-w-7xl gap-8 px-4 md:px-6 lg:grid-cols-3 lg:gap-16">
                         <div>
                             <h2 className="font-display text-2xl md:text-3xl">
-                                Pertanyaan umum
+                                {headings.faq}
                             </h2>
                             <p className="text-muted mt-4 text-sm leading-7">
-                                Tentang pendaftaran, pembayaran, dan layanan
-                                administrasi.
+                                {headings.faq_intro}
                             </p>
                             <Link
                                 href="/kontak"
@@ -468,23 +444,20 @@ export default function Beranda({
                         <div>
                             <p className="text-muted text-sm">Lokasi</p>
                             <h2 className="font-display mt-3 text-2xl md:text-3xl">
-                                Di lingkungan kampus
-                                <br />
-                                Limau Manis.
+                                {headings.location}
                             </h2>
                             <address className="text-muted mt-5 text-sm leading-7 not-italic">
-                                Universitas Andalas
+                                {hero.eyebrow}
                                 <br />
                                 Limau Manis, Kecamatan Pauh
                                 <br />
                                 Kota Padang, Sumatera Barat
                             </address>
                             <p className="text-muted mt-4 text-sm leading-6">
-                                Pastikan gedung tujuan sesuai informasi
-                                penempatan kamar sebelum berkunjung.
+                                {headings.location_note}
                             </p>
                             <a
-                                href="https://www.google.com/maps/search/?api=1&query=Asrama+Universitas+Andalas+Limau+Manis"
+                                href={site.maps_url}
                                 target="_blank"
                                 rel="noreferrer"
                                 className="btn btn-outline mt-6"
@@ -495,7 +468,7 @@ export default function Beranda({
                         <div className="lg:col-span-2">
                             <iframe
                                 title="Peta lokasi Asrama Universitas Andalas"
-                                src="https://maps.google.com/maps?q=Asrama%20Universitas%20Andalas%20Limau%20Manis&output=embed"
+                                src={site.map_embed}
                                 loading="lazy"
                                 referrerPolicy="no-referrer-when-downgrade"
                                 className="border-base-300 h-80 w-full rounded-md border md:h-96"

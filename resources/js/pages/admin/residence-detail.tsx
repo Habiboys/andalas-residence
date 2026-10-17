@@ -1,3 +1,4 @@
+import { useRoomTypeCatalog } from '@/andalas/lib/room-types';
 import { PhotoCarousel, photoPaths } from '@/andalas/components/PhotoGallery';
 import { Head, Link } from '@inertiajs/react';
 import { useState, type ReactNode } from 'react';
@@ -142,7 +143,7 @@ type Props = {
     can_view_assets?: boolean;
     can_view_residents?: boolean;
 };
-const typeLabel = (value: string) =>
+const defaultTypeLabel = (value: string) =>
     value
         .replaceAll('_', ' ')
         .replace(/\b\w/g, (letter) => letter.toUpperCase());
@@ -180,6 +181,11 @@ function Facts({
     );
 }
 function RoomTable({ rooms }: { rooms: Room[] }) {
+    const catalog = useRoomTypeCatalog();
+    const typeLabel = (code: string) =>
+        catalog.find((type) => type.code === code)?.name ??
+        defaultTypeLabel(code);
+
     const columns: DataColumn<Room>[] = [
         {
             key: 'nomor_kamar',
@@ -223,6 +229,11 @@ export function BuildingInventory({
     floors: Floor[];
     initialView?: 'grid' | 'table';
 }) {
+    const catalog = useRoomTypeCatalog();
+    const typeLabel = (code: string) =>
+        catalog.find((type) => type.code === code)?.name ??
+        defaultTypeLabel(code);
+
     const [view, setView] = useState(initialView);
     const rooms = floors.flatMap((floor) => floor.kamar ?? []);
     return (
@@ -499,6 +510,11 @@ export default function ResidenceDetail({
     can_view_assets = false,
     can_view_residents = false,
 }: Props) {
+    const catalog = useRoomTypeCatalog();
+    const typeLabel = (code: string) =>
+        catalog.find((type) => type.code === code)?.name ??
+        defaultTypeLabel(code);
+
     const title =
         kind === 'building'
             ? building?.nama_gedung

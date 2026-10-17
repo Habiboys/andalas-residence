@@ -39,7 +39,7 @@ Route::post('admin/master-data/wilayah/sync', WilayahSyncController::class)
     ->name('admin.master-data.wilayah.sync');
 
 Route::get('admin/master-data/{section}', MasterDataPageController::class)
-    ->whereIn('section', ['jenis-kegiatan', 'penugasan', 'fakultas', 'departemen', 'prodi', 'periode', 'provinsi', 'kota', 'kategori'])
+    ->whereIn('section', ['tipe-kamar', 'jenis-kegiatan', 'penugasan', 'fakultas', 'departemen', 'prodi', 'periode', 'provinsi', 'kota', 'kategori'])
     ->middleware('role:staff_admin|superadmin')
     ->name('admin.master-data-section');
 

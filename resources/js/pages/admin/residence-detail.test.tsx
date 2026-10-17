@@ -11,6 +11,25 @@ import KelolaBangunan from '@/andalas/pages/admin/KelolaBangunan';
 vi.mock('@inertiajs/react', async (importOriginal) => ({
     ...(await importOriginal<typeof import('@inertiajs/react')>()),
     Head: () => null,
+    usePage: () => ({
+        props: {
+            roomTypeCatalog: [
+                'standar',
+                'medium',
+                'premium',
+                'umum',
+                'umum_vip',
+            ].map((code) => ({
+                id: code,
+                code,
+                name:
+                    code === 'umum_vip'
+                        ? 'Umum VIP'
+                        : code.charAt(0).toUpperCase() + code.slice(1),
+                active: true,
+            })),
+        },
+    }),
 }));
 
 const building = {

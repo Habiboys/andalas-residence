@@ -13,5 +13,5 @@ class Informasi extends BaseModel
         'published' => 'boolean',
     ];
 
-    public const KATEGORI = ['regulasi', 'sop', 'panduan', 'pengumuman'];
+    public const KATEGORI = ['regulasi', 'sop', 'panduan', 'pengumuman', 'berita'];
 }

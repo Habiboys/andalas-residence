@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Gedung;
 use App\Models\Kamar;
+use App\Models\RoomType;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Validation\ValidationException;
@@ -40,6 +41,9 @@ class RoomEligibility
 
     public static function allowsType(Gedung $building, string $type, ?int $capacity = null): bool
     {
+        if (! RoomType::where('code', $type)->where('active', true)->exists()) {
+            return false;
+        }
         if ($building->room_types === null) {
             return true;
         }
@@ -53,6 +57,7 @@ class RoomEligibility
     public static function available(): Builder
     {
         return Kamar::whereIn('status', ['kosong', 'terisi_sebagian'])
+            ->whereIn('tipe_kamar', RoomType::where('active', true)->select('code'))
             ->whereRaw('(select count(*) from penempatan_kamar where penempatan_kamar.kamar_id = kamar.id and penempatan_kamar.status = ?) < kamar.kapasitas', ['aktif'])
             ->with('lantai.gedung');
     }

@@ -14,6 +14,7 @@ use App\Models\LegacyResident;
 use App\Models\Periode;
 use App\Models\ResidenceRate;
 use App\Models\ResidenceRegistration;
+use App\Models\RoomType;
 use App\Services\MasterDataService;
 use App\Services\RoomEligibility;
 use App\Services\RoomReservations;
@@ -56,7 +57,7 @@ class ResidenceManagementController extends Controller
             $data = $request->validate(['nim' => ['required', 'string', 'max:50'], 'nama' => ['required', 'string', 'max:255']]);
             KipkRecipient::updateOrCreate(['nim' => $data['nim'], 'angkatan' => StudentCohort::fromNim($data['nim'])], ['nama' => $data['nama']]);
         } elseif ($kind === 'rate') {
-            $data = $request->validate(['gedung_id' => ['required', 'uuid', 'exists:gedung,id'], 'tipe_kamar' => ['required', 'in:standar,medium,premium,umum,umum_vip'], 'unit' => ['required', 'in:year,month,day'], 'amount' => ['required', 'integer', 'min:0'], 'student_amount' => ['nullable', 'integer', 'min:0'], 'room_amount' => ['nullable', 'integer', 'min:0'], 'facilities' => ['nullable', 'string', 'max:2000']]);
+            $data = $request->validate(['gedung_id' => ['required', 'uuid', 'exists:gedung,id'], 'tipe_kamar' => ['required', Rule::exists('room_types', 'code')], 'unit' => ['required', 'in:year,month,day'], 'amount' => ['required', 'integer', 'min:0'], 'student_amount' => ['nullable', 'integer', 'min:0'], 'room_amount' => ['nullable', 'integer', 'min:0'], 'facilities' => ['nullable', 'string', 'max:2000']]);
             $building = Gedung::findOrFail($data['gedung_id']);
             if (! RoomEligibility::allowsType($building, $data['tipe_kamar'])) {
                 throw ValidationException::withMessages(['tipe_kamar' => 'Aktifkan tipe kamar pada master gedung sebelum menetapkan tarif.']);
@@ -75,11 +76,14 @@ class ResidenceManagementController extends Controller
         } elseif ($kind === 'room-type') {
             $data = $request->validate([
                 'gedung_id' => ['required', 'uuid', 'exists:gedung,id'],
-                'type' => ['required', 'in:standar,medium,premium,umum,umum_vip'],
+                'type' => ['required', Rule::exists('room_types', 'code')],
                 'enabled' => ['required', 'boolean'],
                 'max_capacity' => ['nullable', 'integer', 'min:1', 'max:100'],
                 'facilities' => ['nullable', 'string', 'max:2000'],
             ]);
+            if ($data['enabled'] && ! RoomType::where('code', $data['type'])->where('active', true)->exists()) {
+                throw ValidationException::withMessages(['type' => 'Aktifkan tipe pada Master Data terlebih dahulu.']);
+            }
             DB::transaction(function () use ($data): void {
                 $building = Gedung::query()->lockForUpdate()->findOrFail($data['gedung_id']);
                 $rooms = Kamar::whereHas('lantai', fn ($query) => $query->where('gedung_id', $building->id))->where('tipe_kamar', $data['type'])->lockForUpdate()->get();
@@ -88,7 +92,7 @@ class ResidenceManagementController extends Controller
                         throw ValidationException::withMessages(['type' => 'Tipe masih dipakai kamar berpenghuni atau direservasi; aturan baru tidak dapat diterapkan.']);
                     }
                 }
-                $existingTypes = $building->room_types ?? array_map(fn (string $type): array => ['type' => $type, 'enabled' => true, 'max_capacity' => null, 'facilities' => ''], ['standar', 'medium', 'premium', 'umum', 'umum_vip']);
+                $existingTypes = $building->room_types ?? array_map(fn (string $type): array => ['type' => $type, 'enabled' => true, 'max_capacity' => null, 'facilities' => ''], RoomType::where('active', true)->pluck('code')->all());
                 $types = collect($existingTypes)->reject(fn (array $type): bool => $type['type'] === $data['type'])->values()->all();
                 $types[] = ['type' => $data['type'], 'enabled' => (bool) $data['enabled'], 'max_capacity' => $data['max_capacity'] ?? null, 'facilities' => $data['facilities'] ?? ''];
                 $building->update(['room_types' => $types]);
@@ -121,7 +125,7 @@ class ResidenceManagementController extends Controller
             $data = $request->validate([
                 'id' => ['nullable', 'uuid', 'exists:kamar,id'], 'gedung_id' => ['required', 'uuid', 'exists:gedung,id'],
                 'nomor_lantai' => ['required', 'integer', 'min:1', 'max:100'], 'nomor_kamar' => ['required', 'string', 'max:50'],
-                'tipe_kamar' => ['required', 'in:standar,medium,premium,umum,umum_vip'], 'kapasitas' => ['required', 'integer', 'min:1', 'max:100'],
+                'tipe_kamar' => ['required', Rule::exists('room_types', 'code')], 'kapasitas' => ['required', 'integer', 'min:1', 'max:100'],
                 'status' => ['required', 'in:kosong,terisi_sebagian,penuh,maintenance'],
             ]);
             DB::transaction(function () use ($data): void {
@@ -181,7 +185,7 @@ class ResidenceManagementController extends Controller
         } elseif ($kind === 'rate') {
             $data = $request->validate([
                 'gedung_id' => ['required', 'uuid', 'exists:gedung,id'],
-                'tipe_kamar' => ['required', 'in:standar,medium,premium,umum,umum_vip'],
+                'tipe_kamar' => ['required', Rule::exists('room_types', 'code')],
                 'unit' => ['required', 'in:year,month,day'],
             ]);
             ResidenceRate::query()->where($data)->firstOrFail()->delete();

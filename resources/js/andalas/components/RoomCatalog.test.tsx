@@ -1,5 +1,5 @@
 import { renderToStaticMarkup } from 'react-dom/server';
-import { expect, it } from 'vite-plus/test';
+import { expect, it, vi } from 'vite-plus/test';
 import RoomCatalog, { roomPrice, type CatalogRoom } from './RoomCatalog';
 import RoomInvitations, { InviteRoommateButton } from './RoomInvitations';
 import FloorAvailability from './FloorAvailability';
@@ -146,3 +146,19 @@ it('uses a submit action when saving room photos for the catalog', () => {
     );
     expect(html).toMatch(/<button type="submit"[^>]*>Simpan foto<\/button>/);
 });
+
+vi.mock('@inertiajs/react', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@inertiajs/react')>()),
+    usePage: () => ({
+        props: {
+            roomTypeCatalog: [
+                {
+                    id: 'standar',
+                    code: 'standar',
+                    name: 'Standar',
+                    active: true,
+                },
+            ],
+        },
+    }),
+}));

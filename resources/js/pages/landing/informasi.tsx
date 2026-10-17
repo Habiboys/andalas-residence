@@ -23,9 +23,10 @@ const KATEGORI_LABEL: Record<string, string> = {
     sop: 'SOP',
     panduan: 'Panduan',
     pengumuman: 'Pengumuman',
+    berita: 'Berita',
 };
 
-const KATEGORI_ORDER = ['regulasi', 'sop', 'panduan', 'pengumuman'];
+const KATEGORI_ORDER = ['berita', 'pengumuman', 'regulasi', 'sop', 'panduan'];
 
 export default function InformasiPage(props: Props) {
     const { kategori, items } = props;

@@ -6,11 +6,14 @@ use App\Models\Gedung;
 use App\Models\Informasi;
 use App\Models\Kamar;
 use App\Models\LandingContent;
+use App\Models\OrganizationPosition;
 use App\Models\PenempatanKamar;
 use App\Models\Program;
 use App\Models\ProgramSub;
 use App\Models\Testimoni;
+use App\Services\LandingContentService;
 use App\Services\LandingRichText;
+use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -22,19 +25,20 @@ class LandingController extends Controller
         'struktur-organisasi' => 'struktur_organisasi',
     ];
 
-    private const INFORMASI_KATEGORI = ['regulasi', 'sop', 'panduan', 'pengumuman'];
+    private const INFORMASI_KATEGORI = ['regulasi', 'sop', 'panduan', 'pengumuman', 'berita'];
 
     public function beranda(): Response
     {
         return Inertia::render('landing/beranda', [
             ...$this->shared(),
+            'berita' => Informasi::where('published', true)->where('kategori', 'berita')->orderByDesc('tanggal')->limit(3)->get(),
             'testimoni' => Testimoni::where('published', true)->orderBy('urutan')->get(),
             'statistik' => $this->statistik(),
             'pengumuman' => Informasi::where('published', true)->where('kategori', 'pengumuman')->orderByDesc('tanggal')->limit(3)->get(['id', 'judul', 'tanggal']),
             'galeri' => Gedung::whereNotNull('foto')->where('foto', '!=', '')->orderBy('kode_gedung')->limit(4)->get()
                 ->map(fn (Gedung $gedung): array => ['id' => $gedung->id, 'judul' => $gedung->nama_gedung, 'foto' => '/storage/'.$gedung->foto, 'kategori' => 'Hunian'])
                 ->concat(ProgramSub::whereHas('program', fn ($query) => $query->where('published', true))->whereNotNull('gambar')->where('gambar', '!=', '')->orderBy('urutan')->limit(4)->get()
-                    ->map(fn (ProgramSub $sub): array => ['id' => $sub->id, 'judul' => $sub->judul, 'foto' => '/storage/'.$sub->gambar, 'kategori' => 'Program']))->values(),
+                    ->map(fn (ProgramSub $sub): array => ['id' => $sub->id, 'judul' => $sub->judul, 'foto' => '/storage/'.$sub->gambar, 'kategori' => 'Program']))->concat(collect(LandingContentService::settings()['gallery'] ?? [])->map(fn (array $photo, int $index): array => ['id' => 'media-'.$index, 'judul' => $photo['title'], 'foto' => $photo['image'], 'kategori' => $photo['category']]))->values(),
         ]);
     }
 
@@ -50,6 +54,7 @@ class LandingController extends Controller
 
         return Inertia::render('landing/profil', [
             ...$this->shared(),
+            'positions' => $key === 'struktur_organisasi' ? $this->organizationPositions() : [],
             'section' => $key,
             'sections' => $sections,
             'content' => $content,
@@ -134,6 +139,25 @@ class LandingController extends Controller
         ];
     }
 
+    private function organizationPositions(): Collection
+    {
+        $positions = OrganizationPosition::where('published', true)->orderBy('sort_order')->orderBy('id')->get()->keyBy('id');
+
+        return $positions->filter(function (OrganizationPosition $position) use ($positions): bool {
+            $parent = $position->parent_id;
+            $seen = [$position->id => true];
+            while ($parent !== null) {
+                if (isset($seen[$parent]) || ! $positions->has($parent)) {
+                    return false;
+                }
+                $seen[$parent] = true;
+                $parent = $positions[$parent]->parent_id;
+            }
+
+            return true;
+        })->values();
+    }
+
     private function shared(): array
     {
         $profiles = LandingContent::whereIn('key', array_values(self::PROFIL_KEY_MAP))->where('published', true)->pluck('title', 'key');
@@ -145,6 +169,7 @@ class LandingController extends Controller
         }
 
         return [
+            'landingSettings' => LandingContentService::settings(),
             'informasiMenu' => self::INFORMASI_KATEGORI,
             'profilSections' => $sections,
         ];

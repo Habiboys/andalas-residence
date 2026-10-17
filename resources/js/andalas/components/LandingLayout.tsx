@@ -1,3 +1,4 @@
+import { type LandingSettings, mediaUrl } from '../lib/landing-settings';
 import { useEffect, useState } from 'react';
 import { Link, usePage } from '@inertiajs/react';
 import { ChevronDown, Menu, Moon, Sun, X } from 'lucide-react';
@@ -9,6 +10,7 @@ export type LandingSharedProps = {
     auth?: { user: { id: number | string } | null };
     profilSections: Record<string, string>;
     informasiMenu: string[];
+    landingSettings?: LandingSettings;
 };
 
 type Props = {
@@ -21,6 +23,7 @@ const INFORMASI_LABEL: Record<string, string> = {
     sop: 'SOP',
     panduan: 'Panduan',
     pengumuman: 'Pengumuman',
+    berita: 'Berita',
 };
 
 function ThemeToggle({ onLight = false }: { onLight?: boolean }) {
@@ -49,8 +52,9 @@ function ThemeToggle({ onLight = false }: { onLight?: boolean }) {
 
 export default function LandingLayout({ active, children }: Props) {
     const { props } = usePage();
-    const { profilSections, informasiMenu, auth } =
+    const { profilSections, informasiMenu, auth, landingSettings } =
         props as unknown as LandingSharedProps;
+    const site = landingSettings?.site ?? {};
     const accountHref = auth?.user ? dashboardRedirect() : login();
     const accountLabel = auth?.user ? 'Dashboard' : 'Masuk';
     const [openDropdown, setOpenDropdown] = useState<string | null>(null);
@@ -116,7 +120,10 @@ export default function LandingLayout({ active, children }: Props) {
                             className="flex min-w-0 items-center gap-3"
                         >
                             <img
-                                src="/images/logo-andalas-residence.png"
+                                src={
+                                    mediaUrl(site.logo) ||
+                                    '/images/logo-andalas-residence.png'
+                                }
                                 alt=""
                                 className="h-10 w-auto shrink-0"
                             />
@@ -126,12 +133,12 @@ export default function LandingLayout({ active, children }: Props) {
                                 <span
                                     className={`font-display block truncate text-sm md:text-base ${solid ? 'text-base-content' : 'text-white'}`}
                                 >
-                                    Andalas Residence
+                                    {site.name}
                                 </span>
                                 <span
                                     className={`block truncate text-xs font-normal ${solid ? 'text-base-content/70' : 'text-white/90'}`}
                                 >
-                                    Universitas Andalas
+                                    {site.tagline}
                                 </span>
                             </span>
                         </Link>
@@ -372,14 +379,15 @@ export default function LandingLayout({ active, children }: Props) {
                     <div className="mx-auto grid max-w-7xl grid-cols-1 gap-10 px-4 py-14 sm:grid-cols-2 md:px-6 lg:grid-cols-12 lg:gap-12">
                         <div className="lg:col-span-4">
                             <img
-                                src="/images/logo-andalas-residence.png"
+                                src={
+                                    mediaUrl(site.logo) ||
+                                    '/images/logo-andalas-residence.png'
+                                }
                                 alt=""
                                 className="mb-4 h-12 w-auto"
                             />
                             <p className="max-w-md text-sm leading-relaxed text-white/75">
-                                Asrama mahasiswa Universitas Andalas, hunian
-                                untuk mendukung aktivitas belajar dan pembinaan
-                                karakter.
+                                {site.description}
                             </p>
                         </div>
 
@@ -453,8 +461,7 @@ export default function LandingLayout({ active, children }: Props) {
                     </div>
 
                     <div className="border-t border-white/10 py-4 text-center text-xs text-white/60">
-                        © {new Date().getFullYear()} Andalas Residence,
-                        Universitas Andalas
+                        © {new Date().getFullYear()} {site.footer}
                     </div>
                 </footer>
             </div>

@@ -5,12 +5,12 @@ namespace App\Http\Controllers;
 use App\Models\Kamar;
 use App\Models\Lantai;
 use App\Services\ResidenceBuildingAccess;
-use App\Services\RoomEligibility;
 use App\Services\ResidencePhotoGallery;
+use App\Services\RoomEligibility;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class KamarController extends Controller
@@ -94,7 +94,7 @@ class KamarController extends Controller
             'lantai_id' => 'required|uuid|exists:lantai,id',
             'nomor_kamar' => 'required|string|max:20',
             'kapasitas' => 'required|integer|min:1|max:10',
-            'tipe_kamar' => 'nullable|in:standar,medium,premium,umum,umum_vip',
+            'tipe_kamar' => ['nullable', Rule::exists('room_types', 'code')],
             'tarif_per_periode' => 'nullable|numeric|min:0',
             'status' => 'nullable|in:kosong,terisi_sebagian,penuh,maintenance',
             'foto' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:2048'],
@@ -125,14 +125,17 @@ class KamarController extends Controller
             ...app(ResidencePhotoGallery::class)->rules(),
             'nomor_kamar' => 'sometimes|string|max:20',
             'kapasitas' => 'sometimes|integer|min:1|max:10',
-            'tipe_kamar' => 'sometimes|in:standar,medium,premium,umum,umum_vip',
+            'tipe_kamar' => ['sometimes', Rule::exists('room_types', 'code')],
             'tarif_per_periode' => 'nullable|numeric|min:0',
             'status' => 'sometimes|in:kosong,terisi_sebagian,penuh,maintenance',
             'foto' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:2048'],
             'remove_foto' => ['sometimes', 'boolean'],
         ]);
 
-        if (! RoomEligibility::allowsType($kamar->lantai->gedung, $validated['tipe_kamar'] ?? $kamar->tipe_kamar, (int) ($validated['kapasitas'] ?? $kamar->kapasitas))) {
+        $type = $validated['tipe_kamar'] ?? $kamar->tipe_kamar;
+        $capacity = (int) ($validated['kapasitas'] ?? $kamar->kapasitas);
+        $typeChanged = $type !== $kamar->tipe_kamar || $capacity !== $kamar->kapasitas;
+        if ($typeChanged && ! RoomEligibility::allowsType($kamar->lantai->gedung, $type, $capacity)) {
             throw ValidationException::withMessages(['tipe_kamar' => 'Tipe tidak aktif atau kapasitas melebihi batas master tipe gedung.']);
         }
         app(ResidencePhotoGallery::class)->save($kamar, $request, $validated);

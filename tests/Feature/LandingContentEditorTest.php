@@ -32,7 +32,7 @@ test('content creation opens a dedicated editor with navigation context', functi
     $this->actingAs(landingEditorUser())->get(route('andalas.landing.editor.create', $section))
         ->assertInertia(fn (Assert $page) => $page->component('admin/landing-editor')
             ->where('section', $section)->where('record', null)->has('initialUser')
-            ->where('returnUrl', route('admin.kelola-'.$section)));
+            ->where('returnUrl', route('andalas.landing.manage', ['section' => $section === 'informasi' ? 'pengumuman' : $section])));
 })->with(['informasi', 'program', 'testimoni']);
 
 test('profile editor preserves legacy line breaks and accepts rich text', function () {
@@ -65,7 +65,7 @@ test('saving rich information retains formatting removes unsafe markup and retur
     $this->actingAs(landingEditorUser())->post(route('andalas.landing.informasi.store'), [
         'kategori' => 'panduan', 'judul' => 'Panduan hunian', 'published' => false,
         'konten' => '<h2>Persiapan</h2><ul><li><strong>Kartu identitas</strong></li></ul><script>alert(1)</script><img src="/storage/guide.png" onerror="alert(1)">',
-    ])->assertSessionHasNoErrors()->assertRedirect(route('admin.kelola-informasi'));
+    ])->assertSessionHasNoErrors()->assertRedirect(route('andalas.landing.manage', ['section' => 'panduan']));
     $item = Informasi::where('judul', 'Panduan hunian')->firstOrFail();
     expect($item->konten)->toContain('<h2>Persiapan</h2>', '<li><strong>Kartu identitas</strong></li>', 'src="/storage/guide.png"')
         ->not->toContain('<script', 'onerror');
@@ -79,10 +79,10 @@ test('multipart editing replaces documents and preserves them when no replacemen
     $this->actingAs(landingEditorUser())->post(route('andalas.landing.informasi.update', $item), [
         '_method' => 'put', 'judul' => 'SOP terbaru', 'konten' => '<ol><li>Daftar</li></ol>',
         'file' => UploadedFile::fake()->create('panduan.pdf', 50, 'application/pdf'),
-    ])->assertSessionHasNoErrors()->assertRedirect(route('admin.kelola-informasi'));
+    ])->assertSessionHasNoErrors()->assertRedirect(route('andalas.landing.manage', ['section' => 'sop']));
     $path = $item->fresh()->file;
     Storage::disk('public')->assertExists($path);
-    Storage::disk('public')->assertMissing('informasi/old.pdf');
+    Storage::disk('public')->assertExists('informasi/old.pdf');
     $this->put(route('andalas.landing.informasi.update', $item), ['judul' => 'SOP revisi', 'file' => null])->assertSessionHasNoErrors();
     expect($item->fresh()->file)->toBe($path);
     Storage::disk('public')->assertExists($path);

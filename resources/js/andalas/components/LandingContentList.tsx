@@ -40,9 +40,11 @@ const labels: Record<Section, string> = {
 export default function LandingContentList({
     section,
     rows,
+    category,
 }: {
     section: Section;
     rows: LandingRow[];
+    category?: string;
 }) {
     const [deleting, setDeleting] = useState<{
         row: LandingRow;
@@ -69,7 +71,13 @@ export default function LandingContentList({
                       label: 'Kategori',
                       filter: {
                           type: 'select' as const,
-                          options: ['pengumuman', 'regulasi', 'sop', 'panduan'],
+                          options: [
+                              'berita',
+                              'pengumuman',
+                              'regulasi',
+                              'sop',
+                              'panduan',
+                          ],
                       },
                   },
                   {
@@ -144,13 +152,26 @@ export default function LandingContentList({
     return (
         <div className="space-y-6">
             <PageHeader
-                title={`Kelola ${labels[section]}`}
+                title={
+                    section === 'informasi' && category
+                        ? `Kelola ${category.toUpperCase() === 'SOP' ? 'SOP' : category.charAt(0).toUpperCase() + category.slice(1)}`
+                        : `Kelola ${labels[section]}`
+                }
                 subtitle="Kelola konten yang ditampilkan di situs Andalas Residence."
                 actions={
                     section !== 'profil' && (
                         <Button
                             onClick={() =>
-                                router.visit(create.url({ section }))
+                                router.visit(
+                                    create.url(
+                                        { section },
+                                        {
+                                            query: category
+                                                ? { kategori: category }
+                                                : undefined,
+                                        },
+                                    ),
+                                )
                             }
                         >
                             <Plus size={16} />

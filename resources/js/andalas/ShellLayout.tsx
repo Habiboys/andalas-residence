@@ -1,3 +1,4 @@
+import { manage as landingManage } from '@/routes/andalas/landing';
 import { useEffect, useState } from 'react';
 import { Link, usePage, router } from '@inertiajs/react';
 import { edit as profileEdit } from '@/routes/profile';
@@ -155,6 +156,10 @@ function ShellInner({
                           : pimpinanRoutes;
 
     const nav = (slug: string) => {
+        if (slug.startsWith('landing-page/')) {
+            router.visit(landingManage.url(slug.slice('landing-page/'.length)));
+            return;
+        }
         if (slug.startsWith('master-data/')) {
             router.visit(
                 adminRoutes.masterDataSection.url({

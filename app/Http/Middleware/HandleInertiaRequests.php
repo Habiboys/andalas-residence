@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\RoomType;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -39,6 +40,7 @@ class HandleInertiaRequests extends Middleware
         return [
             ...parent::share($request),
             'name' => config('app.name'),
+            'roomTypeCatalog' => fn () => RoomType::orderBy('created_at')->orderBy('code')->get(['id', 'code', 'name', 'active']),
             'ssoUrl' => config('services.unand_sso.url'),
             'auth' => [
                 'user' => $request->user()

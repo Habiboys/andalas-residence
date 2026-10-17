@@ -18,7 +18,10 @@ use App\Http\Controllers\KeuanganController;
 use App\Http\Controllers\KotaController;
 use App\Http\Controllers\LandingContentController;
 use App\Http\Controllers\LandingController;
+use App\Http\Controllers\LandingPageManagementController;
 use App\Http\Controllers\MahasiswaController;
+use App\Http\Controllers\MediaAssetController;
+use App\Http\Controllers\OrganizationPositionController;
 use App\Http\Controllers\PembayaranController;
 use App\Http\Controllers\PengajuanController;
 use App\Http\Controllers\PeriodeController;
@@ -29,6 +32,7 @@ use App\Http\Controllers\ResidenceDetailController;
 use App\Http\Controllers\ResidenceManagementController;
 use App\Http\Controllers\ResidenceRegistrationController;
 use App\Http\Controllers\RoomInvitationController;
+use App\Http\Controllers\RoomTypeController;
 use App\Http\Controllers\StokAsetController;
 use App\Http\Controllers\TeknisiController;
 use App\Http\Controllers\TemporaryStayController;
@@ -69,6 +73,8 @@ Route::middleware(['auth', 'verified', EnsureResidenceAccountAccess::class])->gr
     });
 
     Route::prefix('admin/master-data')->name('admin.master-data.')->middleware('role:staff_admin|superadmin')->group(function () {
+        Route::post('/tipe-kamar', [RoomTypeController::class, 'store'])->name('tipe-kamar.store');
+        Route::put('/tipe-kamar/{roomType}', [RoomTypeController::class, 'update'])->name('tipe-kamar.update');
         Route::post('/jenis-kegiatan', [ActivityMasterController::class, 'storeType'])->name('jenis-kegiatan.store');
         Route::put('/jenis-kegiatan/{type}', [ActivityMasterController::class, 'updateType'])->name('jenis-kegiatan.update');
         Route::delete('/jenis-kegiatan/{type}', [ActivityMasterController::class, 'destroyType'])->name('jenis-kegiatan.destroy');
@@ -99,6 +105,14 @@ Route::middleware(['auth', 'verified', EnsureResidenceAccountAccess::class])->gr
     });
 
     Route::prefix('andalas')->name('andalas.')->group(function () {
+        Route::get('/landing/manage/{section?}', [LandingPageManagementController::class, 'index'])->name('landing.manage');
+        Route::put('/landing/settings', [LandingPageManagementController::class, 'updateSettings'])->name('landing.settings');
+        Route::get('/landing/media', [MediaAssetController::class, 'index'])->name('landing.media.index');
+        Route::post('/landing/media', [MediaAssetController::class, 'store'])->name('landing.media.store');
+        Route::delete('/landing/media/{asset}', [MediaAssetController::class, 'destroy'])->name('landing.media.destroy');
+        Route::post('/landing/organization', [OrganizationPositionController::class, 'store'])->name('landing.organization.store');
+        Route::put('/landing/organization/{position}', [OrganizationPositionController::class, 'update'])->name('landing.organization.update');
+        Route::delete('/landing/organization/{position}', [OrganizationPositionController::class, 'destroy'])->name('landing.organization.destroy');
         // Landing content management (admin)
         Route::get('/landing/editor/{section}/create', [LandingContentController::class, 'create'])->name('landing.editor.create');
         Route::get('/landing/editor/{section}/{id}/edit', [LandingContentController::class, 'edit'])->name('landing.editor.edit');

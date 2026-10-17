@@ -9,6 +9,25 @@ import { create, show } from '@/routes/andalas/gedung';
 vi.mock('@inertiajs/react', async (importOriginal) => ({
     ...(await importOriginal<typeof import('@inertiajs/react')>()),
     Head: () => null,
+    usePage: () => ({
+        props: {
+            roomTypeCatalog: [
+                'standar',
+                'medium',
+                'premium',
+                'umum',
+                'umum_vip',
+            ].map((code) => ({
+                id: code,
+                code,
+                name:
+                    code === 'umum_vip'
+                        ? 'Umum VIP'
+                        : code.charAt(0).toUpperCase() + code.slice(1),
+                active: true,
+            })),
+        },
+    }),
 }));
 
 const building = {
@@ -109,7 +128,7 @@ describe('building management stages', () => {
         expect(html).toContain('Kapasitas penghuni');
         const profile = html.slice(
             html.indexOf('aria-label="Profil gedung"'),
-            html.indexOf('Master tipe kamar'),
+            html.indexOf('Tipe kamar gedung'),
         );
         expect(profile).not.toContain('<table');
         expect(profile).toContain('font-bold');

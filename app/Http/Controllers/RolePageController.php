@@ -41,7 +41,6 @@ use App\Models\User;
 use App\Models\VirtualAccount;
 use App\Services\AttendanceEligibility;
 use App\Services\FloorRoomAvailability;
-use App\Services\LandingContentService;
 use App\Services\MasterDataService;
 use App\Services\ResidenceBuildingAccess;
 use App\Services\ResidenceLifecycle;
@@ -64,6 +63,10 @@ class RolePageController extends Controller
         $component = (string) $request->route()->defaults['component'];
         $role = (string) $request->route()->defaults['role'];
         $page = (string) $request->route()->defaults['page'];
+        $landingSections = ['kelola-profil' => 'sejarah', 'kelola-informasi' => 'pengumuman', 'kelola-program' => 'program', 'kelola-testimoni' => 'testimoni'];
+        if (isset($landingSections[$page])) {
+            return app(LandingPageManagementController::class)->index($request, $landingSections[$page]);
+        }
 
         if ($request->user()->hasRole('mahasiswa') && in_array($page, ['perizinan', 'absensi'], true)) {
             abort_unless($request->user()->mahasiswaProfil && app(AttendanceEligibility::class)->isEligible($request->user()->mahasiswaProfil, now()), 403);
@@ -180,10 +183,6 @@ class RolePageController extends Controller
             'kelola-bangunan' => ['gedung' => $this->buildingManagementTree()],
             'kelola-aset' => $this->assetPayload($request),
             'stok-aset' => $this->stockPayload($request),
-            'kelola-profil' => ['contents' => LandingContentService::contents()],
-            'kelola-informasi' => ['informasi' => LandingContentService::informasi()],
-            'kelola-program' => ['program' => LandingContentService::programs()],
-            'kelola-testimoni' => ['testimoni' => LandingContentService::testimonials()],
             'jadwal' => ['kegiatan' => $this->activityQuery($request)->with('gedung')->latest('tanggal_mulai')->get()],
             'laporan-keuangan', 'keuangan' => [
                 'transaksi' => TransaksiKeuangan::with(['kategori', 'pencatat'])->latest('tanggal_transaksi')->get(),

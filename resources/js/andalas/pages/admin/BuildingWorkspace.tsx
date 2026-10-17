@@ -1,3 +1,4 @@
+import { useRoomTypeCatalog, roomTypeName } from '@/andalas/lib/room-types';
 import { Pencil, Trash2 } from 'lucide-react';
 import { PhotoCarousel, photoPaths } from '../../components/PhotoGallery';
 import { useState, type ReactNode } from 'react';
@@ -75,7 +76,6 @@ type Building = {
     lantai?: Floor[];
     fasilitas_umum?: Facility[];
 };
-const types = ['standar', 'medium', 'premium', 'umum', 'umum_vip'];
 const categories: Record<string, string> = {
     local_kipk: 'Maba lokal KIP-K',
     local_non_kipk: 'Maba lokal non-KIP-K',
@@ -85,10 +85,7 @@ const categories: Record<string, string> = {
     non_student: 'Non-mahasiswa',
     summer_course: 'Summer Course',
 };
-const label = (value: string) =>
-    value === 'umum_vip'
-        ? 'Umum VIP'
-        : value.charAt(0).toUpperCase() + value.slice(1);
+
 const steps = ['Informasi Gedung', 'Lantai & Kamar'];
 
 function Errors({ errors }: { errors: Record<string, string> }) {
@@ -214,6 +211,8 @@ function TypeEditor({
     definition: RoomType;
     onClose: () => void;
 }) {
+    const catalog = useRoomTypeCatalog();
+    const label = (code: string) => roomTypeName(catalog, code);
     const form = useForm({
         gedung_id: building.id,
         ...definition,
@@ -316,6 +315,11 @@ function RateEditor({
     rate?: Rate;
     onClose: () => void;
 }) {
+    const catalog = useRoomTypeCatalog();
+    const types = catalog
+        .filter((type) => type.active)
+        .map((type) => type.code);
+    const label = (code: string) => roomTypeName(catalog, code);
     const enabled = types.filter(
         (type) =>
             building.room_types == null ||
@@ -560,6 +564,17 @@ export default function BuildingWorkspace({
     canManageAvailability?: boolean;
     initialStep?: number;
 }) {
+    const catalog = useRoomTypeCatalog();
+    const types = catalog
+        .filter(
+            (type) =>
+                type.active ||
+                building.room_types?.some(
+                    (definition) => definition.type === type.code,
+                ),
+        )
+        .map((type) => type.code);
+    const label = (code: string) => roomTypeName(catalog, code);
     const [step, setStep] = useState(initialStep);
     const [editingCategories, setEditingCategories] = useState(false);
     const [editingType, setEditingType] = useState<string | null>(null);
@@ -742,7 +757,7 @@ export default function BuildingWorkspace({
                                 </section>
                             </div>
                         </Panel>
-                        <Panel title="Master tipe kamar">
+                        <Panel title="Tipe kamar gedung">
                             <div className="overflow-x-auto">
                                 <table className="table-sm table">
                                     <thead>
@@ -778,9 +793,15 @@ export default function BuildingWorkspace({
                                                         {label(type)}
                                                     </td>
                                                     <td>
-                                                        {definition.enabled
-                                                            ? 'Ya'
-                                                            : 'Tidak'}
+                                                        {!catalog.find(
+                                                            (item) =>
+                                                                item.code ===
+                                                                type,
+                                                        )?.active
+                                                            ? 'Nonaktif di master'
+                                                            : definition.enabled
+                                                              ? 'Ya'
+                                                              : 'Tidak'}
                                                     </td>
                                                     <td>
                                                         {definition.max_capacity ==
@@ -796,6 +817,15 @@ export default function BuildingWorkspace({
                                                         <td className="text-right">
                                                             <IconButton
                                                                 label={`Edit tipe ${label(type)}`}
+                                                                disabled={
+                                                                    !catalog.find(
+                                                                        (
+                                                                            item,
+                                                                        ) =>
+                                                                            item.code ===
+                                                                            type,
+                                                                    )?.active
+                                                                }
                                                                 icon={Pencil}
                                                                 tone="text-warning hover:bg-warning/10"
                                                                 onClick={() =>

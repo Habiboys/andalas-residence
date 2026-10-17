@@ -9,7 +9,15 @@ export type Testimoni = {
     foto: string | null;
 };
 
-export default function TestimonialSlider({ items }: { items: Testimoni[] }) {
+export default function TestimonialSlider({
+    items,
+    title = 'Pengalaman penghuni',
+    description = '{description}',
+}: {
+    items: Testimoni[];
+    title?: string;
+    description?: string;
+}) {
     const [paused, setPaused] = useState(false);
 
     if (items.length === 0) return null;
@@ -32,11 +40,10 @@ export default function TestimonialSlider({ items }: { items: Testimoni[] }) {
                         id="testimonial-heading"
                         className="font-display text-2xl leading-tight md:text-3xl"
                     >
-                        Pengalaman penghuni
+                        {title}
                     </h2>
                     <p className="text-muted mt-5 text-sm leading-7">
-                        Tentang keseharian, lingkungan, dan kehidupan bersama di
-                        Andalas Residence.
+                        {description}
                     </p>
                     {sliding && (
                         <button

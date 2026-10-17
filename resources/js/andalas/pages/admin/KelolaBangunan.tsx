@@ -1,3 +1,4 @@
+import { useRoomTypeCatalog, roomTypeName } from '@/andalas/lib/room-types';
 import {
     PhotoEditor,
     photoFields,
@@ -221,6 +222,7 @@ export default function KelolaBangunan({
     createPage = false,
     createReturnUrl,
 }: Props) {
+    const catalog = useRoomTypeCatalog();
     const [selectedFloorId, setSelectedFloorId] = useState('');
     const [gedungStep, setGedungStep] = useState(0);
     const [gedungOpen, setGedungOpen] = useState(createPage);
@@ -520,7 +522,8 @@ export default function KelolaBangunan({
         {
             key: 'tipe_kamar',
             label: 'Tipe',
-            render: (room) => room.tipe_kamar?.replaceAll('_', ' ') ?? '-',
+            render: (room) =>
+                room.tipe_kamar ? roomTypeName(catalog, room.tipe_kamar) : '-',
         },
         { key: 'kapasitas', label: 'Kapasitas' },
         {
@@ -1194,13 +1197,9 @@ export default function KelolaBangunan({
                                 }
                             >
                                 <option value="">Pilih tipe aktif</option>
-                                {[
-                                    'standar',
-                                    'medium',
-                                    'premium',
-                                    'umum',
-                                    'umum_vip',
-                                ]
+                                {catalog
+                                    .filter((type) => type.active)
+                                    .map((type) => type.code)
                                     .filter((type) => {
                                         const building = gedung.find((b) =>
                                             b.lantai?.some(
@@ -1220,10 +1219,7 @@ export default function KelolaBangunan({
                                     })
                                     .map((type) => (
                                         <option key={type} value={type}>
-                                            {type === 'umum_vip'
-                                                ? 'Umum VIP'
-                                                : type.charAt(0).toUpperCase() +
-                                                  type.slice(1)}
+                                            {roomTypeName(catalog, type)}
                                         </option>
                                     ))}
                             </select>

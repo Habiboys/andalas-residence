@@ -1,3 +1,4 @@
+import RoomTypeMaster from './RoomTypeMaster';
 import { useState, type ReactNode } from 'react';
 import { useForm } from '@inertiajs/react';
 import { RefreshCw } from 'lucide-react';
@@ -829,7 +830,13 @@ export default function MasterData({
     return (
         <div className="space-y-4">
             <section className="space-y-4">
-                <div key={section}>{tabs[tab]?.section}</div>
+                <div key={section}>
+                    {section === 'tipe-kamar' ? (
+                        <RoomTypeMaster />
+                    ) : (
+                        tabs[tab]?.section
+                    )}
+                </div>
             </section>
         </div>
     );

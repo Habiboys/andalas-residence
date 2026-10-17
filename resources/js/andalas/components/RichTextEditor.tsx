@@ -1,3 +1,4 @@
+import MediaPicker from './MediaLibrary';
 import { useRef, useState } from 'react';
 import { useEditor, EditorContent, type Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -338,6 +339,7 @@ interface RichTextEditorProps {
     onChange: (html: string) => void;
     placeholder?: string;
     uploadImage?: (file: File) => Promise<string>;
+    mediaPicker?: boolean;
 }
 
 export default function RichTextEditor({
@@ -345,9 +347,11 @@ export default function RichTextEditor({
     onChange,
     placeholder,
     uploadImage,
+    mediaPicker = false,
 }: RichTextEditorProps) {
     const fileRef = useRef<HTMLInputElement>(null);
     const [imageError, setImageError] = useState('');
+    const [libraryOpen, setLibraryOpen] = useState(false);
     const [uploading, setUploading] = useState(false);
 
     const editor = useEditor({
@@ -364,7 +368,9 @@ export default function RichTextEditor({
             TextStyle,
             Color,
             FontSize,
-            ResizableImage.configure({ allowBase64: !uploadImage }),
+            ResizableImage.configure({
+                allowBase64: !uploadImage && !mediaPicker,
+            }),
         ],
         content: value || '',
         onUpdate: ({ editor }) => {
@@ -420,7 +426,8 @@ export default function RichTextEditor({
                 <Toolbar
                     editor={editor}
                     onPickImages={() => {
-                        if (!uploading) fileRef.current?.click();
+                        if (mediaPicker) setLibraryOpen(true);
+                        else if (!uploading) fileRef.current?.click();
                     }}
                 />
             )}
@@ -445,6 +452,19 @@ export default function RichTextEditor({
                 </p>
             )}
             <EditorContent editor={editor} />
+            {mediaPicker && (
+                <MediaPicker
+                    open={libraryOpen}
+                    onClose={() => setLibraryOpen(false)}
+                    onSelect={(asset) =>
+                        editor
+                            ?.chain()
+                            .focus()
+                            .setImage({ src: asset.url, alt: asset.name })
+                            .run()
+                    }
+                />
+            )}
             {!editor && (
                 <div className="text-base-content/50 px-4 py-3 text-xs">
                     {placeholder ?? 'Memuat editor...'}

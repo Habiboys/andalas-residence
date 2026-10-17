@@ -1,3 +1,4 @@
+import { type LandingSettings } from '@/andalas/lib/landing-settings';
 import { Head, Link } from '@inertiajs/react';
 import LandingLayout from '@/andalas/components/LandingLayout';
 import LandingRichContent from '@/andalas/components/LandingRichContent';
@@ -21,6 +22,7 @@ type Program = {
 
 type Props = {
     programs: Program[];
+    landingSettings?: LandingSettings;
 };
 
 export default function ProgramPage(props: Props) {
@@ -31,7 +33,10 @@ export default function ProgramPage(props: Props) {
             <Head title="Program" />
             <LandingLayout active="program">
                 <LandingPageHero
-                    title="Program Andalas Residence"
+                    title={
+                        props.landingSettings?.headings.program_title ??
+                        'Program'
+                    }
                     breadcrumb="Program"
                 />
 
@@ -42,14 +47,13 @@ export default function ProgramPage(props: Props) {
                                 Program Kami
                             </div>
                             <h2 className="text-base-content mb-4 font-[DM_Serif_Display,Georgia,serif] text-4xl leading-tight">
-                                Program Pembinaan
-                                <br />
-                                Mahasiswa
+                                {
+                                    props.landingSettings?.headings
+                                        .program_heading
+                                }
                             </h2>
                             <p className="text-base-content/70 text-base leading-relaxed">
-                                Berbagai program pembinaan dirancang untuk
-                                membentuk karakter, keagamaan, dan prestasi
-                                akademik mahasiswa Andalas Residence.
+                                {props.landingSettings?.headings.program_intro}
                             </p>
                         </div>
 

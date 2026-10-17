@@ -11,6 +11,20 @@ type RoleKey =
     | 'pimpinan';
 
 const ADMIN_PAGES: Record<string, string> = {
+    'landing-page/beranda': 'Beranda & Hero',
+    'landing-page/sejarah': 'Sejarah',
+    'landing-page/visi-misi': 'Visi & Misi',
+    'landing-page/struktur-organisasi': 'Struktur Organisasi',
+    'landing-page/kontak': 'Kontak & Identitas Situs',
+    'landing-page/media': 'Pustaka Media',
+    'landing-page/galeri': 'Galeri',
+    'landing-page/berita': 'Berita',
+    'landing-page/pengumuman': 'Pengumuman',
+    'landing-page/regulasi': 'Regulasi',
+    'landing-page/sop': 'SOP',
+    'landing-page/panduan': 'Panduan',
+    'landing-page/program': 'Program',
+    'landing-page/testimoni': 'Testimoni',
     'temporary-stays': 'Hunian Sementara',
     'residence-management': 'Pengaturan Layanan',
     invoices: 'Invoice',

@@ -1,3 +1,4 @@
+import { useRoomTypeCatalog, roomTypeName } from '@/andalas/lib/room-types';
 import { PhotoCarousel, photoPaths } from '../../components/PhotoGallery';
 import { PageHeader, Card } from '../../components/ui';
 type Penempatan = {
@@ -18,6 +19,7 @@ export default function DetailKamar({
 }: {
     penempatan?: Penempatan[];
 }) {
+    const catalog = useRoomTypeCatalog();
     const mine = penempatan?.[0];
 
     return (
@@ -52,7 +54,12 @@ export default function DetailKamar({
                             </p>
                             <p>
                                 <strong>Tipe:</strong>{' '}
-                                {mine.kamar?.tipe_kamar ?? '-'}
+                                {mine.kamar?.tipe_kamar
+                                    ? roomTypeName(
+                                          catalog,
+                                          mine.kamar.tipe_kamar,
+                                      )
+                                    : '-'}
                             </p>
                             <p>
                                 <strong>Status:</strong>{' '}
