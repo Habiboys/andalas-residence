@@ -10,7 +10,13 @@ class Residence2026StudentSeeder extends Seeder
     public function run(): void
     {
         $import = app(Residence2026StudentImport::class);
-        $result = $import->apply($import->read());
+        $result = $import->apply($import->read(), function (int $processed, int $total): void {
+            $this->command?->line('Impor mahasiswa: '.$processed.'/'.$total.' diproses (transaksi belum selesai).');
+        });
+        $this->command?->info('Transaksi impor mahasiswa selesai.');
+        foreach (['room_issues' => 'Penyebab kamar ditunda', 'program_issues' => 'Penyebab prodi belum cocok'] as $key => $title) {
+            $this->command?->info($title.': '.json_encode($result[$key], JSON_UNESCAPED_UNICODE));
+        }
         foreach ($result['warnings'] as $warning) {
             $this->command?->warn($warning);
         }
