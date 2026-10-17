@@ -34,3 +34,23 @@ it('lists placements and exposes a detail action per row', () => {
         expect(html).toContain(text);
     }
 });
+
+it('shows imported payment confirmation directly in the placement list', () => {
+    const html = renderToStaticMarkup(
+        <PenempatanKamar
+            penempatan={[
+                {
+                    id: 'imported',
+                    status: 'aktif',
+                    import_payment_confirmation: {
+                        status: 'confirmed_paid',
+                        reconciliation_status: 'pending',
+                    },
+                },
+            ]}
+        />,
+    );
+    expect(html).toContain('Pembayaran hunian');
+    expect(html).toContain('Sudah membayar - konfirmasi impor');
+    expect(html).not.toContain('Belum bayar');
+});

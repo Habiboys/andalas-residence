@@ -178,6 +178,7 @@ class RolePageController extends Controller
                     'mahasiswa.prodi',
                     'mahasiswa.pembayaran' => fn ($query) => $query->latest('tanggal_bayar'),
                     'kamar.lantai.gedung',
+                    'registration.tagihan',
                 ])->latest()->get(),
                 'gedung' => $this->gedungTree($request->user()),
             ],
@@ -498,6 +499,7 @@ class RolePageController extends Controller
             ...$detailed ? [
                 'lantai.kamar.aset',
                 'lantai.kamar.penempatanKamar.mahasiswa.prodi',
+                'lantai.kamar.penempatanKamar.registration.tagihan',
                 'lantai.kamar.penempatanKamar.mahasiswa.pembayaran' => fn ($query) => $query->latest('tanggal_bayar'),
             ] : [],
         ])->get()->toArray();

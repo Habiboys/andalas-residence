@@ -8,11 +8,21 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class PenempatanKamar extends BaseModel
 {
+    public const IMPORT_PAYMENT_CONFIRMATION_2026 = [
+        'status' => 'confirmed_paid',
+        'source' => 'checkin_excel_2026',
+        'confirmation_basis' => 'owner_confirmed_checkin',
+        'reconciliation_status' => 'pending',
+        'amount' => null,
+        'paid_at' => null,
+    ];
+
     protected $table = 'penempatan_kamar';
 
     protected $fillable = [
         'mahasiswa_id', 'kamar_id', 'periode_id', 'tanggal_mulai',
         'tanggal_selesai', 'status', 'diproses_oleh', 'catatan',
+        'import_payment_confirmation',
     ];
 
     /** @return HasOne<ResidenceRegistration, $this> */
@@ -26,6 +36,7 @@ class PenempatanKamar extends BaseModel
         return [
             'tanggal_mulai' => 'date',
             'tanggal_selesai' => 'date',
+            'import_payment_confirmation' => 'array',
         ];
     }
 

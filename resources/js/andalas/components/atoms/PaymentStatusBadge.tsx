@@ -1,4 +1,4 @@
-import { formatRupiah, mapPaymentStatus } from '../../lib/format';
+import { formatRupiah } from '../../lib/format';
 import { Badge, StatusBadge } from './Badge';
 
 export type ResidentPayment = {
@@ -18,24 +18,93 @@ export function latestPayment(
     return paid[0] ?? pembayaran?.[0];
 }
 
-/*
- * A resident may have several payments (sewa per period of a cicilan). Show the
- * most recent one so "lunas atau belum" is answerable at a glance; the nominal
- * makes the badge meaningful without opening the payment page.
- */
+export type ResidenceInvoice = {
+    status: string;
+    total: string | number;
+    total_dibayar: string | number;
+    sponsor_total?: string | number;
+};
+export type ImportPaymentConfirmation = {
+    status: string;
+    source?: string;
+    reconciliation_status: string;
+};
+export type PlacementPayment = {
+    import_payment_confirmation?: ImportPaymentConfirmation | null;
+    registration?: { tagihan?: ResidenceInvoice | null } | null;
+};
+
 export function PaymentStatusBadge({
     pembayaran,
+    invoice,
+    confirmation,
 }: {
     pembayaran?: ResidentPayment[] | null;
+    invoice?: ResidenceInvoice | null;
+    confirmation?: ImportPaymentConfirmation | null;
 }) {
-    const latest = latestPayment(pembayaran);
-    if (!latest) {
-        return <Badge>Belum bayar</Badge>;
+    if (invoice) {
+        const total = Number(invoice.total);
+        const paid = Number(invoice.total_dibayar);
+        const remaining = Math.max(0, total - paid);
+        if (invoice.status === 'batal')
+            return <Badge>Tagihan dibatalkan</Badge>;
+        if (invoice.status === 'draft')
+            return <Badge>Tagihan belum diterbitkan</Badge>;
+        if (total <= 0)
+            return (
+                <Badge color="green">
+                    {Number(invoice.sponsor_total ?? 0) > 0
+                        ? 'Ditanggung sponsor'
+                        : 'Tidak ada kewajiban bayar'}
+                </Badge>
+            );
+        return (
+            <span className="inline-flex flex-wrap items-center gap-2">
+                <Badge
+                    color={
+                        remaining < 0.005
+                            ? 'green'
+                            : paid > 0
+                              ? 'yellow'
+                              : 'gray'
+                    }
+                >
+                    {remaining < 0.005
+                        ? 'Lunas'
+                        : paid > 0
+                          ? 'Dibayar sebagian'
+                          : 'Belum dibayar'}
+                </Badge>
+                {remaining >= 0.005 && (
+                    <span className="text-muted text-xs">
+                        Sisa {formatRupiah(remaining)}
+                    </span>
+                )}
+            </span>
+        );
     }
-
+    if (confirmation?.status === 'confirmed_paid') {
+        return (
+            <span className="inline-flex flex-col gap-1">
+                <Badge color="green">Sudah membayar - konfirmasi impor</Badge>
+                {confirmation.reconciliation_status === 'pending' && (
+                    <span className="text-muted text-xs">
+                        Rincian transaksi belum direkonsiliasi
+                    </span>
+                )}
+            </span>
+        );
+    }
+    const latest = latestPayment(pembayaran);
+    if (!latest) return <Badge>Belum ada tagihan</Badge>;
     return (
         <span className="inline-flex flex-wrap items-center gap-2">
-            <StatusBadge status={mapPaymentStatus(latest.status)} />
+            {latest.status === 'lunas' ? (
+                <Badge color="blue">Pembayaran tercatat</Badge>
+            ) : (
+                <StatusBadge status={latest.status} />
+            )}
             {latest.nominal != null && String(latest.nominal) !== '' && (
                 <span className="text-identifier text-muted text-xs">
                     {formatRupiah(Number(latest.nominal))}

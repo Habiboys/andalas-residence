@@ -45,7 +45,7 @@ it('opens the room detail with assets, residents and their payment status', () =
         '2599000001',
         'Teknik Informatika',
         'Angkatan 2025',
-        'Terverifikasi',
+        'Pembayaran tercatat',
         '900.000',
     ]) {
         expect(html).toContain(text);
@@ -67,4 +67,30 @@ it('shows an empty state when the room has no assets or residents yet', () => {
 
     expect(html).toContain('Belum ada aset terdaftar di kamar ini.');
     expect(html).toContain('Kamar ini belum berpenghuni.');
+});
+
+it('uses the placement import confirmation in the room resident detail', () => {
+    const html = renderToStaticMarkup(
+        <RoomDetailModal
+            onClose={() => {}}
+            room={{
+                id: 'import',
+                nomor_kamar: '101',
+                kapasitas: 2,
+                status: 'terisi_sebagian',
+                penempatan_kamar: [
+                    {
+                        import_payment_confirmation: {
+                            status: 'confirmed_paid',
+                            reconciliation_status: 'pending',
+                        },
+                        mahasiswa: { user: { nama: 'Penghuni Impor' } },
+                    },
+                ],
+            }}
+        />,
+    );
+    expect(html).toContain('Sudah membayar - konfirmasi impor');
+    expect(html).toContain('Rincian transaksi belum direkonsiliasi');
+    expect(html).not.toContain('Belum bayar');
 });

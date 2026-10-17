@@ -3,6 +3,7 @@ import { StatusBadge } from '../atoms/Badge';
 import {
     PaymentStatusBadge,
     type ResidentPayment,
+    type PlacementPayment,
 } from '../atoms/PaymentStatusBadge';
 import { formatDate } from '../../lib/format';
 
@@ -14,7 +15,7 @@ export type RoomAsset = {
     kondisi: string;
 };
 
-export type RoomResident = {
+export type RoomResident = PlacementPayment & {
     mahasiswa?: {
         user?: {
             nama?: string;
@@ -134,7 +135,11 @@ export function ResidentDetail({ resident }: { resident: RoomResident }) {
             </p>
             <div className="flex flex-wrap items-center gap-2 text-xs">
                 <span className="text-muted">Pembayaran:</span>
-                <PaymentStatusBadge pembayaran={mahasiswa?.pembayaran} />
+                <PaymentStatusBadge
+                    pembayaran={mahasiswa?.pembayaran}
+                    invoice={resident.registration?.tagihan}
+                    confirmation={resident.import_payment_confirmation}
+                />
             </div>
         </li>
     );

@@ -157,7 +157,7 @@ class Residence2026StudentImport
                             $reason = 'over_capacity';
                             $message = 'penghuni sumber '.$occupants.' orang, kapasitas master '.$room->kapasitas.'.';
                         } else {
-                            $message = $this->place($profile, $room, $period);
+                            $message = $this->place($profile, $room, $period, $source);
                             $reason = $message !== null ? 'existing_state' : null;
                         }
                         if ($reason !== null) {
@@ -282,16 +282,21 @@ class Residence2026StudentImport
         return $phones->count() === 1 ? $phones->first() : null;
     }
 
-    private function place(MahasiswaProfil $profile, Kamar $candidate, Periode $period): ?string
+    /** @param array<string, mixed> $source */
+    private function place(MahasiswaProfil $profile, Kamar $candidate, Periode $period, array $source): ?string
     {
         Gedung::whereKey($candidate->lantai->gedung_id)->lockForUpdate()->firstOrFail();
         $room = Kamar::whereKey($candidate->id)->lockForUpdate()->firstOrFail();
         $paymentNote = 'Pembayaran hunian sudah diterima berdasarkan konfirmasi pengelola atas status check-in Excel; tidak ditagih ulang untuk impor ini. Nominal dan tanggal transaksi asli belum direkonsiliasi.';
+        $confirmation = [...PenempatanKamar::IMPORT_PAYMENT_CONFIRMATION_2026, 'source_sheet' => $source['sheet'], 'source_row' => $source['row']];
         $placements = $profile->penempatanKamar()->where('status', 'aktif')->get();
         if ($placements->count() === 1 && $placements->first()->kamar_id === $room->id && $placements->first()->periode_id === $period->id) {
             $placement = $placements->first();
             if (str_starts_with($placement->catatan ?? '', 'Impor check-in Excel 2026.') && ! str_contains($placement->catatan, $paymentNote)) {
                 $placement->update(['catatan' => $placement->catatan.' '.$paymentNote]);
+            }
+            if (str_starts_with($placement->catatan ?? '', 'Impor check-in Excel 2026.') && $placement->import_payment_confirmation === null) {
+                $placement->update(['import_payment_confirmation' => $confirmation]);
             }
 
             return null;
@@ -315,6 +320,7 @@ class Residence2026StudentImport
             'mahasiswa_id' => $profile->id, 'kamar_id' => $room->id, 'periode_id' => $period->id,
             'tanggal_mulai' => $period->tanggal_mulai, 'status' => 'aktif',
             'catatan' => 'Impor check-in Excel 2026. Tanggal masuk disamakan dengan awal periode sebagai tanggal administratif, bukan tanggal check-in asli. '.$paymentNote,
+            'import_payment_confirmation' => $confirmation,
         ]);
         $profile->update(['status_huni' => 'aktif', 'periode_id' => $period->id, 'tanggal_masuk' => $period->tanggal_mulai]);
         $occupied++;

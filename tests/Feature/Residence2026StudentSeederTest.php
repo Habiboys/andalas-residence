@@ -61,6 +61,8 @@ it('creates imported profiles and historical checkins once with an administrativ
     $this->assertDatabaseCount('penempatan_kamar', 1);
     expect(PenempatanKamar::sole()->tanggal_mulai->toDateString())->toBe('2026-08-01');
     expect(PenempatanKamar::sole()->catatan)->toContain('Pembayaran hunian sudah diterima')->toContain('tidak ditagih ulang');
+    expect(PenempatanKamar::sole()->import_payment_confirmation)
+        ->toMatchArray(['status' => 'confirmed_paid', 'source' => 'checkin_excel_2026', 'reconciliation_status' => 'pending', 'amount' => null, 'paid_at' => null, 'source_sheet' => 'RPX(ADA KIPK)', 'source_row' => 3]);
     $this->assertDatabaseHas('penempatan_kamar', ['kamar_id' => $room->id, 'status' => 'aktif']);
     $this->assertDatabaseHas('mahasiswa_profil', ['user_id' => $user->id, 'status_huni' => 'aktif']);
     $this->assertDatabaseCount('tagihan', 0);
@@ -218,4 +220,18 @@ it('refuses to place a matched account whose gender disagrees with the building'
 
     expect($result['pending_rooms'])->toBe(1);
     $this->assertDatabaseCount('penempatan_kamar', 0);
+});
+
+it('preserves an existing reconciliation when the student import runs again', function () {
+    resident2026Room();
+    $import = app(Residence2026StudentImport::class);
+    $data = ['students' => [resident2026Record()], 'unresolved' => []];
+    $import->apply($data);
+    $placement = PenempatanKamar::sole();
+    $confirmation = [...$placement->import_payment_confirmation, 'reconciliation_status' => 'reconciled', 'reference' => 'BANK-ORIGINAL'];
+    $placement->update(['import_payment_confirmation' => $confirmation]);
+    $import->apply($data);
+    expect($placement->fresh()->import_payment_confirmation)->toBe($confirmation);
+    $this->assertDatabaseCount('penempatan_kamar', 1);
+    $this->assertDatabaseCount('pembayaran_tagihan', 0);
 });

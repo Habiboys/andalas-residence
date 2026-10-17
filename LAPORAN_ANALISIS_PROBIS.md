@@ -285,3 +285,13 @@ Perubahan kode lokal untuk dua temuan tersebut sudah diterapkan:
 - Sebelum sesi selesai, peserta tanpa scan atau izin sah berstatus Belum absen; sesudahnya berstatus Alfa. Riwayat scan lama yang belum memiliki daftar peserta tetap ditampilkan.
 
 Validasi terkait: 46 tes backend dan 4 tes tampilan lolos, termasuk batas bulanan, lintas tahun, kembali lebih awal, persetujuan sakit, perlindungan koreksi manual, serta kegiatan pagi WIB yang tanggal UTC-nya berbeda. TypeScript dan build juga diperiksa. Perubahan ini belum diterapkan ke produksi. Bagian 1–11 tetap merupakan catatan audit terhadap commit awal, bukan klaim bahwa temuan lain telah diselesaikan.
+
+## 13. Tindak lanjut T04 — 17 Oktober 2026
+
+Konfirmasi pembayaran impor sekarang disimpan sebagai data terstruktur pada penempatan, sehingga berlaku untuk hunian/periode terkait. Migrasi biasa mengisi konfirmasi untuk penempatan bertanda impor check-in Excel 2026 pada periode 2026/2027. Penempatan manual dan periode lain tidak ikut diubah. Seeder baru menyimpan sumber sheet/baris dan mempertahankan hasil rekonsiliasi yang telah ada ketika dijalankan kembali.
+
+Daftar penempatan dan rincian penghuni pada peta kamar menampilkan **Sudah membayar - konfirmasi impor**, dengan keterangan **Rincian transaksi belum direkonsiliasi**. Nominal dan tanggal transaksi tetap kosong jika belum tersedia; migrasi tidak membuat invoice, pembayaran, alokasi, atau pemasukan baru.
+
+Untuk hunian yang memiliki invoice, status mengikuti total tagihan dan pembayaran yang telah dibukukan: Belum dibayar, Dibayar sebagian, atau Lunas. Konfirmasi impor tidak menutupi invoice hunian yang masih memiliki kewajiban. Transaksi lama tanpa invoice hanya ditampilkan sebagai Pembayaran tercatat, sehingga tidak otomatis dianggap melunasi seluruh hunian.
+
+Validasi terkait: 16 tes backend, 17 tes tampilan, dan TypeScript lolos. Perubahan belum diterapkan ke produksi. Pembaruan data lama berjalan melalui migrasi biasa; tidak memerlukan `migrate:fresh` atau seeder ulang. Rekonsiliasi nominal, tanggal, dan referensi penerimaan historis tetap membutuhkan data keuangan asli.

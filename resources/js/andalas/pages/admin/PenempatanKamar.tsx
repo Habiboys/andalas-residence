@@ -11,12 +11,13 @@ import {
 import {
     PaymentStatusBadge,
     type ResidentPayment,
+    type PlacementPayment,
 } from '../../components/atoms/PaymentStatusBadge';
 import { formatDate } from '../../lib/format';
 import { registrationReview as adminReview } from '@/routes/admin';
 import { registrationReview as layananReview } from '@/routes/admin_layanan';
 
-type Placement = {
+type Placement = PlacementPayment & {
     id: string;
     status: string;
     tanggal_mulai?: string | null;
@@ -127,6 +128,17 @@ export default function PenempatanKamar({
                         ),
                     },
                     {
+                        key: 'payment',
+                        label: 'Pembayaran hunian',
+                        render: (row: Placement) => (
+                            <PaymentStatusBadge
+                                pembayaran={row.mahasiswa?.pembayaran}
+                                invoice={row.registration?.tagihan}
+                                confirmation={row.import_payment_confirmation}
+                            />
+                        ),
+                    },
+                    {
                         key: 'aksi',
                         label: 'Aksi',
                         render: (row: Placement) => (
@@ -208,6 +220,10 @@ export default function PenempatanKamar({
                                 </DetailRow>
                                 <DetailRow label="Pembayaran">
                                     <PaymentStatusBadge
+                                        invoice={selected.registration?.tagihan}
+                                        confirmation={
+                                            selected.import_payment_confirmation
+                                        }
                                         pembayaran={
                                             selected.mahasiswa?.pembayaran
                                         }
