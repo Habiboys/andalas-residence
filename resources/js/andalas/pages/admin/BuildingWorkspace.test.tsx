@@ -84,22 +84,55 @@ describe('building management stages', () => {
         expect(html).toContain('Gedung Baru');
         expect(html).toContain('101');
     });
-    it('starts with a summary and keeps detailed forms in their own stages', () => {
+    it('shows building information once without a hero or shortcut cards', () => {
         const html = renderToStaticMarkup(
-            <BuildingWorkspace building={building} rates={rates} canManage />,
+            <BuildingWorkspace
+                building={{
+                    ...building,
+                    alamat: 'Kampus Limau Manis',
+                    deskripsi: 'Hunian mahasiswa',
+                    gender_peruntukan: 'perempuan',
+                }}
+                rates={rates}
+                canManage
+            />,
         );
         expect(html).toContain('Tab informasi gedung');
         expect(html).toContain('role="tablist"');
         expect(html).toContain('Edit informasi dasar');
         expect(html).not.toContain('Simpan tipe Standar');
         expect(html).not.toContain('Tambah Kamar');
+        expect(html).toContain('Kode gedung');
+        expect(html).toContain('Kampus Limau Manis');
+        expect(html).toContain('Hunian mahasiswa');
+        expect(html).toContain('Perempuan');
+        expect(html).toContain('Kapasitas penghuni');
+        expect(html).not.toContain('Foto gedung belum tersedia');
+        expect(html).not.toContain('Sudah tercatat');
+        expect(html).not.toContain('lengkapi pengaturan');
+        expect(html.match(/role="tab"/g)).toHaveLength(2);
+        expect(html).toContain('Informasi Gedung');
+        expect(html).toContain('Lantai &amp; Kamar');
+        expect(html).toContain('<table');
+    });
+
+    it('keeps the building photo in its information tab instead of repeating it on every tab', () => {
+        const photographed = { ...building, foto: 'gedung/baru.jpg' };
+        const overview = renderToStaticMarkup(
+            <BuildingWorkspace building={photographed} />,
+        );
+        const ratesTab = renderToStaticMarkup(
+            <BuildingWorkspace building={photographed} initialStep={1} />,
+        );
+        expect(overview).toContain('/storage/gedung/baru.jpg');
+        expect(ratesTab).not.toContain('/storage/gedung/baru.jpg');
     });
 
     it.each([
-        [1, 'Edit kategori', 'Edit tipe Standar'],
-        [2, 'Tambah tarif', 'Edit tarif'],
-        [3, 'Tambah fasilitas', 'Dapur bersama'],
-        [4, 'Tambah Lantai', '/storage/kamar/101.jpg'],
+        [0, 'Edit kategori', 'Edit tipe Standar'],
+        [0, 'Tambah tarif', 'Edit tarif'],
+        [0, 'Tambah fasilitas', 'Dapur bersama'],
+        [1, 'Tambah Lantai', '/storage/kamar/101.jpg'],
     ])('provides management actions in stage %s', (step, first, second) => {
         const html = renderToStaticMarkup(
             <BuildingWorkspace
@@ -115,7 +148,7 @@ describe('building management stages', () => {
 
     it('shows categories and room type data without edit fields or save buttons by default', () => {
         const html = renderToStaticMarkup(
-            <BuildingWorkspace building={building} canManage initialStep={1} />,
+            <BuildingWorkspace building={building} canManage initialStep={0} />,
         );
         expect(html).toContain('Mahasiswa S1 non-maba');
         expect(html).toContain('Dipan, Lemari');
@@ -128,13 +161,13 @@ describe('building management stages', () => {
         expect(html).not.toContain('Simpan tipe');
     });
 
-    it.each([1, 2, 3])('keeps forms closed when opening tab %s', (tab) => {
+    it('shows all building master data together without inline edit fields', () => {
         const html = renderToStaticMarkup(
             <BuildingWorkspace
                 building={building}
                 rates={rates}
                 canManage
-                initialStep={tab}
+                initialStep={0}
             />,
         );
         expect(html).not.toContain('<input');
@@ -146,7 +179,7 @@ describe('building management stages', () => {
 
     it('shows the room catalog without mutation controls to a viewer', () => {
         const html = renderToStaticMarkup(
-            <BuildingWorkspace building={building} initialStep={4} />,
+            <BuildingWorkspace building={building} initialStep={1} />,
         );
         expect(html).toContain('/storage/kamar/101.jpg');
         expect(html).toContain('Kamar 101');

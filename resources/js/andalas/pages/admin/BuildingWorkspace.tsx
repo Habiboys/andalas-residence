@@ -1,13 +1,11 @@
 import { useState, type ReactNode } from 'react';
 import { Link, useForm } from '@inertiajs/react';
-import { Building2, BedDouble, ChevronRight } from 'lucide-react';
 import { save, destroy } from '@/routes/andalas/residence-management';
 import { show as floorShow } from '@/routes/andalas/lantai';
 import { show as roomShow } from '@/routes/andalas/kamar';
 import { update as buildingUpdate } from '@/routes/andalas/gedung';
 import {
     Button,
-    Card,
     FormField,
     inputClass,
     selectClass,
@@ -86,13 +84,7 @@ const label = (value: string) =>
     value === 'umum_vip'
         ? 'Umum VIP'
         : value.charAt(0).toUpperCase() + value.slice(1);
-const steps = [
-    'Informasi dasar',
-    'Penghuni & tipe',
-    'Tarif hunian',
-    'Fasilitas umum',
-    'Lantai & kamar',
-];
+const steps = ['Informasi Gedung', 'Lantai & Kamar'];
 
 function Errors({ errors }: { errors: Record<string, string> }) {
     return Object.keys(errors).length > 0 ? (
@@ -108,20 +100,31 @@ function Errors({ errors }: { errors: Record<string, string> }) {
 function Panel({
     title,
     description,
+    actions,
     children,
 }: {
     title: string;
-    description: string;
+    description?: string;
+    actions?: ReactNode;
     children: ReactNode;
 }) {
     return (
-        <Card className="space-y-5 p-5">
-            <div>
-                <h2 className="text-lg font-semibold">{title}</h2>
-                <p className="text-muted mt-1 text-sm">{description}</p>
-            </div>
+        <section className="border-base-200 space-y-3 border-b pb-5 last:border-b-0 last:pb-0">
+            <header className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <h2 className="font-semibold">{title}</h2>
+                    {description && (
+                        <p className="text-muted mt-1 text-sm">{description}</p>
+                    )}
+                </div>
+                {actions && (
+                    <div className="flex shrink-0 items-center gap-2">
+                        {actions}
+                    </div>
+                )}
+            </header>
             {children}
-        </Card>
+        </section>
     );
 }
 function CategoriesEditor({
@@ -566,70 +569,8 @@ export default function BuildingWorkspace({
     >(null);
     const deletion = useForm({});
     const rooms = building.lantai?.flatMap((floor) => floor.kamar ?? []) ?? [];
-    const completed = [
-        !!building.nama_gedung,
-        !!building.allowed_categories?.length &&
-            !!building.room_types?.some((type) => type.enabled),
-        rates.length > 0,
-        !!building.fasilitas_umum?.length,
-        rooms.length > 0,
-    ];
     return (
         <div className="space-y-5">
-            <Card className="overflow-hidden">
-                <div className="grid md:grid-cols-3">
-                    {building.foto ? (
-                        <img
-                            src={`/storage/${building.foto}`}
-                            alt={building.nama_gedung}
-                            className="h-56 w-full object-cover md:h-full"
-                        />
-                    ) : (
-                        <div className="bg-base-200 text-base-content/30 flex min-h-44 items-center justify-center">
-                            <Building2
-                                className="size-16"
-                                aria-label="Foto gedung belum tersedia"
-                            />
-                        </div>
-                    )}
-                    <div className="space-y-4 p-6 md:col-span-2">
-                        <span className="badge badge-outline">
-                            Gedung {building.kode_gedung}
-                        </span>
-                        <h2 className="text-2xl font-semibold">
-                            {building.nama_gedung}
-                        </h2>
-                        <p className="text-muted">
-                            {building.alamat || 'Alamat belum diisi'}
-                        </p>
-                        <div className="grid grid-cols-3 gap-3">
-                            {[
-                                [building.lantai?.length ?? 0, 'Lantai'],
-                                [rooms.length, 'Kamar'],
-                                [
-                                    rooms.reduce(
-                                        (sum, room) => sum + room.kapasitas,
-                                        0,
-                                    ),
-                                    'Kapasitas',
-                                ],
-                            ].map(([value, title]) => (
-                                <div
-                                    key={title}
-                                    className="bg-base-200 rounded-lg p-3"
-                                >
-                                    <p className="text-xl font-semibold">
-                                        {value}
-                                    </p>
-                                    <p className="text-muted text-xs">
-                                        {title}
-                                    </p>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            </Card>
             <nav
                 aria-label="Tab informasi gedung"
                 role="tablist"
@@ -660,114 +601,171 @@ export default function BuildingWorkspace({
                 id="building-tab-panel"
                 role="tabpanel"
                 aria-labelledby={`building-tab-${step}`}
-                className="space-y-5"
+                className="bg-base-100 border-base-300 space-y-6 rounded-xl border p-4 sm:p-5"
             >
                 {step === 0 && (
-                    <Panel
-                        title="Informasi dasar"
-                        description="Identitas gedung dan ringkasan kesiapan pengaturan."
-                    >
-                        <p className="whitespace-pre-wrap">
-                            {building.deskripsi || 'Deskripsi belum diisi.'}
-                        </p>
-                        <p>
-                            Peruntukan:{' '}
-                            {
-                                {
-                                    laki_laki: 'Laki-laki',
-                                    perempuan: 'Perempuan',
-                                    campur: 'Campuran',
-                                }[building.gender_peruntukan ?? 'campur']
-                            }
-                        </p>
-                        <div className="grid gap-3 sm:grid-cols-2">
-                            {steps.slice(1).map((title, index) => (
-                                <button
-                                    key={title}
-                                    className="border-base-300 flex items-center justify-between rounded-lg border p-4 text-left"
-                                    onClick={() => setStep(index + 1)}
-                                >
-                                    <span>
-                                        {title}
-                                        <span className="text-muted mt-1 block text-xs">
-                                            {completed[index + 1]
-                                                ? 'Sudah tercatat · lihat atau ubah'
-                                                : 'Belum lengkap · lengkapi pengaturan'}
-                                        </span>
-                                    </span>
-                                    <ChevronRight className="size-4" />
-                                </button>
-                            ))}
-                        </div>
-                        {canManage && (
-                            <KelolaBangunan
-                                gedung={[building]}
-                                detail
-                                infoOnly
-                            />
-                        )}
-                    </Panel>
-                )}
-                {step === 1 && (
                     <>
                         <Panel
-                            title="Kategori penghuni"
-                            description="Tentukan siapa yang boleh mendaftar di gedung ini."
-                        >
-                            <>
-                                <div className="flex flex-wrap gap-2">
-                                    {building.allowed_categories == null ? (
-                                        <p className="text-muted text-sm">
-                                            Semua kategori (belum dibatasi).
-                                        </p>
-                                    ) : building.allowed_categories.length ? (
-                                        building.allowed_categories.map(
-                                            (category) => (
-                                                <span
-                                                    key={category}
-                                                    className="badge badge-ghost h-auto py-2"
-                                                >
-                                                    {categories[category] ??
-                                                        category}
-                                                </span>
-                                            ),
-                                        )
-                                    ) : (
-                                        <p className="text-muted text-sm">
-                                            Tidak menerima kategori penghuni.
-                                        </p>
-                                    )}
-                                </div>
-                                {canManage && (
-                                    <Button
-                                        size="sm"
-                                        variant="secondary"
-                                        onClick={() =>
-                                            setEditingCategories(true)
-                                        }
-                                    >
-                                        Edit kategori
-                                    </Button>
-                                )}
-                            </>
-                        </Panel>
-                        <Panel
-                            title="Master tipe kamar"
-                            description="Aktifkan tipe dan tentukan kapasitas serta fasilitas sebelum menambahkan kamar. Fasilitas master adalah standar layanan; inventaris fisik dicatat di menu aset."
+                            title="Informasi dasar"
+                            actions={
+                                canManage && (
+                                    <KelolaBangunan
+                                        gedung={[building]}
+                                        detail
+                                        infoOnly
+                                    />
+                                )
+                            }
                         >
                             <div className="overflow-x-auto">
-                                <table className="table">
+                                <table className="table-sm table">
+                                    <tbody>
+                                        {[
+                                            [
+                                                'Kode gedung',
+                                                building.kode_gedung,
+                                            ],
+                                            [
+                                                'Peruntukan',
+                                                {
+                                                    laki_laki: 'Laki-laki',
+                                                    perempuan: 'Perempuan',
+                                                    campur: 'Campuran',
+                                                }[
+                                                    building.gender_peruntukan ??
+                                                        'campur'
+                                                ],
+                                            ],
+                                            [
+                                                'Alamat',
+                                                building.alamat ||
+                                                    'Belum diisi',
+                                            ],
+                                            [
+                                                'Deskripsi',
+                                                building.deskripsi ||
+                                                    'Belum diisi',
+                                            ],
+                                        ].map(([title, value]) => (
+                                            <tr key={title}>
+                                                <th
+                                                    scope="row"
+                                                    className="text-muted w-44 align-top font-medium"
+                                                >
+                                                    {title}
+                                                </th>
+                                                <td className="whitespace-pre-wrap">
+                                                    {value}
+                                                </td>
+                                                <td />
+                                            </tr>
+                                        ))}
+                                        <tr>
+                                            <th
+                                                scope="row"
+                                                className="text-muted align-top font-medium"
+                                            >
+                                                Kategori penghuni
+                                            </th>
+                                            <td>
+                                                {building.allowed_categories ==
+                                                null
+                                                    ? 'Semua kategori (belum dibatasi).'
+                                                    : building.allowed_categories
+                                                          .map(
+                                                              (category) =>
+                                                                  categories[
+                                                                      category
+                                                                  ] ?? category,
+                                                          )
+                                                          .join(' / ') ||
+                                                      'Tidak menerima kategori penghuni.'}
+                                            </td>
+                                            <td className="text-right">
+                                                {canManage && (
+                                                    <Button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        onClick={() =>
+                                                            setEditingCategories(
+                                                                true,
+                                                            )
+                                                        }
+                                                    >
+                                                        Edit kategori
+                                                    </Button>
+                                                )}
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <th
+                                                scope="row"
+                                                className="text-muted font-medium"
+                                            >
+                                                Jumlah lantai
+                                            </th>
+                                            <td colSpan={2}>
+                                                {building.lantai?.length ?? 0}
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <th
+                                                scope="row"
+                                                className="text-muted font-medium"
+                                            >
+                                                Jumlah kamar
+                                            </th>
+                                            <td colSpan={2}>{rooms.length}</td>
+                                        </tr>
+                                        <tr>
+                                            <th
+                                                scope="row"
+                                                className="text-muted font-medium"
+                                            >
+                                                Kapasitas penghuni
+                                            </th>
+                                            <td colSpan={2}>
+                                                {rooms.reduce(
+                                                    (sum, room) =>
+                                                        sum + room.kapasitas,
+                                                    0,
+                                                )}{' '}
+                                                orang
+                                            </td>
+                                        </tr>
+                                        {building.foto && (
+                                            <tr>
+                                                <th
+                                                    scope="row"
+                                                    className="text-muted align-top font-medium"
+                                                >
+                                                    Foto gedung
+                                                </th>
+                                                <td colSpan={2}>
+                                                    <img
+                                                        src={`/storage/${building.foto}`}
+                                                        alt={`Foto ${building.nama_gedung}`}
+                                                        className="max-h-32 max-w-48 rounded-md object-cover"
+                                                    />
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </Panel>
+                        <Panel title="Master tipe kamar">
+                            <div className="overflow-x-auto">
+                                <table className="table-sm table">
                                     <thead>
                                         <tr>
-                                            <th>Tipe kamar</th>
+                                            <th>Tipe</th>
                                             <th>Tersedia</th>
                                             <th>Kapasitas maksimal</th>
                                             <th>Fasilitas master</th>
                                             {canManage && (
-                                                <th>
-                                                    <span className="sr-only">
-                                                        Aksi
-                                                    </span>
+                                                <th className="text-right">
+                                                    Aksi
                                                 </th>
                                             )}
                                         </tr>
@@ -792,17 +790,9 @@ export default function BuildingWorkspace({
                                                         {label(type)}
                                                     </td>
                                                     <td>
-                                                        <span
-                                                            className={
-                                                                definition.enabled
-                                                                    ? 'badge badge-success badge-soft'
-                                                                    : 'badge badge-ghost'
-                                                            }
-                                                        >
-                                                            {definition.enabled
-                                                                ? 'Ya'
-                                                                : 'Tidak'}
-                                                        </span>
+                                                        {definition.enabled
+                                                            ? 'Ya'
+                                                            : 'Tidak'}
                                                     </td>
                                                     <td>
                                                         {definition.max_capacity ==
@@ -818,13 +808,13 @@ export default function BuildingWorkspace({
                                                         <td className="text-right">
                                                             <button
                                                                 type="button"
+                                                                aria-label={`Edit tipe ${label(type)}`}
                                                                 className="btn btn-ghost btn-sm"
                                                                 onClick={() =>
                                                                     setEditingType(
                                                                         type,
                                                                     )
                                                                 }
-                                                                aria-label={`Edit tipe ${label(type)}`}
                                                             >
                                                                 Edit
                                                             </button>
@@ -837,222 +827,403 @@ export default function BuildingWorkspace({
                                 </table>
                             </div>
                         </Panel>
+                        <Panel
+                            title="Tarif hunian"
+                            actions={
+                                canManage && (
+                                    <Button
+                                        size="sm"
+                                        onClick={() => setRateTarget('new')}
+                                    >
+                                        Tambah tarif
+                                    </Button>
+                                )
+                            }
+                        >
+                            <div className="overflow-x-auto">
+                                <table className="table-sm table">
+                                    <thead>
+                                        <tr>
+                                            <th>Tipe</th>
+                                            <th>Satuan</th>
+                                            <th className="text-right">
+                                                Per orang / umum
+                                            </th>
+                                            <th className="text-right">
+                                                Harian mahasiswa
+                                            </th>
+                                            <th className="text-right">
+                                                Tahunan per kamar
+                                            </th>
+                                            {canManage && (
+                                                <th className="text-right">
+                                                    Aksi
+                                                </th>
+                                            )}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {rates.length ? (
+                                            rates.map((rate) => (
+                                                <tr key={rate.id}>
+                                                    <td>
+                                                        {label(rate.tipe_kamar)}
+                                                    </td>
+                                                    <td>
+                                                        {
+                                                            {
+                                                                year: 'Tahun',
+                                                                month: 'Bulan',
+                                                                day: 'Hari',
+                                                            }[rate.unit]
+                                                        }
+                                                    </td>
+                                                    <td className="text-right tabular-nums">
+                                                        {formatRupiah(
+                                                            Number(rate.amount),
+                                                        )}
+                                                    </td>
+                                                    <td className="text-right tabular-nums">
+                                                        {rate.student_amount ==
+                                                        null
+                                                            ? 'Belum diisi'
+                                                            : formatRupiah(
+                                                                  Number(
+                                                                      rate.student_amount,
+                                                                  ),
+                                                              )}
+                                                    </td>
+                                                    <td className="text-right tabular-nums">
+                                                        {rate.room_amount ==
+                                                        null
+                                                            ? 'Belum diisi'
+                                                            : formatRupiah(
+                                                                  Number(
+                                                                      rate.room_amount,
+                                                                  ),
+                                                              )}
+                                                    </td>
+                                                    {canManage && (
+                                                        <td>
+                                                            <div className="flex justify-end gap-1">
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="ghost"
+                                                                    onClick={() =>
+                                                                        setRateTarget(
+                                                                            rate,
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    Edit tarif
+                                                                </Button>
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="ghost"
+                                                                    className="text-error"
+                                                                    onClick={() =>
+                                                                        setDeleteTarget(
+                                                                            {
+                                                                                kind: 'rate',
+                                                                                value: rate,
+                                                                            },
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    Hapus
+                                                                </Button>
+                                                            </div>
+                                                        </td>
+                                                    )}
+                                                </tr>
+                                            ))
+                                        ) : (
+                                            <tr>
+                                                <td
+                                                    colSpan={canManage ? 6 : 5}
+                                                    className="text-muted"
+                                                >
+                                                    Belum ada tarif tercatat.
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </Panel>
+                        <Panel
+                            title="Fasilitas umum"
+                            actions={
+                                canManage && (
+                                    <Button
+                                        size="sm"
+                                        onClick={() => setFacilityTarget('new')}
+                                    >
+                                        Tambah fasilitas
+                                    </Button>
+                                )
+                            }
+                        >
+                            <div className="overflow-x-auto">
+                                <table className="table-sm table">
+                                    <thead>
+                                        <tr>
+                                            <th>Nama fasilitas</th>
+                                            <th>Kategori</th>
+                                            <th>Lokasi</th>
+                                            <th>Kondisi</th>
+                                            {canManage && (
+                                                <th className="text-right">
+                                                    Aksi
+                                                </th>
+                                            )}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {building.fasilitas_umum?.length ? (
+                                            building.fasilitas_umum.map(
+                                                (facility) => (
+                                                    <tr key={facility.id}>
+                                                        <td className="font-medium">
+                                                            {
+                                                                facility.nama_fasilitas
+                                                            }
+                                                        </td>
+                                                        <td>
+                                                            {facility.kategori}
+                                                        </td>
+                                                        <td>
+                                                            {building.lantai?.find(
+                                                                (floor) =>
+                                                                    floor.id ===
+                                                                    facility.lantai_id,
+                                                            )?.nama_lantai ??
+                                                                'Area gedung'}
+                                                        </td>
+                                                        <td>
+                                                            <StatusBadge
+                                                                status={
+                                                                    facility.kondisi
+                                                                }
+                                                            />
+                                                        </td>
+                                                        {canManage && (
+                                                            <td>
+                                                                <div className="flex justify-end gap-1">
+                                                                    <Button
+                                                                        size="sm"
+                                                                        variant="ghost"
+                                                                        onClick={() =>
+                                                                            setFacilityTarget(
+                                                                                facility,
+                                                                            )
+                                                                        }
+                                                                    >
+                                                                        Edit
+                                                                        fasilitas
+                                                                    </Button>
+                                                                    <Button
+                                                                        size="sm"
+                                                                        variant="ghost"
+                                                                        className="text-error"
+                                                                        onClick={() =>
+                                                                            setDeleteTarget(
+                                                                                {
+                                                                                    kind: 'facility',
+                                                                                    value: facility,
+                                                                                },
+                                                                            )
+                                                                        }
+                                                                    >
+                                                                        Hapus
+                                                                    </Button>
+                                                                </div>
+                                                            </td>
+                                                        )}
+                                                    </tr>
+                                                ),
+                                            )
+                                        ) : (
+                                            <tr>
+                                                <td
+                                                    colSpan={canManage ? 5 : 4}
+                                                    className="text-muted"
+                                                >
+                                                    Belum ada fasilitas umum
+                                                    yang didata.
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </Panel>
                     </>
                 )}
-                {step === 2 && (
-                    <Panel
-                        title="Tarif hunian"
-                        description="Kelola tarif per tipe kamar dan satuan waktu. Angka dalam rupiah tanpa titik atau koma."
-                    >
-                        {canManage && (
-                            <Button onClick={() => setRateTarget('new')}>
-                                Tambah tarif
-                            </Button>
-                        )}
-
-                        <div className="grid gap-4 lg:grid-cols-2">
-                            {rates.map((rate) => (
-                                <div key={rate.id} className="space-y-3">
-                                    <h3 className="font-semibold">
-                                        {label(rate.tipe_kamar)}{' '}
-                                        <span className="badge badge-ghost">
-                                            {
-                                                {
-                                                    year: 'Tahunan',
-                                                    month: 'Bulanan',
-                                                    day: 'Harian',
-                                                }[rate.unit]
-                                            }
-                                        </span>
-                                    </h3>
-                                    <p className="text-primary text-2xl font-semibold">
-                                        {formatRupiah(Number(rate.amount))}
-                                        <span className="text-muted text-xs font-normal">
-                                            {' '}
-                                            / orang ·{' '}
-                                            {
-                                                {
-                                                    year: 'tahun',
-                                                    month: 'bulan',
-                                                    day: 'hari',
-                                                }[rate.unit]
-                                            }
-                                        </span>
-                                    </p>
-                                    <p className="text-sm">
-                                        Harian mahasiswa:{' '}
-                                        {rate.student_amount == null
-                                            ? 'Belum diisi'
-                                            : formatRupiah(
-                                                  Number(rate.student_amount),
-                                              )}
-                                    </p>
-                                    <p className="text-sm">
-                                        Tahunan per kamar:{' '}
-                                        {rate.room_amount == null
-                                            ? 'Belum diisi'
-                                            : formatRupiah(
-                                                  Number(rate.room_amount),
-                                              )}
-                                    </p>
-                                    {canManage && (
-                                        <div className="flex gap-2">
-                                            <Button
-                                                size="sm"
-                                                variant="secondary"
-                                                onClick={() =>
-                                                    setRateTarget(rate)
-                                                }
-                                            >
-                                                Edit tarif
-                                            </Button>
-                                            <button
-                                                className="btn btn-ghost btn-sm text-error"
-                                                onClick={() =>
-                                                    setDeleteTarget({
-                                                        kind: 'rate',
-                                                        value: rate,
-                                                    })
-                                                }
-                                            >
-                                                Hapus
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
-                        {rates.length === 0 && (
-                            <p className="text-muted">
-                                Belum ada tarif. Aktifkan tipe kamar pada tahap
-                                sebelumnya, lalu tambahkan tarif.
-                            </p>
-                        )}
-                    </Panel>
-                )}
-                {step === 3 && (
-                    <Panel
-                        title="Fasilitas umum"
-                        description="Catat fasilitas bersama di gedung atau lantai, seperti dapur, ruang belajar, dan ruang ibadah."
-                    >
-                        {canManage && (
-                            <Button onClick={() => setFacilityTarget('new')}>
-                                Tambah fasilitas
-                            </Button>
-                        )}
-
-                        <div className="grid gap-3 sm:grid-cols-2">
-                            {building.fasilitas_umum?.map((facility) => (
-                                <div key={facility.id} className="space-y-3">
-                                    <div className="flex items-center justify-between gap-2">
-                                        <h3 className="font-semibold">
-                                            {facility.nama_fasilitas}
-                                        </h3>
-                                        <StatusBadge
-                                            status={facility.kondisi}
-                                        />
-                                    </div>
-                                    <p className="text-muted text-sm">
-                                        {facility.kategori} ·{' '}
-                                        {building.lantai?.find(
-                                            (floor) =>
-                                                floor.id === facility.lantai_id,
-                                        )?.nama_lantai ?? 'Area gedung'}
-                                    </p>
-                                    {canManage && (
-                                        <div className="flex gap-2">
-                                            <Button
-                                                size="sm"
-                                                variant="secondary"
-                                                onClick={() =>
-                                                    setFacilityTarget(facility)
-                                                }
-                                            >
-                                                Edit fasilitas
-                                            </Button>
-                                            <button
-                                                className="btn btn-ghost btn-sm text-error"
-                                                onClick={() =>
-                                                    setDeleteTarget({
-                                                        kind: 'facility',
-                                                        value: facility,
-                                                    })
-                                                }
-                                            >
-                                                Hapus
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
-                        {!building.fasilitas_umum?.length && (
-                            <p className="text-muted">
-                                Belum ada fasilitas umum yang didata.
-                            </p>
-                        )}
-                    </Panel>
-                )}
-                {step === 4 && (
-                    <Panel
-                        title="Lantai dan kamar"
-                        description="Tambahkan lantai, lalu kamar beserta foto dan kapasitasnya. Buka detail kamar untuk melihat fasilitas, aset, dan penghuni."
-                    >
-                        {(canManage || canManageAvailability) && (
-                            <FloorAvailability floors={building.lantai ?? []} />
-                        )}
-                        {canManage ? (
-                            <KelolaBangunan gedung={[building]} detail />
-                        ) : (
-                            building.lantai?.map((floor) => (
-                                <div key={floor.id} className="space-y-3">
-                                    <Link
-                                        className="link link-primary font-semibold"
-                                        href={floorShow.url(floor.id)}
-                                    >
-                                        {floor.nama_lantai}
-                                    </Link>
-                                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                                        {floor.kamar?.map((room) => (
-                                            <Link
-                                                key={room.id}
-                                                href={roomShow.url(room.id)}
-                                                className="border-base-300 overflow-hidden rounded-xl border"
-                                            >
-                                                {room.foto ? (
-                                                    <img
-                                                        src={`/storage/${room.foto}`}
-                                                        alt={`Kamar ${room.nomor_kamar}`}
-                                                        className="h-40 w-full object-cover"
-                                                    />
+                {step === 1 &&
+                    (canManage ? (
+                        <KelolaBangunan gedung={[building]} detail />
+                    ) : (
+                        <>
+                            {canManageAvailability ? (
+                                <FloorAvailability
+                                    floors={building.lantai ?? []}
+                                />
+                            ) : (
+                                <Panel title="Lantai">
+                                    <div className="overflow-x-auto">
+                                        <table className="table-sm table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Lantai</th>
+                                                    <th>Jumlah kamar</th>
+                                                    <th>Kapasitas</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {building.lantai?.length ? (
+                                                    building.lantai.map(
+                                                        (floor) => (
+                                                            <tr key={floor.id}>
+                                                                <td>
+                                                                    <Link
+                                                                        className="link link-primary"
+                                                                        href={floorShow.url(
+                                                                            floor.id,
+                                                                        )}
+                                                                    >
+                                                                        {
+                                                                            floor.nama_lantai
+                                                                        }
+                                                                    </Link>
+                                                                </td>
+                                                                <td>
+                                                                    {floor.kamar
+                                                                        ?.length ??
+                                                                        0}
+                                                                </td>
+                                                                <td>
+                                                                    {floor.kamar?.reduce(
+                                                                        (
+                                                                            sum,
+                                                                            room,
+                                                                        ) =>
+                                                                            sum +
+                                                                            room.kapasitas,
+                                                                        0,
+                                                                    ) ?? 0}
+                                                                </td>
+                                                            </tr>
+                                                        ),
+                                                    )
                                                 ) : (
-                                                    <div className="bg-base-200 text-base-content/30 flex h-32 items-center justify-center">
-                                                        <BedDouble className="size-10" />
-                                                    </div>
+                                                    <tr>
+                                                        <td
+                                                            colSpan={3}
+                                                            className="text-muted"
+                                                        >
+                                                            Belum ada lantai
+                                                            tercatat.
+                                                        </td>
+                                                    </tr>
                                                 )}
-                                                <div className="space-y-2 p-4">
-                                                    <h3 className="font-semibold">
-                                                        Kamar {room.nomor_kamar}
-                                                    </h3>
-                                                    <p className="text-muted text-sm">
-                                                        {label(room.tipe_kamar)}{' '}
-                                                        · {room.kapasitas} orang
-                                                    </p>
-                                                    <StatusBadge
-                                                        status={room.status}
-                                                    />
-                                                </div>
-                                            </Link>
-                                        ))}
+                                            </tbody>
+                                        </table>
                                     </div>
+                                </Panel>
+                            )}
+                            <Panel title="Kamar">
+                                <div className="overflow-x-auto">
+                                    <table className="table-sm table">
+                                        <thead>
+                                            <tr>
+                                                <th>Kamar</th>
+                                                <th>Lantai</th>
+                                                <th>Tipe</th>
+                                                <th>Kapasitas</th>
+                                                <th>Penghuni aktif</th>
+                                                <th>Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {rooms.length ? (
+                                                building.lantai?.flatMap(
+                                                    (floor) =>
+                                                        (floor.kamar ?? []).map(
+                                                            (room) => (
+                                                                <tr
+                                                                    key={
+                                                                        room.id
+                                                                    }
+                                                                >
+                                                                    <td>
+                                                                        <div className="flex items-center gap-2">
+                                                                            {room.foto && (
+                                                                                <img
+                                                                                    src={`/storage/${room.foto}`}
+                                                                                    alt={`Kamar ${room.nomor_kamar}`}
+                                                                                    className="size-10 rounded object-cover"
+                                                                                />
+                                                                            )}
+                                                                            <Link
+                                                                                className="link link-primary"
+                                                                                href={roomShow.url(
+                                                                                    room.id,
+                                                                                )}
+                                                                            >
+                                                                                {
+                                                                                    room.nomor_kamar
+                                                                                }
+                                                                            </Link>
+                                                                        </div>
+                                                                    </td>
+                                                                    <td>
+                                                                        {
+                                                                            floor.nama_lantai
+                                                                        }
+                                                                    </td>
+                                                                    <td>
+                                                                        {label(
+                                                                            room.tipe_kamar,
+                                                                        )}
+                                                                    </td>
+                                                                    <td>
+                                                                        {
+                                                                            room.kapasitas
+                                                                        }
+                                                                    </td>
+                                                                    <td>
+                                                                        {room.occupants_count ??
+                                                                            0}
+                                                                    </td>
+                                                                    <td>
+                                                                        <StatusBadge
+                                                                            status={
+                                                                                room.status
+                                                                            }
+                                                                        />
+                                                                    </td>
+                                                                </tr>
+                                                            ),
+                                                        ),
+                                                )
+                                            ) : (
+                                                <tr>
+                                                    <td
+                                                        colSpan={6}
+                                                        className="text-muted"
+                                                    >
+                                                        Belum ada kamar
+                                                        tercatat.
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
                                 </div>
-                            ))
-                        )}
-                        {!building.lantai?.length && !canManage && (
-                            <p>Belum ada lantai tercatat.</p>
-                        )}
-                    </Panel>
-                )}
+                            </Panel>
+                        </>
+                    ))}
             </div>
             {canManage && editingCategories && (
                 <Drawer

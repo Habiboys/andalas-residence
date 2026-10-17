@@ -89,8 +89,29 @@ function AvailabilityForm({
         </form>
     );
 }
+export function FloorAvailabilityButton({ floor }: { floor: Floor }) {
+    const [open, setOpen] = useState(false);
+    return (
+        <>
+            <Button size="sm" variant="ghost" onClick={() => setOpen(true)}>
+                Atur lantai
+            </Button>
+            {open && (
+                <Modal
+                    open
+                    title={`Pengaturan ${floor.nama_lantai}`}
+                    onClose={() => setOpen(false)}
+                >
+                    <AvailabilityForm
+                        floor={floor}
+                        onClose={() => setOpen(false)}
+                    />
+                </Modal>
+            )}
+        </>
+    );
+}
 export default function FloorAvailability({ floors }: { floors: Floor[] }) {
-    const [target, setTarget] = useState<Floor | null>(null);
     const ordered = [...floors].sort(
         (a, b) =>
             (a.booking_priority ?? 1) - (b.booking_priority ?? 1) ||
@@ -101,51 +122,37 @@ export default function FloorAvailability({ floors }: { floors: Floor[] }) {
             className="space-y-3"
             aria-label="Pembukaan dan prioritas lantai"
         >
-            <div>
-                <h3 className="font-semibold">Pembukaan & prioritas lantai</h3>
-                <p className="text-muted mt-1 text-sm">
-                    Lantai berikutnya terbuka untuk dipilih setelah tempat yang
-                    tersedia di lantai prioritas sebelumnya habis, termasuk
-                    reservasi aktif.
-                </p>
+            <h3 className="font-semibold">Lantai</h3>
+            <div className="overflow-x-auto">
+                <table className="table-sm table">
+                    <thead>
+                        <tr>
+                            <th>Lantai</th>
+                            <th>Prioritas pengisian</th>
+                            <th>Pemilihan kamar</th>
+                            <th className="text-right">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {ordered.map((floor) => (
+                            <tr key={floor.id}>
+                                <td className="font-medium">
+                                    {floor.nama_lantai}
+                                </td>
+                                <td>Prioritas {floor.booking_priority ?? 1}</td>
+                                <td>
+                                    {(floor.booking_open ?? true)
+                                        ? 'Dibuka, mengikuti urutan pengisian'
+                                        : 'Ditutup untuk pilihan baru'}
+                                </td>
+                                <td className="text-right">
+                                    <FloorAvailabilityButton floor={floor} />
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
             </div>
-            <div className="divide-base-200 divide-y">
-                {ordered.map((floor) => (
-                    <div
-                        key={floor.id}
-                        className="flex flex-wrap items-center justify-between gap-3 py-3"
-                    >
-                        <div>
-                            <p className="font-medium">{floor.nama_lantai}</p>
-                            <p className="text-muted text-sm">
-                                Prioritas {floor.booking_priority ?? 1} /{' '}
-                                {(floor.booking_open ?? true)
-                                    ? 'Dibuka, mengikuti urutan pengisian'
-                                    : 'Ditutup untuk pilihan baru'}
-                            </p>
-                        </div>
-                        <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={() => setTarget(floor)}
-                        >
-                            Atur lantai
-                        </Button>
-                    </div>
-                ))}
-            </div>
-            {target && (
-                <Modal
-                    open
-                    title={`Pengaturan ${target.nama_lantai}`}
-                    onClose={() => setTarget(null)}
-                >
-                    <AvailabilityForm
-                        floor={target}
-                        onClose={() => setTarget(null)}
-                    />
-                </Modal>
-            )}
         </section>
     );
 }

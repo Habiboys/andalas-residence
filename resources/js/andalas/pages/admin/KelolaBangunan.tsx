@@ -1,3 +1,4 @@
+import { FloorAvailabilityButton } from '../../components/FloorAvailability';
 import { useState, useEffect, type ReactNode } from 'react';
 
 import { Link, useForm, router } from '@inertiajs/react';
@@ -19,8 +20,6 @@ import {
     selectClass,
     ConfirmDialog,
     RowActions,
-    IconButton,
-    EmptyState,
     type DataColumn,
 } from '../../components/ui';
 import {
@@ -40,7 +39,6 @@ import {
 } from '@/routes/andalas/kamar';
 import { kelolaBangunan } from '@/routes/admin';
 import { formatRupiah } from '../../lib/format';
-import { Pencil, Trash2 } from 'lucide-react';
 
 type Kamar = {
     id: string;
@@ -57,6 +55,8 @@ type Lantai = {
     gedung_id?: string;
     nomor_lantai?: number;
     nama_lantai?: string;
+    booking_open?: boolean;
+    booking_priority?: number;
     kamar?: Kamar[];
 };
 
@@ -212,6 +212,7 @@ export default function KelolaBangunan({
     createPage = false,
     createReturnUrl,
 }: Props) {
+    const [selectedFloorId, setSelectedFloorId] = useState('');
     const [gedungStep, setGedungStep] = useState(0);
     const [gedungOpen, setGedungOpen] = useState(createPage);
     const [editingGedung, setEditingGedung] = useState<Gedung | null>(null);
@@ -486,6 +487,68 @@ export default function KelolaBangunan({
     ];
 
     const manage = detail ? gedung[0] : null;
+    const selectedFloor =
+        manage?.lantai?.find((floor) => floor.id === selectedFloorId) ??
+        manage?.lantai?.[0];
+    const roomColumns: DataColumn<Kamar>[] = [
+        {
+            key: 'nomor_kamar',
+            label: 'Kamar',
+            render: (room) => (
+                <div className="flex items-center gap-2">
+                    {room.foto && (
+                        <img
+                            src={`/storage/${room.foto}`}
+                            alt={`Kamar ${room.nomor_kamar}`}
+                            className="size-10 rounded object-cover"
+                        />
+                    )}
+                    <Link
+                        className="link link-primary"
+                        href={roomShow.url(room.id)}
+                    >
+                        {room.nomor_kamar}
+                    </Link>
+                </div>
+            ),
+        },
+        {
+            key: 'tipe_kamar',
+            label: 'Tipe',
+            render: (room) => room.tipe_kamar?.replaceAll('_', ' ') ?? '-',
+        },
+        { key: 'kapasitas', label: 'Kapasitas' },
+        {
+            key: 'status',
+            label: 'Status',
+            render: (room) => <StatusBadge status={room.status ?? ''} />,
+        },
+        {
+            key: 'tarif_per_periode',
+            label: 'Tarif khusus / tahun',
+            render: (room) =>
+                room.tarif_per_periode == null
+                    ? '-'
+                    : formatRupiah(Number(room.tarif_per_periode)),
+        },
+        {
+            key: 'aksi',
+            label: 'Aksi',
+            action: true,
+            render: (room) => (
+                <RowActions
+                    onDetail={() => router.visit(roomShow.url(room.id))}
+                    onEdit={() => {
+                        if (selectedFloor)
+                            openKamarForm(selectedFloor.id, room);
+                    }}
+                    onDelete={() =>
+                        setDeleteTarget({ kind: 'kamar', kamar: room })
+                    }
+                />
+            ),
+        },
+    ];
 
     let deleteTitle = 'Hapus Data';
     let deleteMessage =
@@ -788,223 +851,177 @@ export default function KelolaBangunan({
 
             {infoOnly && manage && (
                 <Button
+                    size="sm"
                     variant="secondary"
                     onClick={() => openGedungForm(manage)}
                 >
                     Edit informasi dasar
                 </Button>
             )}
-            {!infoOnly && (
-                <section aria-label="Kelola lantai dan kamar">
-                    {manage && (
-                        <div className="space-y-4">
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                                <p className="text-muted text-sm">
-                                    {(manage.lantai ?? []).length} lantai ·{' '}
-                                    {(manage.lantai ?? []).reduce(
-                                        (total, lantai) =>
-                                            total + (lantai.kamar?.length ?? 0),
-                                        0,
-                                    )}{' '}
-                                    kamar
-                                </p>
-                                {!floorOnly && (
-                                    <Button
-                                        size="sm"
-                                        variant="secondary"
-                                        onClick={() => openGedungForm(manage)}
-                                    >
-                                        Edit informasi & kategori
-                                    </Button>
-                                )}
-                                {!floorOnly && (
-                                    <Button
-                                        size="sm"
-                                        onClick={() =>
-                                            openLantaiForm(manage.id)
-                                        }
-                                    >
-                                        Tambah Lantai
-                                    </Button>
-                                )}
-                            </div>
-
-                            {(manage.lantai ?? []).length === 0 ? (
-                                <EmptyState
-                                    title="Belum ada lantai"
-                                    desc="Mulai dengan menambah lantai pertama untuk gedung ini."
-                                    action={
-                                        <Button
-                                            size="sm"
-                                            variant="secondary"
-                                            onClick={() =>
-                                                openLantaiForm(manage.id)
-                                            }
-                                        >
-                                            Tambah Lantai
-                                        </Button>
-                                    }
-                                />
-                            ) : (
-                                (manage.lantai ?? []).map((lantai) => (
-                                    <section
-                                        key={lantai.id}
-                                        className="rounded-box border-base-300 bg-base-100 border"
-                                    >
-                                        <header className="border-base-200 flex items-center justify-between gap-2 border-b px-4 py-2.5">
-                                            <h3 className="min-w-0 truncate text-sm font-medium">
-                                                <Link
-                                                    className="link link-primary"
-                                                    href={floorShow.url(
-                                                        lantai.id,
-                                                    )}
-                                                >
-                                                    {lantaiLabel(lantai)}
-                                                </Link>
-                                            </h3>
-                                            <RowActions
-                                                onEdit={() =>
-                                                    openLantaiForm(
-                                                        manage.id,
-                                                        lantai,
-                                                    )
-                                                }
-                                                onDelete={() =>
-                                                    setDeleteTarget({
-                                                        kind: 'lantai',
-                                                        lantai,
-                                                    })
-                                                }
-                                            />
-                                        </header>
-                                        <div className="p-2">
-                                            {(lantai.kamar ?? []).length ===
-                                            0 ? (
-                                                <p className="text-muted px-2 py-3 text-sm">
-                                                    Belum ada kamar di lantai
-                                                    ini.
-                                                </p>
-                                            ) : (
-                                                <ul className="grid gap-3 p-2 sm:grid-cols-2 xl:grid-cols-3">
-                                                    {(lantai.kamar ?? []).map(
-                                                        (kamar) => (
-                                                            <li
-                                                                key={kamar.id}
-                                                                className="border-base-300 flex flex-wrap items-center gap-3 overflow-hidden rounded-xl border p-3"
-                                                            >
-                                                                {kamar.foto && (
-                                                                    <img
-                                                                        src={`/storage/${kamar.foto}`}
-                                                                        alt={`Kamar ${kamar.nomor_kamar}`}
-                                                                        className="h-36 w-full rounded-lg object-cover"
-                                                                    />
-                                                                )}
-                                                                <Link
-                                                                    href={roomShow.url(
-                                                                        kamar.id,
-                                                                    )}
-                                                                    className="link link-primary text-identifier w-16 text-sm font-medium"
-                                                                >
-                                                                    {
-                                                                        kamar.nomor_kamar
-                                                                    }
-                                                                </Link>
-                                                                <Badge
-                                                                    color={
-                                                                        kamar.tipe_kamar ===
-                                                                        'premium'
-                                                                            ? 'yellow'
-                                                                            : 'gray'
-                                                                    }
-                                                                >
-                                                                    {{
-                                                                        standar:
-                                                                            'Standar',
-                                                                        medium: 'Medium',
-                                                                        premium:
-                                                                            'Premium',
-                                                                    }[
-                                                                        kamar.tipe_kamar ??
-                                                                            'standar'
-                                                                    ] ??
-                                                                        kamar.tipe_kamar}
-                                                                </Badge>
-                                                                <StatusBadge
-                                                                    status={
-                                                                        kamar.status ??
-                                                                        ''
-                                                                    }
-                                                                />
-                                                                <span className="text-muted text-sm">
-                                                                    {kamar.kapasitas ??
-                                                                        '—'}{' '}
-                                                                    org
-                                                                </span>
-                                                                {kamar.tarif_per_periode !=
-                                                                    null &&
-                                                                    Number(
-                                                                        kamar.tarif_per_periode,
-                                                                    ) > 0 && (
-                                                                        <span className="text-muted text-sm">
-                                                                            {formatRupiah(
-                                                                                Number(
-                                                                                    kamar.tarif_per_periode,
-                                                                                ),
-                                                                            )}
-                                                                        </span>
-                                                                    )}
-                                                                <div className="ml-auto inline-flex shrink-0 items-center gap-1">
-                                                                    <IconButton
-                                                                        label="Ubah kamar"
-                                                                        icon={
-                                                                            Pencil
-                                                                        }
-                                                                        tone="text-warning hover:bg-warning/10"
-                                                                        onClick={() =>
-                                                                            openKamarForm(
-                                                                                lantai.id,
-                                                                                kamar,
-                                                                            )
-                                                                        }
-                                                                    />
-                                                                    <IconButton
-                                                                        label="Hapus kamar"
-                                                                        icon={
-                                                                            Trash2
-                                                                        }
-                                                                        tone="text-error hover:bg-error/10"
-                                                                        onClick={() =>
-                                                                            setDeleteTarget(
-                                                                                {
-                                                                                    kind: 'kamar',
-                                                                                    kamar,
-                                                                                },
-                                                                            )
-                                                                        }
-                                                                    />
-                                                                </div>
-                                                            </li>
-                                                        ),
-                                                    )}
-                                                </ul>
-                                            )}
-                                            <div className="border-base-200 mt-1 border-t px-2 pt-2">
-                                                <Button
-                                                    size="sm"
-                                                    variant="secondary"
-                                                    onClick={() =>
-                                                        openKamarForm(lantai.id)
-                                                    }
-                                                >
-                                                    Tambah Kamar
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    </section>
-                                ))
+            {!infoOnly && manage && (
+                <section
+                    aria-label="Kelola lantai dan kamar"
+                    className="space-y-6"
+                >
+                    <div className="space-y-3">
+                        <header className="flex flex-wrap items-center justify-between gap-3">
+                            <h2 className="font-semibold">Lantai</h2>
+                            {!floorOnly && (
+                                <Button
+                                    size="sm"
+                                    onClick={() => openLantaiForm(manage.id)}
+                                >
+                                    Tambah Lantai
+                                </Button>
                             )}
+                        </header>
+                        <div className="overflow-x-auto">
+                            <table className="table-sm table">
+                                <thead>
+                                    <tr>
+                                        <th>Lantai</th>
+                                        <th>Jumlah kamar</th>
+                                        <th>Kapasitas</th>
+                                        <th>Prioritas</th>
+                                        <th>Pemilihan kamar</th>
+                                        <th className="text-right">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {manage.lantai?.length ? (
+                                        manage.lantai.map((floor) => (
+                                            <tr key={floor.id}>
+                                                <td>
+                                                    <Link
+                                                        className="link link-primary"
+                                                        href={floorShow.url(
+                                                            floor.id,
+                                                        )}
+                                                    >
+                                                        {lantaiLabel(floor)}
+                                                    </Link>
+                                                </td>
+                                                <td>
+                                                    {floor.kamar?.length ?? 0}
+                                                </td>
+                                                <td>
+                                                    {floor.kamar?.reduce(
+                                                        (sum, room) =>
+                                                            sum +
+                                                            (room.kapasitas ??
+                                                                0),
+                                                        0,
+                                                    ) ?? 0}
+                                                </td>
+                                                <td>
+                                                    {floor.booking_priority ??
+                                                        1}
+                                                </td>
+                                                <td>
+                                                    {(floor.booking_open ??
+                                                    true)
+                                                        ? 'Dibuka'
+                                                        : 'Ditutup'}
+                                                </td>
+                                                <td>
+                                                    <div className="flex items-center justify-end gap-2">
+                                                        <FloorAvailabilityButton
+                                                            floor={{
+                                                                ...floor,
+                                                                nama_lantai:
+                                                                    lantaiLabel(
+                                                                        floor,
+                                                                    ),
+                                                                nomor_lantai:
+                                                                    floor.nomor_lantai ??
+                                                                    0,
+                                                            }}
+                                                        />
+                                                        <RowActions
+                                                            onDetail={() =>
+                                                                router.visit(
+                                                                    floorShow.url(
+                                                                        floor.id,
+                                                                    ),
+                                                                )
+                                                            }
+                                                            onEdit={() =>
+                                                                openLantaiForm(
+                                                                    manage.id,
+                                                                    floor,
+                                                                )
+                                                            }
+                                                            onDelete={() =>
+                                                                setDeleteTarget(
+                                                                    {
+                                                                        kind: 'lantai',
+                                                                        lantai: floor,
+                                                                    },
+                                                                )
+                                                            }
+                                                        />
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    ) : (
+                                        <tr>
+                                            <td
+                                                colSpan={6}
+                                                className="text-muted"
+                                            >
+                                                Belum ada lantai. Tambahkan
+                                                lantai sebelum membuat kamar.
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
                         </div>
-                    )}
+                    </div>
+                    <div className="border-base-200 space-y-3 border-t pt-5">
+                        <header className="flex flex-wrap items-center justify-between gap-3">
+                            <h2 className="font-semibold">Kamar</h2>
+                            <div className="flex flex-wrap items-center gap-2">
+                                <select
+                                    className="select select-sm w-auto"
+                                    aria-label="Pilih lantai untuk mengelola kamar"
+                                    value={selectedFloor?.id ?? ''}
+                                    onChange={(event) =>
+                                        setSelectedFloorId(event.target.value)
+                                    }
+                                >
+                                    {!manage.lantai?.length && (
+                                        <option value="">
+                                            Belum ada lantai
+                                        </option>
+                                    )}
+                                    {manage.lantai?.map((floor) => (
+                                        <option key={floor.id} value={floor.id}>
+                                            {lantaiLabel(floor)}
+                                        </option>
+                                    ))}
+                                </select>
+                                <Button
+                                    size="sm"
+                                    disabled={!selectedFloor}
+                                    onClick={() => {
+                                        if (selectedFloor)
+                                            openKamarForm(selectedFloor.id);
+                                    }}
+                                >
+                                    Tambah Kamar
+                                </Button>
+                            </div>
+                        </header>
+                        <DataTable
+                            columns={roomColumns}
+                            data={selectedFloor?.kamar ?? []}
+                            searchKeys={['nomor_kamar', 'tipe_kamar']}
+                            searchPlaceholder="Cari kamar"
+                            emptyMessage="Belum ada kamar tercatat di lantai ini."
+                        />
+                    </div>
                 </section>
             )}
 
