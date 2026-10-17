@@ -19,5 +19,6 @@ class ResidenceBuildingSeeder extends Seeder
                 'alamat' => 'Kampus Limau Manis',
             ]);
         }
+        $this->call(ResidencePhotoSeeder::class);
     }
 }
