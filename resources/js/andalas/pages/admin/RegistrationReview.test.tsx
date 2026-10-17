@@ -35,3 +35,25 @@ it('shows registration management rows in a table and keeps actions closed initi
     expect(html).toContain('Kelola');
     expect(html).not.toContain('Penanggung biaya');
 });
+
+it('identifies personal KIPK payments separately from sponsored registration', () => {
+    const html = renderToStaticMarkup(
+        <RegistrationReview
+            registrations={{
+                data: [
+                    {
+                        id: 'kipk',
+                        status: 'submitted',
+                        funding: 'personal',
+                        is_kipk: true,
+                    },
+                ],
+                current_page: 1,
+                per_page: 10,
+                last_page: 1,
+                total: 1,
+            }}
+        />,
+    );
+    expect(html).toContain('KIP-K ? Bayar pribadi');
+});

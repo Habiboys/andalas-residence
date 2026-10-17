@@ -10,7 +10,7 @@ import {
     type DataColumn,
     type DataTableQuery,
 } from '../../components/ui';
-import { sponsor, update } from '@/routes/andalas/registrations';
+import { assignRoom, sponsor, update } from '@/routes/andalas/registrations';
 import { registrationReview as adminPage } from '@/routes/admin';
 import { registrationReview as adminLayananPage } from '@/routes/admin_layanan';
 
@@ -156,7 +156,7 @@ export default function RegistrationReview({
                 row.funding === 'sponsor'
                     ? 'Sponsor'
                     : row.is_kipk
-                      ? 'KIP-K'
+                      ? 'KIP-K ? Bayar pribadi'
                       : 'Mandiri',
         },
         {
@@ -244,19 +244,28 @@ export default function RegistrationReview({
                             <p>
                                 {selected.funding === 'sponsor'
                                     ? 'Verifikasi penanggung biaya dan tempatkan penghuni.'
-                                    : 'Pembayaran pribadi menyelesaikan pendaftaran secara otomatis.'}
+                                    : selected.is_kipk &&
+                                        !selected.reserved_room_id
+                                      ? 'Tentukan kamar terlebih dahulu. Mahasiswa membayar sesuai tarif gedung dan kamar, lalu admin memverifikasi bukti pembayaran.'
+                                      : 'Pembayaran pribadi menyelesaikan pendaftaran secara otomatis.'}
                             </p>
                         </div>
                         {!selected.completed_at &&
                             selected.status !== 'rejected' && (
                                 <>
-                                    {selected.funding === 'sponsor' && (
+                                    {(selected.funding === 'sponsor' ||
+                                        (selected.is_kipk &&
+                                            !selected.reserved_room_id)) && (
                                         <form
                                             className="space-y-4"
                                             onSubmit={(event) => {
                                                 event.preventDefault();
                                                 form.post(
-                                                    sponsor.url({
+                                                    (selected.funding ===
+                                                    'sponsor'
+                                                        ? sponsor
+                                                        : assignRoom
+                                                    ).url({
                                                         registration:
                                                             selected.id,
                                                     }),
@@ -314,30 +323,37 @@ export default function RegistrationReview({
                                                     )}
                                                 </label>
                                             )}
-                                            <label className="block space-y-1 text-sm">
-                                                <span>Penanggung biaya</span>
-                                                <input
-                                                    className={inputClass}
-                                                    required
-                                                    value={
-                                                        form.data.sponsor_name
-                                                    }
-                                                    onChange={(event) =>
-                                                        form.setData(
-                                                            'sponsor_name',
-                                                            event.target.value,
-                                                        )
-                                                    }
-                                                />
-                                                {form.errors.sponsor_name && (
-                                                    <span className="text-error text-xs">
-                                                        {
-                                                            form.errors
+                                            {selected.funding === 'sponsor' && (
+                                                <label className="block space-y-1 text-sm">
+                                                    <span>
+                                                        Penanggung biaya
+                                                    </span>
+                                                    <input
+                                                        className={inputClass}
+                                                        required
+                                                        value={
+                                                            form.data
                                                                 .sponsor_name
                                                         }
-                                                    </span>
-                                                )}
-                                            </label>
+                                                        onChange={(event) =>
+                                                            form.setData(
+                                                                'sponsor_name',
+                                                                event.target
+                                                                    .value,
+                                                            )
+                                                        }
+                                                    />
+                                                    {form.errors
+                                                        .sponsor_name && (
+                                                        <span className="text-error text-xs">
+                                                            {
+                                                                form.errors
+                                                                    .sponsor_name
+                                                            }
+                                                        </span>
+                                                    )}
+                                                </label>
+                                            )}
                                             <div className="flex justify-end gap-2">
                                                 <Button
                                                     type="button"
@@ -352,17 +368,24 @@ export default function RegistrationReview({
                                                 >
                                                     {form.processing
                                                         ? 'Menyimpan...'
-                                                        : 'Sahkan pendaftaran'}
+                                                        : selected.funding ===
+                                                            'sponsor'
+                                                          ? 'Sahkan pendaftaran'
+                                                          : 'Tentukan kamar dan terbitkan tagihan'}
                                                 </Button>
                                             </div>
                                         </form>
                                     )}
-                                    {selected.funding !== 'sponsor' && (
-                                        <p className="text-muted text-sm">
-                                            Tidak ada tindakan penempatan manual
-                                            untuk pendaftaran ini.
-                                        </p>
-                                    )}
+                                    {selected.funding !== 'sponsor' &&
+                                        (!selected.is_kipk ||
+                                            selected.reserved_room_id) && (
+                                            <p className="text-muted text-sm">
+                                                Kamar sudah dipesan. Pendaftaran
+                                                selesai setelah pembayaran
+                                                terverifikasi melalui menu
+                                                pembayaran.
+                                            </p>
+                                        )}
                                     <form
                                         className="border-base-200 space-y-3 border-t pt-4"
                                         onSubmit={(event) => {

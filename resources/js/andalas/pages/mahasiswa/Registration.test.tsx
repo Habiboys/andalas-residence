@@ -1,6 +1,11 @@
 import { renderToStaticMarkup } from 'react-dom/server';
-import { expect, it } from 'vite-plus/test';
+import { expect, it, vi } from 'vite-plus/test';
 import Registration from './Registration';
+vi.mock('@inertiajs/react', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@inertiajs/react')>()),
+    usePage: () => ({ props: { roomTypeCatalog: [] } }),
+}));
+
 it('automatically displays the active period without offering an inactive choice', () => {
     const html = renderToStaticMarkup(
         <Registration
@@ -68,4 +73,34 @@ it('allows a letter inactive account to start a new residence application', () =
     );
     expect(html).toContain('Arsip surat tetap tersedia');
     expect(html).toContain('<form');
+});
+
+it('explains the personal payment exception while retaining administrator room allocation for KIPK 2026', () => {
+    const html = renderToStaticMarkup(
+        <Registration
+            initialUser={{ is_kipk: true, kipk_personal_payment: true }}
+        />,
+    );
+    expect(html).toContain('Khusus KIP-K angkatan 2026');
+    expect(html).toContain('unggah bukti pembayaran');
+    expect(html).toContain('Kamar ditempatkan Admin Layanan');
+    expect(html).not.toContain('Katalog kamar');
+});
+it('waits for room allocation before directing a personal KIPK applicant to payment', () => {
+    const html = renderToStaticMarkup(
+        <Registration
+            initialUser={{ is_kipk: true, kipk_personal_payment: true }}
+            registration={[
+                {
+                    id: 'pending',
+                    status: 'submitted',
+                    is_kipk: true,
+                    funding: 'personal',
+                    tagihan_id: null,
+                },
+            ]}
+        />,
+    );
+    expect(html).toContain('Menunggu admin menentukan kamar');
+    expect(html).not.toContain('Lihat tagihan dan bayar');
 });

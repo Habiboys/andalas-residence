@@ -714,6 +714,7 @@ class RolePageController extends Controller
             'student_stage' => $user->mahasiswaProfil ? (app(ResidenceLifecycle::class)->isBinaan($user->mahasiswaProfil) ? 'Mahasiswa binaan' : 'Mahasiswa hunian') : null,
             'residence_state' => $user->mahasiswaProfil ? app(ResidenceLifecycle::class)->state($user->mahasiswaProfil) : null,
             'is_kipk' => $user->mahasiswaProfil && app(ResidenceLifecycle::class)->isKipk($user->mahasiswaProfil),
+            'kipk_personal_payment' => $user->mahasiswaProfil && app(ResidenceLifecycle::class)->isKipk($user->mahasiswaProfil) && app(ResidenceLifecycle::class)->requiresKipkPersonalPayment($user->mahasiswaProfil),
             'can_use_sponsor' => $user->mahasiswaProfil && ! app(ResidenceLifecycle::class)->isLocal($user->mahasiswaProfil) && $user->client_profile_category?->value !== 'non_student',
             'status' => $user->status,
             'inactive_reason' => $user->inactive_reason,

@@ -213,6 +213,7 @@ Route::middleware(['auth', 'verified', EnsureResidenceAccountAccess::class])->gr
         Route::post('/kipk-recipients/import', [ResidenceManagementController::class, 'importKipk'])->name('kipk-recipients.import');
         Route::get('/kipk-recipients/template', [ResidenceManagementController::class, 'kipkTemplate'])->name('kipk-recipients.template');
         Route::post('/registrations/{registration}/sponsor', [ResidenceManagementController::class, 'approveSponsor'])->name('registrations.sponsor');
+        Route::post('/registrations/{registration}/assign-room', [ResidenceManagementController::class, 'assignKipkRoom'])->name('registrations.assign-room');
         Route::put('/invoices/{tagihan}/payment-settings', [InvoiceController::class, 'paymentSettings'])->name('invoices.settings');
         Route::post('/invoice-groups', [InvoiceController::class, 'store'])->name('invoice-groups.store');
         Route::get('/invoice-groups/{group}', [InvoiceController::class, 'download'])->name('invoice-groups.download');

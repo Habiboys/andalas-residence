@@ -13,6 +13,7 @@ type Room = CatalogRoom;
 type Props = {
     initialUser?: {
         is_kipk?: boolean;
+        kipk_personal_payment?: boolean;
         can_use_sponsor?: boolean;
         status_huni?: string;
         student_stage?: string;
@@ -43,6 +44,9 @@ type Props = {
             nomor_kamar: string;
             lantai?: { gedung?: { nama_gedung: string } };
         };
+        tagihan_id?: string | null;
+        is_kipk?: boolean;
+        funding?: string;
         completed_at?: string;
         reservation_expires_at?: string;
         periode?: { nama_periode: string };
@@ -159,6 +163,15 @@ export default function Registration({
                                 ? 'Terdaftar sebagai penerima KIP-K. Kamar ditempatkan Admin Layanan.'
                                 : 'Pilih kamar yang tersedia sesuai kategori Anda.'}
                         </p>
+                        {kipk && initialUser?.kipk_personal_payment && (
+                            <p className="text-sm">
+                                Khusus KIP-K angkatan 2026, biaya hunian dibayar
+                                pribadi sesuai tarif gedung dan kamar. Setelah
+                                admin menentukan kamar, buka menu tagihan,
+                                bayar, lalu unggah bukti pembayaran untuk
+                                diverifikasi seperti alur non-KIP-K.
+                            </p>
+                        )}
                         {initialUser?.inactive_reason === 'letter_issued' && (
                             <p>
                                 Arsip surat tetap tersedia. Anda dapat mendaftar
@@ -173,9 +186,22 @@ export default function Registration({
                         ) : pending ? (
                             <p>
                                 Pendaftaran sedang diproses.{' '}
-                                <Link className="link" href={tagihan.url()}>
-                                    Lihat tagihan dan bayar
-                                </Link>
+                                {registration.some(
+                                    (r) =>
+                                        !r.completed_at &&
+                                        !['draft', 'rejected'].includes(
+                                            r.status,
+                                        ) &&
+                                        r.is_kipk &&
+                                        r.funding === 'personal' &&
+                                        !r.tagihan_id,
+                                ) ? (
+                                    'Menunggu admin menentukan kamar. Tagihan diterbitkan setelah kamar ditentukan.'
+                                ) : (
+                                    <Link className="link" href={tagihan.url()}>
+                                        Lihat tagihan dan bayar
+                                    </Link>
+                                )}
                                 .
                             </p>
                         ) : (

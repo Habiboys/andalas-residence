@@ -20,6 +20,9 @@ class CreateResidenceBilling
             return $registration->tagihan;
         }
         $room = $registration->reserved_room_id ? Kamar::with('lantai.gedung')->findOrFail($registration->reserved_room_id) : null;
+        if (! $room && $registration->funding !== 'sponsor') {
+            throw ValidationException::withMessages(['kamar_id' => 'Tentukan kamar sebelum menerbitkan tagihan pembayaran pribadi.']);
+        }
         $rateUnit = in_array($registration->rate_unit, ['period', 'year'], true) ? 'year' : $registration->rate_unit;
         $rate = $room === null ? null : ResidenceRate::where('gedung_id', $room->lantai->gedung_id)->where('tipe_kamar', $room->tipe_kamar)->where('unit', $rateUnit)->first();
         if (! $rate && $room && $rateUnit === 'day') {
@@ -36,7 +39,7 @@ class CreateResidenceBilling
             $amount = (float) $rate->student_amount;
         }
         if ($room && $amount <= 0) {
-            throw ValidationException::withMessages(['preferences' => 'Tarif gedung, tipe kamar, dan satuan belum ditetapkan.']);
+            throw ValidationException::withMessages([$registration->is_kipk ? 'kamar_id' : 'preferences' => 'Tarif gedung, tipe kamar, dan satuan belum ditetapkan.']);
         }
         $quantity = match ($registration->rate_unit) {
             'day' => max(1, (int) $registration->starts_at->diffInDays($registration->ends_at)),

@@ -60,6 +60,7 @@ it('creates imported profiles and historical checkins once with an administrativ
     $this->assertDatabaseCount('mahasiswa_profil', 1);
     $this->assertDatabaseCount('penempatan_kamar', 1);
     expect(PenempatanKamar::sole()->tanggal_mulai->toDateString())->toBe('2026-08-01');
+    expect(PenempatanKamar::sole()->catatan)->toContain('Pembayaran hunian sudah diterima')->toContain('tidak ditagih ulang');
     $this->assertDatabaseHas('penempatan_kamar', ['kamar_id' => $room->id, 'status' => 'aktif']);
     $this->assertDatabaseHas('mahasiswa_profil', ['user_id' => $user->id, 'status_huni' => 'aktif']);
     $this->assertDatabaseCount('tagihan', 0);

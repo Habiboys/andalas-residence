@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Actions\Registration\CompleteResidenceRegistration;
+use App\Actions\Registration\CreateResidenceBilling;
 use App\Models\Aset;
 use App\Models\FasilitasUmum;
 use App\Models\Gedung;
@@ -330,6 +331,36 @@ class ResidenceManagementController extends Controller
             (new Xlsx($book))->save('php://output');
             $book->disconnectWorksheets();
         }, 'template-penerima-kipk.xlsx', ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']);
+    }
+
+    public function assignKipkRoom(Request $request, ResidenceRegistration $registration): RedirectResponse
+    {
+        $this->authorizePermission($request, 'registration.review');
+        $data = $request->validate(['kamar_id' => ['required', 'uuid', 'exists:kamar,id']]);
+        DB::transaction(function () use ($request, $registration, $data): void {
+            $registration = ResidenceRegistration::query()->lockForUpdate()->findOrFail($registration->id);
+            if ($registration->completed_at || in_array($registration->status->value, ['draft', 'rejected'], true) || ! $registration->is_kipk || $registration->funding !== 'personal') {
+                throw ValidationException::withMessages(['kamar_id' => 'Pendaftaran ini tidak menunggu penentuan kamar KIP-K dengan pembayaran pribadi.']);
+            }
+            if ($registration->reserved_room_id || $registration->tagihan_id) {
+                if ($registration->reserved_room_id === $data['kamar_id'] && $registration->tagihan_id) {
+                    return;
+                }
+                throw ValidationException::withMessages(['kamar_id' => 'Kamar dan tagihan sudah ditetapkan. Batalkan pendaftaran terlebih dahulu untuk menggantinya.']);
+            }
+            $candidate = Kamar::with('lantai')->findOrFail($data['kamar_id']);
+            Gedung::query()->lockForUpdate()->findOrFail($candidate->lantai->gedung_id);
+            $room = Kamar::query()->lockForUpdate()->findOrFail($data['kamar_id']);
+            RoomEligibility::validate($room, $registration->studentProfile->user, 'kamar_id', $registration->id);
+            $registration->update([
+                'reserved_room_id' => $room->id,
+                'reservation_expires_at' => now()->addHours($registration->periode->reservation_hours),
+                'reviewed_by' => $request->user()->id,
+            ]);
+            app(CreateResidenceBilling::class)->handle($registration);
+        });
+
+        return back()->with('toast', ['type' => 'success', 'message' => 'Kamar ditentukan dan tagihan diterbitkan. Mahasiswa dapat mengunggah bukti pembayaran untuk diverifikasi.']);
     }
 
     public function approveSponsor(Request $request, ResidenceRegistration $registration): RedirectResponse

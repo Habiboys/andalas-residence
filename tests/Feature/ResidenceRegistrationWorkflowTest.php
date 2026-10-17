@@ -17,6 +17,7 @@ use App\Models\MahasiswaProfil;
 use App\Models\Pembayaran;
 use App\Models\PenempatanKamar;
 use App\Models\Periode;
+use App\Models\ResidenceRate;
 use App\Models\ResidenceRegistration;
 use App\Models\User;
 use App\Services\RoomReservations;
@@ -51,19 +52,20 @@ function registrationRoom(int $capacity = 2, string $status = 'kosong'): Kamar
     return Kamar::query()->create([
         'lantai_id' => $floor->id,
         'nomor_kamar' => Str::random(6),
+        'tipe_kamar' => 'standar',
         'kapasitas' => $capacity,
         'tarif_per_periode' => 1500000,
         'status' => $status,
     ]);
 }
 
-function registrationKipk(MahasiswaProfil $profile, Periode $periode, string $nim): void
+function registrationKipk(MahasiswaProfil $profile, Periode $periode, string $nim, int $cohort = 2027): void
 {
     $profile->user->update(['client_profile_category' => ClientProfileCategory::LocalNonKipk, 'nim_nip' => $nim]);
-    $profile->update(['angkatan' => '2026']);
+    $profile->update(['angkatan' => (string) $cohort]);
     Periode::where('id', '!=', $periode->id)->update(['status' => 'nonaktif']);
-    $periode->update(['status' => 'aktif', 'angkatan_maba' => 2026]);
-    KipkRecipient::create(['nim' => $nim, 'angkatan' => 2026, 'nama' => $profile->user->nama]);
+    $periode->update(['status' => 'aktif', 'angkatan_maba' => $cohort]);
+    KipkRecipient::create(['nim' => $nim, 'angkatan' => $cohort, 'nama' => $profile->user->nama]);
 }
 
 function registrationAdmin(string ...$permissions): User
@@ -104,7 +106,7 @@ it('requires preferences for non KIPK and skips them for KIPK', function () {
     ])->assertSessionHasErrors('preferences');
 
     [$kipkUser, $kipkProfile, $kipkPeriod] = registrationStudent();
-    registrationKipk($kipkProfile, $kipkPeriod, '2699000001');
+    registrationKipk($kipkProfile, $kipkPeriod, '2799000001');
 
     $this->actingAs($kipkUser)->post(route('andalas.registrations.store'), [
         'periode_id' => $kipkPeriod->id,
@@ -144,7 +146,7 @@ it('releases the reserved bed and cancels the invoice when an administrator canc
 
 it('rejects KIPK placement when the chosen room is already full', function () {
     [$user, $profile, $periode] = registrationStudent();
-    registrationKipk($profile, $periode, '2699000010');
+    registrationKipk($profile, $periode, '2799000010');
     $room = registrationRoom(1);
     $other = registrationStudent()[1];
     PenempatanKamar::query()->create([
@@ -183,7 +185,7 @@ it('forbids registration review without permission', function () {
 
 it('rejects KIPK placement into a building for a different gender', function () {
     [$student, $profile, $period] = registrationStudent();
-    registrationKipk($profile, $period, '2699000011');
+    registrationKipk($profile, $period, '2799000011');
     $student->update(['gender' => 'laki_laki']);
     $room = registrationRoom();
     $room->lantai->gedung->update(['kode_gedung' => 'A']);
@@ -237,7 +239,7 @@ it('activates occupancy and queues the residence receipt when the registration i
 it('completes KIPK registration through administrator placement without a fictitious personal receipt', function () {
     Queue::fake([GenerateBillingDocument::class]);
     [$user, $profile, $period] = registrationStudent();
-    registrationKipk($profile, $period, '2699000012');
+    registrationKipk($profile, $period, '2799000012');
     $registration = app(SubmitResidenceRegistration::class)->handle($profile, [
         'periode_id' => $period->id, 'is_kipk' => true, 'preferences' => [],
     ]);
@@ -439,4 +441,91 @@ it('completes an international registration once an administrator approves the p
         ->and((float) $registration->fresh()->tagihan->sponsor_paid)->toBe(0.0)
         ->and($registration->fresh()->placement->kamar_id)->toBe($room->id);
     Queue::assertNotPushed(GenerateBillingDocument::class, fn ($job) => $job->jenis === 'residence_receipt');
+});
+
+it('bills KIPK 2026 at the building tariff and activates residence only after verified personal payment', function () {
+    Storage::fake('local');
+    Queue::fake([GenerateBillingDocument::class]);
+    $this->freezeTime();
+    [$user, $profile, $period] = registrationStudent();
+    registrationKipk($profile, $period, '2699000050', 2026);
+    $user->givePermissionTo(Permission::findOrCreate('pembayaran.create'));
+    $this->actingAs($user)->post(route('andalas.registrations.store'), [
+        'periode_id' => $period->id, 'funding' => 'sponsor', 'sponsor_name' => 'KIP-K',
+    ])->assertSessionHasNoErrors();
+    $registration = ResidenceRegistration::where('student_profile_id', $profile->id)->sole();
+    expect($registration->is_kipk)->toBeTrue()
+        ->and($registration->funding)->toBe('personal')
+        ->and($registration->sponsor_name)->toBeNull()
+        ->and($registration->sponsor_approved_at)->toBeNull()
+        ->and($registration->tagihan_id)->toBeNull()
+        ->and($registration->reservation_expires_at)->toBeNull();
+    expect($user->fresh()->client_profile_category)->toBe(ClientProfileCategory::LocalKipk);
+    $this->assertDatabaseCount('tagihan', 0);
+    $this->travel(2)->days();
+    $room = registrationRoom();
+    ResidenceRate::create(['gedung_id' => $room->lantai->gedung_id, 'tipe_kamar' => $room->tipe_kamar, 'unit' => 'year', 'amount' => 2500000]);
+    $admin = registrationAdmin('registration.review', 'pembayaran.verify');
+    $this->actingAs($admin)->post(route('andalas.registrations.assign-room', $registration), ['kamar_id' => $room->id])->assertSessionHasNoErrors();
+    $invoice = $registration->fresh()->tagihan;
+    expect($invoice->total)->toBe('2500000.00')
+        ->and($invoice->sponsor_total)->toBe('0.00')
+        ->and($invoice->status)->toBe(TagihanStatus::Terbit)
+        ->and($invoice->penyesuaian()->count())->toBe(0);
+    expect($registration->fresh()->completed_at)->toBeNull()
+        ->and($registration->fresh()->reservation_expires_at->isFuture())->toBeTrue();
+    $this->assertDatabaseCount('penempatan_kamar', 0);
+    $this->actingAs($admin)->post(route('andalas.registrations.assign-room', $registration), ['kamar_id' => $room->id])->assertSessionHasNoErrors();
+    $this->assertDatabaseCount('tagihan', 1);
+    $this->actingAs($admin)->post(route('andalas.registrations.sponsor', $registration), ['sponsor_name' => 'KIP-K', 'kamar_id' => $room->id])->assertSessionHasErrors('sponsor_name');
+    $this->actingAs($user)->post(route('andalas.pembayaran.store'), [
+        'tagihan_id' => $invoice->id, 'jenis_pembayaran' => 'sewa_asrama', 'nominal' => 2500000,
+        'bukti_transfer' => UploadedFile::fake()->create('bukti.pdf', 10, 'application/pdf'),
+    ])->assertSessionHasNoErrors();
+    expect($registration->fresh()->completed_at)->toBeNull();
+    $payment = Pembayaran::where('tagihan_id', $invoice->id)->sole();
+    $this->actingAs($admin)->post(route('andalas.pembayaran.verify', $payment), ['status' => 'lunas'])->assertSessionHasNoErrors();
+    expect($registration->fresh()->completed_at)->not->toBeNull()
+        ->and($registration->fresh()->placement->kamar_id)->toBe($room->id);
+    expect($profile->fresh()->status_huni)->toBe('aktif');
+    expect($invoice->fresh()->total_dibayar)->toBe('2500000.00');
+    Queue::assertPushed(GenerateBillingDocument::class, fn ($job) => $job->jenis === 'residence_receipt');
+});
+
+it('protects manual KIPK room assignment and rolls back when the room has no tariff', function () {
+    [$user, $profile, $period] = registrationStudent();
+    registrationKipk($profile, $period, '2699000051', 2026);
+    $registration = app(SubmitResidenceRegistration::class)->handle($profile, ['periode_id' => $period->id, 'is_kipk' => true]);
+    $room = registrationRoom();
+    $room->update(['tarif_per_periode' => 0]);
+    $url = route('andalas.registrations.assign-room', $registration);
+    $this->post($url, ['kamar_id' => $room->id])->assertRedirect(route('login'));
+    $this->actingAs($user)->post($url, ['kamar_id' => $room->id])->assertForbidden();
+    $admin = registrationAdmin('registration.review');
+    $this->actingAs($admin)->post($url, [])->assertSessionHasErrors('kamar_id');
+    $this->actingAs($admin)->post($url, ['kamar_id' => $room->id])->assertSessionHasErrors('kamar_id');
+    expect($registration->fresh()->reserved_room_id)->toBeNull()
+        ->and($registration->fresh()->tagihan_id)->toBeNull();
+    $this->assertDatabaseCount('tagihan', 0);
+});
+
+it('allows KIPK 2026 to activate residence after the approved first installment while retaining the balance', function () {
+    Queue::fake([GenerateBillingDocument::class]);
+    [$user, $profile, $period] = registrationStudent();
+    registrationKipk($profile, $period, '2699000052', 2026);
+    $registration = app(SubmitResidenceRegistration::class)->handle($profile, ['periode_id' => $period->id, 'is_kipk' => true]);
+    $room = registrationRoom();
+    $admin = registrationAdmin('registration.review', 'pembayaran.verify');
+    $this->actingAs($admin)->post(route('andalas.registrations.assign-room', $registration), ['kamar_id' => $room->id])->assertSessionHasNoErrors();
+    $invoice = $registration->fresh()->tagihan;
+    $this->actingAs($admin)->put(route('andalas.invoices.settings', $invoice), [
+        'amount_due_now' => 500000, 'bank' => 'BRI', 'nomor' => 'VA-KIPK-2026', 'atas_nama' => 'Andalas Residence',
+    ])->assertSessionHasNoErrors();
+    app(PostPayment::class)->handle('KIPK-2026-FIRST', $profile->id, now()->toDateTimeString(), [['tagihan_id' => $invoice->id, 'jumlah' => 500000]]);
+    expect($registration->fresh()->completed_at)->not->toBeNull();
+    expect($profile->fresh()->status_huni)->toBe('aktif');
+    expect($invoice->fresh()->status)->toBe(TagihanStatus::Sebagian)
+        ->and($invoice->fresh()->total)->toBe('1500000.00')
+        ->and($invoice->fresh()->total_dibayar)->toBe('500000.00');
+    Queue::assertPushed(GenerateBillingDocument::class, fn ($job) => $job->jenis === 'residence_receipt');
 });

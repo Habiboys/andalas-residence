@@ -23,7 +23,7 @@ class Residence2026StudentSeeder extends Seeder
         $this->command?->table(['Baru', 'Cocok', 'Ditunda', 'KIP-K', 'Butuh email asli', 'Kamar cocok', 'Kamar ditunda'], [[
             $result['created'], $result['matched'], $result['skipped'], $result['kipk'], $result['pending_email'], $result['placed'], $result['pending_rooms'],
         ]]);
-        $this->command?->warn('Tanggal masuk memakai awal periode 2026/2027 sebagai tanggal administratif impor. Pembayaran tidak dibuat dari catatan Excel. Akun tanpa email memakai @import.invalid, nonaktif, dengan password acak; lengkapi email dan aktivasi melalui admin.');
+        $this->command?->warn('Tanggal masuk memakai awal periode 2026/2027 sebagai tanggal administratif impor. Penghuni check-in dicatat sudah membayar berdasarkan konfirmasi pengelola dan tidak ditagih ulang. Ledger pembayaran tidak direkayasa: nominal dan tanggal transaksi asli perlu direkonsiliasi. Akun tanpa email memakai @import.invalid, nonaktif, dengan password acak; lengkapi email dan aktivasi melalui admin.');
         $this->command?->warn('Prodi belum cocok unik: '.$result['pending_prodi'].'. Profil tetap diimpor tanpa mengarang prodi. Periksa kolom jurusan kosong, nama tidak dikenal, atau jenjang S1/D3 yang belum jelas.');
     }
 }

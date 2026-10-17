@@ -50,6 +50,11 @@ class ResidenceLifecycle
             ->where('angkatan', $student->angkatan)->exists();
     }
 
+    public function requiresKipkPersonalPayment(MahasiswaProfil $student): bool
+    {
+        return in_array((int) $student->angkatan, config('residence.kipk_personal_payment_cohorts', []), true);
+    }
+
     public function state(MahasiswaProfil $student): string
     {
         if ($student->penempatanKamar()->where('status', 'aktif')->exists()) {

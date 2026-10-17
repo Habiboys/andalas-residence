@@ -286,8 +286,14 @@ class Residence2026StudentImport
     {
         Gedung::whereKey($candidate->lantai->gedung_id)->lockForUpdate()->firstOrFail();
         $room = Kamar::whereKey($candidate->id)->lockForUpdate()->firstOrFail();
+        $paymentNote = 'Pembayaran hunian sudah diterima berdasarkan konfirmasi pengelola atas status check-in Excel; tidak ditagih ulang untuk impor ini. Nominal dan tanggal transaksi asli belum direkonsiliasi.';
         $placements = $profile->penempatanKamar()->where('status', 'aktif')->get();
         if ($placements->count() === 1 && $placements->first()->kamar_id === $room->id && $placements->first()->periode_id === $period->id) {
+            $placement = $placements->first();
+            if (str_starts_with($placement->catatan ?? '', 'Impor check-in Excel 2026.') && ! str_contains($placement->catatan, $paymentNote)) {
+                $placement->update(['catatan' => $placement->catatan.' '.$paymentNote]);
+            }
+
             return null;
         }
         if ($profile->penempatanKamar()->exists() || $profile->status_huni !== 'calon') {
@@ -308,7 +314,7 @@ class Residence2026StudentImport
         PenempatanKamar::create([
             'mahasiswa_id' => $profile->id, 'kamar_id' => $room->id, 'periode_id' => $period->id,
             'tanggal_mulai' => $period->tanggal_mulai, 'status' => 'aktif',
-            'catatan' => 'Impor check-in Excel 2026. Tanggal masuk disamakan dengan awal periode sebagai tanggal administratif, bukan tanggal check-in asli.',
+            'catatan' => 'Impor check-in Excel 2026. Tanggal masuk disamakan dengan awal periode sebagai tanggal administratif, bukan tanggal check-in asli. '.$paymentNote,
         ]);
         $profile->update(['status_huni' => 'aktif', 'periode_id' => $period->id, 'tanggal_masuk' => $period->tanggal_mulai]);
         $occupied++;

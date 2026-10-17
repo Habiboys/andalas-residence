@@ -57,7 +57,8 @@ class SubmitResidenceRegistration
             $period = Periode::where('status', 'aktif')->findOrFail($data['periode_id']);
             $life = app(ResidenceLifecycle::class);
             $data['is_kipk'] = $life->isKipk($student);
-            $funding = $data['is_kipk'] ? 'sponsor' : ($data['funding'] ?? 'personal');
+            $kipkPersonalPayment = $data['is_kipk'] && $life->requiresKipkPersonalPayment($student);
+            $funding = $data['is_kipk'] ? ($kipkPersonalPayment ? 'personal' : 'sponsor') : ($data['funding'] ?? 'personal');
             if ($funding === 'sponsor' && ! $data['is_kipk'] && $life->isLocal($student)) {
                 throw ValidationException::withMessages(['funding' => 'Mahasiswa lokal non-KIP-K membayar secara pribadi.']);
             }
@@ -73,13 +74,13 @@ class SubmitResidenceRegistration
                 'submitted_at' => now(),
                 'notes' => $data['notes'] ?? null,
                 'reserved_room_id' => $data['is_kipk'] ? null : $preferences[0]['kamar_id'],
-                'reservation_expires_at' => now()->addHours($period->reservation_hours),
-                'starts_at' => $data['starts_at'] ?? $period->tanggal_mulai,
-                'ends_at' => $data['ends_at'] ?? $period->tanggal_selesai,
-                'rate_unit' => in_array($data['rate_unit'] ?? 'period', ['period', 'year'], true) ? 'year' : $data['rate_unit'],
+                'reservation_expires_at' => $kipkPersonalPayment ? null : now()->addHours($period->reservation_hours),
+                'starts_at' => $data['is_kipk'] ? $period->tanggal_mulai : ($data['starts_at'] ?? $period->tanggal_mulai),
+                'ends_at' => $data['is_kipk'] ? $period->tanggal_selesai : ($data['ends_at'] ?? $period->tanggal_selesai),
+                'rate_unit' => $data['is_kipk'] || in_array($data['rate_unit'] ?? 'period', ['period', 'year'], true) ? 'year' : $data['rate_unit'],
                 'funding' => $funding,
-                'sponsor_name' => $data['is_kipk'] ? 'KIP-K' : ($data['sponsor_name'] ?? null),
-                'sponsor_approved_at' => $data['is_kipk'] ? now() : null,
+                'sponsor_name' => $funding === 'sponsor' ? ($data['is_kipk'] ? 'KIP-K' : ($data['sponsor_name'] ?? null)) : null,
+                'sponsor_approved_at' => $data['is_kipk'] && ! $kipkPersonalPayment ? now() : null,
             ])->save();
 
             $registration->roomPreferences()->delete();
@@ -98,7 +99,9 @@ class SubmitResidenceRegistration
                 'to_status' => ResidenceRegistrationStatus::Submitted,
                 'changed_by' => $student->user_id,
             ]);
-            $this->createBilling->handle($registration);
+            if (! $kipkPersonalPayment) {
+                $this->createBilling->handle($registration);
+            }
             app(CompleteResidenceRegistration::class)->handle($registration);
 
             return $registration->fresh(['roomPreferences', 'statusHistories']);
