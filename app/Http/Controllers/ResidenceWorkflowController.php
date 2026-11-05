@@ -141,6 +141,11 @@ class ResidenceWorkflowController extends Controller
             AuditLogService::log($user, 'residence_profile_completed', $profile, null, $data);
         });
 
+        $hasRegistration = $request->user()->mahasiswaProfil?->residenceRegistrations()->exists();
+        if (! $hasRegistration) {
+            return redirect()->route('dashboard.redirect')->with('toast', ['type' => 'success', 'message' => 'Profil pendaftaran dilengkapi.']);
+        }
+
         return back()->with('toast', ['type' => 'success', 'message' => 'Profil pendaftaran dilengkapi.']);
     }
 
