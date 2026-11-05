@@ -34,6 +34,7 @@ class LandingController extends Controller
             'berita' => Informasi::where('published', true)->where('kategori', 'berita')->orderByDesc('tanggal')->limit(3)->get(),
             'testimoni' => Testimoni::where('published', true)->orderBy('urutan')->get(),
             'statistik' => $this->statistik(),
+            'residenceCatalog' => app(\App\Services\PublicResidenceCatalog::class)->buildings(),
             'pengumuman' => Informasi::where('published', true)->where('kategori', 'pengumuman')->orderByDesc('tanggal')->limit(3)->get(['id', 'judul', 'tanggal']),
             'galeri' => Gedung::whereNotNull('foto')->where('foto', '!=', '')->orderBy('kode_gedung')->limit(4)->get()
                 ->map(fn (Gedung $gedung): array => ['id' => $gedung->id, 'judul' => $gedung->nama_gedung, 'foto' => '/storage/'.$gedung->foto, 'kategori' => 'Hunian'])
@@ -66,6 +67,7 @@ class LandingController extends Controller
     {
         return Inertia::render('landing/unit', [
             ...$this->shared(),
+            'residenceCatalog' => app(\App\Services\PublicResidenceCatalog::class)->buildings(),
             'gedung' => Gedung::withCount('lantai')->orderBy('kode_gedung')->get(),
         ]);
     }

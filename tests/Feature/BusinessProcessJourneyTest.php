@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Billing\ReconcileResidencePayment;
 use App\Enums\CheckoutRequestStatus;
 use App\Enums\FreeResidenceLetterStatus;
 use App\Enums\LaporanKerusakanStatus;
@@ -15,9 +16,11 @@ use App\Models\Kamar;
 use App\Models\Lantai;
 use App\Models\LaporanKerusakan;
 use App\Models\Pembayaran;
+use App\Models\PembayaranTagihan;
 use App\Models\PengajuanBebasAsrama;
 use App\Models\Periode;
 use App\Models\Prodi;
+use App\Models\ResidencePaymentReference;
 use App\Models\ResidenceRegistration;
 use App\Models\User;
 use App\Notifications\DocumentReadyNotification;
@@ -28,6 +31,7 @@ use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 
 it('connects account registration payment damage reporting checkout and the modern residence letter', function () {
+    $this->travelTo(now()->setDate(2026, 11, 5));
     $this->seed(RolePermissionSeeder::class);
     Queue::fake([GenerateBillingDocument::class, GenerateFreeResidenceLetter::class]);
     Notification::fake();
@@ -40,7 +44,8 @@ it('connects account registration payment damage reporting checkout and the mode
     $building = Gedung::create(['kode_gedung' => 'JOURNEY', 'nama_gedung' => 'Gedung Perjalanan']);
     FasilitatorWilayah::create(['user_id' => $facilitator->id, 'gedung_id' => $building->id]);
     $floor = Lantai::create(['gedung_id' => $building->id, 'nomor_lantai' => 1, 'nama_lantai' => 'Lantai 1']);
-    $room = Kamar::create(['lantai_id' => $floor->id, 'nomor_kamar' => '101', 'kapasitas' => 1, 'status' => 'kosong', 'tipe_kamar' => 'single', 'tarif_per_periode' => 1500000]);
+    $room = Kamar::create(['lantai_id' => $floor->id, 'nomor_kamar' => '101', 'kapasitas' => 1, 'status' => 'kosong', 'tipe_kamar' => 'standar', 'tarif_per_periode' => 1500000]);
+    workflowTestPolicies();
     $asset = Aset::create(['kamar_id' => $room->id, 'kode_inventaris' => 'JOURNEY-ASSET', 'nama_aset' => 'Lampu belajar', 'kategori' => 'Elektronik', 'kondisi' => 'baik']);
     $faculty = Faculty::create(['name' => 'Teknologi Informasi']);
     $department = Departemen::create(['name' => 'Informatika', 'faculty_id' => $faculty->id]);
@@ -67,12 +72,19 @@ it('connects account registration payment damage reporting checkout and the mode
         'bukti_transfer' => UploadedFile::fake()->image('bukti.jpg'),
     ])->assertSessionHasNoErrors();
     $payment = Pembayaran::where('tagihan_id', $invoice->id)->sole();
-    $this->actingAs($admin)->post(route('andalas.pembayaran.verify', $payment), ['status' => 'lunas'])->assertSessionHasNoErrors();
+    $this->actingAs($admin)->post(route('andalas.pembayaran.verify', $payment), ['status' => 'lunas'])->assertSessionHasErrors();
+    $reference = ResidencePaymentReference::factory()->create(['recorded_by' => $admin->id, 'amount' => 1500000]);
+    app(ReconcileResidencePayment::class)->handle($reference, [['tagihan_id' => $invoice->id, 'jumlah' => 1500000, 'payment_proof_id' => $payment->id]], $admin);
+    expect($student->fresh()->status_huni)->toBe('calon')
+        ->and($registration->fresh()->completed_at)->toBeNull();
+    toBeDocument($registration, $admin);
+    $this->actingAs($facilitator)->post(route('residence.checkin', $registration), ['identity_checked' => 1, 'original_documents_checked' => 1, 'keys_handed' => 1])->assertSessionHasNoErrors();
     expect($student->fresh()->status_huni)->toBe('aktif')
         ->and($registration->fresh()->completed_at)->not->toBeNull();
-    Queue::assertPushed(GenerateBillingDocument::class, fn ($job) => $job->jenis === 'residence_receipt');
-    (new GenerateBillingDocument($invoice->id, 'residence_receipt'))->handle();
-    $receipt = $invoice->dokumen()->where('jenis', 'residence_receipt')->sole();
+    Queue::assertPushed(GenerateBillingDocument::class, fn ($job) => $job->jenis === 'receipt');
+    $posted = PembayaranTagihan::sole();
+    (new GenerateBillingDocument($invoice->id, 'receipt', $posted->id))->handle();
+    $receipt = $invoice->dokumen()->where('jenis', 'receipt')->sole();
     $this->actingAs($resident)->get(route('andalas.tagihan.document', $receipt))->assertDownload();
 
     $this->post(route('andalas.laporan.store'), [
@@ -100,8 +112,8 @@ it('connects account registration payment damage reporting checkout and the mode
         ]],
     ])->assertSessionHasNoErrors();
     $outsideFacilitator = User::factory()->create()->assignRole('fasilitator');
-    $this->actingAs($outsideFacilitator)->post(route('andalas.checkout.complete', $checkout))->assertForbidden();
-    $this->actingAs($facilitator)->post(route('andalas.checkout.complete', $checkout))->assertSessionHasNoErrors();
+    $this->actingAs($outsideFacilitator)->post(route('residence.keys', $registration), ['keys_received' => 1, 'room_vacated' => 1, 'condition' => 'ready', 'notes' => 'Kunci kembali'])->assertForbidden();
+    $this->actingAs($facilitator)->post(route('residence.keys', $registration), ['keys_received' => 1, 'room_vacated' => 1, 'condition' => 'ready', 'notes' => 'Kunci kembali'])->assertSessionHasNoErrors();
     expect($checkout->fresh()->status)->toBe(CheckoutRequestStatus::Selesai)
         ->and($checkout->fresh()->diproses_oleh)->toBe($facilitator->id)
         ->and($room->fresh()->status)->toBe('kosong');

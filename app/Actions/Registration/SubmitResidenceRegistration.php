@@ -2,109 +2,73 @@
 
 namespace App\Actions\Registration;
 
-use App\Enums\ResidenceRegistrationStatus;
-use App\Models\Gedung;
-use App\Models\Kamar;
 use App\Models\MahasiswaProfil;
 use App\Models\Periode;
 use App\Models\ResidenceRegistration;
 use App\Services\ResidenceLifecycle;
-use App\Services\RoomEligibility;
+use App\Services\ResidencePolicyService;
 use App\Services\RoomReservations;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class SubmitResidenceRegistration
 {
-    public function __construct(private CreateResidenceBilling $createBilling) {}
-
-    /**
-     * @param  array{
-     *     periode_id: string,
-     *     is_kipk: bool,
-     *     notes?: string|null,
-     *     rate_unit?: string, billing_basis?: 'person'|'room', starts_at?: string|null, ends_at?: string|null, funding?: string, sponsor_name?: string|null,
-     *     preferences?: list<array{kamar_id: string, notes?: string|null}>
-     * } $data
-     */
+    /** @param array<string, mixed> $data */
     public function handle(MahasiswaProfil $student, array $data): ResidenceRegistration
     {
         return DB::transaction(function () use ($student, $data): ResidenceRegistration {
-            $student = MahasiswaProfil::query()->lockForUpdate()->findOrFail($student->id);
+            $student = MahasiswaProfil::whereKey($student->id)->lockForUpdate()->firstOrFail();
             if ($student->user->status !== 'aktif' && $student->user->inactive_reason !== 'letter_issued') {
-                throw ValidationException::withMessages(['periode_id' => 'Akun tidak aktif. Hubungi admin layanan untuk mengaktifkan kembali sebelum mendaftar hunian.']);
+                throw ValidationException::withMessages(['periode_id' => 'Akun tidak aktif.']);
             }
-            if ($student->penempatanKamar()->where('status', 'aktif')->exists()) {
-                throw ValidationException::withMessages(['periode_id' => 'Selesaikan masa hunian aktif sebelum mendaftar kembali.']);
-            }
-            $data['is_kipk'] = app(ResidenceLifecycle::class)->isKipk($student);
-            $preferences = $data['is_kipk'] ? [] : ($data['preferences'] ?? []);
-            if (! $data['is_kipk']) {
-                foreach ($preferences as $preference) {
-                    $candidate = Kamar::with('lantai')->findOrFail($preference['kamar_id']);
-                    Gedung::query()->lockForUpdate()->findOrFail($candidate->lantai->gedung_id);
-                    $room = Kamar::query()->lockForUpdate()->findOrFail($preference['kamar_id']);
-                    RoomEligibility::validate($room, $student->user, 'preferences');
-                    if (($data['billing_basis'] ?? 'person') === 'room' && ($room->penempatanKamar()->where('status', 'aktif')->exists() || app(RoomReservations::class)->count($room) > 0)) {
-                        throw ValidationException::withMessages(['preferences' => 'Sewa per kamar hanya tersedia untuk kamar kosong tanpa reservasi lain.']);
-                    }
-                }
+            app(ResidencePolicyService::class)->assertProfile($student);
+            $life = app(ResidenceLifecycle::class);
+            if (! $life->isLocal($student)) {
+                throw ValidationException::withMessages(['periode_id' => 'Permohonan internasional/S2/S3 dicatat melalui pengelola.']);
             }
             app(RoomReservations::class)->expire();
-            if (ResidenceRegistration::where('student_profile_id', $student->id)->whereNull('completed_at')->whereNotIn('status', ['draft', 'rejected'])->exists()) {
-                throw ValidationException::withMessages(['periode_id' => 'Selesaikan pendaftaran yang sedang berjalan terlebih dahulu.']);
+            if ($student->penempatanKamar()->where('status', 'aktif')->exists() || $student->residenceRegistrations()->whereNull('completed_at')->whereNotIn('status', ['draft', 'rejected'])->exists()) {
+                throw ValidationException::withMessages(['periode_id' => 'Selesaikan hunian atau pendaftaran yang sedang berjalan.']);
             }
-            $period = Periode::where('status', 'aktif')->findOrFail($data['periode_id']);
-            $life = app(ResidenceLifecycle::class);
-            $data['is_kipk'] = $life->isKipk($student);
-            $kipkPersonalPayment = $data['is_kipk'] && $life->requiresKipkPersonalPayment($student);
-            $funding = $data['is_kipk'] ? ($kipkPersonalPayment ? 'personal' : 'sponsor') : ($data['funding'] ?? 'personal');
-            if ($funding === 'sponsor' && ! $data['is_kipk'] && $life->isLocal($student)) {
-                throw ValidationException::withMessages(['funding' => 'Mahasiswa lokal non-KIP-K membayar secara pribadi.']);
+            $period = Periode::where('status', 'aktif')->whereKey($data['periode_id'])->firstOrFail();
+            $startsAt = Carbon::parse($data['starts_at'] ?? $period->tanggal_mulai)->startOfDay();
+            $endsAt = Carbon::parse($data['ends_at'] ?? $period->tanggal_selesai)->startOfDay();
+            if ($startsAt->lt($period->tanggal_mulai) || $endsAt->gt($period->tanggal_selesai) || $endsAt->lt($startsAt)) {
+                throw ValidationException::withMessages(['ends_at' => 'Masa hunian harus berada dalam rentang periode pendaftaran.']);
             }
-            if ($life->isLocal($student)) {
-                $student->user->update(['client_profile_category' => $data['is_kipk'] ? 'local_kipk' : 'local_non_kipk']);
+            $kipk = $life->isKipk($student);
+            $policy = app(ResidencePolicyService::class)->current($kipk ? 'local_kipk' : 'local_non_kipk');
+            $unit = $kipk ? 'year' : ($data['rate_unit'] ?? 'year');
+            $unit = $unit === 'period' ? 'year' : $unit;
+            if ($unit === 'month' && ((int) $student->angkatan === (int) $period->angkatan_maba || ! ($policy->settings['monthly_allowed'] ?? false))) {
+                throw ValidationException::withMessages(['rate_unit' => 'Skema bulanan hanya untuk non-maba yang diizinkan kebijakan pengelola.']);
             }
-            $previousStatus = ResidenceRegistrationStatus::Draft;
-            $registration = new ResidenceRegistration(['student_profile_id' => $student->id, 'periode_id' => $period->id]);
-            $registration->fill([
-                'status' => ResidenceRegistrationStatus::Submitted,
-                'is_kipk' => $data['is_kipk'],
-                'billing_basis' => $data['is_kipk'] ? 'person' : ($data['billing_basis'] ?? 'person'),
-                'submitted_at' => now(),
-                'notes' => $data['notes'] ?? null,
-                'reserved_room_id' => $data['is_kipk'] ? null : $preferences[0]['kamar_id'],
-                'reservation_expires_at' => $kipkPersonalPayment ? null : now()->addHours($period->reservation_hours),
-                'starts_at' => $data['is_kipk'] ? $period->tanggal_mulai : ($data['starts_at'] ?? $period->tanggal_mulai),
-                'ends_at' => $data['is_kipk'] ? $period->tanggal_selesai : ($data['ends_at'] ?? $period->tanggal_selesai),
-                'rate_unit' => $data['is_kipk'] || in_array($data['rate_unit'] ?? 'period', ['period', 'year'], true) ? 'year' : $data['rate_unit'],
-                'funding' => $funding,
-                'sponsor_name' => $funding === 'sponsor' ? ($data['is_kipk'] ? 'KIP-K' : ($data['sponsor_name'] ?? null)) : null,
-                'sponsor_approved_at' => $data['is_kipk'] && ! $kipkPersonalPayment ? now() : null,
-            ])->save();
-
-            $registration->roomPreferences()->delete();
-            if (! $data['is_kipk']) {
-                foreach ($preferences as $index => $preference) {
-                    $registration->roomPreferences()->create([
-                        'kamar_id' => $preference['kamar_id'],
-                        'priority' => $index + 1,
-                        'notes' => $preference['notes'] ?? null,
-                    ]);
-                }
+            if (($data['funding'] ?? 'personal') !== 'personal') {
+                throw ValidationException::withMessages(['funding' => 'Mahasiswa lokal memiliki kewajiban pembayaran pribadi.']);
             }
-
-            $registration->statusHistories()->create([
-                'from_status' => $previousStatus,
-                'to_status' => ResidenceRegistrationStatus::Submitted,
-                'changed_by' => $student->user_id,
+            $student->user->update(['client_profile_category' => $kipk ? 'local_kipk' : 'local_non_kipk']);
+            $r = ResidenceRegistration::create([
+                'workflow_version' => 2, 'residence_policy_id' => $policy->id,
+                'student_profile_id' => $student->id, 'periode_id' => $period->id,
+                'status' => 'submitted', 'is_kipk' => $kipk, 'submitted_at' => now(), 'notes' => $data['notes'] ?? null,
+                'billing_basis' => $kipk ? 'person' : ($data['billing_basis'] ?? 'person'),
+                'starts_at' => $data['starts_at'] ?? $period->tanggal_mulai,
+                'ends_at' => $data['ends_at'] ?? $period->tanggal_selesai,
+                'rate_unit' => $unit, 'funding' => 'personal', 'allocation_status' => 'waiting',
+                'reservation_expires_at' => null,
             ]);
-            if (! $kipkPersonalPayment) {
-                $this->createBilling->handle($registration);
+            if (! $kipk) {
+                $roomId = $data['preferences'][0]['kamar_id'] ?? null;
+                if (! $roomId) {
+                    throw ValidationException::withMessages(['preferences' => 'Pilih satu kamar.']);
+                }
+                $r->roomPreferences()->create(['kamar_id' => $roomId, 'priority' => 1]);
             }
-            app(CompleteResidenceRegistration::class)->handle($registration);
+            $r->statusHistories()->create(['from_status' => 'draft', 'to_status' => 'submitted', 'changed_by' => $student->user_id]);
+            app(AllocateResidenceRoom::class)->handle($r, $kipk ? null : $roomId);
 
-            return $registration->fresh(['roomPreferences', 'statusHistories']);
-        });
+            return $r->fresh(['roomPreferences', 'statusHistories']);
+        }, 3);
     }
 }

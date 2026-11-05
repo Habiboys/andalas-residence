@@ -54,6 +54,7 @@ Route::get('/dokumen/verifikasi/{token}', [DocumentVerificationController::class
 
 Route::middleware(['auth', 'verified', EnsureResidenceAccountAccess::class])->group(function () {
     require __DIR__.'/role-pages.php';
+    require __DIR__.'/residence-workflow.php';
 
     Route::get('/dashboard/redirect', function () {
         $role = request()->user()->roles->first()?->name ?? 'mahasiswa';

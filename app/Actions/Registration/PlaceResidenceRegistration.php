@@ -48,7 +48,7 @@ class PlaceResidenceRegistration
         if ($occupancy >= $room->kapasitas) {
             throw ValidationException::withMessages(['kamar_id' => 'Kamar sudah penuh.']);
         }
-        if ($registration->billing_basis === 'room' && ($occupancy > 0 || app(RoomReservations::class)->count($room, $registration->id) > 0)) {
+        if ($registration->billing_basis === 'room' && ! $registration->room_contract_id && ($occupancy > 0 || app(RoomReservations::class)->count($room, $registration->id) > 0)) {
             throw ValidationException::withMessages(['kamar_id' => 'Sewa per kamar membutuhkan seluruh kamar yang kosong.']);
         }
 

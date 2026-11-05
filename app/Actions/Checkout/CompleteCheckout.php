@@ -37,6 +37,9 @@ class CompleteCheckout
 
             $placement = PenempatanKamar::query()->lockForUpdate()->findOrFail($request->penempatan_kamar_id);
             $room = Kamar::query()->lockForUpdate()->findOrFail($placement->kamar_id);
+            if ($placement->registration?->workflow_version === 2) {
+                throw ValidationException::withMessages(['checkout' => 'Konfirmasi pengembalian kunci melalui Proses Pendaftaran setelah pemeriksaan fisik selesai.']);
+            }
             $expectedAssetIds = Aset::query()->where('kamar_id', $room->id)->pluck('id')->sort()->values()->all();
             $checkedAssetIds = collect($request->inspection->asset_checks ?? [])->pluck('aset_id')->sort()->values()->all();
             if ($expectedAssetIds !== $checkedAssetIds) {

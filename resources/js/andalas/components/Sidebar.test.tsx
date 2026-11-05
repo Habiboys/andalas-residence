@@ -8,11 +8,11 @@ it.each(['staff_admin', 'superadmin'] as UserRole[])(
         const html = renderToStaticMarkup(
             <Sidebar
                 role={role}
-                currentPage="master-data"
+                currentPage="master-data/fakultas"
                 setPage={() => {}}
             />,
         );
-        expect(html).toMatch(/aria-current="page"[^>]*>[\s\S]*?Data Master/);
+        expect(html).toMatch(/aria-current="page"[^>]*>[\s\S]*?Fakultas/);
         expect(html.indexOf('Data Master')).toBeLessThan(
             html.indexOf('Operasional'),
         );

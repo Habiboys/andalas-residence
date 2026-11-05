@@ -2,7 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { expect, it } from 'vite-plus/test';
 import TemporaryStays from './TemporaryStays';
 
-it('keeps the temporary stay list visible and opens the structured entry sheet on demand', () => {
+it('shows the temporary stay list and links the unified registration workflow', () => {
     const html = renderToStaticMarkup(
         <TemporaryStays
             rooms={[
@@ -13,10 +13,8 @@ it('keeps the temporary stay list visible and opens the structured entry sheet o
     );
 
     expect(html).toContain('Hunian Sementara');
-    expect(html).toContain('Catat penghuni');
-    expect(html).toContain('Informasi penghuni');
-    expect(html).toContain('Masa tinggal dan kamar');
-    expect(html).not.toContain('Email penghuni');
-    expect(html).not.toContain('Jenis peserta');
+    expect(html).toContain('Buka proses pendaftaran');
+    expect(html).toContain('setelah kunci kembali');
+    expect(html).not.toContain('dilepas otomatis');
     expect(html).toContain('Belum ada data di sini');
 });

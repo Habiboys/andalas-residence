@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\Registration\AllocateResidenceRoom;
 use App\Actions\Registration\CompleteResidenceRegistration;
 use App\Actions\Registration\CreateResidenceBilling;
 use App\Models\Aset;
@@ -17,6 +18,7 @@ use App\Models\ResidenceRate;
 use App\Models\ResidenceRegistration;
 use App\Models\RoomType;
 use App\Services\MasterDataService;
+use App\Services\ResidenceWorkflowAccess;
 use App\Services\RoomEligibility;
 use App\Services\RoomReservations;
 use App\Services\StudentCohort;
@@ -59,7 +61,7 @@ class ResidenceManagementController extends Controller
             KipkRecipient::updateOrCreate(['nim' => $data['nim'], 'angkatan' => StudentCohort::fromNim($data['nim'])], ['nama' => $data['nama']]);
         } elseif ($kind === 'rate') {
             $data = $request->validate(['gedung_id' => ['required', 'uuid', 'exists:gedung,id'], 'tipe_kamar' => ['required', Rule::exists('room_types', 'code')], 'unit' => ['required', 'in:year,month,day'], 'amount' => ['required', 'integer', 'min:0'], 'student_amount' => ['nullable', 'integer', 'min:0'], 'room_amount' => ['nullable', 'integer', 'min:0'], 'facilities' => ['nullable', 'string', 'max:2000']]);
-            $building = Gedung::findOrFail($data['gedung_id']);
+            $building = Gedung::whereKey($data['gedung_id'])->firstOrFail();
             if (! RoomEligibility::allowsType($building, $data['tipe_kamar'])) {
                 throw ValidationException::withMessages(['tipe_kamar' => 'Aktifkan tipe kamar pada master gedung sebelum menetapkan tarif.']);
             }
@@ -86,7 +88,7 @@ class ResidenceManagementController extends Controller
                 throw ValidationException::withMessages(['type' => 'Aktifkan tipe pada Master Data terlebih dahulu.']);
             }
             DB::transaction(function () use ($data): void {
-                $building = Gedung::query()->lockForUpdate()->findOrFail($data['gedung_id']);
+                $building = Gedung::query()->lockForUpdate()->whereKey($data['gedung_id'])->firstOrFail();
                 $rooms = Kamar::whereHas('lantai', fn ($query) => $query->where('gedung_id', $building->id))->where('tipe_kamar', $data['type'])->lockForUpdate()->get();
                 foreach ($rooms as $room) {
                     if ((! $data['enabled'] || (isset($data['max_capacity']) && $room->kapasitas > $data['max_capacity'])) && ($room->penempatanKamar()->where('status', 'aktif')->exists() || app(RoomReservations::class)->count($room) > 0)) {
@@ -108,7 +110,7 @@ class ResidenceManagementController extends Controller
                 'kategori' => ['required', 'string', 'max:50'],
                 'kondisi' => ['required', 'in:baik,rusak_ringan,rusak_berat'],
             ]);
-            $facility = isset($data['id']) ? FasilitasUmum::where('gedung_id', $data['gedung_id'])->findOrFail($data['id']) : new FasilitasUmum;
+            $facility = isset($data['id']) ? FasilitasUmum::where('gedung_id', $data['gedung_id'])->whereKey($data['id'])->firstOrFail() : new FasilitasUmum;
             unset($data['id']);
             $facility->fill($data)->save();
         } elseif ($kind === 'building') {
@@ -120,7 +122,7 @@ class ResidenceManagementController extends Controller
                 'allowed_categories' => ['present', 'array'],
                 'allowed_categories.*' => ['required', Rule::in(['local_kipk', 'local_non_kipk', 'student', 'international_student', 'international_free_facility', 'non_student', 'summer_course'])],
             ]);
-            $building = ! empty($data['gedung_id']) ? Gedung::findOrFail($data['gedung_id']) : new Gedung;
+            $building = ! empty($data['gedung_id']) ? Gedung::whereKey($data['gedung_id'])->firstOrFail() : new Gedung;
             $building->fill(array_filter(array_diff_key($data, ['gedung_id' => true]), fn (mixed $value): bool => $value !== null))->save();
         } elseif ($kind === 'room') {
             $data = $request->validate([
@@ -130,12 +132,12 @@ class ResidenceManagementController extends Controller
                 'status' => ['required', 'in:kosong,terisi_sebagian,penuh,maintenance'],
             ]);
             DB::transaction(function () use ($data): void {
-                $building = Gedung::query()->lockForUpdate()->findOrFail($data['gedung_id']);
+                $building = Gedung::query()->lockForUpdate()->whereKey($data['gedung_id'])->firstOrFail();
                 if (! RoomEligibility::allowsType($building, $data['tipe_kamar'], (int) $data['kapasitas'])) {
                     throw ValidationException::withMessages(['tipe_kamar' => 'Tipe tidak aktif atau kapasitas melebihi batas master tipe gedung.']);
                 }
                 $floor = Lantai::firstOrCreate(['gedung_id' => $building->id, 'nomor_lantai' => $data['nomor_lantai']], ['nama_lantai' => 'Lantai '.$data['nomor_lantai']]);
-                $room = ! empty($data['id']) ? Kamar::query()->lockForUpdate()->findOrFail($data['id']) : new Kamar;
+                $room = ! empty($data['id']) ? Kamar::query()->lockForUpdate()->whereKey($data['id'])->firstOrFail() : new Kamar;
                 if (Kamar::where('lantai_id', $floor->id)->where('nomor_kamar', $data['nomor_kamar'])->when($room->exists, fn ($query) => $query->whereKeyNot($room->id))->exists()) {
                     throw ValidationException::withMessages(['nomor_kamar' => 'Nomor kamar sudah digunakan di lantai ini.']);
                 }
@@ -192,7 +194,7 @@ class ResidenceManagementController extends Controller
             ResidenceRate::query()->where($data)->firstOrFail()->delete();
         } elseif ($kind === 'facility') {
             $data = $request->validate(['id' => ['required', 'uuid'], 'gedung_id' => ['required', 'uuid', 'exists:gedung,id']]);
-            $facility = FasilitasUmum::where('gedung_id', $data['gedung_id'])->findOrFail($data['id']);
+            $facility = FasilitasUmum::where('gedung_id', $data['gedung_id'])->whereKey($data['id'])->firstOrFail();
             if (Aset::where('fasilitas_umum_id', $facility->id)->exists()) {
                 throw ValidationException::withMessages(['facility' => 'Fasilitas masih memiliki aset. Pindahkan aset sebelum menghapus fasilitas.']);
             }
@@ -336,6 +338,12 @@ class ResidenceManagementController extends Controller
     public function assignKipkRoom(Request $request, ResidenceRegistration $registration): RedirectResponse
     {
         $this->authorizePermission($request, 'registration.review');
+        if ($registration->workflow_version === 2) {
+            abort_unless(ResidenceWorkflowAccess::manager($request->user()), 403);
+            app(AllocateResidenceRoom::class)->handle($registration);
+
+            return back()->with('toast', ['type' => 'success', 'message' => 'Antrean alokasi otomatis diperiksa kembali.']);
+        }
         $data = $request->validate(['kamar_id' => ['required', 'uuid', 'exists:kamar,id']]);
         DB::transaction(function () use ($request, $registration, $data): void {
             $registration = ResidenceRegistration::query()->lockForUpdate()->findOrFail($registration->id);
@@ -348,9 +356,9 @@ class ResidenceManagementController extends Controller
                 }
                 throw ValidationException::withMessages(['kamar_id' => 'Kamar dan tagihan sudah ditetapkan. Batalkan pendaftaran terlebih dahulu untuk menggantinya.']);
             }
-            $candidate = Kamar::with('lantai')->findOrFail($data['kamar_id']);
+            $candidate = Kamar::with('lantai')->whereKey($data['kamar_id'])->firstOrFail();
             Gedung::query()->lockForUpdate()->findOrFail($candidate->lantai->gedung_id);
-            $room = Kamar::query()->lockForUpdate()->findOrFail($data['kamar_id']);
+            $room = Kamar::query()->lockForUpdate()->whereKey($data['kamar_id'])->firstOrFail();
             RoomEligibility::validate($room, $registration->studentProfile->user, 'kamar_id', $registration->id);
             $registration->update([
                 'reserved_room_id' => $room->id,
@@ -365,6 +373,9 @@ class ResidenceManagementController extends Controller
 
     public function approveSponsor(Request $request, ResidenceRegistration $registration): RedirectResponse
     {
+        if ($registration->workflow_version === 2) {
+            throw ValidationException::withMessages(['sponsor_name' => 'Sahkan dukungan melalui permohonan institusi pada proses pendaftaran.']);
+        }
         $this->authorizePermission($request, 'registration.review');
         $data = $request->validate(['kamar_id' => ['nullable', 'uuid', 'exists:kamar,id'], 'sponsor_name' => ['required', 'string', 'max:255']]);
         DB::transaction(function () use ($request, $registration, $data): void {

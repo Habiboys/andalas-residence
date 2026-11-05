@@ -10,6 +10,7 @@ use App\Models\Departemen;
 use App\Models\Faculty;
 use App\Models\Prodi;
 use App\Models\User;
+use App\Services\UnandSso;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -85,7 +86,7 @@ class FortifyServiceProvider extends ServiceProvider
         Fortify::loginView(fn (Request $request) => Inertia::render('auth/login', [
             'canResetPassword' => Features::enabled(Features::resetPasswords()),
             'status' => $request->session()->get('status'),
-            'ssoUrl' => config('services.unand_sso.url'),
+            'ssoUrl' => app(UnandSso::class)->isConfigured() ? route('sso.redirect') : null,
         ]));
 
         Fortify::resetPasswordView(fn (Request $request) => Inertia::render('auth/reset-password', [

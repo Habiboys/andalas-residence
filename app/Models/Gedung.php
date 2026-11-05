@@ -27,6 +27,7 @@ class Gedung extends BaseModel
         return ['photos' => 'array', 'allowed_categories' => 'array', 'room_types' => 'array'];
     }
 
+    /** @return HasMany<Lantai, $this> */
     public function lantai(): HasMany
     {
         return $this->hasMany(Lantai::class);

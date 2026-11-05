@@ -219,9 +219,10 @@ function InvitationCard({ invitation }: { invitation: RoomInvitation }) {
                             Anda akan didaftarkan ke kamar{' '}
                             {invitation.room_number} di{' '}
                             {invitation.building_name}. Tagihan pribadi dibuat
-                            sesuai tarif dan masa tinggal yang berlaku. Hunian
-                            otomatis disetujui setelah persyaratan pembayaran
-                            terpenuhi.
+                            sesuai tarif dan masa tinggal yang berlaku. Untuk
+                            sewa kamar bersama, tagihan menunggu pengesahan
+                            anggota. Hunian aktif setelah pemeriksaan fisik dan
+                            serah kunci.
                         </p>
                         {Object.entries(form.errors).map(([key, error]) => (
                             <p
@@ -261,9 +262,8 @@ export default function RoomInvitations({
         <section className="space-y-4">
             <h2 className="text-lg font-semibold">Undangan teman sekamar</h2>
             <p className="text-muted text-sm">
-                Terima undangan untuk memilih kamar yang sama. Pendaftaran dan
-                penempatan diproses otomatis setelah seluruh persyaratan
-                terpenuhi.
+                Terima undangan untuk memilih kamar yang sama. Lengkapi dokumen
+                dan pembiayaan, lalu lakukan check-in fisik bersama petugas.
             </p>
             {invitations.length ? (
                 <div className="grid gap-4 lg:grid-cols-2">

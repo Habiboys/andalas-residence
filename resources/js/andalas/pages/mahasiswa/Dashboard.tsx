@@ -51,7 +51,7 @@ export default function MahasiswaDashboard({
                 <p className="text-muted mt-1 text-sm">
                     {letterPriority
                         ? 'Gunakan hanya jika ingin tinggal di asrama lagi. Tidak diperlukan untuk mengurus surat.'
-                        : 'Ajukan hunian, pantau pendaftaran dan lanjutkan pembayaran. Peserta KIPK ditempatkan oleh admin.'}
+                        : 'Ajukan hunian, pantau pendaftaran dan lanjutkan pembayaran. Kamar peserta KIP-K dialokasikan otomatis sesuai prioritas dan kapasitas.'}
                 </p>
             </Link>
             <Link

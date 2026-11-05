@@ -1,3 +1,4 @@
+import { workflow as residenceWorkflow } from '@/routes/residence';
 import { manage as landingManage } from '@/routes/andalas/landing';
 import { useEffect, useState } from 'react';
 import { Link, usePage, router } from '@inertiajs/react';
@@ -148,6 +149,10 @@ function ShellInner({
                           : pimpinanRoutes;
 
     const nav = (slug: string) => {
+        if (slug === 'residence-workflow') {
+            router.visit(residenceWorkflow.url());
+            return;
+        }
         if (slug.startsWith('landing-page/')) {
             router.visit(landingManage.url(slug.slice('landing-page/'.length)));
             return;

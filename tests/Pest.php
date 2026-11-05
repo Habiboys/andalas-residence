@@ -3,6 +3,9 @@
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
+require_once __DIR__.'/Support/ResidenceWorkflowFixtures.php';
+require_once __DIR__.'/Support/ResidenceToBeFixtures.php';
+
 /*
 |--------------------------------------------------------------------------
 | Test Case

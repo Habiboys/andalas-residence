@@ -1,7 +1,9 @@
 <?php
 
 use App\Actions\Billing\PostPayment;
+use App\Actions\Registration\ReviewResidenceRegistration;
 use App\Actions\Registration\SubmitResidenceRegistration;
+use App\Enums\ResidenceRegistrationStatus;
 use App\Jobs\GenerateFreeResidenceLetter;
 use App\Models\Gedung;
 use App\Models\Kamar;
@@ -13,6 +15,7 @@ use App\Models\Pembayaran;
 use App\Models\PengajuanBebasAsrama;
 use App\Models\Periode;
 use App\Models\ResidenceRate;
+use App\Models\ResidenceRegistration;
 use App\Models\User;
 use App\Services\MasterDataService;
 use App\Services\ResidenceLifecycle;
@@ -25,7 +28,7 @@ function revisionStudent(string $nim = '2610000001'): MahasiswaProfil
     $user = User::factory()->create(['nim_nip' => $nim, 'client_profile_category' => 'local_non_kipk', 'gender' => 'laki_laki']);
     $user->assignRole('mahasiswa');
 
-    return MahasiswaProfil::create(['user_id' => $user->id, 'angkatan' => '20'.substr($nim, 0, 2), 'barcode_code' => $user->id, 'status_huni' => 'calon']);
+    return MahasiswaProfil::create(['user_id' => $user->id, 'angkatan' => '20'.substr($nim, 0, 2), 'barcode_code' => $user->id, 'prodi_id' => workflowTestProgram(), 'status_huni' => 'calon']);
 }
 
 function revisionRoom(): Kamar
@@ -87,16 +90,18 @@ it('saves a historical building rate for a future cohort year', function () {
     ]);
 });
 
-it('reserves the last bed and completes a personal registration after payment', function () {
+it('reserves the last bed and requires physical checkin after payment', function () {
     $this->seed(RolePermissionSeeder::class);
     Queue::fake();
     $period = revisionPeriod();
     $room = revisionRoom();
     $student = revisionStudent();
+    workflowTestPolicies();
     $registration = app(SubmitResidenceRegistration::class)->handle($student, ['periode_id' => $period->id, 'is_kipk' => false, 'preferences' => [['kamar_id' => $room->id]]]);
     expect(app(RoomReservations::class)->count($room))->toBe(1);
     app(PostPayment::class)->handle('PAY-TEST', $student->id, now()->toDateTimeString(), [['tagihan_id' => $registration->tagihan_id, 'jumlah' => 2500000]]);
-    expect($registration->fresh()->completed_at)->not->toBeNull();
+    expect($registration->fresh()->completed_at)->toBeNull();
+    workflowTestCheckin($registration);
     expect($student->fresh()->status_huni)->toBe('aktif');
     expect(app(RoomReservations::class)->count($room))->toBe(0);
 });
@@ -111,7 +116,7 @@ it('issues the non residence letter automatically for a modern student who never
     Queue::assertPushed(GenerateFreeResidenceLetter::class);
 });
 
-it('rejects a second reservation for the last bed and releases it after expiry', function () {
+it('rejects a second reservation for the last bed and retains it until an explicit cancellation', function () {
     $this->seed(RolePermissionSeeder::class);
     Queue::fake();
     $this->freezeTime();
@@ -120,10 +125,15 @@ it('rejects a second reservation for the last bed and releases it after expiry',
     $student = revisionStudent();
     $other = revisionStudent('2610000002');
     $payload = ['periode_id' => $period->id, 'preferences' => [['kamar_id' => $room->id]]];
+    workflowTestPolicies();
     $this->actingAs($student->user)->post(route('andalas.registrations.store'), $payload)->assertSessionHasNoErrors();
     $this->actingAs($other->user)->post(route('andalas.registrations.store'), $payload)->assertSessionHasErrors('preferences');
     $this->travel(25)->hours();
     app(RoomReservations::class)->expire();
+    $this->actingAs($other->user)->post(route('andalas.registrations.store'), $payload)->assertSessionHasErrors('preferences');
+    $registration = ResidenceRegistration::where('student_profile_id', $student->id)->sole();
+    $manager = User::factory()->create()->assignRole('admin_layanan');
+    app(ReviewResidenceRegistration::class)->handle($registration, $manager, ResidenceRegistrationStatus::Rejected, 'Dibatalkan pemohon');
     $this->actingAs($other->user)->post(route('andalas.registrations.store'), $payload)->assertSessionHasNoErrors();
     expect(app(RoomReservations::class)->count($room))->toBe(1);
 });
@@ -135,6 +145,7 @@ it('keeps a reservation while uploaded payment evidence awaits review', function
     $period = revisionPeriod();
     $room = revisionRoom();
     $student = revisionStudent();
+    workflowTestPolicies();
     $registration = app(SubmitResidenceRegistration::class)->handle($student, ['periode_id' => $period->id, 'is_kipk' => false, 'preferences' => [['kamar_id' => $room->id]]]);
     Pembayaran::create(['kode_transaksi' => 'PROOF-1', 'mahasiswa_id' => $student->id, 'tagihan_id' => $registration->tagihan_id, 'nominal' => 2500000, 'jenis_pembayaran' => 'sewa_asrama', 'status' => 'menunggu_verifikasi']);
     $this->travel(25)->hours();
@@ -151,6 +162,7 @@ it('calculates daily pricing from the selected building room type and dates', fu
     $room = revisionRoom();
     ResidenceRate::create(['gedung_id' => $room->lantai->gedung_id, 'tipe_kamar' => 'standar', 'unit' => 'day', 'amount' => 150000]);
     $student = revisionStudent();
+    workflowTestPolicies();
     $this->actingAs($student->user)->post(route('andalas.registrations.store'), ['periode_id' => $period->id, 'preferences' => [['kamar_id' => $room->id]], 'rate_unit' => 'day', 'starts_at' => '2026-09-26', 'ends_at' => '2026-09-29'])->assertSessionHasNoErrors();
     $this->assertDatabaseHas('tagihan', ['mahasiswa_id' => $student->id, 'total' => 450000]);
 });
@@ -160,25 +172,21 @@ it('ignores a self declared KIPK flag when the recipient roster does not include
     Queue::fake();
     $period = revisionPeriod();
     $student = revisionStudent();
+    workflowTestPolicies();
     $this->actingAs($student->user)->post(route('andalas.registrations.store'), ['periode_id' => $period->id, 'is_kipk' => true])->assertSessionHasErrors('preferences');
     $this->assertDatabaseCount('residence_registrations', 0);
 });
 
-it('allows sponsored international residence without settling sponsor receivables', function () {
+it('requires an institutional application for sponsored international residence', function () {
     $this->seed(RolePermissionSeeder::class);
-    Queue::fake();
     $period = revisionPeriod();
     $room = revisionRoom();
     $student = revisionStudent();
     $student->user->update(['client_profile_category' => 'international_student']);
-    $registration = app(SubmitResidenceRegistration::class)->handle($student, ['periode_id' => $period->id, 'is_kipk' => false, 'preferences' => [['kamar_id' => $room->id]], 'funding' => 'sponsor', 'sponsor_name' => 'International Office']);
-    expect($registration->completed_at)->toBeNull();
-    $admin = User::factory()->create();
-    $admin->assignRole('admin_layanan');
-    $this->actingAs($admin)->post(route('andalas.registrations.sponsor', $registration), ['sponsor_name' => 'International Office'])->assertSessionHasNoErrors();
-    expect($registration->fresh()->completed_at)->not->toBeNull();
-    expect(app(ResidenceLifecycle::class)->hasDebt($student))->toBeFalse();
-    $this->assertDatabaseHas('tagihan', ['id' => $registration->tagihan_id, 'total' => 0, 'sponsor_total' => 2500000, 'sponsor_paid' => 0]);
+    workflowTestPolicies();
+    $this->actingAs($student->user)->post(route('andalas.registrations.store'), ['periode_id' => $period->id, 'preferences' => [['kamar_id' => $room->id]], 'funding' => 'sponsor', 'sponsor_name' => 'International Office'])->assertSessionHasErrors('periode_id');
+    $this->assertDatabaseCount('tagihan', 0);
+    $this->assertDatabaseCount('penempatan_kamar', 0);
 });
 
 it('uses the historical building cohort tariff and issues a letter once paid', function () {
@@ -219,6 +227,7 @@ it('lets a letter inactive account register again but keeps admin blocked accoun
     $room = revisionRoom();
     $student = revisionStudent('2110000001');
     $student->user->update(['status' => 'nonaktif', 'inactive_reason' => 'letter_issued']);
+    workflowTestPolicies();
     $this->actingAs($student->user)->post(route('andalas.registrations.store'), ['periode_id' => $period->id, 'preferences' => [['kamar_id' => $room->id]]])->assertSessionHasNoErrors();
     $student->user->update(['inactive_reason' => 'admin_blocked']);
     $this->actingAs($student->user->fresh())->get(route('mahasiswa.dashboard'))->assertForbidden();

@@ -52,7 +52,7 @@ class ResidenceLifecycle
 
     public function requiresKipkPersonalPayment(MahasiswaProfil $student): bool
     {
-        return in_array((int) $student->angkatan, config('residence.kipk_personal_payment_cohorts', []), true);
+        return $this->isKipk($student);
     }
 
     public function state(MahasiswaProfil $student): string

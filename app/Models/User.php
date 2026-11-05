@@ -17,6 +17,7 @@ use Spatie\Permission\Traits\HasRoles;
 
 /**
  * @property string $id
+ * @property string|null $sso_id
  * @property string $nim_nip
  * @property string $nama
  * @property string $email

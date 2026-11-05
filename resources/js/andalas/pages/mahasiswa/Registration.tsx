@@ -1,3 +1,4 @@
+import { workflow } from '@/routes/residence';
 import { useState } from 'react';
 import RoomCatalog, { type CatalogRoom } from '../../components/RoomCatalog';
 import RoomInvitations, {
@@ -11,6 +12,9 @@ import { tagihan } from '@/routes/mahasiswa';
 import { formatRupiah } from '../../lib/format';
 type Room = CatalogRoom;
 type Props = {
+    policy_open?: boolean;
+    policy_month_days?: number;
+    policy_day_basis?: string;
     initialUser?: {
         is_kipk?: boolean;
         kipk_personal_payment?: boolean;
@@ -53,6 +57,9 @@ type Props = {
     }>;
 };
 export default function Registration({
+    policy_open = false,
+    policy_month_days = 30,
+    policy_day_basis = 'nights',
     initialUser,
     periode = [],
     rooms = [],
@@ -130,8 +137,17 @@ export default function Registration({
         <div className="space-y-5">
             <PageHeader
                 title="Pendaftaran Asrama"
-                subtitle="Pilih hunian dan selesaikan pembayaran untuk mengaktifkan masa tinggal."
+                subtitle="Pilih hunian, lengkapi administrasi, lalu lakukan check-in fisik dan serah kunci bersama petugas."
             />
+            <Link href={workflow.url()} className="btn btn-outline btn-sm">
+                Lengkapi profil, dokumen, dan proses check-in
+            </Link>
+            {!policy_open && (
+                <p className="alert alert-warning">
+                    Pendaftaran kategori ini belum dibuka. Pengelola perlu
+                    melengkapi dan menerbitkan kebijakan terlebih dahulu.
+                </p>
+            )}
             <nav
                 className="border-base-300 flex gap-5 border-b"
                 aria-label="Pendaftaran dan undangan"
@@ -160,16 +176,15 @@ export default function Registration({
                         <p>
                             {initialUser?.student_stage}.{' '}
                             {kipk
-                                ? 'Terdaftar sebagai penerima KIP-K. Kamar ditempatkan Admin Layanan.'
+                                ? 'Terdaftar sebagai penerima KIP-K. Sistem mengalokasikan kamar sesuai prioritas dan kapasitas.'
                                 : 'Pilih kamar yang tersedia sesuai kategori Anda.'}
                         </p>
                         {kipk && initialUser?.kipk_personal_payment && (
                             <p className="text-sm">
-                                Khusus KIP-K angkatan 2026, biaya hunian dibayar
-                                pribadi sesuai tarif gedung dan kamar. Setelah
-                                admin menentukan kamar, buka menu tagihan,
-                                bayar, lalu unggah bukti pembayaran untuk
-                                diverifikasi seperti alur non-KIP-K.
+                                Kewajiban pribadi dibayar setelah pencairan
+                                KIP-K. Check-in diperbolehkan setelah alokasi,
+                                dokumen, dan perjanjian valid. Pembayaran tetap
+                                tercatat terutang sampai dana diterima.
                             </p>
                         )}
                         {initialUser?.inactive_reason === 'letter_issued' && (
@@ -196,7 +211,7 @@ export default function Registration({
                                         r.funding === 'personal' &&
                                         !r.tagihan_id,
                                 ) ? (
-                                    'Menunggu admin menentukan kamar. Tagihan diterbitkan setelah kamar ditentukan.'
+                                    'Menunggu alokasi kamar sesuai prioritas dan kapasitas. Tagihan diterbitkan setelah kamar dialokasikan.'
                                 ) : (
                                     <Link className="link" href={tagihan.url()}>
                                         Lihat tagihan dan bayar
@@ -422,7 +437,11 @@ export default function Registration({
                                                     price *
                                                         (form.data.rate_unit ===
                                                         'day'
-                                                            ? days
+                                                            ? days +
+                                                              (policy_day_basis ===
+                                                              'inclusive_days'
+                                                                  ? 1
+                                                                  : 0)
                                                             : form.data
                                                                     .rate_unit ===
                                                                 'month'
@@ -430,7 +449,7 @@ export default function Registration({
                                                                     1,
                                                                     Math.ceil(
                                                                         days /
-                                                                            30,
+                                                                            policy_month_days,
                                                                     ),
                                                                 )
                                                               : 1),
@@ -440,19 +459,15 @@ export default function Registration({
                                                 ? ` untuk ${days} hari`
                                                 : form.data.rate_unit ===
                                                     'month'
-                                                  ? ` untuk ${Math.max(1, Math.ceil(days / 30))} bulan`
+                                                  ? ` untuk ${Math.max(1, Math.ceil(days / policy_month_days))} bulan`
                                                   : ' per tahun'}
                                             .
                                         </p>
                                         <p className="text-sm">
-                                            Kamar ditahan{' '}
-                                            {periods.find(
-                                                (p) =>
-                                                    p.id ===
-                                                    form.data.periode_id,
-                                            )?.reservation_hours ?? 24}{' '}
-                                            jam. Bukti pembayaran yang menunggu
-                                            verifikasi tetap menahan kamar.
+                                            Alokasi dipertahankan selama proses
+                                            administrasi berjalan. Hunian belum
+                                            aktif sampai check-in fisik dan
+                                            serah kunci.
                                         </p>
                                     </>
                                 )}
@@ -469,6 +484,7 @@ export default function Registration({
                                     className="btn btn-primary"
                                     disabled={
                                         form.processing ||
+                                        !policy_open ||
                                         !form.data.periode_id ||
                                         (!kipk && (!room || price <= 0))
                                     }

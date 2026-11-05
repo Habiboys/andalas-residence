@@ -4,8 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Actions\Billing\PostPayment;
 use App\Models\InvoiceGroup;
+use App\Models\KategoriTransaksi;
+use App\Models\ResidenceApplication;
 use App\Models\SponsorPayment;
 use App\Models\Tagihan;
+use App\Models\TransaksiKeuangan;
 use App\Models\VirtualAccount;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
@@ -27,6 +30,9 @@ class InvoiceController extends Controller
         ]);
         DB::transaction(function () use ($tagihan, $data): void {
             $invoice = Tagihan::query()->lockForUpdate()->findOrFail($tagihan->id);
+            if ($invoice->registration?->workflow_version === 2 && (float) $data['amount_due_now'] !== (float) ($invoice->amount_due_now ?? ((float) $invoice->total - (float) $invoice->total_dibayar))) {
+                throw ValidationException::withMessages(['amount_due_now' => 'Ubah skema pembayaran melalui keputusan pimpinan/pengelola pada proses pendaftaran.']);
+            }
             if ($invoice->status->value === 'batal' || (float) $data['amount_due_now'] > (float) $invoice->total - (float) $invoice->total_dibayar) {
                 throw ValidationException::withMessages(['amount_due_now' => 'Nominal harus sesuai sisa tagihan pribadi.']);
             }
@@ -46,6 +52,7 @@ class InvoiceController extends Controller
     {
         $this->authorizePermission($request, 'pembayaran.verify');
         $data = $request->validate([
+            'residence_application_id' => ['nullable', 'uuid', 'exists:residence_applications,id'],
             'nomor' => ['required', 'string', 'max:100', 'unique:invoice_groups,nomor'],
             'payer_type' => ['required', 'in:personal,sponsor'],
             'invoice_ids' => ['required', 'array', 'min:1', 'max:200'], 'invoice_ids.*' => ['required', 'uuid', 'distinct', 'exists:tagihan,id'],
@@ -59,8 +66,15 @@ class InvoiceController extends Controller
         ]);
         DB::transaction(function () use ($request, $data): void {
             $invoices = Tagihan::with('mahasiswa.user')->whereIn('id', $data['invoice_ids'])->orderBy('id')->lockForUpdate()->get();
+            $application = ! empty($data['residence_application_id']) ? ResidenceApplication::whereKey($data['residence_application_id'])->firstOrFail() : null;
+            if ($application?->kind === 'summer_course' && $application->ends_at->isFuture()) {
+                throw ValidationException::withMessages(['invoice_ids' => 'Invoice final Summer Course diterbitkan setelah akhir masa sewa.']);
+            }
             $rows = [];
             foreach ($invoices as $invoice) {
+                if (($application || $invoice->registration?->residence_application_id) && $invoice->registration?->residence_application_id !== $application?->id) {
+                    throw ValidationException::withMessages(['invoice_ids' => 'Peserta harus berasal dari satu permohonan institusi yang dipilih.']);
+                }
                 $remaining = $data['payer_type'] === 'sponsor' ? (float) $invoice->sponsor_total - (float) $invoice->sponsor_paid : (float) $invoice->total - (float) $invoice->total_dibayar;
                 if ($invoice->status->value === 'batal' || $remaining <= 0) {
                     throw ValidationException::withMessages(['invoice_ids' => 'Pilih hanya invoice dengan sisa tagihan untuk pembayar yang dipilih.']);
@@ -74,7 +88,7 @@ class InvoiceController extends Controller
             if ($request->hasFile('administration_signature')) {
                 $snapshot['administration_signature_path'] = $request->file('administration_signature')->store('documents/invoice-signatures', 'local');
             }
-            $group = InvoiceGroup::create(['nomor' => $data['nomor'], 'payer_type' => $data['payer_type'], 'invoice_ids' => $data['invoice_ids'], 'snapshot' => $snapshot, 'created_by' => $request->user()->id]);
+            $group = InvoiceGroup::create(['residence_application_id' => $application?->id, 'nomor' => $data['nomor'], 'payer_type' => $data['payer_type'], 'invoice_ids' => $data['invoice_ids'], 'snapshot' => $snapshot, 'created_by' => $request->user()->id]);
             $path = 'documents/invoice-groups/'.$group->id.'.pdf';
             if (! Storage::disk('local')->put($path, Pdf::loadView('pdf.invoice-group', ['invoice' => $snapshot])->setPaper('a4')->output())) {
                 throw new \RuntimeException('PDF gagal disimpan.');
@@ -96,6 +110,9 @@ class InvoiceController extends Controller
     public function pay(Request $request, InvoiceGroup $group): RedirectResponse
     {
         $this->authorizePermission($request, 'pembayaran.verify');
+        if (Tagihan::whereIn('id', $group->invoice_ids)->whereHas('registration', fn ($q) => $q->where('workflow_version', 2))->exists()) {
+            throw ValidationException::withMessages(['reference' => 'Gunakan rekonsiliasi DPUB pada menu Proses Pendaftaran untuk invoice alur baru.']);
+        }
         $data = $request->validate(['reference' => ['required', 'string', 'max:100'], 'allocations' => ['required', 'array', 'min:1'], 'allocations.*.tagihan_id' => ['required', 'uuid', 'distinct', Rule::in($group->invoice_ids)], 'allocations.*.jumlah' => ['required', 'numeric', 'min:1']]);
         DB::transaction(function () use ($request, $group, $data): void {
             $group = InvoiceGroup::query()->lockForUpdate()->findOrFail($group->id);
@@ -126,6 +143,8 @@ class InvoiceController extends Controller
                     app(PostPayment::class)->handle('GROUP-'.hash('sha256', $data['reference'].$invoice->id), $invoice->mahasiswa_id, now()->toDateTimeString(), [$allocation]);
                 }
             }
+            $category = KategoriTransaksi::firstOrCreate(['nama_kategori' => 'Penerimaan Sewa Asrama', 'tipe' => 'pemasukan']);
+            TransaksiKeuangan::create(['nomor_bukti' => 'GRP-'.substr(hash('sha256', $data['reference']), 0, 40), 'kategori_id' => $category->id, 'tipe' => 'pemasukan', 'nominal' => collect($allocations)->sum('jumlah'), 'tanggal_transaksi' => today(), 'deskripsi' => 'Pembayaran invoice gabungan '.$group->nomor, 'dicatat_oleh' => $request->user()->id]);
             SponsorPayment::create(['reference' => $data['reference'], 'invoice_group_id' => $group->id, 'allocations' => $data['allocations'], 'payer_type' => $group->payer_type, 'recorded_by' => $request->user()->id]);
         });
 

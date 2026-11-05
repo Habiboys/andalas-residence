@@ -41,10 +41,10 @@ use App\Models\User;
 use App\Models\VirtualAccount;
 use App\Services\AttendanceEligibility;
 use App\Services\AttendanceStatusResolver;
-use App\Services\FloorRoomAvailability;
 use App\Services\MasterDataService;
 use App\Services\ResidenceBuildingAccess;
 use App\Services\ResidenceLifecycle;
+use App\Services\ResidencePolicyService;
 use App\Services\RoomEligibility;
 use App\Services\RoomReservations;
 use App\Services\UserProfileSummary;
@@ -53,6 +53,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use Spatie\Permission\Models\Role;
@@ -230,7 +231,7 @@ class RolePageController extends Controller
         }
 
         $sortBy = $filters['sort_by'] ?? 'created_at';
-        $sortDirection = $filters['sort_direction'] ?? 'desc';
+        $sortDirection = ($filters['sort_direction'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
         $search = trim((string) ($filters['search'] ?? ''));
         $status = (string) ($filters['status'] ?? '');
 
@@ -277,7 +278,7 @@ class RolePageController extends Controller
         }
 
         $sortBy = $filters['sort_by'] ?? 'created_at';
-        $sortDirection = $filters['sort_direction'] ?? 'desc';
+        $sortDirection = ($filters['sort_direction'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
         $search = trim((string) ($filters['search'] ?? ''));
         $status = (string) ($filters['status'] ?? '');
 
@@ -326,7 +327,7 @@ class RolePageController extends Controller
             }
         }
         $sortBy = $filters['sort_by'] ?? 'created_at';
-        $sortDirection = $filters['sort_direction'] ?? 'desc';
+        $sortDirection = ($filters['sort_direction'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
         $search = trim((string) ($filters['search'] ?? ''));
         $status = $filters['status'] ?? '';
 
@@ -401,6 +402,7 @@ class RolePageController extends Controller
      * Penghuni yang punya akses aplikasi. Penghuni sementara (Summer Course &
      * non-mahasiswa) memakai role non-login sehingga tidak masuk rekap mahasiswa.
      */
+    /** @return EloquentBuilder<MahasiswaProfil> */
     private function residents(): EloquentBuilder
     {
         return MahasiswaProfil::whereDoesntHave(
@@ -468,10 +470,10 @@ class RolePageController extends Controller
         return $results;
     }
 
-    /** Laporan per gedung untuk dashboard pimpinan. */
+    /** @return list<array<string, mixed>> */
     private function buildingReport(): array
     {
-        return Gedung::query()->orderBy('kode_gedung')->with([
+        return array_values(Gedung::query()->orderBy('kode_gedung')->with([
             'lantai.kamar.penempatanKamar' => fn ($query) => $query->where('status', 'aktif'),
             'lantai.kamar.aset',
         ])->get()->map(function (Gedung $gedung): array {
@@ -484,10 +486,10 @@ class RolePageController extends Controller
                 'kamar_total' => $kamar->count(),
                 'kamar_terisi' => $kamar->filter(fn ($room) => $room->penempatanKamar->isNotEmpty())->count(),
                 'aset_rusak' => $kamar->flatMap->aset
-                    ->filter(fn ($aset) => in_array($aset->kondisi?->value ?? $aset->kondisi, ['rusak_ringan', 'rusak_berat', 'hilang']))
+                    ->filter(fn ($aset) => in_array($aset->kondisi->value, ['rusak_ringan', 'rusak_berat', 'hilang']))
                     ->count(),
             ];
-        })->all();
+        })->all());
     }
 
     private function gedungTree(?User $user = null): array
@@ -552,20 +554,28 @@ class RolePageController extends Controller
     private function registrationPayload(Request $request): array
     {
         $student = $request->user()->mahasiswaProfil;
-        $rooms = app(FloorRoomAvailability::class)->catalog($request->user());
-        $rates = ResidenceRate::all();
+        $policy = null;
+        if ($student) {
+            try {
+                $policy = app(ResidencePolicyService::class)->current(app(ResidencePolicyService::class)->category($student));
+            } catch (ValidationException) {
+            }
+        }
+        $rooms = $policy && $student ? app(ResidencePolicyService::class)->catalog($policy, $student) : collect();
+        $rates = collect($policy?->settings['rates'] ?? [])->map(fn ($rate) => new ResidenceRate(['gedung_id' => $rate['gedung_id'], 'tipe_kamar' => $rate['type'], 'unit' => $rate['unit'], 'amount' => $rate['amount'], 'room_amount' => $rate['room_amount'] ?? null]));
         $registrations = ResidenceRegistration::with(['roomPreferences.kamar', 'reservedRoom.lantai.gedung', 'placement.kamar', 'periode', 'tagihan'])->where('student_profile_id', $student?->id)->latest()->get();
         $heldIds = app(RoomReservations::class)->held()->where('student_profile_id', $student?->id)->pluck('id')->all();
         $canInvite = $student && app(ResidenceLifecycle::class)->isLocal($student) && ! app(ResidenceLifecycle::class)->isKipk($student);
         foreach ($registrations as $registration) {
-            $registration->setAttribute('can_invite', $canInvite && ! $registration->is_kipk && $registration->billing_basis !== 'room' && ! $registration->ended_at && $registration->periode?->status === 'aktif'
-                && $rooms->contains('id', $registration->reserved_room_id ?? $registration->placement?->kamar_id)
+            $registration->setAttribute('can_invite', $canInvite && ! $registration->is_kipk && ($registration->billing_basis !== 'room' || ($registration->workflow_version === 2 && ! $registration->room_contract_id)) && ! $registration->ended_at && $registration->periode?->status === 'aktif'
+                && ($registration->billing_basis === 'room' || $rooms->contains('id', $registration->reserved_room_id ?? $registration->placement?->kamar_id))
                 && ($registration->completed_at ? $registration->placement?->status === 'aktif' : in_array($registration->id, $heldIds, true)));
         }
         $invitations = RoomInvitation::where(fn ($query) => $query->where('sender_id', $request->user()->id)->orWhere('invitee_id', $request->user()->id))
             ->with(['sender:id,nama', 'invitee:id,nama', 'room.lantai.gedung', 'registration'])->latest()->get()->map(fn (RoomInvitation $invitation): array => $this->invitationPayload($invitation, $request->user(), $rates));
 
         return [
+            'policy_open' => $policy !== null, 'policy_month_days' => $policy?->settings['month_days'] ?? 30, 'policy_day_basis' => $policy?->settings['day_basis'] ?? 'nights',
             'rates' => $rates, 'periode' => Periode::where('status', 'aktif')->get(),
             'billing' => Tagihan::with(['items', 'jadwalCicilan', 'dokumen'])->where('mahasiswa_id', $student?->id)->latest()->get(),
             'rooms' => $rooms,
@@ -573,7 +583,10 @@ class RolePageController extends Controller
         ];
     }
 
-    /** @return array<string, mixed> */
+    /**
+     * @param  Collection<int, ResidenceRate>  $rates
+     * @return array<string, mixed>
+     */
     private function invitationPayload(RoomInvitation $invitation, User $user, Collection $rates): array
     {
         $host = $invitation->registration;
@@ -581,7 +594,7 @@ class RolePageController extends Controller
         $unit = in_array($host->rate_unit, ['year', 'period'], true) ? 'year' : $host->rate_unit;
         $rate = $rates->first(fn ($rate) => $rate->gedung_id === $room->lantai->gedung_id && $rate->tipe_kamar === $room->tipe_kamar && $rate->unit === $unit)
             ?? ($unit === 'day' ? $rates->first(fn ($rate) => $rate->gedung_id === $room->lantai->gedung_id && $rate->tipe_kamar === 'umum' && $rate->unit === 'day') : null);
-        $amount = (float) ($unit === 'day' ? ($rate?->student_amount ?? $rate?->amount ?? 0) : ($rate?->amount ?? ($unit === 'year' ? $room->tarif_per_periode : 0)));
+        $amount = (float) ($unit === 'day' ? ($rate->student_amount ?? $rate->amount ?? 0) : ($rate->amount ?? ($unit === 'year' ? $room->tarif_per_periode : 0)));
         $starts = $host->starts_at?->max(today()) ?? today();
         $days = $host->ends_at ? max(1, (int) $starts->diffInDays($host->ends_at)) : 1;
         $quantity = match ($unit) {
@@ -594,7 +607,7 @@ class RolePageController extends Controller
             'expires_at' => $invitation->expires_at->toIso8601String(), 'sender_name' => $invitation->sender->nama, 'invitee_name' => $invitation->invitee->nama,
             'room_number' => $room->nomor_kamar, 'building_name' => $room->lantai->gedung->nama_gedung,
             'floor_name' => $room->lantai->nama_lantai, 'rate_unit' => $unit,
-            'estimated_total' => $amount * $quantity, 'starts_at' => $starts->toDateString(), 'ends_at' => $host->ends_at?->toDateString(),
+            'estimated_total' => $host->billing_basis === 'room' ? null : $amount * $quantity, 'starts_at' => $starts->toDateString(), 'ends_at' => $host->ends_at?->toDateString(),
         ];
     }
 

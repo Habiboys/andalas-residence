@@ -62,12 +62,12 @@ export default function Login({ status, canResetPassword, ssoUrl }: Props) {
                 >
                     {({ processing, errors }) => (
                         <>
-                            {(errors.email || errors.password) && (
+                            {(errors.sso || errors.email || errors.password) && (
                                 <div
                                     role="alert"
                                     className="alert alert-error text-sm"
                                 >
-                                    {errors.email ||
+                                    {errors.sso || errors.email ||
                                         errors.password ||
                                         'NIM/email atau password salah.'}
                                 </div>

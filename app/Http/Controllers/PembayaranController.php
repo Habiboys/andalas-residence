@@ -10,6 +10,7 @@ use App\Models\Pembayaran;
 use App\Models\Tagihan;
 use App\Models\TransaksiKeuangan;
 use App\Services\AuditLogService;
+use App\Services\ResidenceWorkflow;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -115,6 +116,9 @@ class PembayaranController extends Controller
             if ($pembayaran->status !== 'menunggu_verifikasi') {
                 throw ValidationException::withMessages(['status' => 'Pembayaran ini sudah selesai diverifikasi.']);
             }
+            if ($validated['status'] === 'lunas' && $pembayaran->tagihan?->registration?->workflow_version === 2) {
+                throw ValidationException::withMessages(['status' => 'Cocokkan dana dengan catatan resmi DPUB melalui menu Proses Pendaftaran. Bukti transfer saja tidak mengesahkan dana.']);
+            }
             if ($validated['status'] === 'lunas' && $pembayaran->tagihan_id) {
                 $invoice = Tagihan::query()->lockForUpdate()->findOrFail($pembayaran->tagihan_id);
                 if ($invoice->status === TagihanStatus::Batal || (float) $pembayaran->nominal > (float) $invoice->total - (float) $invoice->total_dibayar) {
@@ -131,6 +135,9 @@ class PembayaranController extends Controller
                 'tanggal_bayar' => $validated['status'] === 'lunas' ? now() : $pembayaran->tanggal_bayar,
             ]);
 
+            if ($pembayaran->tagihan?->registration) {
+                app(ResidenceWorkflow::class)->evaluate($pembayaran->tagihan->registration->fresh());
+            }
             if ($validated['status'] === 'lunas') {
                 $kategori = KategoriTransaksi::where('tipe', 'pemasukan')
                     ->where('nama_kategori', 'like', '%Sewa%')

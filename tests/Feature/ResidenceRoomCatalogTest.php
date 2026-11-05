@@ -7,6 +7,7 @@ use App\Models\Lantai;
 use App\Models\MahasiswaProfil;
 use App\Models\PenempatanKamar;
 use App\Models\Periode;
+use App\Models\ResidencePolicy;
 use App\Models\ResidenceRate;
 use App\Models\ResidenceRegistration;
 use App\Models\User;
@@ -23,12 +24,13 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 function catalogRegistrationFixture(): array
 {
     $user = User::factory()->student()->create(['gender' => 'perempuan', 'client_profile_category' => 'local_non_kipk'])->assignRole('mahasiswa');
-    $profile = MahasiswaProfil::create(['user_id' => $user->id, 'barcode_code' => fake()->uuid(), 'angkatan' => '2026']);
+    $profile = MahasiswaProfil::create(['user_id' => $user->id, 'barcode_code' => fake()->uuid(), 'prodi_id' => workflowTestProgram(), 'angkatan' => '2026']);
     $period = Periode::create(['nama_periode' => '2026/2027', 'status' => 'aktif', 'angkatan_maba' => 2026, 'tanggal_mulai' => now(), 'tanggal_selesai' => now()->addYear()]);
     $building = Gedung::create(['kode_gedung' => 'CAT', 'nama_gedung' => 'Katalog', 'allowed_categories' => ['local_non_kipk', 'student'], 'room_types' => [['type' => 'standar', 'enabled' => true, 'max_capacity' => 2, 'facilities' => 'Dipan']]]);
     $floor = Lantai::create(['gedung_id' => $building->id, 'nomor_lantai' => 1, 'nama_lantai' => 'Lantai 1']);
     $room = Kamar::create(['lantai_id' => $floor->id, 'nomor_kamar' => '101', 'kapasitas' => 2, 'status' => 'kosong', 'tipe_kamar' => 'standar']);
     ResidenceRate::create(['gedung_id' => $building->id, 'tipe_kamar' => 'standar', 'unit' => 'year', 'amount' => 2500000, 'room_amount' => 5000000]);
+    workflowTestPolicies();
     $input = ['periode_id' => $period->id, 'preferences' => [['kamar_id' => $room->id]], 'rate_unit' => 'year'];
 
     return compact('user', 'profile', 'period', 'building', 'room', 'input');
@@ -137,7 +139,8 @@ it('treats an empty category list as closed and never falls back from nonmaba to
     $admin = User::factory()->create()->assignRole('admin_layanan');
     $this->actingAs($admin)->post(route('andalas.residence-management.save', 'building'), ['gedung_id' => $f['building']->id, 'allowed_categories' => []])->assertSessionHasNoErrors();
     expect($f['building']->fresh()->allowed_categories)->toBe([]);
-    $this->actingAs($f['user'])->post(route('andalas.registrations.store'), $f['input'])->assertSessionHasErrors('preferences');
+    ResidencePolicy::where('category', 'local_non_kipk')->delete();
+    $this->actingAs($f['user'])->post(route('andalas.registrations.store'), $f['input'])->assertSessionHasErrors('policy');
     $f['building']->update(['allowed_categories' => ['local_non_kipk']]);
     $f['profile']->update(['angkatan' => '2025']);
     expect(RoomEligibility::allows($f['building']->fresh(), $f['user']->fresh()))->toBeFalse();
@@ -151,11 +154,18 @@ it('charges the selected annual basis and protects an exclusive room before and 
     $f = catalogRegistrationFixture();
     $this->actingAs($f['user'])->post(route('andalas.registrations.store'), [...$f['input'], 'billing_basis' => $basis])->assertSessionHasNoErrors();
     $registration = ResidenceRegistration::sole();
+    if ($basis === 'room') {
+        expect($registration->tagihan_id)->toBeNull();
+        $manager = User::factory()->create()->assignRole('admin_layanan');
+        $this->actingAs($manager)->post(route('residence.contracts'), ['registration_ids' => [$registration->id]])->assertRedirect()->assertSessionHasNoErrors();
+        $registration->refresh();
+    }
     expect((float) $registration->tagihan->total)->toBe($amount)
         ->and($registration->tagihan->residence_snapshot['billing_basis'])->toBe($basis)
         ->and(app(RoomReservations::class)->count($f['room']))->toBe($reserved);
     $registration->tagihan->update(['status' => 'lunas', 'total_dibayar' => $amount]);
     app(CompleteResidenceRegistration::class)->handle($registration);
+    workflowTestCheckin($registration);
     expect($f['room']->fresh()->status)->toBe($basis === 'room' ? 'penuh' : 'terisi_sebagian');
     expect(app(RoomReservations::class)->count($f['room']))->toBe($basis === 'room' ? 1 : 0);
     $registration->fresh()->placement->update(['status' => 'berakhir']);
@@ -166,6 +176,7 @@ it('rolls back registration when the per room tariff is unavailable', function (
     $this->seed(RolePermissionSeeder::class);
     $f = catalogRegistrationFixture();
     ResidenceRate::query()->update(['room_amount' => null]);
+    workflowTestPolicies();
     $this->actingAs($f['user'])->post(route('andalas.registrations.store'), [...$f['input'], 'billing_basis' => 'room'])->assertSessionHasErrors('billing_basis');
     $this->assertDatabaseCount('residence_registrations', 0);
     $this->assertDatabaseCount('tagihan', 0);
@@ -175,7 +186,7 @@ it('refuses whole room rental when another bed has been reserved and refuses mon
     $this->seed(RolePermissionSeeder::class);
     $f = catalogRegistrationFixture();
     ResidenceRegistration::create(['student_profile_id' => $f['profile']->id, 'periode_id' => $f['period']->id, 'status' => 'submitted', 'reserved_room_id' => $f['room']->id, 'reservation_expires_at' => now()->addHour()]);
-    $this->actingAs($f['user'])->post(route('andalas.registrations.store'), [...$f['input'], 'billing_basis' => 'room'])->assertSessionHasErrors('preferences');
+    $this->actingAs($f['user'])->post(route('andalas.registrations.store'), [...$f['input'], 'billing_basis' => 'room'])->assertSessionHasErrors('periode_id');
     $this->post(route('andalas.registrations.store'), [...$f['input'], 'billing_basis' => 'room', 'rate_unit' => 'month', 'starts_at' => now()->toDateString(), 'ends_at' => now()->addMonth()->toDateString()])->assertSessionHasErrors('billing_basis');
 });
 

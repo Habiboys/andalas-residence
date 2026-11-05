@@ -172,7 +172,7 @@ class ResidenceOperationsSeeder extends Seeder
                 $student->user->update(['status' => 'nonaktif', 'inactive_reason' => 'letter_issued']);
                 $student->update(['status_huni' => 'keluar']);
                 Models\FreeResidenceLetterDocumentIntent::create(['pengajuan_id' => $request->id, 'status' => 'ready', 'nomor' => $request->nomor_surat_resmi,
-                    'verification_token' => $token, 'signer_name' => $signer?->nama ?? config('residence.letter_signer'), 'signer_nip' => $signer?->nip,
+                    'verification_token' => $token, 'signer_name' => $signer->nama ?? config('residence.letter_signer'), 'signer_nip' => $signer?->nip,
                     'path' => $file, 'checksum_sha256' => hash('sha256', $contents), 'template_version' => FreeResidenceLetterFormat::VERSION, 'requested_at' => now()->subDay(), 'generated_at' => now()->subDay()]);
             }
         }
@@ -202,7 +202,7 @@ class ResidenceOperationsSeeder extends Seeder
             $building = $student->penempatanKamar()->where('status', 'aktif')->firstOrFail()->kamar->lantai->gedung_id;
             $previousCount = $name === 'izin-otomatis' ? 6 : 7;
             for ($i = 1; $i <= $previousCount; $i++) {
-                $this->permit($student, $building, 'selesai_kembali', now()->subDays(28 - $i * 3), now()->subDays(27 - $i * 3), $i);
+                $this->permit($student, $building, 'selesai_kembali', now()->subMonths($i)->startOfMonth(), now()->subMonths($i)->startOfMonth()->addDay(), $i);
             }
             $this->permit($student, $building, $status, now()->subDays(2), in_array($name, ['izin-terlambat', 'izin-kembali']) ? now()->subDay() : now()->addDay(), $previousCount + 1);
         }

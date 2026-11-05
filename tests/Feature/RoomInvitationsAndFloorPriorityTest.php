@@ -30,7 +30,7 @@ beforeEach(function () {
 function invitationStudent(): User
 {
     $user = User::factory()->student()->create(['gender' => 'perempuan', 'client_profile_category' => 'local_non_kipk'])->assignRole('mahasiswa');
-    MahasiswaProfil::create(['user_id' => $user->id, 'barcode_code' => fake()->uuid(), 'angkatan' => '2026']);
+    MahasiswaProfil::create(['user_id' => $user->id, 'barcode_code' => fake()->uuid(), 'prodi_id' => workflowTestProgram(), 'angkatan' => '2026']);
 
     return $user->load('mahasiswaProfil');
 }
@@ -46,6 +46,7 @@ function invitationFixture(): array
     $room = Kamar::create(['lantai_id' => $floor->id, 'nomor_kamar' => '101', 'kapasitas' => 2, 'status' => 'kosong', 'tipe_kamar' => 'standar', 'foto' => 'kamar/101.jpg']);
     $nextRoom = Kamar::create(['lantai_id' => $next->id, 'nomor_kamar' => '201', 'kapasitas' => 2, 'status' => 'kosong', 'tipe_kamar' => 'standar']);
     ResidenceRate::create(['gedung_id' => $building->id, 'tipe_kamar' => 'standar', 'unit' => 'year', 'amount' => 2500000]);
+    workflowTestPolicies();
     $input = ['periode_id' => $period->id, 'is_kipk' => false, 'preferences' => [['kamar_id' => $room->id]], 'rate_unit' => 'year'];
     $registration = app(SubmitResidenceRegistration::class)->handle($host->mahasiswaProfil, $input);
 
@@ -84,7 +85,7 @@ it('allows assigned facilitators to release floors and refuses unrelated buildin
     $this->actingAs($f['friend'])->put(route('andalas.lantai.availability', $f['floor']), $data)->assertForbidden();
 });
 
-it('accepts a roommate invitation once and automatically completes housing after payment requirements', function () {
+it('accepts a roommate invitation once and requires physical checkin after payment requirements', function () {
     Queue::fake([GenerateBillingDocument::class]);
     $f = invitationFixture();
     $this->actingAs($f['host'])->post(route('andalas.room-invitations.store'), ['registration_id' => $f['registration']->id, 'nim' => $f['friend']->nim_nip])->assertSessionHasNoErrors();
@@ -97,6 +98,8 @@ it('accepts a roommate invitation once and automatically completes housing after
     $this->assertDatabaseCount('residence_registrations', 2);
     $accepted->tagihan->update(['status' => TagihanStatus::Lunas, 'total_dibayar' => $accepted->tagihan->total]);
     app(CompleteResidenceRegistration::class)->handle($accepted);
+    expect($accepted->fresh()->completed_at)->toBeNull();
+    workflowTestCheckin($accepted);
     expect($accepted->fresh()->status)->toBe(ResidenceRegistrationStatus::Accepted)->and($accepted->fresh()->placement->kamar_id)->toBe($f['room']->id);
     Queue::assertPushed(GenerateBillingDocument::class);
 });
@@ -154,6 +157,7 @@ it('honors a held reservation when its floor is later closed or reprioritized', 
     $f['floor']->update(['booking_open' => false, 'booking_priority' => 10]);
     $f['registration']->tagihan->update(['status' => TagihanStatus::Lunas, 'total_dibayar' => $f['registration']->tagihan->total]);
     app(CompleteResidenceRegistration::class)->handle($f['registration']);
+    workflowTestCheckin($f['registration']);
     expect($f['registration']->fresh()->status)->toBe(ResidenceRegistrationStatus::Accepted);
     $this->assertDatabaseHas('penempatan_kamar', ['kamar_id' => $f['room']->id, 'mahasiswa_id' => $f['host']->mahasiswaProfil->id]);
     Queue::assertPushed(GenerateBillingDocument::class);

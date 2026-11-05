@@ -16,9 +16,9 @@ class CreateTagihan
      * @param  list<array{sumber: string, deskripsi: string, jumlah: int|float|string, metadata?: array<string, mixed>|null}>  $penyesuaian
      * @param  list<array{jatuh_tempo: string, jumlah: int|float|string}>  $cicilan
      */
-    public function handle(MahasiswaProfil $mahasiswa, string $nomor, array $items = [], array $penyesuaian = [], array $cicilan = []): Tagihan
+    public function handle(MahasiswaProfil $mahasiswa, string $nomor, array $items = [], array $penyesuaian = [], array $cicilan = [], bool $generateDocument = true): Tagihan
     {
-        return DB::transaction(function () use ($mahasiswa, $nomor, $items, $penyesuaian, $cicilan): Tagihan {
+        return DB::transaction(function () use ($mahasiswa, $nomor, $items, $penyesuaian, $cicilan, $generateDocument): Tagihan {
             $subtotal = collect($items)->sum(fn (array $item): float => $item['kuantitas'] * (float) $item['harga_satuan']);
             $totalPenyesuaian = collect($penyesuaian)->sum(fn (array $adjustment): float => (float) $adjustment['jumlah']);
             $total = max(0, $subtotal + $totalPenyesuaian);
@@ -48,7 +48,9 @@ class CreateTagihan
                 $tagihan->jadwalCicilan()->create([...$term, 'termin_ke' => $index + 1]);
             }
 
-            GenerateBillingDocument::dispatch($tagihan->id, 'invoice')->afterCommit();
+            if ($generateDocument) {
+                GenerateBillingDocument::dispatch($tagihan->id, 'invoice')->afterCommit();
+            }
 
             return $tagihan->load(['items', 'penyesuaian', 'jadwalCicilan']);
         });

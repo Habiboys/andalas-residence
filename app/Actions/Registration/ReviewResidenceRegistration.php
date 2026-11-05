@@ -15,13 +15,19 @@ class ReviewResidenceRegistration
     {
         return DB::transaction(function () use ($registration, $reviewer, $status, $notes): ResidenceRegistration {
             $locked = ResidenceRegistration::query()->lockForUpdate()->findOrFail($registration->id);
+            if ($locked->room_contract_id) {
+                throw ValidationException::withMessages(['status' => 'Kontrak kamar bersama yang sudah disahkan harus direvisi sebagai satu kontrak, bukan membatalkan satu anggota.']);
+            }
+            if ($locked->tagihan && (float) $locked->tagihan->sponsor_paid > 0) {
+                throw ValidationException::withMessages(['status' => 'Pembayaran sponsor sudah dibukukan. Selesaikan koreksi keuangan sebelum pembatalan.']);
+            }
             if ($locked->completed_at) {
                 throw ValidationException::withMessages(['status' => 'Pendaftaran hanya dapat dibatalkan sebelum hunian aktif. Gunakan pengesahan sponsor untuk penempatan.']);
             }
             if ($locked->tagihan && (float) $locked->tagihan->total_dibayar > 0) {
                 throw ValidationException::withMessages(['status' => 'Pendaftaran memiliki pembayaran. Selesaikan pengembalian dana terlebih dahulu.']);
             }
-            $locked->update(['reserved_room_id' => null, 'reservation_expires_at' => null]);
+            $locked->update(['reserved_room_id' => null, 'reservation_expires_at' => null, 'allocation_status' => 'released', 'ready_at' => null]);
             $fromStatus = $locked->status;
             $locked->update([
                 'status' => $status,

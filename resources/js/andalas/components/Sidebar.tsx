@@ -458,15 +458,25 @@ const PIMPINAN_NAV: NavGroup[] = [
     },
 ];
 
+const workflowNav: NavGroup = {
+    items: [
+        {
+            label: 'Proses Pendaftaran',
+            page: 'residence-workflow',
+            icon: KeyRound,
+        },
+    ],
+};
+
 export const NAV_MAP: Record<UserRole, NavGroup[]> = {
-    mahasiswa: MAHASISWA_NAV,
-    fasilitator: FASILITATOR_NAV,
-    staff_admin: ADMIN_NAV,
-    admin_layanan: ADMIN_LAYANAN_NAV,
+    mahasiswa: [workflowNav, ...MAHASISWA_NAV],
+    fasilitator: [workflowNav, ...FASILITATOR_NAV],
+    staff_admin: [workflowNav, ...ADMIN_NAV],
+    admin_layanan: [workflowNav, ...ADMIN_LAYANAN_NAV],
     admin_aset: ADMIN_ASET_NAV,
-    superadmin: ADMIN_NAV,
+    superadmin: [workflowNav, ...ADMIN_NAV],
     teknisi: TEKNISI_NAV,
-    pimpinan: PIMPINAN_NAV,
+    pimpinan: [workflowNav, ...PIMPINAN_NAV],
     orang_tua: ORANG_TUA_NAV,
     go: GO_NAV,
 };

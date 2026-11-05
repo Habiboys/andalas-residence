@@ -106,12 +106,13 @@ it('enforces building gender on room submission and filters the available choice
     Queue::fake();
     $this->seed(RolePermissionSeeder::class);
     $user = User::factory()->student()->create(['gender' => $gender, 'client_profile_category' => ClientProfileCategory::LocalNonKipk])->assignRole('mahasiswa');
-    $profile = MahasiswaProfil::create(['user_id' => $user->id, 'barcode_code' => fake()->uuid(), 'status_huni' => 'calon']);
+    $profile = MahasiswaProfil::create(['user_id' => $user->id, 'barcode_code' => fake()->uuid(), 'prodi_id' => workflowTestProgram(), 'angkatan' => '2025', 'status_huni' => 'calon']);
     $period = Periode::create(['nama_periode' => 'Periode uji', 'status' => 'aktif', 'tanggal_mulai' => now(), 'tanggal_selesai' => now()->addYear()]);
     $building = Gedung::create(['kode_gedung' => $code, 'nama_gedung' => 'Asrama '.$code, 'gender_peruntukan' => 'campur']);
     $floor = Lantai::create(['gedung_id' => $building->id, 'nomor_lantai' => 1, 'nama_lantai' => 'Lantai 1']);
     $room = Kamar::create(['lantai_id' => $floor->id, 'nomor_kamar' => '101', 'kapasitas' => 2, 'status' => 'kosong', 'tipe_kamar' => 'medium', 'tarif_per_periode' => 1800000]);
 
+    workflowTestPolicies();
     $this->actingAs($user)->get(route('mahasiswa.registration'))->assertOk()
         ->assertInertia(fn (Assert $page) => $page->has('rooms', $allowed ? 1 : 0));
     $response = $this->post(route('andalas.registrations.store'), ['periode_id' => $period->id, 'is_kipk' => false, 'preferences' => [['kamar_id' => $room->id]]]);
@@ -143,7 +144,7 @@ it('offers welcome service selection only to active accounts that are still cand
 it('blocks administrator deactivated accounts from the resident dashboard', function () {
     $this->seed(RolePermissionSeeder::class);
     $user = User::factory()->student()->create(['status' => 'nonaktif', 'inactive_reason' => 'admin_blocked'])->assignRole('mahasiswa');
-    MahasiswaProfil::create(['user_id' => $user->id, 'barcode_code' => fake()->uuid(), 'status_huni' => 'calon']);
+    MahasiswaProfil::create(['user_id' => $user->id, 'barcode_code' => fake()->uuid(), 'prodi_id' => workflowTestProgram(), 'angkatan' => '2025', 'status_huni' => 'calon']);
 
     $this->actingAs($user)->get(route('mahasiswa.dashboard'))->assertForbidden();
 });

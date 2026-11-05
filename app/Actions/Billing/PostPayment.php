@@ -33,6 +33,11 @@ class PostPayment
                     throw new InvalidArgumentException('Referensi pembayaran sudah digunakan oleh penghuni lain.');
                 }
 
+                $normalize = fn (array $rows): array => collect($rows)->map(fn ($row) => ['tagihan_id' => $row['tagihan_id'], 'jadwal_cicilan_id' => $row['jadwal_cicilan_id'] ?? null, 'jumlah' => number_format((float) $row['jumlah'], 2, '.', '')])->sortBy(fn ($row) => $row['tagihan_id'].($row['jadwal_cicilan_id'] ?? ''))->values()->all();
+                if ($normalize($existing->alokasi->toArray()) !== $normalize($allocations)) {
+                    throw new InvalidArgumentException('Referensi pembayaran sudah digunakan dengan alokasi berbeda.');
+                }
+
                 return $existing->load('alokasi');
             }
 

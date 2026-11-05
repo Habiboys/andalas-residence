@@ -49,7 +49,9 @@ it('skips room choice for a server verified KIPK recipient', () => {
     const html = renderToStaticMarkup(
         <Registration initialUser={{ is_kipk: true }} />,
     );
-    expect(html).toContain('Kamar ditempatkan Admin Layanan');
+    expect(html).toContain(
+        'Sistem mengalokasikan kamar sesuai prioritas dan kapasitas.',
+    );
     expect(html).not.toContain('Katalog kamar');
     expect(html).not.toContain('Dasar tarif');
 });
@@ -75,15 +77,19 @@ it('allows a letter inactive account to start a new residence application', () =
     expect(html).toContain('<form');
 });
 
-it('explains the personal payment exception while retaining administrator room allocation for KIPK 2026', () => {
+it('explains KIPK eligibility before disbursement without marking its debt paid', () => {
     const html = renderToStaticMarkup(
         <Registration
             initialUser={{ is_kipk: true, kipk_personal_payment: true }}
         />,
     );
-    expect(html).toContain('Khusus KIP-K angkatan 2026');
-    expect(html).toContain('unggah bukti pembayaran');
-    expect(html).toContain('Kamar ditempatkan Admin Layanan');
+    expect(html).toContain('Check-in diperbolehkan setelah alokasi');
+    expect(html).toContain(
+        'Pembayaran tetap tercatat terutang sampai dana diterima.',
+    );
+    expect(html).toContain(
+        'Sistem mengalokasikan kamar sesuai prioritas dan kapasitas.',
+    );
     expect(html).not.toContain('Katalog kamar');
 });
 it('waits for room allocation before directing a personal KIPK applicant to payment', () => {
@@ -101,6 +107,6 @@ it('waits for room allocation before directing a personal KIPK applicant to paym
             ]}
         />,
     );
-    expect(html).toContain('Menunggu admin menentukan kamar');
+    expect(html).toContain('Menunggu alokasi kamar');
     expect(html).not.toContain('Lihat tagihan dan bayar');
 });

@@ -4,6 +4,7 @@ use App\Enums\ClientProfileCategory;
 use App\Jobs\GenerateBillingDocument;
 use App\Jobs\GenerateFreeResidenceLetter;
 use App\Models;
+use App\Notifications\ResidenceWorkflowNotification;
 use App\Services\AttendanceEligibility;
 use App\Services\FreeResidenceLetterFormat;
 use Database\Seeders\ResidenceDemoSeeder;
@@ -26,7 +27,10 @@ test('seeder supplies every domain model with linked and financially consistent 
 
     foreach (File::files(app_path('Models')) as $file) {
         $class = 'App\\Models\\'.$file->getFilenameWithoutExtension();
-        if ($class !== Models\BaseModel::class) {
+        if (in_array($class, [Models\ResidencePolicy::class, Models\ResidenceApplication::class, Models\ResidenceDecision::class, Models\ResidencePaymentReference::class, Models\RegistrationDocument::class, Models\RoomContract::class], true)) {
+            // Historical demo fixtures must not invent policy approvals or official DPUB receipts.
+            expect($class::count(), $class)->toBe(0);
+        } elseif ($class !== Models\BaseModel::class) {
             expect($class::count(), $class)->toBeGreaterThan(0);
         }
     }
@@ -87,6 +91,9 @@ test('seeded accounts can continue payment checkout permit and attendance journe
     $registration = $student->residenceRegistrations()->firstOrFail();
     $payment = Models\Pembayaran::where('mahasiswa_id', $student->id)->firstOrFail();
     $this->actingAs($admin)->post(route('andalas.pembayaran.verify', $payment), ['status' => 'lunas'])->assertSessionHasNoErrors();
+    expect($student->fresh()->status_huni)->toBe('calon');
+    expect($registration->fresh()->completed_at)->toBeNull();
+    $this->actingAs($admin)->post(route('residence.checkin', $registration), ['identity_checked' => 1, 'original_documents_checked' => 1, 'keys_handed' => 1])->assertSessionHasNoErrors();
     expect($student->fresh()->status_huni)->toBe('aktif');
     expect($registration->fresh()->completed_at)->not->toBeNull();
     Queue::assertPushed(GenerateBillingDocument::class);
@@ -126,7 +133,7 @@ test('seeded accounts can continue payment checkout permit and attendance journe
     $this->actingAs(ResidenceScenarioSeeder::student('penghuni-01')->user)->get(route('andalas.tagihan.document', $document))->assertForbidden();
     $letter = Models\PengajuanBebasAsrama::where('mahasiswa_id', ResidenceScenarioSeeder::student('surat-modern')->id)->firstOrFail();
     $this->actingAs($letter->mahasiswa->user)->get(route('andalas.pengajuan.bebas.surat', $letter))->assertDownload();
-    Notification::assertNothingSent();
+    Notification::assertSentTo($student->user, ResidenceWorkflowNotification::class);
 });
 
 test('seeded role dashboards and populated resident pages render successfully', function () {

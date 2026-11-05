@@ -1,7 +1,11 @@
 import { renderToStaticMarkup } from 'react-dom/server';
-import { expect, it } from 'vite-plus/test';
+import { expect, it, vi } from 'vite-plus/test';
 import { AuthProvider } from '../../context/AppContext';
 import Dashboard from './Dashboard';
+vi.mock('@inertiajs/react', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@inertiajs/react')>()),
+    usePage: () => ({ props: {} }),
+}));
 
 it('gives checked-out residents direct access to letters without a housing registration stepper', () => {
     const html = renderToStaticMarkup(

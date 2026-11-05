@@ -5,8 +5,10 @@ namespace App\Http\Controllers;
 use App\Actions\Registration\CreateTemporaryStay;
 use App\Models\Kamar;
 use App\Models\ResidenceRegistration;
+use App\Notifications\ResidenceWorkflowNotification;
 use App\Notifications\TemporaryStayEnded;
 use App\Services\ResidenceBuildingAccess;
+use App\Services\ResidenceWorkflowAccess;
 use App\Services\RoomEligibility;
 use App\Services\RoomReservations;
 use Illuminate\Http\RedirectResponse;
@@ -23,20 +25,21 @@ class TemporaryStayController extends Controller
         return [
             'facilitator' => $facilitator,
             'rooms' => RoomEligibility::available()->when($facilitator, fn ($query) => $query->whereHas('lantai', fn ($floors) => $floors->whereIn('gedung_id', $buildings)))->get()->filter(fn (Kamar $room): bool => RoomEligibility::allowsType($room->lantai->gedung, $room->tipe_kamar, $room->kapasitas) && $room->penempatanKamar()->where('status', 'aktif')->count() + app(RoomReservations::class)->count($room) < $room->kapasitas)->values(),
-            'stays' => ResidenceRegistration::with(['studentProfile.user', 'placement.kamar.lantai.gedung', 'tagihan'])
+            'stays' => ResidenceRegistration::with(['studentProfile.user', 'placement.kamar.lantai.gedung', 'reservedRoom.lantai.gedung', 'tagihan'])
                 ->whereIn('stay_kind', ['summer_course', 'non_student'])
                 ->when($facilitator, fn ($query) => $query->whereHas('placement.kamar.lantai', fn ($floors) => $floors->whereIn('gedung_id', $buildings)))
                 ->latest()->get(),
-            'notifications' => $request->user()->notifications()->where('type', TemporaryStayEnded::class)->latest()->limit(20)->get(['id', 'data']),
+            'notifications' => $request->user()->notifications()->whereIn('type', [TemporaryStayEnded::class, ResidenceWorkflowNotification::class])->latest()->limit(20)->get(['id', 'data']),
         ];
     }
 
     public function store(Request $request, CreateTemporaryStay $create): RedirectResponse
     {
+        abort_unless(ResidenceWorkflowAccess::manager($request->user()), 403);
         $data = $request->validate([
             'nama' => ['required', 'string', 'max:150'], 'nim_nip' => ['required', 'string', 'max:50'],
             'email' => ['nullable', 'email', 'max:255'], 'gender' => ['required', 'in:laki_laki,perempuan'],
-            'stay_kind' => ['required', 'in:summer_course,non_student'],
+            'stay_kind' => ['required', 'in:non_student'],
             'client_profile_category' => ['nullable', 'in:local_non_kipk,international_student,non_student'],
             'kamar_id' => ['required', 'uuid', 'exists:kamar,id'],
             'starts_at' => ['required', 'date', 'after_or_equal:today'],

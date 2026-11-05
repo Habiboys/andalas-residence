@@ -16,6 +16,7 @@ class RoomReservations
         return ResidenceRegistration::whereNull('completed_at')->whereNotIn('status', ['rejected', 'draft'])
             ->whereNotNull('reserved_room_id')->where(function (Builder $query): void {
                 $query->where('reservation_expires_at', '>', now())
+                    ->orWhere(fn (Builder $new) => $new->where('workflow_version', 2)->whereNull('reservation_expires_at'))
                     ->orWhereIn('tagihan_id', Pembayaran::where('status', 'menunggu_verifikasi')->select('tagihan_id'))
                     ->orWhereHas('tagihan', fn (Builder $invoice) => $invoice->where('total_dibayar', '>', 0));
             });
@@ -24,15 +25,20 @@ class RoomReservations
     public function count(Kamar $room, ?string $except = null): int
     {
         $held = $this->held()->where('reserved_room_id', $room->id)->when($except, fn (Builder $query) => $query->where('id', '!=', $except));
-        if ((clone $held)->where('billing_basis', 'room')->exists()) {
+        $contract = $except ? ResidenceRegistration::find($except)?->room_contract_id : null;
+        if ($contract) {
+            $held->where(fn ($q) => $q->whereNull('room_contract_id')->orWhere('room_contract_id', '!=', $contract));
+        }
+        $heldRows = (clone $held)->lockForUpdate()->get(['id', 'billing_basis']);
+        if ($heldRows->contains('billing_basis', 'room')) {
             return $room->kapasitas;
         }
-        $exclusive = ResidenceRegistration::where('billing_basis', 'room')->whereHas('placement', fn (Builder $query) => $query->where('kamar_id', $room->id)->where('status', 'aktif'))->when($except, fn (Builder $query) => $query->where('id', '!=', $except))->exists();
+        $exclusive = ResidenceRegistration::where('billing_basis', 'room')->when($contract, fn ($q) => $q->where(fn ($q) => $q->whereNull('room_contract_id')->orWhere('room_contract_id', '!=', $contract)))->whereHas('placement', fn (Builder $query) => $query->where('kamar_id', $room->id)->where('status', 'aktif'))->when($except, fn (Builder $query) => $query->where('id', '!=', $except))->lockForUpdate()->first(['id']);
         if ($exclusive) {
-            return max(0, $room->kapasitas - $room->penempatanKamar()->where('status', 'aktif')->count());
+            return max(0, $room->kapasitas - count($room->penempatanKamar()->where('status', 'aktif')->lockForUpdate()->get(['id'])->all()));
         }
 
-        return $held->count();
+        return $heldRows->count();
     }
 
     public function expire(): void

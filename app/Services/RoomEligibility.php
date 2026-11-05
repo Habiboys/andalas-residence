@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Gedung;
 use App\Models\Kamar;
+use App\Models\ResidenceRegistration;
 use App\Models\RoomType;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
@@ -64,7 +65,10 @@ class RoomEligibility
 
     public static function validate(Kamar $room, User $user, string $field = 'kamar_id', ?string $registrationId = null): void
     {
-        if (! $room->lantai?->gedung || ! self::allows($room->lantai->gedung, $user)) {
+        $registration = $registrationId ? ResidenceRegistration::find($registrationId) : null;
+        if ($registration?->workflow_version === 2) {
+            app(ResidencePolicyService::class)->validateRoom($registration->policy, $room, $registration->studentProfile);
+        } elseif (! $room->lantai?->gedung || ! self::allows($room->lantai->gedung, $user)) {
             throw ValidationException::withMessages([$field => 'Gedung tidak menerima kategori atau jenis kelamin penghuni Anda.']);
         }
 
@@ -75,6 +79,8 @@ class RoomEligibility
         if ($room->status === 'maintenance' || $room->penempatanKamar()->where('status', 'aktif')->count() + app(RoomReservations::class)->count($room, $registrationId) >= $room->kapasitas) {
             throw ValidationException::withMessages([$field => 'Kamar tidak tersedia atau sudah penuh. Pilih kamar lain.']);
         }
-        app(FloorRoomAvailability::class)->validate($room, $user, $field, $registrationId);
+        if ($registration?->workflow_version !== 2) {
+            app(FloorRoomAvailability::class)->validate($room, $user, $field, $registrationId);
+        }
     }
 }

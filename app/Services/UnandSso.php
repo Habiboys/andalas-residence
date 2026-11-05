@@ -1,0 +1,71 @@
+<?php
+
+namespace App\Services;
+
+use Illuminate\Support\Facades\Http;
+use RuntimeException;
+
+class UnandSso
+{
+    public function isConfigured(): bool
+    {
+        foreach (['base_url', 'realm', 'client_id', 'client_secret', 'redirect'] as $key) {
+            if (! filled(config('services.unand_sso.'.$key))) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    public function endpoint(string $path): string
+    {
+        return rtrim((string) config('services.unand_sso.base_url'), '/')
+            .'/realms/'.rawurlencode((string) config('services.unand_sso.realm'))
+            .'/protocol/openid-connect/'.$path;
+    }
+
+    /** @return array<string, mixed> */
+    public function user(string $code, string $verifier): array
+    {
+        $token = Http::asForm()->acceptJson()->timeout(15)
+            ->post($this->endpoint('token'), [
+                'grant_type' => 'authorization_code',
+                'client_id' => config('services.unand_sso.client_id'),
+                'client_secret' => config('services.unand_sso.client_secret'),
+                'redirect_uri' => config('services.unand_sso.redirect'),
+                'code' => $code,
+                'code_verifier' => $verifier,
+            ])->throw()->json('access_token');
+
+        if (! is_string($token) || $token === '') {
+            throw new RuntimeException('SSO access token missing.');
+        }
+
+        $user = Http::withToken($token)->acceptJson()->timeout(15)
+            ->get($this->endpoint('userinfo'))->throw()->json();
+
+        if (! is_array($user) || ! is_string($user['sub'] ?? null) || $user['sub'] === '') {
+            throw new RuntimeException('SSO subject missing.');
+        }
+
+        return $user;
+    }
+
+    /** @param array<string, mixed> $claims */
+    public function identifier(array $claims): ?string
+    {
+        $username = $claims['preferred_username'] ?? null;
+        if (is_string($username) && preg_match('/^\d{4,50}$/D', $username)) {
+            return $username;
+        }
+
+        $email = $claims['email'] ?? null;
+        if (is_string($email) && ($claims['email_verified'] ?? false) === true
+            && preg_match('/^(\d{4,50})(?:_[^@]+)?@(?:[a-z0-9-]+\.)*unand\.ac\.id$/iD', $email, $matches)) {
+            return $matches[1];
+        }
+
+        return null;
+    }
+}

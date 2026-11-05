@@ -8,8 +8,8 @@ it('limits preload response headers on direct HTML requests with many assets', f
 
     for ($index = 0; $index < 60; $index++) {
         $assets['https://residence.example.test/build/assets/page-'.$index.'.js'] = [
-            'rel' => 'modulepreload',
-            'as' => 'script',
+            'rel="modulepreload"',
+            'as="script"',
         ];
     }
 
@@ -19,6 +19,6 @@ it('limits preload response headers on direct HTML requests with many assets', f
     $response = $this->get('/_test/preload-headers');
 
     $response->assertOk()->assertHeader('Link');
-    expect(substr_count($response->headers->get('Link'), 'rel="modulepreload"'))->toBe(10);
+    expect(preg_match_all('/rel="?modulepreload"?(?:;|,|$)/', $response->headers->get('Link')))->toBe(10);
     expect(strlen((string) $response->headers))->toBeLessThan(4096);
 });

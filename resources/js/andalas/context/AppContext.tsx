@@ -5,7 +5,7 @@ import {
     useState,
     type ReactNode,
 } from 'react';
-import { router } from '@inertiajs/react';
+import { router, usePage } from '@inertiajs/react';
 import { useAppearance } from '@/hooks/use-appearance';
 import { login as loginRoute, logout as logoutRoute } from '@/routes';
 import {
@@ -65,6 +65,7 @@ export function AuthProvider({
     initialUser?: User | null;
 }) {
     const currentUser = initialUser;
+    const { logoutUrl } = usePage<{ logoutUrl?: string }>().props;
 
     const login = (_nim: string, _password: string): User | null => {
         router.visit(loginRoute.url());
@@ -72,7 +73,7 @@ export function AuthProvider({
     };
 
     const logout = () => {
-        router.post(logoutRoute.url());
+        router.post(logoutUrl ?? logoutRoute.url());
     };
 
     return (

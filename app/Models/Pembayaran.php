@@ -23,16 +23,19 @@ class Pembayaran extends BaseModel
         ];
     }
 
+    /** @return BelongsTo<MahasiswaProfil, $this> */
     public function mahasiswa(): BelongsTo
     {
         return $this->belongsTo(MahasiswaProfil::class, 'mahasiswa_id');
     }
 
+    /** @return BelongsTo<Tagihan, $this> */
     public function tagihan(): BelongsTo
     {
         return $this->belongsTo(Tagihan::class);
     }
 
+    /** @return BelongsTo<User, $this> */
     public function verifikator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'diverifikasi_oleh');

@@ -36,7 +36,12 @@ return [
     ],
 
     'unand_sso' => [
-        'url' => env('UNAND_SSO_URL'),
+        'base_url' => env('UNAND_BASE_URL', 'https://sso.unand.ac.id/auth'),
+        'realm' => env('UNAND_REALM', 'unand'),
+        'client_id' => env('UNAND_CLIENT_ID', 'andalasresidence-unand'),
+        'client_secret' => env('UNAND_CLIENT_SECRET'),
+        'redirect' => env('UNAND_REDIRECT_URI'),
+        'post_logout_redirect_uri' => env('UNAND_POST_LOGOUT_REDIRECT_URI'),
     ],
 
 ];
