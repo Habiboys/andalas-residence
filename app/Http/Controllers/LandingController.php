@@ -13,6 +13,7 @@ use App\Models\ProgramSub;
 use App\Models\Testimoni;
 use App\Services\LandingContentService;
 use App\Services\LandingRichText;
+use App\Services\PublicResidenceCatalog;
 use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -34,12 +35,12 @@ class LandingController extends Controller
             'berita' => Informasi::where('published', true)->where('kategori', 'berita')->orderByDesc('tanggal')->limit(3)->get(),
             'testimoni' => Testimoni::where('published', true)->orderBy('urutan')->get(),
             'statistik' => $this->statistik(),
-            'residenceCatalog' => app(\App\Services\PublicResidenceCatalog::class)->buildings(),
+            'residenceCatalog' => app(PublicResidenceCatalog::class)->buildings(),
             'pengumuman' => Informasi::where('published', true)->where('kategori', 'pengumuman')->orderByDesc('tanggal')->limit(3)->get(['id', 'judul', 'tanggal']),
             'galeri' => Gedung::whereNotNull('foto')->where('foto', '!=', '')->orderBy('kode_gedung')->limit(4)->get()
                 ->map(fn (Gedung $gedung): array => ['id' => $gedung->id, 'judul' => $gedung->nama_gedung, 'foto' => '/storage/'.$gedung->foto, 'kategori' => 'Hunian'])
                 ->concat(ProgramSub::whereHas('program', fn ($query) => $query->where('published', true))->whereNotNull('gambar')->where('gambar', '!=', '')->orderBy('urutan')->limit(4)->get()
-                    ->map(fn (ProgramSub $sub): array => ['id' => $sub->id, 'judul' => $sub->judul, 'foto' => '/storage/'.$sub->gambar, 'kategori' => 'Program']))->concat(collect(LandingContentService::settings()['gallery'] ?? [])->map(fn (array $photo, int $index): array => ['id' => 'media-'.$index, 'judul' => $photo['title'], 'foto' => $photo['image'], 'kategori' => $photo['category']]))->values(),
+                    ->map(fn (ProgramSub $sub): array => ['id' => $sub->id, 'judul' => $sub->judul, 'foto' => '/storage/'.$sub->gambar, 'kategori' => 'Program']))->concat(collect(array_values(LandingContentService::settings()['gallery'] ?? []))->map(fn (array $photo, int $index): array => ['id' => 'media-'.$index, 'judul' => $photo['title'], 'foto' => $photo['image'], 'kategori' => $photo['category']]))->values(),
         ]);
     }
 
@@ -67,7 +68,7 @@ class LandingController extends Controller
     {
         return Inertia::render('landing/unit', [
             ...$this->shared(),
-            'residenceCatalog' => app(\App\Services\PublicResidenceCatalog::class)->buildings(),
+            'residenceCatalog' => app(PublicResidenceCatalog::class)->buildings(),
             'gedung' => Gedung::withCount('lantai')->orderBy('kode_gedung')->get(),
         ]);
     }
@@ -141,6 +142,7 @@ class LandingController extends Controller
         ];
     }
 
+    /** @return Collection<int, OrganizationPosition> */
     private function organizationPositions(): Collection
     {
         $positions = OrganizationPosition::where('published', true)->orderBy('sort_order')->orderBy('id')->get()->keyBy('id');

@@ -60,11 +60,11 @@ test('redirect starts authorization code login with state and PKCE', function ()
     Http::assertNothingSent();
 });
 
-test('unconfigured SSO returns to login and hides the SSO button', function () {
+test('unconfigured SSO returns a clear error while keeping the SSO option visible', function () {
     config(['services.unand_sso.client_secret' => null]);
 
     $this->get(route('sso.redirect'))->assertRedirect(route('login'))->assertSessionHasErrors('sso');
-    $this->get(route('login'))->assertInertia(fn (Assert $page) => $page->where('ssoUrl', null));
+    $this->get(route('login'))->assertInertia(fn (Assert $page) => $page->where('ssoUrl', route('sso.redirect')));
     Http::assertNothingSent();
 });
 

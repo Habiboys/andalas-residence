@@ -49,7 +49,18 @@ jobs:
 
           # 3. Tunggu container aplikasi running dan siap
           echo "⏳ Menunggu container andalas-app siap..."
-          docker compose exec -T andalas-app php artisan wait:db 2>/dev/null || sleep 5
+          database_ready=false
+          for attempt in $(seq 1 30); do
+            if docker compose exec -T andalas-app php artisan migrate:status --no-interaction > /dev/null 2>&1; then
+              database_ready=true
+              break
+            fi
+            sleep 2
+          done
+          if [ "$database_ready" != true ]; then
+            echo "::error::Database belum siap setelah 60 detik. Deployment dihentikan."
+            exit 1
+          fi
 
           # Step awal mengubah owner storage ke user runner host untuk git reset.
           # Pulihkan owner agar PHP-FPM (www-data) dapat menulis compiled Blade.
@@ -91,4 +102,23 @@ jobs:
           # Pulihkan izin runtime setelah migrasi dan cache dibuat.
           docker compose exec -T -u root andalas-app sh -lc 'chown -R www-data:www-data storage bootstrap/cache && chmod -R 775 storage bootstrap/cache'
 
-          echo "✅ Deployment selesai! Kode diperbarui dan migrasi database selesai."
+          # Workers must reload the final cached configuration after migrations.
+          docker compose exec -T andalas-app supervisorctl restart queue-worker:* scheduler
+
+          application_ready=false
+          for attempt in $(seq 1 30); do
+            if docker compose exec -T andalas-app curl --fail --silent --output /dev/null http://127.0.0.1/up; then
+              application_ready=true
+              break
+            fi
+            sleep 2
+          done
+          if [ "$application_ready" != true ]; then
+            echo "::error::Health check aplikasi gagal setelah deployment."
+            exit 1
+          fi
+
+          # Prints readiness only; never print environment values or client secrets.
+          docker compose exec -T andalas-app php artisan tinker --execute='echo app(\App\Services\UnandSso::class)->isConfigured() ? "SSO configuration: ready" : "SSO configuration: incomplete";'
+          docker compose exec -T andalas-app php artisan route:list --name=sso --except-vendor
+          echo "✅ Deployment selesai! Kode, database, cache dan health check berhasil."

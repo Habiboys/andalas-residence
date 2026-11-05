@@ -1,3 +1,6 @@
+import ResidenceMarketplace, {
+    type ResidenceListing,
+} from '@/andalas/components/ResidenceMarketplace';
 import { informasi as informasiPage } from '@/routes/landing';
 import { type LandingSettings, mediaUrl } from '@/andalas/lib/landing-settings';
 import { Head, Link } from '@inertiajs/react';
@@ -17,6 +20,7 @@ type GalleryPhoto = {
     kategori: string;
 };
 type Props = {
+    residenceCatalog?: ResidenceListing[];
     landingSettings?: LandingSettings;
     berita?: Notice[];
     testimoni: Testimoni[];
@@ -26,6 +30,7 @@ type Props = {
 };
 
 export default function Beranda({
+    residenceCatalog = [],
     landingSettings,
     berita = [],
     testimoni = [],
@@ -60,7 +65,7 @@ export default function Beranda({
             </Head>
             <LandingLayout active="beranda">
                 {/* HERO */}
-                <section className="bg-hero relative flex min-h-svh items-center overflow-hidden">
+                <section className="bg-hero relative flex min-h-[70vh] items-center overflow-hidden">
                     <div className="absolute inset-0">
                         {hero.image && (
                             <img
@@ -81,10 +86,10 @@ export default function Beranda({
                         </p>
                         <div className="mt-8 flex flex-wrap gap-3">
                             <a
-                                href="/unit"
+                                href="#katalog-hunian"
                                 className="text-hero inline-flex rounded-md bg-white px-5 py-2.5 text-sm font-semibold transition-colors hover:bg-white/90"
                             >
-                                Lihat Unit Kami
+                                Temukan kamar pilihanmu
                             </a>
                             <a
                                 href={login.url()}
@@ -114,6 +119,8 @@ export default function Beranda({
                         ))}
                     </div>
                 </div>
+
+                <ResidenceMarketplace listings={residenceCatalog} />
 
                 <section className="bg-base-100 py-16 md:py-24">
                     <div className="mx-auto grid max-w-7xl gap-12 px-4 md:px-6 lg:grid-cols-2 lg:gap-20">

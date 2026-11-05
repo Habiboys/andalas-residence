@@ -36,7 +36,7 @@ export default function Login({ status, canResetPassword, ssoUrl }: Props) {
                         Masuk ke Portal
                     </h1>
                     <p className="text-muted text-sm">
-                        Masuk menggunakan akun Andalas Residence.
+                        Gunakan akun SSO UNAND atau akun Andalas Residence.
                     </p>
                 </div>
 
@@ -47,12 +47,12 @@ export default function Login({ status, canResetPassword, ssoUrl }: Props) {
                 {ssoUrl && (
                     <a href={ssoUrl} className="btn btn-accent mb-6 w-full">
                         <KeyRound className="size-4" aria-hidden="true" />
-                        Login dengan SSO Unand
+                        Masuk dengan SSO UNAND
                     </a>
                 )}
 
                 <div className="divider text-muted mb-6 text-xs">
-                    Login akun
+                    Atau masuk dengan akun Residence
                 </div>
 
                 <Form
@@ -62,12 +62,15 @@ export default function Login({ status, canResetPassword, ssoUrl }: Props) {
                 >
                     {({ processing, errors }) => (
                         <>
-                            {(errors.sso || errors.email || errors.password) && (
+                            {(errors.sso ||
+                                errors.email ||
+                                errors.password) && (
                                 <div
                                     role="alert"
                                     className="alert alert-error text-sm"
                                 >
-                                    {errors.sso || errors.email ||
+                                    {errors.sso ||
+                                        errors.email ||
                                         errors.password ||
                                         'NIM/email atau password salah.'}
                                 </div>
