@@ -10,10 +10,15 @@ use App\Actions\Registration\ConfirmResidenceCheckIn;
 use App\Actions\Registration\CreateResidenceBilling;
 use App\Http\Requests\PublishResidencePolicyRequest;
 use App\Models\CheckoutRequest;
+use App\Models\Departemen;
+use App\Models\Faculty;
 use App\Models\Gedung;
 use App\Models\InvoiceGroup;
 use App\Models\Kamar;
+use App\Models\KipkRecipient;
+use App\Models\LegacyResident;
 use App\Models\Pembayaran;
+use App\Models\Periode;
 use App\Models\Prodi;
 use App\Models\RegistrationDocument;
 use App\Models\ResidenceApplication;
@@ -82,8 +87,12 @@ class ResidenceWorkflowController extends Controller
             'role' => $user->getRoleNames()->first(), 'page' => 'residence-workflow', 'initialUser' => app(RolePageController::class)->userPayload($request),
             'registrations' => $page, 'summary' => $summary,
             'manager' => $manager, 'finance' => $finance, 'leader' => $user->hasRole('pimpinan'),
-            'profile' => $user->mahasiswaProfil?->load('prodi'), 'gender' => $user->gender,
-            'programs' => Prodi::orderBy('name')->get(['id', 'name', 'jenjang']),
+            'profile' => $user->mahasiswaProfil?->load('prodi.departemen'), 'gender' => $user->gender,
+            'no_hp' => $user->no_hp,
+            'client_profile_category' => $user->client_profile_category?->value ?? $user->client_profile_category,
+            'fakultas' => Faculty::orderBy('name')->get(['id', 'name']),
+            'departemen' => Departemen::orderBy('name')->get(['id', 'name', 'faculty_id']),
+            'programs' => Prodi::orderBy('name')->get(['id', 'name', 'jenjang', 'departemen_id']),
             'policies' => $manager ? ResidencePolicy::orderBy('category')->orderByDesc('version')->get() : [],
             'buildings' => $manager ? Gedung::orderBy('kode_gedung')->get(['id', 'kode_gedung', 'nama_gedung']) : [],
             'roomTypes' => $manager ? RoomType::where('active', true)->get(['code', 'name']) : [],
@@ -99,16 +108,37 @@ class ResidenceWorkflowController extends Controller
     public function profile(Request $request): RedirectResponse
     {
         abort_unless($request->user()->hasRole('mahasiswa') && $request->user()->mahasiswaProfil, 403);
-        $data = $request->validate(['gender' => ['required', 'in:laki_laki,perempuan'], 'prodi_id' => ['required', 'uuid', 'exists:prodi,id']]);
+        $data = $request->validate([
+            'gender' => ['required', 'in:laki_laki,perempuan'],
+            'prodi_id' => ['required', 'uuid', 'exists:prodi,id'],
+            'no_hp' => ['nullable', 'string', 'max:20'],
+            'client_profile_category' => ['nullable', 'in:local_student,local_kipk,local_non_kipk,international_student'],
+        ]);
         DB::transaction(function () use ($request, $data): void {
-            $profile = $request->user()->mahasiswaProfil()->lockForUpdate()->firstOrFail();
+            $user = $request->user();
+            $profile = $user->mahasiswaProfil()->lockForUpdate()->firstOrFail();
             if ($profile->residenceRegistrations()->whereNotIn('status', ['draft', 'rejected'])->exists() || $profile->penempatanKamar()->where('status', 'aktif')->exists()) {
                 throw ValidationException::withMessages(['profile' => 'Data kategori penghuni berjalan hanya dapat dikoreksi pengelola.']);
             }
-            $year = StudentCohort::fromNim($request->user()->nim_nip);
-            $request->user()->update(['gender' => $data['gender']]);
+            $year = StudentCohort::fromNim($user->nim_nip);
+            $categoryInput = $data['client_profile_category'] ?? ($user->client_profile_category?->value ?? 'local_student');
+            if ($categoryInput === 'international_student') {
+                $resolvedCategory = 'international_student';
+            } else {
+                $isKipk = KipkRecipient::where('nim', $user->nim_nip)->where('angkatan', $year)->exists()
+                    && (int) Periode::where('status', 'aktif')->value('angkatan_maba') === (int) $year
+                    && ! LegacyResident::where('nim', $user->nim_nip)->exists()
+                    && ! in_array(Prodi::whereKey($data['prodi_id'])->value('jenjang'), ['S2', 'S3'], true);
+                $resolvedCategory = $isKipk ? 'local_kipk' : 'local_non_kipk';
+            }
+
+            $user->update([
+                'gender' => $data['gender'],
+                'no_hp' => array_key_exists('no_hp', $data) ? $data['no_hp'] : $user->no_hp,
+                'client_profile_category' => $resolvedCategory,
+            ]);
             $profile->update(['prodi_id' => $data['prodi_id'], 'angkatan' => $year]);
-            AuditLogService::log($request->user(), 'residence_profile_completed', $profile, null, $data);
+            AuditLogService::log($user, 'residence_profile_completed', $profile, null, $data);
         });
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Profil pendaftaran dilengkapi.']);
