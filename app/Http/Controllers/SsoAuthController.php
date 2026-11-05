@@ -11,6 +11,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -64,12 +65,16 @@ class SsoAuthController extends Controller
 
         try {
             $claims = $sso->user($code, $flow['verifier']);
-        } catch (Throwable) {
+        } catch (Throwable $exception) {
+            Log::warning('SSO token/userinfo gagal', ['message' => $exception->getMessage()]);
+
             return $this->fail('Tidak dapat memverifikasi akun ke SSO Unand. Silakan coba kembali.');
         }
 
         $identifier = $sso->identifier($claims);
         if ($identifier === null) {
+            Log::warning('SSO identifier tidak valid', ['claims' => $claims]);
+
             return $this->fail('SSO tidak memberikan NIM/NIP yang valid. Hubungi administrator.');
         }
 
@@ -162,6 +167,8 @@ class SsoAuthController extends Controller
 
     private function fail(string $message): RedirectResponse
     {
+        Log::warning('SSO login gagal: '.$message);
+
         return redirect()->route('login')->withErrors(['sso' => $message]);
     }
 }
