@@ -129,15 +129,24 @@ test('existing accounts keep their roles and password after linking by NIM', fun
     Http::assertSentCount(2);
 });
 
-test('email-prefix NIM follows the CDC format when the campus email is verified', function () {
+test('email-prefix NIM follows the CDC format even when Keycloak omits email_verified', function () {
     $user = User::factory()->create(['nim_nip' => '2411522001']);
-    residenceSsoFake(['preferred_username' => 'nama.mahasiswa']);
+    residenceSsoFake(['preferred_username' => 'nama.mahasiswa', 'email_verified' => false]);
 
     $this->withSession(residenceSsoFlow())->get(route('sso.callback', ['state' => 'state-123', 'code' => 'abc']))
         ->assertRedirect(route('dashboard.redirect'));
 
     $this->assertAuthenticatedAs($user);
     Http::assertSentCount(2);
+});
+
+test('authenticated users hitting SSO redirect go straight to dashboard redirect instead of landing page', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)->get(route('sso.redirect'))
+        ->assertRedirect(route('dashboard.redirect'));
+
+    Http::assertNothingSent();
 });
 
 test('inactive accounts cannot log in through SSO', function () {
@@ -195,7 +204,7 @@ test('invalid identities cannot create student accounts', function (array $claim
     'missing subject' => [['sub' => null]],
     'missing email' => [['email' => null]],
     'missing name' => [['name' => '']],
-    'unverified email cannot identify an account' => [['preferred_username' => 'nama', 'email_verified' => false]],
+    'email prefix without email_verified flag identifies campus account' => [['preferred_username' => 'nama', 'email' => 'invalid-no-nim@student.unand.ac.id', 'email_verified' => false]],
     'external email cannot identify an account' => [['preferred_username' => 'nama', 'email' => '2411522001_name@example.org']],
     'future cohort' => [['preferred_username' => '4911522001']],
 ]);

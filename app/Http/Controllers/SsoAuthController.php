@@ -105,6 +105,7 @@ class SsoAuthController extends Controller
                         'nim_nip' => $identifier,
                         'nama' => trim($name),
                         'email' => $email,
+                        'email_verified_at' => now(),
                         'password' => Str::random(64),
                         'client_profile_category' => ClientProfileCategory::Student,
                         'status' => 'aktif',
@@ -118,7 +119,10 @@ class SsoAuthController extends Controller
                     ]);
                 }
 
-                $user->forceFill(['sso_id' => $subject])->save();
+                $user->forceFill([
+                    'sso_id' => $subject,
+                    'email_verified_at' => $user->email_verified_at ?? now(),
+                ])->save();
 
                 return $user;
             });
