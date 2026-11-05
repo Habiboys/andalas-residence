@@ -72,6 +72,10 @@ class SsoAuthController extends Controller
         }
 
         $identifier = $sso->identifier($claims);
+        Log::info('SSO userinfo claims', [
+            'claims' => $claims,
+            'extracted_identifier' => $identifier,
+        ]);
         if ($identifier === null) {
             Log::warning('SSO identifier tidak valid', ['claims' => $claims]);
 
@@ -79,7 +83,7 @@ class SsoAuthController extends Controller
         }
 
         try {
-            $user = DB::transaction(function () use ($claims, $identifier): User {
+            $user = DB::transaction(function () use ($claims, $identifier, $sso): User {
                 $subject = $claims['sub'];
                 $linkedUser = User::query()->where('sso_id', $subject)->first();
                 $user = $linkedUser ?? User::query()->where('nim_nip', $identifier)->first();
@@ -94,10 +98,18 @@ class SsoAuthController extends Controller
 
                 if (! $user) {
                     $email = $claims['email'] ?? null;
-                    $name = $claims['name'] ?? null;
+                    $name = $sso->displayName($claims);
                     if (! preg_match('/^\d{10}$/D', $identifier)
                         || ! is_string($email) || strlen($email) > 255 || ! filter_var($email, FILTER_VALIDATE_EMAIL)
                         || ! is_string($name) || trim($name) === '' || mb_strlen($name) > 255) {
+                        Log::warning('SSO auto-create ditolak', [
+                            'identifier' => $identifier,
+                            'email' => $email,
+                            'name' => $name,
+                            'preferred_username' => $claims['preferred_username'] ?? null,
+                            'claims' => $claims,
+                        ]);
+
                         throw ValidationException::withMessages(['sso' => 'Pembuatan akun otomatis memerlukan NIM mahasiswa 10 digit, nama, dan email dari SSO.']);
                     }
 

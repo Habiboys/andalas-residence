@@ -203,9 +203,8 @@ test('invalid identities cannot create student accounts', function (array $claim
     'NIP is not a student NIM' => [['preferred_username' => '198501012010121001']],
     'missing subject' => [['sub' => null]],
     'missing email' => [['email' => null]],
-    'missing name' => [['name' => '']],
-    'email prefix without email_verified flag identifies campus account' => [['preferred_username' => 'nama', 'email' => 'invalid-no-nim@student.unand.ac.id', 'email_verified' => false]],
-    'external email cannot identify an account' => [['preferred_username' => 'nama', 'email' => '2411522001_name@example.org']],
+    'missing name and no fallback in email' => [['name' => '', 'preferred_username' => '2411522001', 'email' => '2411522001@student.unand.ac.id']],
+    'email without NIM prefix cannot identify an account' => [['preferred_username' => 'nama', 'email' => 'invalid-no-nim@student.unand.ac.id', 'email_verified' => false]],
     'future cohort' => [['preferred_username' => '4911522001']],
 ]);
 

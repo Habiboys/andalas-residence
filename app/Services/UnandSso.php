@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 use RuntimeException;
 
 class UnandSso
@@ -65,8 +66,48 @@ class UnandSso
         }
 
         $email = trim((string) ($claims['email'] ?? ''));
+        $local = trim(explode('@', $email, 2)[0] ?? '');
+        if (preg_match('/^(\d{4,50})_/', $local, $matches)) {
+            return $matches[1];
+        }
+
         if (preg_match('/^(\d{4,50})(?:_[^@]+)?@(?:[a-z0-9-]+\.)*unand\.ac\.id$/iD', $email, $matches)) {
             return $matches[1];
+        }
+
+        return null;
+    }
+
+    /** @param array<string, mixed> $claims */
+    public function displayName(array $claims): ?string
+    {
+        $name = trim((string) ($claims['name'] ?? ''));
+        if ($name !== '') {
+            return $name;
+        }
+
+        $given = trim((string) ($claims['given_name'] ?? ''));
+        $family = trim((string) ($claims['family_name'] ?? ''));
+        $combined = trim($given.' '.$family);
+        if ($combined !== '') {
+            return $combined;
+        }
+
+        $email = trim((string) ($claims['email'] ?? ''));
+        $local = trim(explode('@', $email, 2)[0] ?? '');
+        if (preg_match('/^\d+_(.+)$/', $local, $matches)) {
+            $fromEmail = trim(str_replace(['_', '.', '-'], ' ', $matches[1]));
+            if ($fromEmail !== '') {
+                return Str::title($fromEmail);
+            }
+        }
+
+        $username = trim((string) ($claims['preferred_username'] ?? ''));
+        if ($username !== '' && ! preg_match('/^\d+$/D', $username)) {
+            $cleaned = trim(preg_replace('/^\d+_/', '', $username) ?? $username);
+            if ($cleaned !== '') {
+                return Str::title(str_replace(['_', '.', '-'], ' ', $cleaned));
+            }
         }
 
         return null;
