@@ -56,18 +56,23 @@ class UnandSso
     /** @param array<string, mixed> $claims */
     public function identifier(array $claims): ?string
     {
+        $uid = trim((string) ($claims['UID'] ?? $claims['uid'] ?? ''));
+        if (preg_match('/^\d{4,50}$/D', $uid)) {
+            return $uid;
+        }
+
+        $email = trim((string) ($claims['email'] ?? ''));
+        $local = trim(explode('@', $email, 2)[0] ?? '');
+        if (preg_match('/^(\d{4,50})_/', $local, $matches) && preg_match('/@(?:[a-z0-9-]+\.)*unand\.ac\.id$/iD', $email)) {
+            return $matches[1];
+        }
+
         $username = trim((string) ($claims['preferred_username'] ?? ''));
         if (preg_match('/^\d{4,50}$/D', $username)) {
             return $username;
         }
 
         if (preg_match('/^(\d{4,50})_/', $username, $matches)) {
-            return $matches[1];
-        }
-
-        $email = trim((string) ($claims['email'] ?? ''));
-        $local = trim(explode('@', $email, 2)[0] ?? '');
-        if (preg_match('/^(\d{4,50})_/', $local, $matches)) {
             return $matches[1];
         }
 

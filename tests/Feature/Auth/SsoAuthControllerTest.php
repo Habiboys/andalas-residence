@@ -140,6 +140,27 @@ test('email-prefix NIM follows the CDC format even when Keycloak omits email_ver
     Http::assertSentCount(2);
 });
 
+test('UID and email prefix take precedence over 16-digit NIK in preferred_username', function () {
+    Role::create(['name' => 'mahasiswa', 'guard_name' => 'web']);
+    residenceSsoFake([
+        'sub' => '3c813f49-4ac0-49d0-b8d9-488589a01168',
+        'UID' => '2211521020',
+        'email_verified' => false,
+        'name' => 'MUHAMMAD HABIBIE',
+        'preferred_username' => '1371041802040001',
+        'given_name' => 'MUHAMMAD',
+        'family_name' => 'HABIBIE',
+        'email' => '2211521020_muhammad@student.unand.ac.id',
+    ]);
+
+    $this->withSession(residenceSsoFlow())->get(route('sso.callback', ['state' => 'state-123', 'code' => 'abc']))
+        ->assertRedirect(route('residence.workflow'));
+
+    $user = User::where('nim_nip', '2211521020')->sole();
+    $this->assertAuthenticatedAs($user);
+    expect($user->nama)->toBe('MUHAMMAD HABIBIE');
+});
+
 test('authenticated users hitting SSO redirect go straight to dashboard redirect instead of landing page', function () {
     $user = User::factory()->create();
 
@@ -200,12 +221,13 @@ test('invalid identities cannot create student accounts', function (array $claim
     $this->assertDatabaseCount('users', 0);
     Http::assertSentCount(2);
 })->with([
-    'NIP is not a student NIM' => [['preferred_username' => '198501012010121001']],
+    'NIP is not a student NIM' => [['preferred_username' => '198501012010121001', 'email' => 'dosen@lecturer.unand.ac.id']],
     'missing subject' => [['sub' => null]],
     'missing email' => [['email' => null]],
     'missing name and no fallback in email' => [['name' => '', 'preferred_username' => '2411522001', 'email' => '2411522001@student.unand.ac.id']],
     'email without NIM prefix cannot identify an account' => [['preferred_username' => 'nama', 'email' => 'invalid-no-nim@student.unand.ac.id', 'email_verified' => false]],
-    'future cohort' => [['preferred_username' => '4911522001']],
+    'external email cannot identify an account' => [['preferred_username' => 'nama', 'email' => '2411522001_name@example.org']],
+    'future cohort' => [['preferred_username' => '4911522001', 'email' => '4911522001_nama@student.unand.ac.id']],
 ]);
 
 test('email collisions do not link an unrelated local account', function () {
