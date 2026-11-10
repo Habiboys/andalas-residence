@@ -86,6 +86,7 @@ type Decision = {
     terms?: {
         notes?: string;
         requires_configuration?: boolean;
+        amendment_id?: string;
         agreement_kind?: string;
         initial_amount?: number;
         schedule?: Array<{ jatuh_tempo: string; jumlah: number }>;
@@ -463,16 +464,19 @@ function ActionForm({
     label,
 
     children,
+    onSuccess,
 }: {
     url: string;
 
     label: string;
+    onSuccess?: () => void;
 
     children?: ReactNode;
 }) {
     return (
         <Form
             action={url}
+            onSuccess={onSuccess}
 
             method="post"
 
@@ -544,7 +548,7 @@ function Amendments({
             {r.can_operate &&
                 r.checked_in_at &&
                 !r.keys_returned_at &&
-                r.billing_basis !== 'room' && (
+                (r.billing_basis !== 'room' || manager) && (
                     <details className="rounded border p-3">
                         <summary className="cursor-pointer font-medium">
                             Pindah kamar
@@ -610,6 +614,13 @@ function Amendments({
                                 </select>
                             </Field>
 
+                            {r.room_contract_id && (
+                                <Field
+                                    name="consent"
+                                    label="Persetujuan perubahan kontrak seluruh anggota (PDF/gambar)"
+                                    type="file"
+                                />
+                            )}
                             <Confirm name="keys_exchanged">
                                 Identitas diperiksa, kunci asal diterima, dan
                                 kunci tujuan diserahkan.
@@ -1017,31 +1028,36 @@ function RegistrationCard({
                                         </>
                                     )}
 
-                                    {!r.completed_at && r.can_submit && (
-                                        <ActionForm
-                                            url={workflow.upload.url(r.id)}
+                                    {(!r.completed_at ||
+                                        kind.startsWith('pembiayaan_')) &&
+                                        !r.keys_returned_at &&
+                                        r.can_submit && (
+                                            <ActionForm
+                                                url={workflow.upload.url(r.id)}
 
-                                            label="Unggah versi baru"
-                                        >
-                                            <input
-                                                type="hidden"
+                                                label="Unggah versi baru"
+                                            >
+                                                <input
+                                                    type="hidden"
 
-                                                name="kind"
+                                                    name="kind"
 
-                                                value={kind}
-                                            />
+                                                    value={kind}
+                                                />
 
-                                            <Field
-                                                name="file"
+                                                <Field
+                                                    name="file"
 
-                                                label="Dokumen PDF atau gambar, maksimal 5 MB"
+                                                    label="Dokumen PDF atau gambar, maksimal 5 MB"
 
-                                                type="file"
-                                            />
-                                        </ActionForm>
-                                    )}
+                                                    type="file"
+                                                />
+                                            </ActionForm>
+                                        )}
 
-                                    {!r.completed_at &&
+                                    {(!r.completed_at ||
+                                        kind.startsWith('pembiayaan_')) &&
+                                        !r.keys_returned_at &&
                                         doc &&
                                         r.can_operate && (
                                             <ActionForm
@@ -1098,7 +1114,7 @@ function RegistrationCard({
                                     >
                                         {d.kind} v{d.version}
                                     </a>{' '}
-                                    · {statuses[d.status]} ·{' '}
+                                    · {statuses[d.status] ?? d.status} ·{' '}
                                     {d.reviewer?.nama ?? 'Belum diperiksa'}{' '}
                                     {d.notes && `— ${d.notes}`}
                                 </p>
@@ -1108,95 +1124,101 @@ function RegistrationCard({
                 </details>
             )}
 
-            {!r.completed_at && r.tagihan && (
-                <details className="border-base-300 rounded border p-3">
-                    <summary className="cursor-pointer font-medium">
-                        Keputusan pembiayaan
-                    </summary>
+            {(!r.completed_at ||
+                r.decisions.some((d) => d.terms?.amendment_id)) &&
+                r.tagihan && (
+                    <details className="border-base-300 rounded border p-3">
+                        <summary className="cursor-pointer font-medium">
+                            Keputusan pembiayaan
+                        </summary>
 
-                    <div className="mt-3 space-y-4">
-                        {r.decisions.map((d) => (
-                            <div className="border-b pb-3" key={d.id}>
-                                <p className="font-medium">
-                                    {decisionNames[d.kind]} ·{' '}
-                                    {statuses[d.status]}
-                                </p>
-
-                                <p>{d.reason}</p>
-
-                                {d.terms?.notes && <p>{d.terms.notes}</p>}
-
-                                {d.status === 'approved' &&
-                                    d.terms?.requires_configuration && (
-                                        <p className="text-warning">
-                                            Menunggu pengaturan skema oleh
-                                            pengelola.
-                                        </p>
-                                    )}
-
-                                {d.status === 'approved' &&
-                                    d.terms?.requires_configuration &&
-                                    manager && <Terms decision={d} />}
-
-                                {d.terms?.schedule?.map((term, i) => (
-                                    <p key={i} className="text-sm">
-                                        Termin {i + 1}: {term.jatuh_tempo} ·{' '}
-                                        {formatRupiah(Number(term.jumlah))}
+                        <div className="mt-3 space-y-4">
+                            {r.decisions.map((d) => (
+                                <div className="border-b pb-3" key={d.id}>
+                                    <p className="font-medium">
+                                        {decisionNames[d.kind]} ·{' '}
+                                        {statuses[d.status] ?? d.status}
                                     </p>
-                                ))}
 
-                                {d.status === 'pending' &&
-                                    ((leader &&
-                                        ['installment', 'defer'].includes(
-                                            d.kind,
-                                        )) ||
-                                        (manager &&
-                                            !['installment', 'defer'].includes(
+                                    <p>{d.reason}</p>
+
+                                    {d.terms?.notes && <p>{d.terms.notes}</p>}
+
+                                    {d.status === 'approved' &&
+                                        d.terms?.requires_configuration && (
+                                            <p className="text-warning">
+                                                Menunggu pengaturan skema oleh
+                                                pengelola.
+                                            </p>
+                                        )}
+
+                                    {d.status === 'approved' &&
+                                        d.terms?.requires_configuration &&
+                                        manager && <Terms decision={d} />}
+
+                                    {d.terms?.schedule?.map((term, i) => (
+                                        <p key={i} className="text-sm">
+                                            Termin {i + 1}: {term.jatuh_tempo} ·{' '}
+                                            {formatRupiah(Number(term.jumlah))}
+                                        </p>
+                                    ))}
+
+                                    {d.status === 'pending' &&
+                                        ((leader &&
+                                            ['installment', 'defer'].includes(
                                                 d.kind,
-                                            ))) && <Terms decision={d} />}
-                            </div>
-                        ))}
-
-                        {r.can_submit && (
-                            <ActionForm
-                                url={workflow.requestDecision.url(r.id)}
-
-                                label="Ajukan keputusan"
-                            >
-                                <Field name="kind" label="Jenis permohonan">
-                                    <select className={input} name="kind">
-                                        <option value="installment">
-                                            Cicilan
-                                        </option>
-
-                                        <option value="defer">
-                                            Penundaan pembayaran
-                                        </option>
-
-                                        {r.rate_unit === 'month' && (
-                                            <option value="monthly">
-                                                Skema bulanan
-                                            </option>
+                                            )) ||
+                                            (manager &&
+                                                ![
+                                                    'installment',
+                                                    'defer',
+                                                ].includes(d.kind))) && (
+                                            <Terms decision={d} />
                                         )}
+                                </div>
+                            ))}
 
-                                        {r.stay_kind === 'non_student' && (
-                                            <option value="transfer_permission">
-                                                Izin berdasarkan bukti transfer
+                            {r.can_submit && !r.completed_at && (
+                                <ActionForm
+                                    url={workflow.requestDecision.url(r.id)}
+
+                                    label="Ajukan keputusan"
+                                >
+                                    <Field name="kind" label="Jenis permohonan">
+                                        <select className={input} name="kind">
+                                            <option value="installment">
+                                                Cicilan
                                             </option>
-                                        )}
-                                    </select>
-                                </Field>
 
-                                <Field
-                                    name="reason"
+                                            <option value="defer">
+                                                Penundaan pembayaran
+                                            </option>
 
-                                    label="Alasan permohonan"
-                                />
-                            </ActionForm>
-                        )}
-                    </div>
-                </details>
-            )}
+                                            {r.rate_unit === 'month' && (
+                                                <option value="monthly">
+                                                    Skema bulanan
+                                                </option>
+                                            )}
+
+                                            {r.stay_kind === 'non_student' && (
+                                                <option value="transfer_permission">
+                                                    Izin berdasarkan bukti
+                                                    transfer
+                                                </option>
+                                            )}
+                                        </select>
+                                    </Field>
+
+                                    <Field
+                                        name="reason"
+
+                                        label="Alasan permohonan"
+                                    />
+                                </ActionForm>
+                            )}
+                        </div>
+                    </details>
+                )}
 
             {manager && r.stay_kind === 'non_student' && r.tagihan && (
                 <details className="rounded border p-3">

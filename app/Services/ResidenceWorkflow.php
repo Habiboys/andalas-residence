@@ -42,6 +42,9 @@ class ResidenceWorkflow
         if ($r->rate_unit === 'month' && $r->workflow_version === 2 && ! $r->decisions()->where('kind', 'monthly')->where('status', 'approved')->exists()) {
             $issues[] = 'Skema bulanan belum disetujui pengelola.';
         }
+        if ($r->decisions()->where('status', 'pending')->get()->contains(fn ($d) => ! empty($d->terms['amendment_id']))) {
+            $issues[] = 'Koreksi pembiayaan menunggu keputusan baru.';
+        }
         if (! $this->financiallyReady($r)) {
             $issues[] = 'Pembayaran awal atau persetujuan pembiayaan belum memenuhi syarat.';
         }

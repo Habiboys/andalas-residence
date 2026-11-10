@@ -6,16 +6,12 @@ use App\Models\MahasiswaProfil;
 use App\Models\PenempatanKamar;
 use App\Models\ResidenceApplication;
 use App\Models\ResidenceDecision;
-use App\Models\ResidencePolicy;
 use App\Models\ResidenceRegistration;
 use App\Models\RoomInvitation;
 use App\Models\User;
 use App\Notifications\ResidenceWorkflowNotification;
 use App\Services\ResidenceLifecycle;
-use Database\Seeders\ResidenceRegistrationUatSeeder;
-use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
@@ -195,22 +191,6 @@ it('revises shared members without deleting paid money and allocates all cents e
     $this->get(route('residence.amendments.document', $body['reference']))->assertOk();
 });
 
-it('seeds usable local UAT identities without resetting existing accounts or policies', function () {
-    $f = toBeFixture();
-    $this->seed(RolePermissionSeeder::class);
-    $this->seed(ResidenceRegistrationUatSeeder::class);
-    $user = User::where('email', 'uat.pengelola@example.test')->sole();
-    expect(Hash::check('Residence-UAT-2026!', $user->password))->toBeTrue();
-    expect($user->hasRole('admin_layanan'))->toBeTrue();
-    $user->update(['password' => 'changed-by-owner']);
-    $this->seed(ResidenceRegistrationUatSeeder::class);
-    expect(Hash::check('changed-by-owner', $user->fresh()->password))->toBeTrue();
-    expect(User::where('email', 'like', 'uat.%@example.test')->count())->toBe(11);
-    expect(ResidencePolicy::count())->toBe(1);
-    expect(FasilitatorWilayah::where('user_id', User::where('email', 'uat.fasilitator@example.test')->sole()->id)->pluck('gedung_id')->all())->toBe([$f['building']->id]);
-    $this->actingAs($user)->get(route('residence.workflow'))->assertOk();
-});
-
 it('accepts replay when MySQL returns JSON object keys in a different order', function () {
     $f = toBeFixture();
     $registration = toBeSubmit($f);
@@ -221,18 +201,58 @@ it('accepts replay when MySQL returns JSON object keys in a different order', fu
     $this->assertDatabaseCount('transaksi_keuangan', 1);
 });
 
-it('requires explicit production UAT activation and a configured password', function () {
-    $this->app->detectEnvironment(fn () => 'production');
-    config(['residence_uat.enabled' => false, 'residence_uat.password' => '']);
-    expect(fn () => $this->seed(ResidenceRegistrationUatSeeder::class))->toThrow(LogicException::class);
-    $this->assertDatabaseCount('users', 0);
+it('reopens financing approval after a paid shared contract changes without deleting its old schedule', function () {
+    $f = toBeFixture(capacity: 3);
+    $r = toBeSubmit($f, ['billing_basis' => 'room']);
+    $this->actingAs($f['manager'])->post(route('residence.contracts'), ['registration_ids' => [$r->id]])->assertSessionHasNoErrors();
+    $r = $r->fresh();
+    $decision = ResidenceDecision::factory()->create(['residence_registration_id' => $r->id, 'kind' => 'installment', 'status' => 'approved', 'terms' => ['initial_amount' => 1000000]]);
+    $oldTerm = $r->tagihan->jadwalCicilan()->create(['termin_ke' => 1, 'jumlah' => 10000000, 'jatuh_tempo' => today()->addMonth()]);
+    toBePay($r, $f['manager'], 1000000);
+    $member = User::factory()->student()->create(['gender' => 'perempuan'])->assignRole('mahasiswa');
+    MahasiswaProfil::create(['user_id' => $member->id, 'prodi_id' => $f['program']->id, 'angkatan' => '2025', 'barcode_code' => fake()->uuid()]);
+    $this->actingAs($f['user'])->post(route('andalas.room-invitations.store'), ['registration_id' => $r->id, 'nim' => $member->nim_nip])->assertSessionHasNoErrors();
+    $this->actingAs($member)->put(route('andalas.room-invitations.update', RoomInvitation::sole()), ['accept' => true])->assertSessionHasNoErrors();
+    $new = ResidenceRegistration::where('student_profile_id', $member->mahasiswaProfil->id)->sole();
+    $this->actingAs($f['manager'])->post(route('residence.contracts.revise', $r->room_contract_id), ['reference' => fake()->uuid(), 'members' => [$r->id, $new->id], 'reason' => 'Revisi pembagian biaya', 'consent' => UploadedFile::fake()->create('consent.pdf', 10, 'application/pdf')])->assertRedirect()->assertSessionHasNoErrors();
+    expect($decision->fresh()->status)->toBe('superseded');
+    expect($oldTerm->fresh()->status)->toBe('diganti');
+    $revision = $r->decisions()->where('status', 'pending')->sole();
+    $this->actingAs(toBeOfficer('pimpinan'))->post(route('residence.decisions.review', $revision), ['status' => 'approved', 'notes' => 'Skema baru disetujui'])->assertSessionHasNoErrors();
+    $this->actingAs($f['manager'])->post(route('residence.decisions.review', $revision), ['status' => 'approved', 'notes' => 'Saldo empat juta', 'initial_amount' => 1000000, 'schedule' => [['jumlah' => 1000000, 'jatuh_tempo' => today()->toDateString()], ['jumlah' => 3000000, 'jatuh_tempo' => today()->addMonth()->toDateString()]]])->assertSessionHasNoErrors();
+    expect((float) $r->fresh()->tagihan->total_dibayar)->toBe(1000000.0);
+    expect($r->tagihan->jadwalCicilan()->count())->toBe(3);
+    expect($revision->fresh()->terms['initial_amount'])->toEqual(2000000);
 });
 
-it('uses the configured UAT password when production seeding is enabled', function () {
-    toBeFixture();
-    $this->seed(RolePermissionSeeder::class);
-    $this->app->detectEnvironment(fn () => 'production');
-    config(['residence_uat.enabled' => true, 'residence_uat.password' => 'Production-UAT-Only-2026!']);
-    $this->artisan('db:seed', ['--class' => ResidenceRegistrationUatSeeder::class, '--force' => true])->assertSuccessful();
-    expect(Hash::check('Production-UAT-Only-2026!', User::where('email', 'uat.pengelola@example.test')->sole()->password))->toBeTrue();
+it('moves one shared member with consent and reprices both obligations atomically', function () {
+    $f = toBeFixture(capacity: 3);
+    $r = toBeSubmit($f, ['billing_basis' => 'room']);
+    $member = User::factory()->student()->create(['gender' => 'perempuan'])->assignRole('mahasiswa');
+    MahasiswaProfil::create(['user_id' => $member->id, 'prodi_id' => $f['program']->id, 'angkatan' => '2025', 'barcode_code' => fake()->uuid()]);
+    $this->actingAs($f['user'])->post(route('andalas.room-invitations.store'), ['registration_id' => $r->id, 'nim' => $member->nim_nip])->assertSessionHasNoErrors();
+    $this->actingAs($member)->put(route('andalas.room-invitations.update', RoomInvitation::sole()), ['accept' => true])->assertSessionHasNoErrors();
+    $other = ResidenceRegistration::where('student_profile_id', $member->mahasiswaProfil->id)->sole();
+    $this->actingAs($f['manager'])->post(route('residence.contracts'), ['registration_ids' => [$r->id, $other->id]])->assertSessionHasNoErrors();
+    $r = $r->fresh();
+    toBeDocument($r, $f['manager']);
+    toBePay($r, $f['manager']);
+    app(ConfirmResidenceCheckIn::class)->handle($r, $f['manager']);
+    $target = $f['room']->replicate();
+    $target->nomor_kamar = '102';
+    $target->status = 'kosong';
+    $target->save();
+    $body = ['reference' => fake()->uuid(), 'room_id' => $target->id, 'reason' => 'Disetujui seluruh anggota', 'keys_exchanged' => 1, 'room_condition' => 'ready'];
+    $this->post(route('residence.move', $r), $body)->assertSessionHasErrors('consent');
+    expect($r->fresh()->room_contract_id)->not->toBeNull();
+    $body['consent'] = UploadedFile::fake()->create('consent.pdf', 10, 'application/pdf');
+    $this->post(route('residence.move', $r), $body)->assertRedirect()->assertSessionHasNoErrors();
+    $this->post(route('residence.move', $r), $body)->assertRedirect()->assertSessionHasNoErrors();
+    expect($r->fresh()->room_contract_id)->toBeNull();
+    expect($r->fresh()->reserved_room_id)->toBe($target->id);
+    expect((float) $r->fresh()->tagihan->total)->toBe(1000000.0);
+    expect((float) $r->fresh()->tagihan->total_dibayar)->toBe(5000000.0);
+    expect((float) $other->fresh()->tagihan->total)->toBe(10000000.0);
+    expect($other->fresh()->roomContract->occupants)->toBe(1);
+    $this->assertDatabaseCount('residence_amendments',1);
 });

@@ -131,7 +131,7 @@ class DatabaseSeeder extends Seeder
             }
         }
 
-        $this->call([LandingContentSeeder::class, DocumentSystemSeeder::class]);
+        $this->call([LandingContentSeeder::class, DocumentSystemSeeder::class, ResidenceRegistrationUatSeeder::class]);
         $this->command?->info('Mahasiswa lokal memakai data Excel 2026/2027. Contoh penghuni hanya untuk kategori internasional dan non-mahasiswa; contoh orang tua dipertahankan.');
         $this->command?->table(['Akun contoh', 'Kategori'], [
             ['international@unand.ac.id', 'Internasional fasilitas gratis'],
