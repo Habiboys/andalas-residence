@@ -27,6 +27,15 @@ class ResidenceWorkflow
                 }
             }
         }
+        foreach ($r->decisions()->where('status', 'approved')->get() as $decision) {
+            if ($decision->terms['requires_configuration'] ?? false) {
+                $issues[] = 'Skema pembiayaan belum ditetapkan pengelola.';
+            }
+            $kind = $decision->terms['agreement_kind'] ?? null;
+            if ($kind && $r->documents()->where('kind', $kind)->latest('version')->first()?->status !== 'valid') {
+                $issues[] = 'Perjanjian pembiayaan sesuai keputusan belum valid.';
+            }
+        }
         if ($r->billing_basis === 'room' && ! $r->room_contract_id && $r->workflow_version === 2) {
             $issues[] = 'Kontrak kamar bersama belum disahkan.';
         }

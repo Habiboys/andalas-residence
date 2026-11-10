@@ -6,6 +6,7 @@ use App\Actions\Registration\AllocateResidenceRoom;
 use App\Actions\Registration\ConfirmResidenceCheckIn;
 use App\Actions\Registration\SubmitResidenceRegistration;
 use App\Models\MahasiswaProfil;
+use App\Models\RegistrationDocument;
 use App\Models\ResidenceApplication;
 use App\Models\ResidenceDecision;
 use App\Models\ResidencePaymentReference;
@@ -165,6 +166,9 @@ it('requires a leader for a zero-upfront deferral and preserves the debt after a
     $this->actingAs($f['manager'])->post(route('residence.decisions.review', $decision), $body)->assertForbidden();
     $leader = toBeOfficer('pimpinan');
     $this->actingAs($leader)->post(route('residence.decisions.review', $decision), $body)->assertRedirect()->assertSessionHasNoErrors();
+    $this->actingAs($f['manager'])->post(route('residence.decisions.review', $decision), $body)->assertRedirect()->assertSessionHasNoErrors();
+    RegistrationDocument::factory()->create(['residence_registration_id' => $r->id, 'kind' => $decision->fresh()->terms['agreement_kind'], 'status' => 'valid', 'reviewed_by' => $f['manager']->id, 'reviewed_at' => now()]);
+    app(ResidenceWorkflow::class)->evaluate($r->fresh());
     expect($r->fresh()->ready_at)->not->toBeNull();
     expect((float) $r->tagihan->total_dibayar)->toBe(0.0);
     expect($decision->fresh()->decided_by)->toBe($leader->id);
@@ -185,6 +189,8 @@ it('requires the approved first installment without forgiving the remaining bala
     toBeDocument($r, $f['manager']);
     $decision = ResidenceDecision::factory()->create(['residence_registration_id' => $r->id, 'kind' => 'installment']);
     $this->actingAs(toBeOfficer('pimpinan'))->post(route('residence.decisions.review', $decision), ['status' => 'approved', 'notes' => 'Dua termin', 'initial_amount' => 400000, 'schedule' => [['jumlah' => 400000, 'jatuh_tempo' => '2026-11-05'], ['jumlah' => 600000, 'jatuh_tempo' => '2026-12-05']]])->assertRedirect()->assertSessionHasNoErrors();
+    $this->actingAs($f['manager'])->post(route('residence.decisions.review', $decision), ['status' => 'approved', 'notes' => 'Dua termin', 'initial_amount' => 400000, 'schedule' => [['jumlah' => 400000, 'jatuh_tempo' => '2026-11-05'], ['jumlah' => 600000, 'jatuh_tempo' => '2026-12-05']]])->assertRedirect()->assertSessionHasNoErrors();
+    RegistrationDocument::factory()->create(['residence_registration_id' => $r->id, 'kind' => $decision->fresh()->terms['agreement_kind'], 'status' => 'valid', 'reviewed_by' => $f['manager']->id, 'reviewed_at' => now()]);
     toBePay($r, $f['manager'], 400000);
     expect($r->fresh()->ready_at)->not->toBeNull();
     expect($r->fresh()->tagihan->status->value)->toBe('sebagian');

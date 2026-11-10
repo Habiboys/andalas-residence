@@ -22,7 +22,7 @@ class PenempatanKamar extends BaseModel
     protected $fillable = [
         'mahasiswa_id', 'kamar_id', 'periode_id', 'tanggal_mulai',
         'tanggal_selesai', 'status', 'diproses_oleh', 'catatan',
-        'import_payment_confirmation',
+        'import_payment_confirmation', 'relocated_at',
     ];
 
     /** @return HasOne<ResidenceRegistration, $this> */
@@ -35,6 +35,7 @@ class PenempatanKamar extends BaseModel
     {
         return [
             'tanggal_mulai' => 'date',
+            'relocated_at' => 'datetime',
             'tanggal_selesai' => 'date',
             'import_payment_confirmation' => 'array',
         ];

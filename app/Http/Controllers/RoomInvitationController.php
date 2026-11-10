@@ -117,10 +117,10 @@ class RoomInvitationController extends Controller
     private function requireHost(ResidenceRegistration $registration): void
     {
         $hasPlace = $registration->completed_at ? $registration->placement?->status === 'aktif' : app(RoomReservations::class)->held()->whereKey($registration->id)->exists();
-        if ($registration->is_kipk || ($registration->billing_basis === 'room' && ($registration->workflow_version !== 2 || $registration->room_contract_id !== null)) || ! $hasPlace
+        if ($registration->is_kipk || ($registration->billing_basis === 'room' && $registration->workflow_version !== 2) || ! $hasPlace
             || $registration->ended_at || $registration->status === ResidenceRegistrationStatus::Rejected
             || $registration->periode?->status !== 'aktif' || $registration->ends_at?->isPast()) {
-            throw ValidationException::withMessages(['invitation' => 'Undangan membutuhkan pilihan kamar non-KIP-K per orang yang masih berlaku.']);
+            throw ValidationException::withMessages(['invitation' => 'Undangan membutuhkan alokasi kamar non-KIP-K yang masih berlaku.']);
         }
     }
 
@@ -133,7 +133,7 @@ class RoomInvitationController extends Controller
         if ($student->penempatanKamar()->where('status', 'aktif')->exists() || $student->residenceRegistrations()->whereNull('completed_at')->whereNotIn('status', ['draft', 'rejected'])->exists()) {
             throw ValidationException::withMessages(['invitation' => 'Sudah memiliki hunian atau pendaftaran.']);
         }
-        $held = ResidenceRegistration::where('reserved_room_id', $room->id)->whereNull('completed_at')->whereNotIn('status', ['draft', 'rejected'])->lockForUpdate()->count();
+        $held = ResidenceRegistration::where('reserved_room_id', $room->id)->whereNull('completed_at')->whereNotIn('status', ['draft', 'rejected'])->lockForUpdate()->get(['id'])->count() + $room->penempatanKamar()->where('status', 'aktif')->lockForUpdate()->get(['id'])->count();
         if ($held >= $room->kapasitas || $room->status === 'maintenance') {
             throw ValidationException::withMessages(['invitation' => 'Kamar sudah penuh atau tidak siap.']);
         }

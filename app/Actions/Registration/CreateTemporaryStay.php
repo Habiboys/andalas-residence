@@ -42,6 +42,9 @@ class CreateTemporaryStay
                     throw ValidationException::withMessages(['nim_nip' => 'Identitas sudah terdaftar. Gunakan data akun yang sesuai atau minta admin memperbaikinya.']);
                 }
                 $student = $user->mahasiswaProfil;
+                if (($data['client_profile_category'] ?? '') === 'local_non_kipk' && (! in_array($student->prodi?->jenjang, ['S2', 'S3'], true) || $student->prodi_id !== ($data['prodi_id'] ?? null))) {
+                    throw ValidationException::withMessages(['prodi_id' => 'Program studi harus sesuai profil S2/S3 yang terdaftar.']);
+                }
                 if ($data['stay_kind'] === 'regular' && app(ResidenceLifecycle::class)->isLocal($student)) {
                     throw ValidationException::withMessages(['nim_nip' => 'Akun lokal S1 menggunakan jalur pendaftaran mahasiswa.']);
                 }

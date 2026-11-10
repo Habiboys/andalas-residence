@@ -28,7 +28,7 @@ class ResidenceRegistration extends BaseModel
     use HasFactory;
 
     protected $fillable = [
-        'stay_kind', 'ended_at', 'billing_basis',
+        'stay_kind', 'ended_at', 'billing_basis', 'checkin_classification',
         'workflow_version', 'residence_policy_id', 'residence_application_id', 'room_contract_id', 'allocation_status', 'ready_at', 'checked_in_at', 'checked_in_by', 'keys_returned_at', 'keys_returned_by', 'return_condition', 'end_notified_at', 'kipk_disbursed_at', 'kipk_due_at', 'historical_evidence', 'historical_confirmed_at', 'historical_confirmed_by', 'sponsor_limit',
         'student_profile_id',
         'periode_id',

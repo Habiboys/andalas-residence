@@ -26,7 +26,7 @@ class ResidenceLifecycle
     {
         return $this->legacy($student) !== null
             || $student->residenceHistories()->whereIn('event', ['checked_out', 'reentered'])->exists()
-            || $student->penempatanKamar()->where('status', 'berakhir')->exists();
+            || $student->penempatanKamar()->where('status', 'berakhir')->whereNull('relocated_at')->exists();
     }
 
     public function isLocal(MahasiswaProfil $student): bool

@@ -21,9 +21,9 @@ class ReconcileResidencePayment
         abort_unless($officer->can('pembayaran.verify'), 403);
         DB::transaction(function () use ($reference, $allocations, $officer): void {
             $reference = ResidencePaymentReference::whereKey($reference->id)->lockForUpdate()->firstOrFail();
-            $normalized = collect($allocations)->map(fn ($a) => ['tagihan_id' => $a['tagihan_id'], 'jumlah' => number_format((float) $a['jumlah'], 2, '.', ''), 'payment_proof_id' => $a['payment_proof_id'] ?? null])->sortBy('tagihan_id')->values()->all();
+            $normalized = $this->normalize($allocations);
             if ($reference->status === 'matched') {
-                if ($reference->allocations !== $normalized) {
+                if ($this->normalize($reference->allocations ?? []) !== $normalized) {
                     throw ValidationException::withMessages(['reference' => 'Transaksi sudah dicocokkan ke alokasi berbeda.']);
                 }
 
@@ -63,5 +63,18 @@ class ReconcileResidencePayment
             $reference->update(['status' => 'matched', 'allocations' => $normalized, 'matched_at' => now()]);
             AuditLogService::log($officer, 'dpub_payment_reconciled', $reference, null, ['allocations' => $normalized]);
         });
+    }
+
+    /**
+     * @param  list<array{tagihan_id: string, jumlah: numeric-string|int|float, payment_proof_id?: string|null}>  $allocations
+     * @return list<array{tagihan_id: string, jumlah: string, payment_proof_id: string|null}>
+     */
+    private function normalize(array $allocations): array
+    {
+        return collect($allocations)->map(fn ($allocation) => [
+            'tagihan_id' => $allocation['tagihan_id'],
+            'jumlah' => number_format((float) $allocation['jumlah'], 2, '.', ''),
+            'payment_proof_id' => $allocation['payment_proof_id'] ?? null,
+        ])->sortBy('tagihan_id')->values()->all();
     }
 }

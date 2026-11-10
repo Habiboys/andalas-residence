@@ -1,10 +1,15 @@
 <?php
 
+use App\Http\Controllers\ResidenceAmendmentController;
 use App\Http\Controllers\ResidenceApplicationController as Applications;
 use App\Http\Controllers\ResidenceWorkflowController as Workflow;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('residence-process')->name('residence.')->group(function (): void {
+    Route::get('/amendments/{amendment}/document', [ResidenceAmendmentController::class, 'document'])->name('amendments.document');
+    Route::get('/amendments/{amendment}/evidence', [ResidenceAmendmentController::class, 'evidence'])->name('amendments.evidence');
+    Route::post('/registrations/{registration}/move', [ResidenceAmendmentController::class, 'move'])->name('move');
+    Route::post('/contracts/{contract}/revise', [ResidenceAmendmentController::class, 'contract'])->name('contracts.revise');
     Route::get('/', [Workflow::class, 'index'])->name('workflow');
     Route::post('/profile', [Workflow::class, 'profile'])->name('profile');
     Route::post('/policies', [Workflow::class, 'policy'])->name('policies');

@@ -24,14 +24,14 @@ class ResidenceApplicationController extends Controller
         $data = $request->validated();
         DB::transaction(function () use ($request, $data, $create): void {
             $application = ResidenceApplication::create([
-                'number' => $data['number'], 'kind' => $data['kind'], 'institution' => $data['institution'], 'recipient_email' => $data['recipient_email'],
-                'letter_path' => $request->file('letter')->store('documents/institutions', 'local'), 'starts_at' => $data['starts_at'], 'ends_at' => $data['ends_at'],
+                'number' => $data['number'], 'kind' => $data['kind'], 'institution' => $data['institution'] ?? null, 'recipient_email' => $data['recipient_email'],
+                'letter_path' => $request->file('letter')?->store('documents/institutions', 'local'), 'starts_at' => $data['starts_at'], 'ends_at' => $data['ends_at'],
                 'funding' => $data['funding'], 'created_by' => $request->user()->id,
             ]);
             foreach ($data['participants'] as $participant) {
                 $create->handle([...$participant, 'residence_application_id' => $application->id,
                     'stay_kind' => $data['kind'] === 'summer_course' ? 'summer_course' : 'regular',
-                    'client_profile_category' => $data['kind'] === 'summer_course' ? 'non_student' : 'international_student',
+                    'client_profile_category' => $data['kind'] === 'summer_course' ? 'non_student' : ($data['kind'] === 'postgraduate' ? 'local_non_kipk' : 'international_student'),
                     'starts_at' => $data['starts_at'], 'ends_at' => $data['ends_at'],
                     'rate_unit' => $data['kind'] === 'summer_course' ? 'day' : $data['rate_unit'],
                     'funding' => $data['funding'], 'sponsor_name' => $data['funding'] === 'sponsor' ? $data['institution'] : null,
@@ -68,6 +68,8 @@ class ResidenceApplicationController extends Controller
     public function letter(Request $request, ResidenceApplication $application): StreamedResponse
     {
         abort_unless(ResidenceWorkflowAccess::manager($request->user()), 403);
+
+        abort_unless($application->letter_path, 404);
 
         return Storage::disk('local')->download($application->letter_path);
     }

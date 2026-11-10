@@ -40,8 +40,9 @@ class ConfirmResidenceCheckIn
             if ($student->user->inactive_reason === 'letter_issued') {
                 $student->user->update(['status' => 'aktif', 'inactive_reason' => null]);
             }
-            $r->update(['penempatan_kamar_id' => $placement->id, 'completed_at' => now(), 'checked_in_at' => now(), 'checked_in_by' => $officer->id, 'status' => 'accepted', 'reservation_expires_at' => null, 'allocation_status' => 'occupied']);
+            $r->update(['checkin_classification' => ((int) $student->angkatan === (int) $r->periode->angkatan_maba && $r->stay_kind === 'regular' && app(ResidenceLifecycle::class)->isLocal($student) && ! app(ResidenceLifecycle::class)->hasEndedStay($student)) ? 'binaan' : 'hunian', 'penempatan_kamar_id' => $placement->id, 'completed_at' => now(), 'checked_in_at' => now(), 'checked_in_by' => $officer->id, 'status' => 'accepted', 'reservation_expires_at' => null, 'allocation_status' => 'occupied']);
             AuditLogService::log($officer, 'residence_checkin_keys_handed', $r, null, ['placement_id' => $placement->id]);
+            app(ResidenceWorkflow::class)->notify($r, 'Check-in selesai', 'Kehadiran dan serah kunci telah dikonfirmasi. Kamar '.$r->reservedRoom->lantai->gedung->nama_gedung.' / '.$r->reservedRoom->nomor_kamar.'. Masa tinggal '.$r->starts_at->toDateString().' sampai '.$r->ends_at->toDateString().'.');
 
             return $r;
         });

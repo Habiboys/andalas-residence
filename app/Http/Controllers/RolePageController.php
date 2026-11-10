@@ -229,7 +229,7 @@ class RolePageController extends Controller
                 $filters[$key] = $request->query($key);
             }
         }
-// 
+        //
         $sortBy = $filters['sort_by'] ?? 'created_at';
         $sortDirection = ($filters['sort_direction'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
         $search = trim((string) ($filters['search'] ?? ''));
@@ -567,7 +567,7 @@ class RolePageController extends Controller
         $heldIds = app(RoomReservations::class)->held()->where('student_profile_id', $student?->id)->pluck('id')->all();
         $canInvite = $student && app(ResidenceLifecycle::class)->isLocal($student) && ! app(ResidenceLifecycle::class)->isKipk($student);
         foreach ($registrations as $registration) {
-            $registration->setAttribute('can_invite', $canInvite && ! $registration->is_kipk && ($registration->billing_basis !== 'room' || ($registration->workflow_version === 2 && ! $registration->room_contract_id)) && ! $registration->ended_at && $registration->periode?->status === 'aktif'
+            $registration->setAttribute('can_invite', $canInvite && ! $registration->is_kipk && ($registration->billing_basis !== 'room' || $registration->workflow_version === 2) && ! $registration->ended_at && $registration->periode?->status === 'aktif'
                 && ($registration->billing_basis === 'room' || $rooms->contains('id', $registration->reserved_room_id ?? $registration->placement?->kamar_id))
                 && ($registration->completed_at ? $registration->placement?->status === 'aktif' : in_array($registration->id, $heldIds, true)));
         }
