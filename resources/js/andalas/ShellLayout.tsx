@@ -370,6 +370,16 @@ function ShellInner({
                 </header>
 
                 <main className="w-full min-w-0 flex-1 p-4 md:p-6">
+                    {!['orang_tua', 'tamu'].includes(role) && (
+                        <div className="mb-4">
+                            <Link
+                                href="/pelaporan"
+                                className="btn btn-outline btn-sm"
+                            >
+                                Pelaporan dan pekerjaan teknisi
+                            </Link>
+                        </div>
+                    )}
                     {currentPage !== 'dashboard' && (
                         <button
                             type="button"

@@ -184,12 +184,12 @@ it('rejects an asset from another room and removes its rejected upload', functio
     expect(Storage::disk('local')->allFiles())->toBeEmpty();
 });
 
-it('requires both the selected inventory item and damage photos', function () {
+it('requires damage photos while inventory may be omitted', function () {
     $fixture = activeResidentFixture();
     $fixture['resident']->givePermissionTo(Permission::findOrCreate('tiket.create'));
 
     $this->actingAs($fixture['resident'])->post(route('andalas.laporan.store'), ['deskripsi' => 'Rusak'])
-        ->assertSessionHasErrors(['aset_id', 'foto_awal']);
+        ->assertSessionHasErrors(['foto_awal'])->assertSessionDoesntHaveErrors('aset_id');
     $this->assertDatabaseCount('laporan_kerusakan', 0);
 });
 

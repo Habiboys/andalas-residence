@@ -254,5 +254,17 @@ it('moves one shared member with consent and reprices both obligations atomicall
     expect((float) $r->fresh()->tagihan->total_dibayar)->toBe(5000000.0);
     expect((float) $other->fresh()->tagihan->total)->toBe(10000000.0);
     expect($other->fresh()->roomContract->occupants)->toBe(1);
-    $this->assertDatabaseCount('residence_amendments',1);
+    $this->actingAs($member)->get(route('residence.amendments.document', $body['reference']))->assertOk();
+    $this->get(route('residence.workflow'))->assertInertia(fn (AssertableInertia $p) => $p->has('registrations.data.0.amendments', 1));
+    $this->assertDatabaseCount('residence_amendments', 1);
+});
+
+it('rejects revised deferral upfront amounts above the outstanding balance', function () {
+    $f = toBeFixture();
+    $r = toBeSubmit($f);
+    toBePay($r, $f['manager'], 400000);
+    $decision = ResidenceDecision::factory()->create(['residence_registration_id' => $r->id, 'kind' => 'defer', 'status' => 'approved', 'terms' => ['amendment_id' => fake()->uuid(), 'requires_configuration' => true]]);
+    $this->actingAs($f['manager'])->post(route('residence.decisions.review', $decision), ['status' => 'approved', 'notes' => 'Koreksi saldo', 'initial_amount' => 700000, 'schedule' => [['jumlah' => 600000, 'jatuh_tempo' => today()->addMonth()->toDateString()]]])->assertSessionHasErrors('schedule');
+    expect($decision->fresh()->terms['requires_configuration'])->toBeTrue();
+    $this->assertDatabaseCount('jadwal_cicilan', 0);
 });

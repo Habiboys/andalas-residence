@@ -85,7 +85,7 @@ class ResidenceWorkflowController extends Controller
                 })->get()->map(fn ($candidate) => ['id' => $candidate->id, 'name' => $candidate->studentProfile->user->nama]));
             }
             $r->setAttribute('amendments', DB::table('residence_amendments')->where(function ($q) use ($r): void {
-                $q->where('subject_id', $r->id);
+                $q->where('subject_id', $r->id)->orWhereJsonContains('after->registration_ids', $r->id);
                 if ($r->room_contract_id) {
                     $q->orWhere('subject_id', $r->room_contract_id);
                 }
@@ -294,7 +294,7 @@ class ResidenceWorkflowController extends Controller
                     throw ValidationException::withMessages(['decision' => 'Pendaftar tidak berhak menggunakan skema bulanan.']);
                 }
                 $sum = collect($schedule)->sum(fn ($term) => (int) round((float) $term['jumlah'] * 100));
-                if ($schedule === [] || $sum !== (int) round(max(0, (float) $invoice->total - (! empty($decision->terms['amendment_id']) ? (float) $invoice->total_dibayar : 0)) * 100) || (float) $data['initial_amount'] > (float) $invoice->total) {
+                if ($schedule === [] || $sum !== (int) round(max(0, (float) $invoice->total - (! empty($decision->terms['amendment_id']) ? (float) $invoice->total_dibayar : 0)) * 100) || (float) $data['initial_amount'] > max(0, (float) $invoice->total - (! empty($decision->terms['amendment_id']) ? (float) $invoice->total_dibayar : 0))) {
                     throw ValidationException::withMessages(['schedule' => 'Jumlah seluruh termin harus sama dengan tagihan dan uang awal tidak boleh melebihi total.']);
                 }
                 if ($decision->kind !== 'defer' && (float) $data['initial_amount'] !== (float) $schedule[0]['jumlah']) {
@@ -323,7 +323,7 @@ class ResidenceWorkflowController extends Controller
             if ($data['status'] === 'approved' && $decision->kind === 'transfer_permission' && ! Pembayaran::where('tagihan_id', $invoice->id)->where('status', 'menunggu_verifikasi')->whereNotNull('bukti_transfer_path')->where('nominal', '>=', (float) $invoice->total - (float) $invoice->total_dibayar)->exists()) {
                 throw ValidationException::withMessages(['decision' => 'Bukti transfer belum tersedia.']);
             }
-            $decision->update(['status' => $data['status'], 'decided_by' => $configuring ? $decision->decided_by : $request->user()->id, 'decided_at' => $configuring ? $decision->decided_at : now(), 'terms' => [...($decision->terms ?? []), 'requires_configuration' => false, 'configured_by' => $request->user()->id, 'initial_amount' => isset($data['initial_amount']) ? (float) $data['initial_amount'] + (! empty($decision->terms['amendment_id']) ? (float) $invoice->total_dibayar : 0) : null, 'schedule' => $schedule, 'notes' => $data['notes']]]);
+            $decision->update(['status' => $data['status'], 'decided_by' => $configuring ? $decision->decided_by : $request->user()->id, 'decided_at' => $configuring ? $decision->decided_at : now(), 'terms' => [...($decision->terms ?? []), 'requires_configuration' => false, 'configured_by' => $request->user()->id, 'agreement_kind' => $decision->terms['agreement_kind'] ?? (! empty($decision->terms['amendment_id']) ? 'pembiayaan_'.$decision->id : null), 'initial_amount' => isset($data['initial_amount']) ? (float) $data['initial_amount'] + (! empty($decision->terms['amendment_id']) ? (float) $invoice->total_dibayar : 0) : null, 'schedule' => $schedule, 'notes' => $data['notes']]]);
             AuditLogService::log($request->user(), 'residence_decision_'.$data['status'], $decision, null, $decision->toArray());
             app(ResidenceWorkflow::class)->notify($r, 'Keputusan pembiayaan', $decision->kind.' '.$data['status'].': '.$data['notes']);
             app(ResidenceWorkflow::class)->evaluate($r->fresh());

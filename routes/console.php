@@ -12,3 +12,8 @@ Artisan::command('inspire', function () {
 
 Schedule::call(fn () => app(RoomReservations::class)->expire())->name('expire-residence-reservations')->everyMinute()->withoutOverlapping();
 Schedule::call(fn () => app(EndTemporaryStays::class)->handle())->name('end-temporary-stays')->everyMinute()->withoutOverlapping();
+
+Artisan::command('damage-reports:retry-notifications', function (): void {
+    \Illuminate\Support\Facades\DB::table('damage_report_notifications')->where('status', 'pending')->orderBy('created_at')->limit(100)->pluck('id')->each(fn ($id) => \App\Jobs\SendDamageReportNotification::dispatch($id));
+})->purpose('Retry durable damage report completion notifications');
+Schedule::command('damage-reports:retry-notifications')->everyMinute()->withoutOverlapping();

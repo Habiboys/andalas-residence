@@ -20,7 +20,7 @@ class ResidenceRegistrationUatSeeder extends Seeder
     public function run(): void
     {
         $password = 'password';
-        foreach (['superadmin', 'admin_layanan', 'pimpinan', 'fasilitator', 'go', 'mahasiswa'] as $role) {
+        foreach (['superadmin', 'admin_layanan', 'pimpinan', 'fasilitator', 'go', 'mahasiswa', 'teknisi', 'admin_aset'] as $role) {
             if (! Role::where('name', $role)->where('guard_name', 'web')->exists()) {
                 throw new \LogicException('Siapkan RolePermissionSeeder sebelum akun UAT.');
             }
@@ -35,13 +35,16 @@ class ResidenceRegistrationUatSeeder extends Seeder
             foreach (['S1', 'S2', 'S3'] as $degree) {
                 $programs[$degree] = Prodi::firstOrCreate(['name' => 'Program UAT '.$degree, 'departemen_id' => $department->id, 'jenjang' => $degree]);
             }
-            foreach (['superadmin' => 'superadmin', 'pengelola' => 'admin_layanan', 'keuangan' => 'admin_layanan', 'pimpinan' => 'pimpinan', 'fasilitator' => 'fasilitator', 'inspeksi' => 'go'] as $name => $role) {
+            foreach (['superadmin' => 'superadmin', 'pengelola' => 'admin_layanan', 'keuangan' => 'admin_layanan', 'pimpinan' => 'pimpinan', 'fasilitator' => 'fasilitator', 'inspeksi' => 'go', 'teknisi' => 'teknisi', 'teknisi2' => 'teknisi', 'teknisi3' => 'teknisi', 'aset' => 'admin_aset', 'fasilitator2' => 'fasilitator'] as $name => $role) {
                 $user = User::firstOrCreate(['email' => 'uat.'.$name.'@example.test'], ['nim_nip' => 'UAT-'.strtoupper($name), 'nama' => 'UAT '.ucfirst($name), 'password' => $password, 'status' => 'aktif', 'email_verified_at' => now()]);
                 $user->forceFill(['password' => $password, 'email_verified_at' => now()])->save();
                 if ($user->wasRecentlyCreated) {
                     $user->assignRole($role);
                     if ($role === 'fasilitator') {
-                        FasilitatorWilayah::create(['user_id' => $user->id, 'gedung_id' => $building->id]);
+                        $assignedBuilding = $name === 'fasilitator2' ? Gedung::where('id', '!=', $building->id)->orderBy('kode_gedung')->first() : $building;
+                        if ($assignedBuilding) {
+                            FasilitatorWilayah::create(['user_id' => $user->id, 'gedung_id' => $assignedBuilding->id]);
+                        }
                     }
                 }
             }
@@ -60,8 +63,8 @@ class ResidenceRegistrationUatSeeder extends Seeder
                     KipkRecipient::firstOrCreate(['nim' => $nim, 'angkatan' => $intake], ['nama' => $user->nama]);
                 }
             }
-            $this->command?->info('Akun baru uat.<peran>@example.test dibuat. Password akun uat.*: password. Seed ulang mereset password akun UAT, bukan transaksi atau akun lain.');
-            $this->command?->info('Fasilitator baru ditugaskan pada '.$building->nama_gedung.'. Kebijakan, tarif, dan penghuni lama tidak diubah.');
+            $this->command->info('Akun baru uat.<peran>@example.test dibuat. Password akun uat.*: password. Seed ulang mereset password akun UAT, bukan transaksi atau akun lain.');
+            $this->command->info('Fasilitator baru ditugaskan pada '.$building->nama_gedung.'. Kebijakan, tarif, dan penghuni lama tidak diubah.');
         });
     }
 }

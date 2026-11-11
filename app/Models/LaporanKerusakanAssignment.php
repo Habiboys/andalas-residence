@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class LaporanKerusakanAssignment extends BaseModel
 {
-    protected $fillable = ['laporan_kerusakan_id', 'technician_id', 'assigned_by', 'assigned_at', 'ended_at'];
+    protected $fillable = ['laporan_kerusakan_id', 'technician_id', 'assigned_by', 'assigned_at', 'ended_at', 'role'];
 
     protected function casts(): array
     {

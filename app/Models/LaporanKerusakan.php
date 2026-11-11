@@ -14,9 +14,14 @@ class LaporanKerusakan extends BaseModel
 {
     protected $table = 'laporan_kerusakan';
 
+    protected $hidden = ['request_hash', 'completion_hash', 'request_key'];
+
     protected $fillable = [
         'nomor_tiket', 'aset_id', 'kamar_id', 'dilaporkan_oleh', 'teknisi_id',
         'deskripsi', 'status', 'tanggal_lapor', 'tanggal_selesai', 'catatan_penyelesaian',
+        'gedung_id', 'fasilitas_umum_id', 'source', 'location_label', 'priority',
+        'different_incident_reason', 'request_key', 'request_hash', 'completion_hash',
+        'cancellation_reason', 'cancelled_by', 'is_blocked',
     ];
 
     protected function casts(): array
@@ -25,6 +30,7 @@ class LaporanKerusakan extends BaseModel
             'status' => LaporanKerusakanStatus::class,
             'tanggal_lapor' => 'datetime',
             'tanggal_selesai' => 'datetime',
+            'is_blocked' => 'boolean',
         ];
     }
 
@@ -80,5 +86,20 @@ class LaporanKerusakan extends BaseModel
     public function checkoutFinding(): HasOne
     {
         return $this->hasOne(RoomInspectionFinding::class);
+    }
+
+    public function progress(): HasMany
+    {
+        return $this->hasMany(DamageReportProgress::class, 'laporan_kerusakan_id')->orderBy('work_date')->orderBy('created_at');
+    }
+
+    public function gedung(): BelongsTo
+    {
+        return $this->belongsTo(Gedung::class);
+    }
+
+    public function fasilitasUmum(): BelongsTo
+    {
+        return $this->belongsTo(FasilitasUmum::class);
     }
 }

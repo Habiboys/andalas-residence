@@ -41,6 +41,7 @@ use App\Models\User;
 use App\Models\VirtualAccount;
 use App\Services\AttendanceEligibility;
 use App\Services\AttendanceStatusResolver;
+use App\Services\DamageReportAccess;
 use App\Services\MasterDataService;
 use App\Services\ResidenceBuildingAccess;
 use App\Services\ResidenceLifecycle;
@@ -103,6 +104,7 @@ class RolePageController extends Controller
             ],
             'dashboard' => [
                 'stats' => $this->dashboardStats($request),
+                'damage_summary' => DamageReportAccess::query($request->user())->selectRaw('status, COUNT(*) AS aggregate')->groupBy('status')->pluck('aggregate', 'status'),
                 'billing' => $request->user()->hasRole('mahasiswa')
                     ? Tagihan::where('mahasiswa_id', $request->user()->mahasiswaProfil?->id)->where('status', '!=', 'batal')->get()
                     : [],
@@ -430,7 +432,7 @@ class RolePageController extends Controller
                 'kosong' => Kamar::where('status', 'kosong')->count(),
             ],
             'pembayaran_pending' => Pembayaran::where('status', 'menunggu_verifikasi')->count(),
-            'tiket_aktif' => LaporanKerusakan::whereNotIn('status', ['selesai', 'dibatalkan'])->count(),
+            'tiket_aktif' => DamageReportAccess::query($request->user())->whereNotIn('status', ['selesai', 'dibatalkan'])->count(),
             'pengajuan_pending' => PengajuanBebasAsrama::where('status', 'diajukan')->count() + PengajuanIzinPulang::where('status', 'diajukan')->count(),
             'penghuni_aktif' => $this->residents()->where('status_huni', 'aktif')->count(),
         ];
@@ -699,16 +701,16 @@ class RolePageController extends Controller
             'assets' => $canReport && $placement
                 ? Aset::query()->reportableFor($placement->kamar)->with(['kamar.lantai.gedung', 'fasilitasUmum.gedung'])->orderBy('nama_aset')->get()
                 : [],
-            'reports' => LaporanKerusakan::query()->where('dilaporkan_oleh', $request->user()->id)
-                ->with(['aset.fasilitasUmum', 'kamar'])->latest('tanggal_lapor')->get(),
+            'reports' => DamageReportAccess::query($request->user())
+                ->with(['aset.fasilitasUmum', 'kamar', 'photos', 'statusHistories', 'progress.user', 'assignments.technician'])->latest('tanggal_lapor')->limit(100)->get(),
         ];
     }
 
     private function tickets(Request $request)
     {
-        return LaporanKerusakan::with(['aset.fasilitasUmum.gedung', 'kamar.lantai.gedung', 'pelapor', 'teknisi', 'penilaian', 'photos'])
-            ->when($request->user()->hasRole('teknisi'), fn ($q) => $q->where(fn ($b) => $b->whereNull('teknisi_id')->orWhere('teknisi_id', $request->user()->id)))
+        return DamageReportAccess::query($request->user())->with(['aset.fasilitasUmum.gedung', 'kamar.lantai.gedung', 'pelapor', 'teknisi', 'penilaian', 'photos'])
             ->latest('tanggal_lapor')
+            ->limit(100)
             ->get();
     }
 

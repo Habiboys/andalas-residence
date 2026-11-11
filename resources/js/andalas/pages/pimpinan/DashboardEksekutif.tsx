@@ -52,12 +52,14 @@ export default function DashboardEksekutif({
     tiket = [],
     performance = [],
     gedungReport = [],
+    damage_summary,
 }: {
     stats?: DashboardStats;
     keuangan?: TransaksiRow[];
     tiket?: Report[];
     performance?: TeknisiRow[];
     gedungReport?: GedungReportRow[];
+    damage_summary?: Record<string, number>;
 }) {
     const pemasukan = (keuangan ?? [])
         .filter((t) => t.tipe === 'pemasukan')
@@ -116,29 +118,46 @@ export default function DashboardEksekutif({
                         data={[
                             {
                                 name: 'Selesai',
-                                value: tiket.filter(
-                                    (item) => item.status === 'selesai',
-                                ).length,
+                                value:
+                                    damage_summary?.selesai ??
+                                    tiket.filter(
+                                        (item) => item.status === 'selesai',
+                                    ).length,
                                 color: '#27745a',
                             },
                             {
                                 name: 'Dikerjakan',
-                                value: tiket.filter(
-                                    (item) =>
-                                        item.status === 'sedang_dikerjakan',
-                                ).length,
+                                value:
+                                    damage_summary?.sedang_dikerjakan ??
+                                    tiket.filter(
+                                        (item) =>
+                                            item.status === 'sedang_dikerjakan',
+                                    ).length,
                                 color: '#dbad4a',
                             },
                             {
-                                name: 'Laporan lain',
-                                value: tiket.filter(
-                                    (item) =>
-                                        ![
-                                            'selesai',
-                                            'sedang_dikerjakan',
-                                        ].includes(item.status),
-                                ).length,
+                                name: 'Belum dimulai',
+                                value: damage_summary
+                                    ? Number(
+                                          damage_summary.menunggu_triage ?? 0,
+                                      ) +
+                                      Number(damage_summary.didisposisikan ?? 0)
+                                    : tiket.filter((item) =>
+                                          [
+                                              'menunggu_triage',
+                                              'didisposisikan',
+                                          ].includes(item.status),
+                                      ).length,
                                 color: '#578cc8',
+                            },
+                            {
+                                name: 'Dibatalkan',
+                                value:
+                                    damage_summary?.dibatalkan ??
+                                    tiket.filter(
+                                        (item) => item.status === 'dibatalkan',
+                                    ).length,
+                                color: '#87919c',
                             },
                         ]}
                     />

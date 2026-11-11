@@ -2,64 +2,14 @@
 
 namespace App\Actions\DamageReports;
 
-use App\Enums\LaporanKerusakanStatus;
 use App\Models\LaporanKerusakan;
 use App\Models\User;
-use Illuminate\Auth\Access\AuthorizationException;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
-use Illuminate\Validation\ValidationException;
+use App\Services\DamageReportWorkflow;
 
 class CompleteDamageReport
 {
-    /** @param list<string> $evidencePaths */
-    public function handle(LaporanKerusakan $report, User $technician, string $description, array $evidencePaths): LaporanKerusakan
+    public function handle(LaporanKerusakan $report, User $technician, string $description, array $evidencePaths, ?string $requestHash = null): LaporanKerusakan
     {
-        if (! $technician->can('complete', $report)) {
-            throw new AuthorizationException;
-        }
-
-        if (trim($description) === '' || $evidencePaths === []) {
-            throw ValidationException::withMessages(['completion' => 'Deskripsi dan minimal satu bukti penyelesaian wajib diisi.']);
-        }
-
-        return DB::transaction(function () use ($report, $technician, $description, $evidencePaths) {
-            $locked = LaporanKerusakan::query()->lockForUpdate()->findOrFail($report->id);
-
-            if (! $technician->can('complete', $locked)) {
-                throw new AuthorizationException;
-            }
-
-            if (! $locked->status->canTransitionTo(LaporanKerusakanStatus::Selesai)) {
-                throw ValidationException::withMessages(['status' => 'Transisi status laporan tidak valid.']);
-            }
-
-            foreach ($evidencePaths as $path) {
-                if ($path === '' || Str::startsWith($path, ['/', '\\', 'public/', 'http://', 'https://']) || str_contains($path, '..')) {
-                    throw ValidationException::withMessages(['evidence' => 'Path bukti harus relatif pada penyimpanan privat.']);
-                }
-
-                $locked->photos()->create(['type' => 'after', 'path' => $path, 'uploaded_by' => $technician->id]);
-            }
-
-            $locked->update([
-                'status' => LaporanKerusakanStatus::Selesai,
-                'catatan_penyelesaian' => trim($description),
-                'tanggal_selesai' => now(),
-            ]);
-            if ($locked->aset_id && ! LaporanKerusakan::where('aset_id', $locked->aset_id)->whereKeyNot($locked->id)
-                ->whereNotIn('status', [LaporanKerusakanStatus::Selesai, LaporanKerusakanStatus::Dibatalkan])->exists()) {
-                $locked->aset()->update(['kondisi' => 'baik']);
-            }
-            $locked->assignments()->whereNull('ended_at')->update(['ended_at' => now()]);
-            $locked->statusHistories()->create([
-                'from_status' => LaporanKerusakanStatus::SedangDikerjakan,
-                'to_status' => LaporanKerusakanStatus::Selesai,
-                'changed_by' => $technician->id,
-                'description' => trim($description),
-            ]);
-
-            return $locked->fresh(['photos', 'assignments', 'statusHistories']);
-        });
+        return app(DamageReportWorkflow::class)->complete($report, $technician, $description, $evidencePaths, $requestHash);
     }
 }

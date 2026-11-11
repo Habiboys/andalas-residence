@@ -5,6 +5,7 @@ namespace App\Actions\DamageReports;
 use App\Enums\LaporanKerusakanStatus;
 use App\Models\LaporanKerusakan;
 use App\Models\User;
+use App\Services\DamageReportWorkflow;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -17,12 +18,15 @@ class TriageDamageReport
             throw new AuthorizationException;
         }
 
-        if ($technician !== null && ! $technician->hasRole('teknisi')) {
+        if ($technician !== null && (! $technician->hasRole('teknisi') || $technician->status !== 'aktif')) {
             throw ValidationException::withMessages(['teknisi_id' => 'Petugas yang ditunjuk harus teknisi.']);
         }
 
         return DB::transaction(function () use ($report, $actor, $technician, $description) {
-            $locked = LaporanKerusakan::query()->lockForUpdate()->findOrFail($report->id);
+            $locked = app(DamageReportWorkflow::class)->locked($report);
+            if (! $actor->can('triage', $locked)) {
+                throw new AuthorizationException;
+            }
             $this->transition($locked, LaporanKerusakanStatus::Didisposisikan);
 
             if ($technician !== null) {

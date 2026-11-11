@@ -53,6 +53,9 @@ Route::get('/kontak', [LandingController::class, 'kontak'])->name('landing.konta
 Route::get('/dokumen/verifikasi/{token}', [DocumentVerificationController::class, 'show'])->name('dokumen.verifikasi');
 
 Route::middleware(['auth', 'verified', EnsureResidenceAccountAccess::class])->group(function () {
+    Route::get('/pelaporan', [\App\Http\Controllers\DamageReportController::class, 'index'])->name('damage-reports.index');
+    Route::post('/pelaporan/notifications/{notification}/read', [\App\Http\Controllers\DamageReportController::class, 'readNotification'])->name('damage-reports.notifications.read');
+    Route::post('/pekerjaan-teknisi', [\App\Http\Controllers\DamageReportController::class, 'order'])->name('damage-reports.order');
     require __DIR__.'/role-pages.php';
     require __DIR__.'/residence-workflow.php';
 
@@ -199,6 +202,12 @@ Route::middleware(['auth', 'verified', EnsureResidenceAccountAccess::class])->gr
         Route::post('/laporan-kerusakan', [TiketController::class, 'store'])->name('laporan.store');
         Route::get('/tiket/foto/{photo}', [TiketController::class, 'photo'])->name('tiket.photo');
         Route::put('/tiket/{laporan}', [TiketController::class, 'update'])->name('tiket.update');
+        Route::post('/tiket/{laporan}/claim', [\App\Http\Controllers\DamageReportController::class, 'claim'])->name('tiket.claim');
+        Route::post('/tiket/{laporan}/progress', [\App\Http\Controllers\DamageReportController::class, 'progress'])->name('tiket.progress');
+        Route::post('/tiket/{laporan}/team', [\App\Http\Controllers\DamageReportController::class, 'team'])->name('tiket.team');
+        Route::post('/tiket/{laporan}/cancel', [\App\Http\Controllers\DamageReportController::class, 'cancel'])->name('tiket.cancel');
+        Route::post('/tiket/{laporan}/confirm', [\App\Http\Controllers\DamageReportController::class, 'confirm'])->name('tiket.confirm');
+        Route::post('/tiket/{laporan}/asset', [\App\Http\Controllers\DamageReportController::class, 'linkAsset'])->name('tiket.asset');
         Route::get('/absensi/sesi/{session}', [AbsensiController::class, 'show'])->name('absensi.sesi.show');
         Route::put('/absensi/sesi/{session}/participants/{student}', [AbsensiController::class, 'correct'])->name('absensi.sesi.correct');
         Route::post('/absensi/sesi/{session}/location', [AbsensiController::class, 'updateLocation'])->name('absensi.sesi.location');

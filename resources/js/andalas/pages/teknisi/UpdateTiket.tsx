@@ -10,6 +10,8 @@ import {
 } from '../../components/ui';
 import { mapTicketStatus } from '../../lib/format';
 import { update as tiketUpdate } from '@/routes/andalas/tiket';
+import { newDamageRequestKey } from '../../lib/damage-reports';
+import { Link } from '@inertiajs/react';
 
 type TiketRow = {
     id: string;
@@ -37,10 +39,12 @@ export default function UpdateTiket({ tiket = [] }: Props) {
         status: string;
         catatan_penyelesaian: string;
         bukti_penyelesaian: File[];
+        request_key: string;
     }>({
         status: 'sedang_dikerjakan',
         catatan_penyelesaian: '',
         bukti_penyelesaian: [],
+        request_key: newDamageRequestKey(),
     });
 
     const aktif = tiket.filter(
@@ -55,6 +59,7 @@ export default function UpdateTiket({ tiket = [] }: Props) {
             onSuccess: () => {
                 setSelected('');
                 setData('catatan_penyelesaian', '');
+                setData('request_key', newDamageRequestKey());
             },
         });
     }
@@ -65,6 +70,9 @@ export default function UpdateTiket({ tiket = [] }: Props) {
                 title="Update Tiket"
                 subtitle="Perbarui status pengerjaan tiket"
             />
+            <Link href="/pelaporan" className="btn btn-outline">
+                Tim, progres harian, hambatan dan detail lengkap
+            </Link>
             <Card className="mb-4 space-y-2 p-6">
                 {aktif.map((t) => (
                     <button

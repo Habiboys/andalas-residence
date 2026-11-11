@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { useForm } from '@inertiajs/react';
+import { Link, useForm } from '@inertiajs/react';
 import {
     PageHeader,
     Card,
@@ -9,6 +9,7 @@ import {
     StatusBadge,
 } from '../../components/ui';
 import { store as laporanStore } from '@/routes/andalas/laporan';
+import { newDamageRequestKey } from '../../lib/damage-reports';
 
 type Room = {
     id: string;
@@ -50,6 +51,10 @@ export default function LaporKerusakan({
         aset_id: '',
         deskripsi: '',
         foto_awal: [] as File[],
+        fasilitas_umum_id: '',
+        location_label: '',
+        different_incident_reason: '',
+        request_key: newDamageRequestKey(),
     });
     const common = Array.from(
         new Map(
@@ -72,6 +77,7 @@ export default function LaporKerusakan({
         form.post(laporanStore.url(), {
             onSuccess: () => {
                 form.reset();
+                form.setData('request_key', newDamageRequestKey());
                 if (photos.current) photos.current.value = '';
             },
         });
@@ -83,6 +89,9 @@ export default function LaporKerusakan({
                 title="Laporkan Kerusakan"
                 subtitle="Pilih lokasi dan barang inventaris yang rusak, lalu lampirkan foto."
             />
+            <Link href="/pelaporan" className="btn btn-outline">
+                Buka detail, laporan sekamar dan hasil perbaikan
+            </Link>
             {!can_report ? (
                 <Card className="p-6">
                     Pelaporan tersedia setelah pendaftaran selesai dan Anda
@@ -98,6 +107,12 @@ export default function LaporKerusakan({
                                 onChange={(event) => {
                                     setLocation(event.target.value);
                                     form.setData('aset_id', '');
+                                    form.setData(
+                                        'fasilitas_umum_id',
+                                        event.target.value === 'room'
+                                            ? ''
+                                            : event.target.value,
+                                    );
                                 }}
                             >
                                 <option value="room">
@@ -114,14 +129,15 @@ export default function LaporKerusakan({
                         </FormField>
                         <FormField label="Barang / fasilitas yang rusak">
                             <select
-                                required
                                 className={inputClass}
                                 value={form.data.aset_id}
                                 onChange={(event) =>
                                     form.setData('aset_id', event.target.value)
                                 }
                             >
-                                <option value="">Pilih barang</option>
+                                <option value="">
+                                    Tanpa inventaris / belum terdaftar
+                                </option>
                                 {available.map((asset) => (
                                     <option key={asset.id} value={asset.id}>
                                         {asset.nama_aset} (
@@ -132,10 +148,39 @@ export default function LaporKerusakan({
                             {available.length === 0 && (
                                 <p className="text-muted mt-2 text-sm">
                                     Belum ada barang terdaftar di lokasi ini.
-                                    Hubungi admin aset untuk melengkapi
-                                    inventaris.
+                                    Anda tetap dapat melapor dengan rincian
+                                    lokasi.
                                 </p>
                             )}
+                        </FormField>
+                        {!form.data.aset_id && (
+                            <FormField label="Rincian lokasi kerusakan">
+                                <input
+                                    required
+                                    className={inputClass}
+                                    value={form.data.location_label}
+                                    onChange={(event) =>
+                                        form.setData(
+                                            'location_label',
+                                            event.target.value,
+                                        )
+                                    }
+                                    placeholder="Misalnya dinding di dekat jendela"
+                                />
+                            </FormField>
+                        )}
+                        <FormField label="Jika berbeda dari kejadian yang masih aktif">
+                            <input
+                                className={inputClass}
+                                value={form.data.different_incident_reason}
+                                onChange={(event) =>
+                                    form.setData(
+                                        'different_incident_reason',
+                                        event.target.value,
+                                    )
+                                }
+                                placeholder="Jelaskan pembeda; kejadian sama cukup ditautkan di halaman detail"
+                            />
                         </FormField>
                         <FormField label="Deskripsi kerusakan">
                             <textarea
@@ -180,10 +225,7 @@ export default function LaporKerusakan({
                                 {error}
                             </p>
                         ))}
-                        <Button
-                            type="submit"
-                            disabled={form.processing || available.length === 0}
-                        >
+                        <Button type="submit" disabled={form.processing}>
                             {form.processing ? 'Mengirim...' : 'Kirim Laporan'}
                         </Button>
                     </form>

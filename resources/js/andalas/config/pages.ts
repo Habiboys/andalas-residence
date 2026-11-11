@@ -140,6 +140,7 @@ const ROLE_PAGES: Record<RoleKey, Record<string, string>> = {
 };
 
 export function pageTitle(role: string, slug: string): string {
+    if (slug === 'pelaporan') return 'Pelaporan dan pekerjaan teknisi';
     const map = ROLE_PAGES[role as RoleKey] ?? ADMIN_PAGES;
 
     return map[slug] ?? map.dashboard ?? 'Dashboard';

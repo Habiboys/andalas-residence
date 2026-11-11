@@ -10,7 +10,7 @@ it('provides all UAT roles and degree profiles with password login without envir
     $f = toBeFixture();
     $this->seed(RolePermissionSeeder::class);
     $this->seed(ResidenceRegistrationUatSeeder::class);
-    expect(User::where('email', 'like', 'uat.%@example.test')->count())->toBe(13);
+    expect(User::where('email', 'like', 'uat.%@example.test')->count())->toBe(18);
     foreach (['s2' => 'S2', 's3' => 'S3', 'teman' => 'S1', 'lokal' => 'S1', 'bulanan' => 'S1'] as $name => $degree) {
         $user = User::where('email', 'uat.'.$name.'@example.test')->sole();
         expect($user->mahasiswaProfil->prodi->jenjang)->toBe($degree);
@@ -25,6 +25,9 @@ it('provides all UAT roles and degree profiles with password login without envir
         $this->post(route('logout'));
     }
     $this->seed(ResidenceRegistrationUatSeeder::class);
-    expect(User::where('email', 'like', 'uat.%@example.test')->count())->toBe(13);
+    expect(User::where('email', 'like', 'uat.%@example.test')->count())->toBe(18);
+    foreach (['teknisi', 'teknisi2', 'teknisi3'] as $name) {
+        expect(User::where('email', 'uat.'.$name.'@example.test')->sole()->hasRole('teknisi'))->toBeTrue();
+    }
     expect(Hash::check('password', $f['user']->fresh()->password))->toBeTrue();
 });

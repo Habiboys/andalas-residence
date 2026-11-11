@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\LaporanKerusakanStatus;
 use App\Models\Kuesioner;
 use App\Models\LaporanKerusakan;
 use App\Models\PenilaianTeknisi;
@@ -15,7 +16,8 @@ class TeknisiController extends Controller
     {
         $this->authorizePermission($request, 'tiket.rate');
 
-        if ($laporan->status !== 'selesai') {
+        \Illuminate\Support\Facades\Gate::authorize('view', $laporan);
+        if ($laporan->status !== LaporanKerusakanStatus::Selesai) {
             return redirect()->back()->with('toast', [
                 'type' => 'error',
                 'message' => 'Tiket belum selesai.',
