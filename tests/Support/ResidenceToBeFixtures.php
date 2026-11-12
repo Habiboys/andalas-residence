@@ -40,6 +40,7 @@ function toBeFixture(string $category = 'local_non_kipk', int $capacity = 2): ar
     $department = Departemen::create(['name' => 'Departemen Uji', 'faculty_id' => $faculty->id]);
     $program = Prodi::create(['name' => 'Prodi Uji', 'jenjang' => 'S1', 'departemen_id' => $department->id]);
     $profile = MahasiswaProfil::create(['user_id' => $user->id, 'prodi_id' => $program->id, 'angkatan' => '2025', 'status_huni' => 'calon', 'barcode_code' => fake()->uuid()]);
+    withHousingIdentity($profile);
     $period = Periode::create(['nama_periode' => '2026/2027', 'status' => 'aktif', 'angkatan_maba' => 2026, 'tanggal_mulai' => today(), 'tanggal_selesai' => today()->addYear()]);
     $building = Gedung::create(['kode_gedung' => 'A-'.fake()->unique()->numerify('######'), 'nama_gedung' => 'Gedung Uji', 'gender_peruntukan' => 'perempuan']);
     $floor = Lantai::create(['gedung_id' => $building->id, 'nomor_lantai' => 1, 'nama_lantai' => 'Lantai 1']);

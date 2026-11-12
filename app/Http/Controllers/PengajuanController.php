@@ -28,7 +28,8 @@ class PengajuanController extends Controller
         $student = $request->user()->mahasiswaProfil;
         abort_unless($student && $student->angkatan, 403);
         $data = $request->validate([
-            'alasan' => ['required', 'string', 'max:2000'],
+            'alasan' => ['required_without:nama_resmi', 'nullable', 'string', 'max:2000'],
+            'nama_resmi' => ['sometimes', 'required', 'string', 'max:255'],
             'payment_evidence' => ['required_with:bank_statement', 'nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
             'bank_statement' => ['required_with:payment_evidence', 'nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
         ]);
@@ -57,9 +58,13 @@ class PengajuanController extends Controller
             if ($application?->status === FreeResidenceLetterStatus::Diverifikasi && $application->tagihan_id && ! $hasHistoricalEvidence) {
                 return;
             }
+            if (isset($data['nama_resmi'])) {
+                $request->user()->update(['nama' => $data['nama_resmi']]);
+                $student->unsetRelation('user');
+            }
             $application ??= new PengajuanBebasAsrama(['nomor_pengajuan' => 'BA-'.Str::uuid(), 'mahasiswa_id' => $student->id]);
             $application->fill([
-                'alasan' => $data['alasan'], 'lifecycle_year' => (int) $student->angkatan,
+                'alasan' => $data['alasan'] ?? 'Permohonan surat keterangan asrama', 'lifecycle_year' => (int) $student->angkatan,
                 'stay_key' => $key, 'checkout_request_id' => $checkout?->id, 'legacy_resident_id' => $legacy?->id,
                 'legacy_verification_path' => $verificationPath,
                 'document_kind' => $verificationPath === LegacyFreeResidenceVerificationPath::NotAlumni ? 'not_resident' : 'free_residence',

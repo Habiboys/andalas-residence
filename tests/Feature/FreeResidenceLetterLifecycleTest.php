@@ -78,14 +78,15 @@ it('invoices an unpaid legacy alumnus at the cohort rate and issues the letter a
     $fixture = legacyLetterFixture();
 
     $this->actingAs($fixture['studentUser'])->post(route('andalas.pengajuan.bebas'), [
-        'alasan' => 'Kliring',
+        'nama_resmi' => 'Nama Resmi Alumni Uji',
     ])->assertSessionHasNoErrors();
 
     $application = PengajuanBebasAsrama::sole();
     expect($application->status)->toBe(FreeResidenceLetterStatus::Ditolak)
         ->and($application->catatan_penolakan)->toContain('terdata sebagai alumni asrama')
         ->and((float) $application->tagihan->total)->toBe(2100000.0)
-        ->and($fixture['studentUser']->fresh()->status)->toBe('aktif');
+        ->and($fixture['studentUser']->fresh()->status)->toBe('aktif')
+        ->and($fixture['studentUser']->fresh()->nama)->toBe('Nama Resmi Alumni Uji');
     Queue::assertNotPushed(GenerateFreeResidenceLetter::class);
 
     app(PostPayment::class)->handle('LEGACY-PAY', $fixture['student']->id, now()->toDateTimeString(), [

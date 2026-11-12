@@ -1,4 +1,5 @@
 import { Link, useForm } from '@inertiajs/react';
+import { useState } from 'react';
 import { PageHeader, Card, inputClass, StatusBadge } from '../../components/ui';
 import { bebas } from '@/routes/andalas/pengajuan';
 import { surat } from '@/routes/andalas/pengajuan/bebas';
@@ -17,16 +18,19 @@ export default function PengajuanBebasAsrama({
     bebas_asrama = [],
     initialUser,
     historical_evidence_allowed = false,
+    letterIdentity,
 }: {
     bebas_asrama?: Application[];
     initialUser?: { angkatan?: string; residence_state?: string };
     historical_evidence_allowed?: boolean;
+    letterIdentity?: { nim?: string; faculty?: string; program?: string };
 }) {
+    const [review, setReview] = useState(false);
     const active = ['binaan', 'hunian'].includes(
         initialUser?.residence_state ?? '',
     );
     const form = useForm({
-        alasan: '',
+        nama_resmi: '',
         payment_evidence: null as File | null,
         bank_statement: null as File | null,
     });
@@ -44,7 +48,11 @@ export default function PengajuanBebasAsrama({
                         className="space-y-4"
                         onSubmit={(e) => {
                             e.preventDefault();
-                            form.post(bebas.url());
+                            if (review) {
+                                form.post(bebas.url());
+                            } else {
+                                setReview(true);
+                            }
                         }}
                     >
                         <div className="space-y-2">
@@ -65,63 +73,98 @@ export default function PengajuanBebasAsrama({
                                       : 'Belum ada riwayat tinggal yang terdata. Surat Keterangan Tidak Tinggal di Asrama diterbitkan jika pemeriksaan sistem memenuhi syarat.'}
                             </p>
                         </div>
-                        <label className="block">
-                            Keperluan surat
-                            <textarea
-                                className={inputClass}
-                                required
-                                value={form.data.alasan}
-                                onChange={(e) =>
-                                    form.setData('alasan', e.target.value)
-                                }
-                            />
-                        </label>
-                        {historical_evidence_allowed && (
-                            <fieldset className="space-y-3">
-                                <legend className="font-semibold">
-                                    Bukti pembayaran lama (jika ada)
-                                </legend>
-                                <p className="text-sm">
-                                    Jika pernah tinggal dan sudah membayar di
-                                    luar sistem, unggah kedua berkas untuk
-                                    diperiksa Admin Layanan. Jika riwayat Anda
-                                    belum terdata, hubungi admin untuk
-                                    melengkapi arsip sebelum mengajukan surat.
-                                    Tanpa bukti, alumni yang terdata mengikuti
-                                    pemeriksaan tagihan.
+                        <div hidden={review} className="space-y-4">
+                            <label className="block">
+                                Nama lengkap sesuai dokumen resmi
+                                <input
+                                    className={inputClass}
+                                    required
+                                    maxLength={255}
+                                    value={form.data.nama_resmi}
+                                    onChange={(e) =>
+                                        form.setData(
+                                            'nama_resmi',
+                                            e.target.value,
+                                        )
+                                    }
+                                />
+                            </label>
+                            {historical_evidence_allowed && (
+                                <fieldset className="space-y-3">
+                                    <legend className="font-semibold">
+                                        Bukti pembayaran lama (jika ada)
+                                    </legend>
+                                    <p className="text-sm">
+                                        Jika pernah tinggal dan sudah membayar
+                                        di luar sistem, unggah kedua berkas
+                                        untuk diperiksa Admin Layanan. Jika
+                                        riwayat Anda belum terdata, hubungi
+                                        admin untuk melengkapi arsip sebelum
+                                        mengajukan surat. Tanpa bukti, alumni
+                                        yang terdata mengikuti pemeriksaan
+                                        tagihan.
+                                    </p>
+                                    {(
+                                        [
+                                            'payment_evidence',
+                                            'bank_statement',
+                                        ] as const
+                                    ).map((key) => (
+                                        <label className="block" key={key}>
+                                            {key === 'payment_evidence'
+                                                ? 'Bukti pembayaran'
+                                                : 'Rekening koran'}
+                                            <input
+                                                className="file-input block"
+                                                type="file"
+                                                accept=".pdf,.jpg,.jpeg,.png"
+                                                required={Boolean(
+                                                    form.data
+                                                        .payment_evidence ||
+                                                    form.data.bank_statement,
+                                                )}
+                                                onChange={(e) =>
+                                                    form.setData(
+                                                        key,
+                                                        e.target.files?.[0] ??
+                                                            null,
+                                                    )
+                                                }
+                                            />
+                                        </label>
+                                    ))}
+                                    <p className="text-sm">
+                                        PDF/JPG/PNG, maksimum 5 MB per berkas.
+                                        Unggahan belum dianggap sebagai
+                                        pelunasan.
+                                    </p>
+                                </fieldset>
+                            )}
+                        </div>
+                        {review && (
+                            <div className="border-base-300 rounded-lg border p-4">
+                                <h2 className="font-semibold">
+                                    Periksa data surat
+                                </h2>
+                                <p>Nama {form.data.nama_resmi}</p>
+                                <p>NIM {letterIdentity?.nim ?? '—'}</p>
+                                <p>
+                                    Fakultas / program studi{' '}
+                                    {letterIdentity?.faculty ?? '—'} /{' '}
+                                    {letterIdentity?.program ?? '—'}
                                 </p>
-                                {(
-                                    [
-                                        'payment_evidence',
-                                        'bank_statement',
-                                    ] as const
-                                ).map((key) => (
-                                    <label className="block" key={key}>
-                                        {key === 'payment_evidence'
-                                            ? 'Bukti pembayaran'
-                                            : 'Rekening koran'}
-                                        <input
-                                            className="file-input block"
-                                            type="file"
-                                            accept=".pdf,.jpg,.jpeg,.png"
-                                            required={Boolean(
-                                                form.data.payment_evidence ||
-                                                form.data.bank_statement,
-                                            )}
-                                            onChange={(e) =>
-                                                form.setData(
-                                                    key,
-                                                    e.target.files?.[0] ?? null,
-                                                )
-                                            }
-                                        />
-                                    </label>
-                                ))}
-                                <p className="text-sm">
-                                    PDF/JPG/PNG, maksimum 5 MB per berkas.
-                                    Unggahan belum dianggap sebagai pelunasan.
+                                <p>
+                                    Status hunian dan kamar ditentukan dari
+                                    riwayat asrama Anda.
                                 </p>
-                            </fieldset>
+                                <button
+                                    type="button"
+                                    className="btn btn-sm mt-3"
+                                    onClick={() => setReview(false)}
+                                >
+                                    Koreksi data
+                                </button>
+                            </div>
                         )}
                         {Object.values(form.errors).map((e, i) => (
                             <p role="alert" className="text-error" key={i}>
@@ -132,7 +175,7 @@ export default function PengajuanBebasAsrama({
                             className="btn btn-primary"
                             disabled={form.processing}
                         >
-                            Ajukan surat
+                            {review ? 'Ajukan surat' : 'Review pengajuan'}
                         </button>
                     </form>
                 )}

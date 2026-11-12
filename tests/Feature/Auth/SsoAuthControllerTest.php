@@ -98,7 +98,7 @@ test('successful SSO creates a student and prospective resident profile', functi
 
     $response = $this->withSession(residenceSsoFlow())->get(route('sso.callback', ['state' => 'state-123', 'code' => 'abc']));
 
-    $response->assertRedirect(route('residence.workflow'))->assertSessionMissing('unand_sso');
+    $response->assertRedirect(route('mahasiswa.layanan'))->assertSessionMissing('unand_sso');
     $user = User::where('nim_nip', '2411522001')->sole();
     $this->assertAuthenticatedAs($user);
     expect($user->getRoleNames()->all())->toBe(['mahasiswa']);
@@ -154,7 +154,7 @@ test('UID and email prefix take precedence over 16-digit NIK in preferred_userna
     ]);
 
     $this->withSession(residenceSsoFlow())->get(route('sso.callback', ['state' => 'state-123', 'code' => 'abc']))
-        ->assertRedirect(route('residence.workflow'));
+        ->assertRedirect(route('mahasiswa.layanan'));
 
     $user = User::where('nim_nip', '2211521020')->sole();
     $this->assertAuthenticatedAs($user);

@@ -58,7 +58,7 @@ it('connects account registration payment damage reporting checkout and the mode
         'faculty_id' => $faculty->id, 'departemen_id' => $department->id, 'prodi_id' => $program->id,
     ])->assertSessionHasNoErrors();
     $resident = User::where('email', 'journey@example.test')->sole();
-    $student = $resident->mahasiswaProfil;
+    $student = withHousingIdentity($resident->mahasiswaProfil);
     $this->actingAs($resident)->post(route('andalas.registrations.store'), [
         'periode_id' => $period->id, 'is_kipk' => false, 'preferences' => [['kamar_id' => $room->id]],
     ])->assertSessionHasNoErrors();

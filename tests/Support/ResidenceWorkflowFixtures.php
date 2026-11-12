@@ -14,6 +14,16 @@ use App\Models\ResidenceRegistration;
 use App\Models\User;
 use Spatie\Permission\Models\Role;
 
+function withHousingIdentity(\App\Models\MahasiswaProfil $profile): \App\Models\MahasiswaProfil
+{
+    $province = \App\Models\Province::firstOrCreate(['wilayah_code' => '99'], ['name' => 'Provinsi pengujian']);
+    $city = \App\Models\City::firstOrCreate(['wilayah_code' => '99.99'], ['name' => 'Kota pengujian', 'province_id' => $province->id]);
+    $profile->user->update(['no_hp' => '080000000001']);
+    $profile->update(['nik' => fake()->unique()->numerify('99##############'), 'city_id' => $city->id, 'alamat' => 'Alamat pengujian']);
+
+    return $profile;
+}
+
 function workflowTestProgram(): string
 {
     $faculty = Faculty::firstOrCreate(['name' => 'Fakultas pengujian']);

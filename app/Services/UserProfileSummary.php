@@ -57,6 +57,7 @@ class UserProfileSummary
                 'Program studi' => $student->prodi?->name,
                 'Jenjang' => $student->prodi?->jenjang,
                 'NIK' => $student->nik,
+                'Alamat lengkap' => $student->alamat,
                 'Kota / kabupaten' => $student->city?->name,
                 'Provinsi' => $student->city?->province?->name,
             ]];

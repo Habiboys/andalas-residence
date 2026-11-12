@@ -107,6 +107,7 @@ it('enforces building gender on room submission and filters the available choice
     $this->seed(RolePermissionSeeder::class);
     $user = User::factory()->student()->create(['gender' => $gender, 'client_profile_category' => ClientProfileCategory::LocalNonKipk])->assignRole('mahasiswa');
     $profile = MahasiswaProfil::create(['user_id' => $user->id, 'barcode_code' => fake()->uuid(), 'prodi_id' => workflowTestProgram(), 'angkatan' => '2025', 'status_huni' => 'calon']);
+    withHousingIdentity($profile);
     $period = Periode::create(['nama_periode' => 'Periode uji', 'status' => 'aktif', 'tanggal_mulai' => now(), 'tanggal_selesai' => now()->addYear()]);
     $building = Gedung::create(['kode_gedung' => $code, 'nama_gedung' => 'Asrama '.$code, 'gender_peruntukan' => 'campur']);
     $floor = Lantai::create(['gedung_id' => $building->id, 'nomor_lantai' => 1, 'nama_lantai' => 'Lantai 1']);

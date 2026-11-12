@@ -48,14 +48,19 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ResidenceWorkflowController extends Controller
 {
-    public function index(Request $request): Response
+    public function index(Request $request): Response|RedirectResponse
     {
         $user = $request->user();
-        $manager = ResidenceWorkflowAccess::manager($user);
-        $finance = $user->can('pembayaran.verify');
+        $studentView = $request->routeIs('mahasiswa.registration.status');
+        $manager = ! $studentView && ResidenceWorkflowAccess::manager($user);
+        $finance = ! $studentView && $user->can('pembayaran.verify');
+        if (! $studentView && ! $manager && $user->hasRole('mahasiswa')) {
+            return redirect()->route('mahasiswa.registration');
+        }
         abort_unless($manager || $finance || $user->hasAnyRole(['mahasiswa', 'fasilitator', 'pimpinan']), 403);
         $registrations = ResidenceRegistration::with(['studentProfile.user', 'reservedRoom.lantai.gedung', 'placement.kamar.lantai.gedung', 'policy', 'documents.reviewer:id,nama', 'decisions', 'tagihan', 'application', 'roomContract'])
-            ->when(! $manager && ! $finance && ! $user->hasRole('pimpinan'), function ($q) use ($user): void {
+            ->when($studentView, fn ($q) => $q->where('student_profile_id', $user->mahasiswaProfil?->id))
+            ->when(! $studentView && ! $manager && ! $finance && ! $user->hasRole('pimpinan'), function ($q) use ($user): void {
                 if ($user->hasRole('fasilitator')) {
                     $ids = ResidenceBuildingAccess::ids($user);
                     $q->where(fn ($q) => $q->whereHas('reservedRoom.lantai', fn ($q) => $q->whereIn('gedung_id', $ids))->orWhereHas('placement.kamar.lantai', fn ($q) => $q->whereIn('gedung_id', $ids)));
@@ -95,9 +100,10 @@ class ResidenceWorkflowController extends Controller
         });
 
         return Inertia::render('admin/residence-workflow', [
-            'role' => $user->getRoleNames()->first(), 'page' => 'residence-workflow', 'initialUser' => app(RolePageController::class)->userPayload($request),
+            'role' => $user->getRoleNames()->first(), 'page' => $studentView ? 'registration' : 'residence-workflow', 'initialUser' => app(RolePageController::class)->userPayload($request),
             'registrations' => $page, 'summary' => $summary,
-            'manager' => $manager, 'finance' => $finance, 'leader' => $user->hasRole('pimpinan'),
+            'studentView' => $studentView,
+            'manager' => $manager, 'finance' => $finance, 'leader' => ! $studentView && $user->hasRole('pimpinan'),
             'profile' => $user->mahasiswaProfil?->load('prodi.departemen'), 'gender' => $user->gender,
             'no_hp' => $user->no_hp,
             'client_profile_category' => $user->getRawOriginal('client_profile_category'),
@@ -131,7 +137,7 @@ class ResidenceWorkflowController extends Controller
         $data = $request->validate([
             'gender' => ['required', 'in:laki_laki,perempuan'],
             'prodi_id' => ['required', 'uuid', 'exists:prodi,id'],
-            'no_hp' => [$housing ? 'required' : 'nullable', 'string', 'max:20'],
+            'no_hp' => [$housing ? 'required' : 'nullable', 'string', 'max:20', ...($housing ? ['regex:/^\+?[0-9][0-9 ()-]{6,18}[0-9]$/D'] : [])],
             'client_profile_category' => ['nullable', 'in:local_student,local_kipk,local_non_kipk,international_student'],
             ...($housing ? [
                 'nama' => ['required', 'string', 'max:255'],
@@ -143,7 +149,7 @@ class ResidenceWorkflowController extends Controller
         DB::transaction(function () use ($request, $data): void {
             $user = $request->user();
             $profile = $user->mahasiswaProfil()->lockForUpdate()->firstOrFail();
-            if ($profile->residenceRegistrations()->whereNotIn('status', ['draft', 'rejected'])->exists() || $profile->penempatanKamar()->where('status', 'aktif')->exists()) {
+            if ($profile->residenceRegistrations()->whereNull('completed_at')->whereNotIn('status', ['draft', 'rejected'])->exists() || $profile->penempatanKamar()->where('status', 'aktif')->exists()) {
                 throw ValidationException::withMessages(['profile' => 'Data kategori penghuni berjalan hanya dapat dikoreksi pengelola.']);
             }
             $year = StudentCohort::fromNim($user->nim_nip);

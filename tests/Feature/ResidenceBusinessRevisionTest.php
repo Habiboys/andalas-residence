@@ -28,7 +28,7 @@ function revisionStudent(string $nim = '2610000001'): MahasiswaProfil
     $user = User::factory()->create(['nim_nip' => $nim, 'client_profile_category' => 'local_non_kipk', 'gender' => 'laki_laki']);
     $user->assignRole('mahasiswa');
 
-    return MahasiswaProfil::create(['user_id' => $user->id, 'angkatan' => '20'.substr($nim, 0, 2), 'barcode_code' => $user->id, 'prodi_id' => workflowTestProgram(), 'status_huni' => 'calon']);
+    return withHousingIdentity(MahasiswaProfil::create(['user_id' => $user->id, 'angkatan' => '20'.substr($nim, 0, 2), 'barcode_code' => $user->id, 'prodi_id' => workflowTestProgram(), 'status_huni' => 'calon']));
 }
 
 function revisionRoom(): Kamar

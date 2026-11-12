@@ -153,6 +153,30 @@ it('stores document revisions privately and prevents cross-student access', func
     $this->actingAs($f['manager'])->post(route('residence.documents.review', $document), ['status' => 'valid'])->assertSessionHasErrors('document');
 });
 
+it('requires and saves identity and address on the housing data page', function () {
+    $f = toBeFixture();
+    $f['profile']->update(['nik' => null, 'city_id' => null, 'alamat' => null]);
+    $this->actingAs($f['user'])->post(route('andalas.registrations.store'), [
+        'periode_id' => $f['period']->id,
+        'preferences' => [['kamar_id' => $f['room']->id]],
+    ])->assertSessionHasErrors('profile');
+    $province = \App\Models\Province::create(['name' => 'Provinsi Uji', 'wilayah_code' => '98']);
+    $city = \App\Models\City::create(['name' => 'Kota Uji', 'province_id' => $province->id, 'wilayah_code' => '98.99']);
+    $url = route('residence.housing-profile');
+    $base = ['gender' => 'perempuan', 'prodi_id' => $f['program']->id, 'no_hp' => '080000000001'];
+    $this->actingAs($f['user'])->post($url, $base)->assertSessionHasErrors(['nama', 'nik', 'city_id', 'alamat']);
+
+    $this->post($url, [...$base, 'nama' => 'Nama Resmi Uji', 'nik' => '9999999999999999',
+        'city_id' => $city->id, 'alamat' => 'Jalan Uji 1'])
+        ->assertSessionHasNoErrors()->assertRedirect(route('mahasiswa.registration'));
+    expect($f['user']->fresh()->nama)->toBe('Nama Resmi Uji');
+    expect($f['profile']->fresh()->alamat)->toBe('Jalan Uji 1');
+    $this->post(route('andalas.registrations.store'), [
+        'periode_id' => $f['period']->id,
+        'preferences' => [['kamar_id' => $f['room']->id]],
+    ])->assertSessionHasNoErrors();
+});
+
 it('denies checkin to facilitators assigned to another building', function () {
     $f = toBeFixture();
     $r = toBeSubmit($f);
@@ -335,6 +359,7 @@ it('preserves historical occupancy and requires evidence instead of inventing a 
 it('renders the workflow with scoped registrations and a complete operational payload', function () {
     $f = toBeFixture();
     $r = toBeSubmit($f);
-    $this->actingAs($f['user'])->get(route('residence.workflow'))->assertInertia(fn (Assert $page) => $page->component('admin/residence-workflow')->has('registrations.data', 1)->where('registrations.data.0.id', $r->id)->where('manager', false));
+    $this->actingAs($f['user'])->get(route('residence.workflow'))->assertRedirect(route('mahasiswa.registration'));
+    $this->actingAs($f['user'])->get(route('mahasiswa.registration.status'))->assertInertia(fn (Assert $page) => $page->component('admin/residence-workflow')->where('page', 'registration')->has('registrations.data', 1)->where('registrations.data.0.id', $r->id)->where('manager', false));
     $this->actingAs($f['manager'])->get(route('residence.workflow'))->assertInertia(fn (Assert $page) => $page->where('manager', true)->has('policies', 1)->has('invoiceGroups'));
 });

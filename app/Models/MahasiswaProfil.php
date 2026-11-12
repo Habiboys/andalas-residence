@@ -20,6 +20,20 @@ class MahasiswaProfil extends BaseModel
         return ['tanggal_masuk' => 'date'];
     }
 
+    public function hasCompleteHousingIdentity(): bool
+    {
+        return filled($this->user->nama)
+            && filled($this->user->nim_nip)
+            && filled($this->user->email)
+            && filled($this->user->no_hp)
+            && in_array($this->user->gender, ['laki_laki', 'perempuan'], true)
+            && filled($this->prodi_id)
+            && filled($this->angkatan)
+            && preg_match('/^\d{16}$/D', (string) $this->nik) === 1
+            && filled($this->city_id)
+            && filled($this->alamat);
+    }
+
     /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {

@@ -30,7 +30,7 @@ beforeEach(function () {
 function invitationStudent(): User
 {
     $user = User::factory()->student()->create(['gender' => 'perempuan', 'client_profile_category' => 'local_non_kipk'])->assignRole('mahasiswa');
-    MahasiswaProfil::create(['user_id' => $user->id, 'barcode_code' => fake()->uuid(), 'prodi_id' => workflowTestProgram(), 'angkatan' => '2026']);
+    withHousingIdentity(MahasiswaProfil::create(['user_id' => $user->id, 'barcode_code' => fake()->uuid(), 'prodi_id' => workflowTestProgram(), 'angkatan' => '2026']));
 
     return $user->load('mahasiswaProfil');
 }

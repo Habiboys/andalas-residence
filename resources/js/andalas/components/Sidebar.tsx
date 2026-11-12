@@ -473,7 +473,7 @@ const reportingNav: NavGroup = {
 };
 
 export const NAV_MAP: Record<UserRole, NavGroup[]> = {
-    mahasiswa: [workflowNav, ...MAHASISWA_NAV],
+    mahasiswa: MAHASISWA_NAV,
     fasilitator: [workflowNav, reportingNav, ...FASILITATOR_NAV],
     staff_admin: [workflowNav, reportingNav, ...ADMIN_NAV],
     admin_layanan: [workflowNav, reportingNav, ...ADMIN_LAYANAN_NAV],
@@ -514,9 +514,7 @@ export default function Sidebar({
                     (role !== 'mahasiswa' ||
                         ((!['absensi', 'perizinan'].includes(item.page) ||
                             attendanceEligible) &&
-                            (!['pelaporan', 'checkout'].includes(
-                                item.page,
-                            ) ||
+                            (!['pelaporan', 'checkout'].includes(item.page) ||
                                 activeResident))),
             ),
         }))

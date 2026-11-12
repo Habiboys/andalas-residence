@@ -12,8 +12,6 @@ import { store as storeGeneralStay } from '@/actions/App/Http/Controllers/Tempor
 
 import * as invoiceActions from '@/actions/App/Http/Controllers/InvoiceController';
 
-import { registration as registerPage } from '@/routes/mahasiswa';
-
 import { formatRupiah } from '@/andalas/lib/format';
 
 type Building = {
@@ -240,7 +238,9 @@ type Reference = {
 };
 
 type Props = {
+    studentView?: boolean;
     registrations: {
+        last_page: number;
         data: Registration[];
 
         links: Array<{ url: string | null; label: string; active: boolean }>;
@@ -2663,42 +2663,7 @@ export default function ResidenceWorkflowPage(props: Props) {
 
     const { errors } = usePage().props;
 
-    const isOfficerView =
-        props.manager || props.finance || props.leader || !props.profile;
-
-    const incompleteStudentProfile = Boolean(
-        props.profile &&
-        (!props.profile.prodi_id || !props.gender || !props.profile.angkatan),
-    );
-
-    const initialDepartemenId =
-        props.profile?.prodi?.departemen_id ??
-        props.programs.find((p) => p.id === props.profile?.prodi_id)
-            ?.departemen_id ??
-        '';
-
-    const initialFacultyId =
-        props.profile?.prodi?.departemen?.faculty_id ??
-        (props.departemen ?? []).find((d) => d.id === initialDepartemenId)
-            ?.faculty_id ??
-        '';
-
-    const [selectedFacultyId, setSelectedFacultyId] =
-        useState(initialFacultyId);
-
-    const [selectedDepartemenId, setSelectedDepartemenId] =
-        useState(initialDepartemenId);
-
-    const [selectedProdiId, setSelectedProdiId] = useState(
-        props.profile?.prodi_id ?? '',
-    );
-
-    const initialCategory =
-        props.client_profile_category === 'international_student'
-            ? 'international_student'
-            : 'local_student';
-
-    const [studentCategory, setStudentCategory] = useState(initialCategory);
+    const isOfficerView = !props.studentView;
 
     const tabs = [
         ['registrations', 'Pendaftaran'],
@@ -2722,27 +2687,23 @@ export default function ResidenceWorkflowPage(props: Props) {
         <div className="space-y-5">
             <Head
                 title={
-                    incompleteStudentProfile
-                        ? 'Lengkapi Profil Pendaftaran'
-                        : 'Proses Pendaftaran'
+                    isOfficerView
+                        ? 'Proses Pendaftaran'
+                        : 'Status Pendaftaran Asrama'
                 }
             />
 
             <header>
                 <h1 className="text-2xl font-bold">
-                    {incompleteStudentProfile
-                        ? 'Lengkapi Profil Pendaftaran'
-                        : isOfficerView
-                          ? 'Proses Pendaftaran'
-                          : 'Pendaftaran & Status Hunian Saya'}
+                    {isOfficerView
+                        ? 'Proses Pendaftaran'
+                        : 'Pendaftaran & Status Hunian Saya'}
                 </h1>
 
                 <p className="text-base-content/70">
-                    {incompleteStudentProfile
-                        ? 'Lengkapi data akademik dan kontak Anda terlebih dahulu sebelum memilih kamar atau mengajukan layanan asrama.'
-                        : isOfficerView
-                          ? 'Administrasi, pembiayaan, check-in fisik, dan pengembalian kunci.'
-                          : 'Pantau status pengajuan kamar, kelengkapan berkas, pembayaran, dan check-in Anda.'}
+                    {isOfficerView
+                        ? 'Administrasi, pembiayaan, check-in fisik, dan pengembalian kunci.'
+                        : 'Pantau status pengajuan kamar, kelengkapan berkas, pembayaran, dan check-in Anda.'}
                 </p>
             </header>
 
@@ -2751,345 +2712,6 @@ export default function ResidenceWorkflowPage(props: Props) {
                     {String(error)}
                 </p>
             ))}
-
-            {incompleteStudentProfile && (
-                <Panel title="Data Mahasiswa & Akademik">
-                    <ActionForm
-                        url={workflow.profile.url()}
-
-                        label="Simpan & Lanjutkan"
-                    >
-                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                            {props.initialUser?.nama && (
-                                <label className="form-control block space-y-1">
-                                    <span className="text-sm font-medium">
-                                        Nama lengkap (SSO)
-                                    </span>
-
-                                    <input
-                                        className={`${input} bg-base-200`}
-
-                                        value={props.initialUser.nama}
-
-                                        disabled
-
-                                        readOnly
-                                    />
-                                </label>
-                            )}
-
-                            {props.initialUser?.nim && (
-                                <label className="form-control block space-y-1">
-                                    <span className="text-sm font-medium">
-                                        NIM (SSO)
-                                    </span>
-
-                                    <input
-                                        className={`${input} bg-base-200`}
-
-                                        value={props.initialUser.nim}
-
-                                        disabled
-
-                                        readOnly
-                                    />
-                                </label>
-                            )}
-
-                            {props.initialUser?.email && (
-                                <label className="form-control block space-y-1">
-                                    <span className="text-sm font-medium">
-                                        Email kampus (SSO)
-                                    </span>
-
-                                    <input
-                                        className={`${input} bg-base-200`}
-
-                                        value={props.initialUser.email}
-
-                                        disabled
-
-                                        readOnly
-                                    />
-                                </label>
-                            )}
-
-                            <label className="form-control block space-y-1">
-                                <span className="text-sm font-medium">
-                                    Angkatan dari NIM
-                                </span>
-
-                                <input
-                                    className={`${input} bg-base-200`}
-
-                                    value={
-                                        props.profile?.angkatan ??
-                                        props.initialUser?.angkatan ??
-                                        'Otomatis dari 2 digit awal NIM'
-                                    }
-
-                                    disabled
-
-                                    readOnly
-                                />
-                            </label>
-
-                            <Field
-                                name="client_profile_category"
-
-                                label="Jenis pendaftar"
-                            >
-                                <select
-                                    className={input}
-
-                                    name="client_profile_category"
-
-                                    value={studentCategory}
-
-                                    onChange={(e) =>
-                                        setStudentCategory(e.target.value)
-                                    }
-
-                                    required
-                                >
-                                    <option value="local_student">
-                                        Mahasiswa lokal
-                                    </option>
-
-                                    <option value="international_student">
-                                        Mahasiswa internasional
-                                    </option>
-                                </select>
-                            </Field>
-
-                            <Field name="gender" label="Jenis kelamin">
-                                <select
-                                    className={input}
-
-                                    name="gender"
-
-                                    defaultValue={props.gender ?? ''}
-
-                                    required
-                                >
-                                    <option value="">
-                                        Pilih jenis kelamin
-                                    </option>
-
-                                    <option value="laki_laki">Laki-laki</option>
-
-                                    <option value="perempuan">Perempuan</option>
-                                </select>
-                            </Field>
-
-                            {(props.fakultas?.length ?? 0) > 0 ? (
-                                <>
-                                    <Field name="faculty_id" label="Fakultas">
-                                        <select
-                                            className={input}
-
-                                            name="faculty_id"
-
-                                            value={selectedFacultyId}
-
-                                            onChange={(e) => {
-                                                setSelectedFacultyId(
-                                                    e.target.value,
-                                                );
-
-                                                setSelectedDepartemenId('');
-
-                                                setSelectedProdiId('');
-                                            }}
-
-                                            required
-                                        >
-                                            <option value="">
-                                                Pilih fakultas
-                                            </option>
-
-                                            {(props.fakultas ?? []).map(
-                                                (fak) => (
-                                                    <option
-                                                        key={fak.id}
-
-                                                        value={fak.id}
-                                                    >
-                                                        {fak.name}
-                                                    </option>
-                                                ),
-                                            )}
-                                        </select>
-                                    </Field>
-
-                                    <Field
-                                        name="departemen_id"
-
-                                        label="Departemen"
-                                    >
-                                        <select
-                                            className={input}
-
-                                            name="departemen_id"
-
-                                            value={selectedDepartemenId}
-
-                                            disabled={!selectedFacultyId}
-
-                                            onChange={(e) => {
-                                                setSelectedDepartemenId(
-                                                    e.target.value,
-                                                );
-
-                                                setSelectedProdiId('');
-                                            }}
-
-                                            required
-                                        >
-                                            <option value="">
-                                                {selectedFacultyId
-                                                    ? 'Pilih departemen'
-                                                    : 'Pilih fakultas terlebih dahulu'}
-                                            </option>
-
-                                            {(props.departemen ?? [])
-
-                                                .filter(
-                                                    (dep) =>
-                                                        dep.faculty_id ===
-                                                        selectedFacultyId,
-                                                )
-
-                                                .map((dep) => (
-                                                    <option
-                                                        key={dep.id}
-
-                                                        value={dep.id}
-                                                    >
-                                                        {dep.name}
-                                                    </option>
-                                                ))}
-                                        </select>
-                                    </Field>
-
-                                    <Field
-                                        name="prodi_id"
-
-                                        label="Program studi / jenjang"
-                                    >
-                                        <select
-                                            className={input}
-
-                                            name="prodi_id"
-
-                                            value={selectedProdiId}
-
-                                            disabled={!selectedDepartemenId}
-
-                                            onChange={(e) =>
-                                                setSelectedProdiId(
-                                                    e.target.value,
-                                                )
-                                            }
-
-                                            required
-                                        >
-                                            <option value="">
-                                                {selectedDepartemenId
-                                                    ? 'Pilih program studi'
-                                                    : 'Pilih departemen terlebih dahulu'}
-                                            </option>
-
-                                            {props.programs
-
-                                                .filter(
-                                                    (p) =>
-                                                        !p.departemen_id ||
-                                                        p.departemen_id ===
-                                                            selectedDepartemenId,
-                                                )
-
-                                                .map((p) => (
-                                                    <option
-                                                        key={p.id}
-
-                                                        value={p.id}
-                                                    >
-                                                        {p.name} ({p.jenjang})
-                                                    </option>
-                                                ))}
-                                        </select>
-                                    </Field>
-                                </>
-                            ) : (
-                                <Field name="prodi_id" label="Program studi">
-                                    <select
-                                        className={input}
-
-                                        name="prodi_id"
-
-                                        defaultValue={
-                                            props.profile?.prodi_id ?? ''
-                                        }
-
-                                        required
-                                    >
-                                        <option value="">Pilih</option>
-
-                                        {props.programs.map((p) => (
-                                            <option key={p.id} value={p.id}>
-                                                {p.name} {p.jenjang}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </Field>
-                            )}
-
-                            <Field
-                                name="no_hp"
-
-                                label="Nomor telepon / WhatsApp"
-
-                                value={
-                                    props.no_hp ??
-                                    props.initialUser?.no_hp ??
-                                    ''
-                                }
-
-                                required={false}
-                            />
-                        </div>
-
-                        <p className="text-base-content/60 text-xs">
-                            Status penerima KIP-K ditentukan otomatis dari NIM,
-                            angkatan, dan daftar penerima yang dikelola admin.
-                        </p>
-                    </ActionForm>
-                </Panel>
-            )}
-
-            {props.profile && !incompleteStudentProfile && (
-                <div className="bg-base-100 flex flex-wrap items-center justify-between gap-3 rounded-lg border p-4">
-                    <div>
-                        <h2 className="font-semibold">
-                            Siap mengajukan pendaftaran asrama?
-                        </h2>
-
-                        <p className="text-base-content/70 text-sm">
-                            Profil akademik Anda sudah lengkap. Silakan pilih
-                            kamar untuk mengajukan pendaftaran hunian.
-                        </p>
-                    </div>
-
-                    <Link
-                        className="btn btn-primary btn-sm"
-
-                        href={registerPage.url()}
-                    >
-                        Pilih kamar / ajukan pendaftaran
-                    </Link>
-                </div>
-            )}
 
             {isOfficerView && (
                 <>
@@ -3154,31 +2776,31 @@ export default function ResidenceWorkflowPage(props: Props) {
                 </>
             )}
 
-            {tab === 'registrations' &&
-                (isOfficerView || !incompleteStudentProfile) && (
-                    <div className="space-y-4">
-                        {props.registrations.data.length === 0 && (
-                            <p className="bg-base-100 text-base-content/70 rounded border p-6 text-sm">
-                                {isOfficerView
-                                    ? 'Belum ada pendaftaran dalam lingkup akses Anda.'
-                                    : 'Anda belum memiliki pengajuan pendaftaran asrama.'}
-                            </p>
-                        )}
+            {tab === 'registrations' && (
+                <div className="space-y-4">
+                    {props.registrations.data.length === 0 && (
+                        <p className="bg-base-100 text-base-content/70 rounded border p-6 text-sm">
+                            {isOfficerView
+                                ? 'Belum ada pendaftaran dalam lingkup akses Anda.'
+                                : 'Anda belum memiliki pengajuan pendaftaran asrama.'}
+                        </p>
+                    )}
 
-                        {props.registrations.data.map((r) => (
-                            <RegistrationCard
-                                rooms={props.rooms}
+                    {props.registrations.data.map((r) => (
+                        <RegistrationCard
+                            rooms={props.rooms}
 
-                                key={r.id}
+                            key={r.id}
 
-                                r={r}
+                            r={r}
 
-                                manager={props.manager}
+                            manager={props.manager}
 
-                                leader={props.leader}
-                            />
-                        ))}
+                            leader={props.leader}
+                        />
+                    ))}
 
+                    {props.registrations.last_page > 1 && (
                         <nav
                             className="flex flex-wrap gap-2"
 
@@ -3203,8 +2825,9 @@ export default function ResidenceWorkflowPage(props: Props) {
                                     ),
                             )}
                         </nav>
-                    </div>
-                )}
+                    )}
+                </div>
+            )}
 
             {tab === 'public' && <GeneralPublic rooms={props.rooms} />}
 

@@ -51,6 +51,7 @@ function registrationStudent(): array
         'tanggal_selesai' => '2027-07-31',
     ]);
 
+    withHousingIdentity($profile);
     return [$user, $profile, $periode];
 }
 

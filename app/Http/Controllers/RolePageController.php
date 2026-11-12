@@ -125,8 +125,11 @@ class RolePageController extends Controller
             ],
             'registration' => $this->registrationPayload($request),
             'data-hunian' => [
-                'profile' => $request->user()->mahasiswaProfil?->load('prodi.departemen.faculty', 'city.province'),
-                'identity' => $request->user()->only(['nim_nip', 'email', 'gender', 'no_hp', 'status']),
+                'profile' => $request->user()->mahasiswaProfil?->only(['prodi_id', 'city_id', 'angkatan', 'nik', 'alamat']),
+                'identity' => [
+                    ...$request->user()->only(['nim_nip', 'email', 'gender', 'no_hp', 'status']),
+                    'category' => $request->user()->getRawOriginal('client_profile_category'),
+                ],
                 'programs' => \App\Models\Prodi::with('departemen.faculty')->orderBy('name')->get(),
                 'cities' => \App\Models\City::with('province')->orderBy('name')->get(),
                 'saveUrl' => route('residence.housing-profile'),
@@ -594,8 +597,8 @@ class RolePageController extends Controller
             'rooms' => $rooms,
             'registration' => $registrations, 'room_invitations' => $invitations,
             'housingProfileUrl' => route('mahasiswa.data-hunian'),
-            'housingProfileReady' => (bool) ($student?->nik && $student->city_id && $student->alamat
-                && $student->prodi_id && $student->angkatan && $student->user->gender && $student->user->no_hp),
+            'housingStatusUrl' => route('mahasiswa.registration.status'),
+            'housingProfileReady' => $student?->hasCompleteHousingIdentity() ?? false,
         ];
     }
 

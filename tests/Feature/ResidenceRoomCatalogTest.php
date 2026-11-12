@@ -33,6 +33,7 @@ function catalogRegistrationFixture(): array
     workflowTestPolicies();
     $input = ['periode_id' => $period->id, 'preferences' => [['kamar_id' => $room->id]], 'rate_unit' => 'year'];
 
+    withHousingIdentity($profile);
     return compact('user', 'profile', 'period', 'building', 'room', 'input');
 }
 

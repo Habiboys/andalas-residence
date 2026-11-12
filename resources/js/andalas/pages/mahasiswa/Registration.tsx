@@ -1,4 +1,3 @@
-import { workflow } from '@/routes/residence';
 import { useState } from 'react';
 import RoomCatalog, { type CatalogRoom } from '../../components/RoomCatalog';
 import RoomInvitations, {
@@ -12,6 +11,9 @@ import { tagihan } from '@/routes/mahasiswa';
 import { formatRupiah } from '../../lib/format';
 type Room = CatalogRoom;
 type Props = {
+    housingProfileReady?: boolean;
+    housingProfileUrl?: string;
+    housingStatusUrl?: string;
     policy_open?: boolean;
     policy_month_days?: number;
     policy_day_basis?: string;
@@ -57,6 +59,9 @@ type Props = {
     }>;
 };
 export default function Registration({
+    housingProfileReady = true,
+    housingProfileUrl,
+    housingStatusUrl,
     policy_open = false,
     policy_month_days = 30,
     policy_day_basis = 'nights',
@@ -140,9 +145,14 @@ export default function Registration({
                 title="Pendaftaran Asrama"
                 subtitle="Pilih hunian, lengkapi administrasi, lalu lakukan check-in fisik dan serah kunci bersama petugas."
             />
-            <Link href={workflow.url()} className="btn btn-outline btn-sm">
-                Lengkapi profil, dokumen, dan proses check-in
-            </Link>
+            {registration.length > 0 && housingStatusUrl && (
+                <Link
+                    href={housingStatusUrl}
+                    className="btn btn-outline btn-sm"
+                >
+                    Lihat status dan dokumen pengajuan
+                </Link>
+            )}
             {!policy_open && (
                 <p className="alert alert-warning">
                     Pendaftaran belum dibuka untuk kategori Anda. Pengelola
@@ -226,6 +236,19 @@ export default function Registration({
                                 )}
                                 .
                             </p>
+                        ) : !housingProfileReady && housingProfileUrl ? (
+                            <div className="space-y-3">
+                                <p>
+                                    Lengkapi identitas, data akademik, dan
+                                    alamat sebelum memilih hunian.
+                                </p>
+                                <Link
+                                    href={housingProfileUrl}
+                                    className="btn btn-primary"
+                                >
+                                    Lengkapi Data Hunian
+                                </Link>
+                            </div>
                         ) : (
                             <form
                                 className="space-y-4"
@@ -506,7 +529,10 @@ export default function Registration({
                                                 {form.data.starts_at &&
                                                     form.data.ends_at && (
                                                         <p className="text-sm">
-                                                            {form.data.starts_at}{' '}
+                                                            {
+                                                                form.data
+                                                                    .starts_at
+                                                            }{' '}
                                                             sampai{' '}
                                                             {form.data.ends_at}
                                                         </p>
