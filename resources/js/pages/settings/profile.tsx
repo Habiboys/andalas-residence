@@ -1,6 +1,5 @@
 import { Form, Head, Link, usePage } from '@inertiajs/react';
 import ProfileController from '@/actions/App/Http/Controllers/Settings/ProfileController';
-import DeleteUser from '@/components/delete-user';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
 import type { Auth } from '@/types';
@@ -139,9 +138,6 @@ export default function Profile({
                         </Form>
                     </Card>
 
-                    <Card className="p-4 md:p-5">
-                        <DeleteUser />
-                    </Card>
                 </div>
             </div>
         </div>

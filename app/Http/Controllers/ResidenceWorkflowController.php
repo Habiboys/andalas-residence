@@ -127,11 +127,18 @@ class ResidenceWorkflowController extends Controller
     public function profile(Request $request): RedirectResponse
     {
         abort_unless($request->user()->hasRole('mahasiswa') && $request->user()->mahasiswaProfil, 403);
+        $housing = $request->routeIs('residence.housing-profile');
         $data = $request->validate([
             'gender' => ['required', 'in:laki_laki,perempuan'],
             'prodi_id' => ['required', 'uuid', 'exists:prodi,id'],
-            'no_hp' => ['nullable', 'string', 'max:20'],
+            'no_hp' => [$housing ? 'required' : 'nullable', 'string', 'max:20'],
             'client_profile_category' => ['nullable', 'in:local_student,local_kipk,local_non_kipk,international_student'],
+            ...($housing ? [
+                'nama' => ['required', 'string', 'max:255'],
+                'nik' => ['required', 'digits:16'],
+                'city_id' => ['required', 'uuid', 'exists:cities,id'],
+                'alamat' => ['required', 'string', 'max:500'],
+            ] : []),
         ]);
         DB::transaction(function () use ($request, $data): void {
             $user = $request->user();
@@ -152,13 +159,22 @@ class ResidenceWorkflowController extends Controller
             }
 
             $user->update([
+                'nama' => $data['nama'] ?? $user->nama,
                 'gender' => $data['gender'],
                 'no_hp' => array_key_exists('no_hp', $data) ? $data['no_hp'] : $user->no_hp,
                 'client_profile_category' => $resolvedCategory,
             ]);
-            $profile->update(['prodi_id' => $data['prodi_id'], 'angkatan' => $year]);
-            AuditLogService::log($user, 'residence_profile_completed', $profile, null, $data);
+            $profile->update([
+                'prodi_id' => $data['prodi_id'],
+                'angkatan' => $year,
+                ...\Illuminate\Support\Arr::only($data, ['nik', 'city_id', 'alamat']),
+            ]);
+            AuditLogService::log($user, 'residence_profile_completed', $profile, null, \Illuminate\Support\Arr::except($data, ['nik', 'alamat', 'no_hp']));
         });
+
+        if ($housing) {
+            return redirect()->route('mahasiswa.registration')->with('toast', ['type' => 'success', 'message' => 'Data pendaftaran tersimpan.']);
+        }
 
         $hasRegistration = $request->user()->mahasiswaProfil->residenceRegistrations()->exists();
         if (! $hasRegistration) {

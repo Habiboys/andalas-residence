@@ -110,7 +110,7 @@ const MAHASISWA_NAV: NavGroup[] = [
         items: [
             {
                 label: 'Laporkan Kerusakan',
-                page: 'lapor-kerusakan',
+                page: 'pelaporan',
                 icon: Wrench,
             },
         ],
@@ -424,7 +424,7 @@ const TEKNISI_NAV: NavGroup[] = [
     {
         group: 'Tiket',
         items: [
-            { label: 'Tiket Masuk', page: 'tiket-masuk', icon: Ticket },
+            { label: 'Pekerjaan Teknisi', page: 'pelaporan', icon: Ticket },
             { label: 'Update Tiket', page: 'update-tiket', icon: Pencil },
         ],
     },
@@ -468,17 +468,21 @@ const workflowNav: NavGroup = {
     ],
 };
 
+const reportingNav: NavGroup = {
+    items: [{ label: 'Pelaporan Kerusakan', page: 'pelaporan', icon: Ticket }],
+};
+
 export const NAV_MAP: Record<UserRole, NavGroup[]> = {
     mahasiswa: [workflowNav, ...MAHASISWA_NAV],
-    fasilitator: [workflowNav, ...FASILITATOR_NAV],
-    staff_admin: [workflowNav, ...ADMIN_NAV],
-    admin_layanan: [workflowNav, ...ADMIN_LAYANAN_NAV],
-    admin_aset: ADMIN_ASET_NAV,
-    superadmin: [workflowNav, ...ADMIN_NAV],
+    fasilitator: [workflowNav, reportingNav, ...FASILITATOR_NAV],
+    staff_admin: [workflowNav, reportingNav, ...ADMIN_NAV],
+    admin_layanan: [workflowNav, reportingNav, ...ADMIN_LAYANAN_NAV],
+    admin_aset: [reportingNav, ...ADMIN_ASET_NAV],
+    superadmin: [workflowNav, reportingNav, ...ADMIN_NAV],
     teknisi: TEKNISI_NAV,
-    pimpinan: [workflowNav, ...PIMPINAN_NAV],
+    pimpinan: [workflowNav, reportingNav, ...PIMPINAN_NAV],
     orang_tua: ORANG_TUA_NAV,
-    go: GO_NAV,
+    go: [reportingNav, ...GO_NAV],
 };
 
 interface SidebarProps {
@@ -510,7 +514,7 @@ export default function Sidebar({
                     (role !== 'mahasiswa' ||
                         ((!['absensi', 'perizinan'].includes(item.page) ||
                             attendanceEligible) &&
-                            (!['lapor-kerusakan', 'checkout'].includes(
+                            (!['pelaporan', 'checkout'].includes(
                                 item.page,
                             ) ||
                                 activeResident))),

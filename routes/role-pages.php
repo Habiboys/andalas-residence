@@ -6,7 +6,7 @@ use App\Http\Controllers\RolePageController;
 use Illuminate\Support\Facades\Route;
 
 $pages = [
-    'mahasiswa' => ['dashboard', 'registration', 'detail-kamar', 'tagihan', 'checkout', 'bebas-asrama', 'perizinan', 'jadwal', 'absensi', 'lapor-kerusakan'],
+    'mahasiswa' => ['dashboard', 'registration', 'data-hunian', 'detail-kamar', 'tagihan', 'checkout', 'bebas-asrama', 'perizinan', 'jadwal', 'absensi', 'lapor-kerusakan'],
     'admin' => ['residence-management', 'invoices', 'dashboard', 'registration-review', 'mahasiswa', 'verifikasi-pembayaran', 'penempatan-kamar', 'pemetaan-kamar', 'kelola-bangunan', 'kelola-aset', 'approval-bebas-asrama', 'keuangan', 'kelola-profil', 'kelola-informasi', 'kelola-program', 'kelola-testimoni', 'jadwal-kegiatan', 'penilaian-teknisi', 'stok-aset', 'perizinan'],
     'admin_layanan' => ['residence-management', 'invoices', 'dashboard', 'mahasiswa', 'registration-review', 'verifikasi-pembayaran', 'penempatan-kamar', 'approval-bebas-asrama', 'keuangan', 'jadwal-kegiatan'],
     'fasilitator' => ['dashboard', 'jadwal-kegiatan', 'monitoring-kamar', 'checkout-approval', 'perizinan', 'kelola-aset'],

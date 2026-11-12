@@ -11,7 +11,7 @@ class MahasiswaProfil extends BaseModel
 
     protected $fillable = [
         'user_id', 'prodi_id', 'periode_id', 'city_id', 'angkatan',
-        'barcode_code', 'nik', 'bpjs_path', 'riwayat_penyakit_path',
+        'barcode_code', 'nik', 'alamat', 'bpjs_path', 'riwayat_penyakit_path',
         'bukti_lulus_path', 'status_huni', 'tanggal_masuk',
     ];
 

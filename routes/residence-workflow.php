@@ -12,6 +12,7 @@ Route::prefix('residence-process')->name('residence.')->group(function (): void 
     Route::post('/contracts/{contract}/revise', [ResidenceAmendmentController::class, 'contract'])->name('contracts.revise');
     Route::get('/', [Workflow::class, 'index'])->name('workflow');
     Route::post('/profile', [Workflow::class, 'profile'])->name('profile');
+    Route::post('/housing-profile', [Workflow::class, 'profile'])->name('housing-profile');
     Route::post('/policies', [Workflow::class, 'policy'])->name('policies');
     Route::post('/contracts', [Workflow::class, 'contract'])->name('contracts');
     Route::post('/payments', [Workflow::class, 'recordPayment'])->name('payments.record');

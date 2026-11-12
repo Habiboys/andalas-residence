@@ -64,8 +64,19 @@ Route::middleware(['auth', 'verified', EnsureResidenceAccountAccess::class])->gr
     require __DIR__.'/role-pages.php';
     require __DIR__.'/residence-workflow.php';
 
+    Route::get('/mahasiswa/layanan', function () {
+        return \Inertia\Inertia::render('mahasiswa/layanan', [
+            'housingUrl' => route('mahasiswa.registration'),
+            'letterUrl' => route('mahasiswa.bebas-asrama'),
+            'dashboardUrl' => route('mahasiswa.dashboard'),
+        ]);
+    })->middleware('role:mahasiswa')->name('mahasiswa.layanan');
+
     Route::get('/dashboard/redirect', function () {
         $role = request()->user()->roles->first()?->name ?? 'mahasiswa';
+        if ($role === 'mahasiswa' && request()->user()->mahasiswaProfil?->status_huni !== 'aktif') {
+            return redirect()->route('mahasiswa.layanan');
+        }
         $prefix = in_array($role, ['staff_admin', 'superadmin'], true) ? 'admin' : $role;
 
         abort_unless(Route::has($prefix.'.dashboard'), 403, 'Akun ini tidak memiliki akses dasbor.');

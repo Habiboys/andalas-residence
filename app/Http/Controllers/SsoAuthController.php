@@ -153,7 +153,7 @@ class SsoAuthController extends Controller
 
         $profile = $user->mahasiswaProfil;
         if ($user->hasRole('mahasiswa') && $profile && (! $user->gender || ! $profile->prodi_id || ! $profile->angkatan)) {
-            return redirect()->route('residence.workflow');
+            return redirect()->route('mahasiswa.layanan');
         }
 
         return redirect()->intended(route('dashboard.redirect'));

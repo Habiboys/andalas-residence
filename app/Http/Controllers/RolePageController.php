@@ -124,6 +124,14 @@ class RolePageController extends Controller
                 ] : []),
             ],
             'registration' => $this->registrationPayload($request),
+            'data-hunian' => [
+                'profile' => $request->user()->mahasiswaProfil?->load('prodi.departemen.faculty', 'city.province'),
+                'identity' => $request->user()->only(['nim_nip', 'email', 'gender', 'no_hp', 'status']),
+                'programs' => \App\Models\Prodi::with('departemen.faculty')->orderBy('name')->get(),
+                'cities' => \App\Models\City::with('province')->orderBy('name')->get(),
+                'saveUrl' => route('residence.housing-profile'),
+                'registrationUrl' => route('mahasiswa.registration'),
+            ],
             'registration-review' => $this->registrationReviewPayload($request),
             'checkout-approval', 'checkout-inspection' => [
                 'checkout' => CheckoutRequest::with(['inspection.findings.aset', 'placement.kamar.lantai.gedung', 'placement.kamar.aset', 'mahasiswa.user'])
@@ -156,6 +164,11 @@ class RolePageController extends Controller
             'detail-kamar' => ['penempatan' => PenempatanKamar::with('kamar.lantai.gedung')->whereHas('mahasiswa', fn ($q) => $q->where('user_id', $request->user()->id))->get()],
             'checkout' => ['checkout' => CheckoutRequest::with(['inspection', 'placement.kamar.lantai.gedung'])->where('mahasiswa_id', $request->user()->mahasiswaProfil?->id)->latest()->get()],
             'bebas-asrama' => [
+                'letterIdentity' => [
+                    'nim' => $request->user()->nim_nip,
+                    'program' => $request->user()->mahasiswaProfil?->prodi?->name,
+                    'faculty' => $request->user()->mahasiswaProfil?->prodi?->departemen?->faculty?->name,
+                ],
                 'bebas_asrama' => PengajuanBebasAsrama::with(['mahasiswa.user', 'tagihan'])->where('mahasiswa_id', $request->user()->mahasiswaProfil?->id)->latest()->get(),
                 'historical_evidence_allowed' => $request->user()->mahasiswaProfil !== null
                     && ! $request->user()->mahasiswaProfil->checkoutRequests()->where('status', 'selesai')->exists(),
@@ -580,6 +593,9 @@ class RolePageController extends Controller
             'billing' => Tagihan::with(['items', 'jadwalCicilan', 'dokumen'])->where('mahasiswa_id', $student?->id)->latest()->get(),
             'rooms' => $rooms,
             'registration' => $registrations, 'room_invitations' => $invitations,
+            'housingProfileUrl' => route('mahasiswa.data-hunian'),
+            'housingProfileReady' => (bool) ($student?->nik && $student->city_id && $student->alamat
+                && $student->prodi_id && $student->angkatan && $student->user->gender && $student->user->no_hp),
         ];
     }
 
