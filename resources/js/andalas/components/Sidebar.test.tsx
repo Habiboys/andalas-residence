@@ -39,3 +39,21 @@ it.each([
         expect(html).not.toContain('Data Master');
     },
 );
+
+it.each(['staff_admin', 'admin_layanan', 'superadmin'] as UserRole[])(
+    'renders Pengelolaan Pendaftaran as a collapsible submenu for %s',
+    (role) => {
+        const html = renderToStaticMarkup(
+            <Sidebar
+                role={role}
+                currentPage="residence-workflow/opening"
+                setPage={() => {}}
+            />,
+        );
+        expect(html).toContain('Submenu Pengelolaan Pendaftaran');
+        expect(html).toMatch(
+            /aria-current="page"[^>]*>[\s\S]*?Buka \/ Tutup Pendaftaran/,
+        );
+    },
+);
+

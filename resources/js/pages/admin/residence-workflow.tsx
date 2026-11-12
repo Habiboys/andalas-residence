@@ -12,6 +12,8 @@ import { store as storeGeneralStay } from '@/actions/App/Http/Controllers/Tempor
 
 import * as invoiceActions from '@/actions/App/Http/Controllers/InvoiceController';
 
+import { workflow as residenceWorkflow } from '@/routes/residence';
+
 import { formatRupiah } from '@/andalas/lib/format';
 
 type Building = {
@@ -2533,8 +2535,8 @@ export default function ResidenceWorkflowPage(props: Props) {
                                     key={item.id}
                                     href={
                                         item.id === 'registrations'
-                                            ? workflow.index.url()
-                                            : workflow.index.url({
+                                            ? residenceWorkflow.url()
+                                            : residenceWorkflow.url({
                                                   query: { section: item.id },
                                               })
                                     }

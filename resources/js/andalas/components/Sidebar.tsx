@@ -576,29 +576,50 @@ export default function Sidebar({
                 aria-label="Navigasi utama"
             >
                 {groups.map((g, gi) =>
-                    ['Data Master', 'Landing Page'].includes(g.group ?? '') ? (
+                    [
+                        'Data Master',
+                        'Landing Page',
+                        'Pengelolaan Pendaftaran',
+                    ].includes(g.group ?? '') ? (
                         <ul key={g.group} className="menu w-full p-0">
                             <li>
                                 <details
                                     open={g.items.some(
-                                        (item) => item.page === currentPage,
+                                        (item) =>
+                                            item.page === currentPage ||
+                                            (item.page ===
+                                                'residence-workflow' &&
+                                                currentPage ===
+                                                    'residence-workflow/contracts'),
                                     )}
                                 >
                                     <summary
                                         title={collapsed ? g.group : undefined}
                                         className="text-base-content/80 gap-3 py-2.5 text-xs font-semibold"
                                     >
-                                        <Database
-                                            className="size-[18px] shrink-0"
-                                            aria-hidden="true"
-                                        />
+                                        {g.group ===
+                                        'Pengelolaan Pendaftaran' ? (
+                                            <KeyRound
+                                                className="size-[18px] shrink-0"
+                                                aria-hidden="true"
+                                            />
+                                        ) : (
+                                            <Database
+                                                className="size-[18px] shrink-0"
+                                                aria-hidden="true"
+                                            />
+                                        )}
                                         {!collapsed && <span>{g.group}</span>}
                                     </summary>
                                     <ul aria-label={`Submenu ${g.group}`}>
                                         {g.items.map((item) => {
                                             const Icon = item.icon;
                                             const active =
-                                                currentPage === item.page;
+                                                currentPage === item.page ||
+                                                (item.page ===
+                                                    'residence-workflow' &&
+                                                    currentPage ===
+                                                        'residence-workflow/contracts');
                                             return (
                                                 <li key={item.page}>
                                                     <button

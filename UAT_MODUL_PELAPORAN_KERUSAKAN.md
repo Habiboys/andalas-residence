@@ -10,24 +10,24 @@ Gunakan **login akun biasa**, dengan **password: `password`** untuk akun UAT. Ak
 
 | Email login | Peran | Dipakai untuk |
 | --- | --- | --- |
-| uat.superadmin@example.test | Superadmin | Persiapan, akun, penugasan gedung, pemeriksaan dan penilaian teknisi. |
-| uat.pengelola@example.test | Admin layanan | Persiapan hunian dan pendampingan administrasi; bukan teknisi penyelesai tiket. |
-| uat.pimpinan@example.test | Pimpinan | Perintah pekerjaan, monitoring dan aktivitas harian. |
-| uat.fasilitator@example.test | Fasilitator A | Melihat laporan dan foto pada gedung penugasannya. |
-| uat.fasilitator2@example.test | Fasilitator B | Uji penolakan akses gedung A. Periksa penugasan aktual. |
-| uat.aset@example.test | Admin aset | Inventaris dan pengaitan aset yang belum tercatat. |
-| uat.inspeksi@example.test | Petugas GO | Temuan checkout dan kaitannya dengan tiket kerusakan. |
-| uat.teknisi@example.test | Teknisi 1 | Penanggung jawab: mengambil, mengatur anggota, progres dan menyelesaikan. |
-| uat.teknisi2@example.test | Teknisi 2 | Anggota tim atau pesaing klaim, sesuai skenario. |
-| uat.teknisi3@example.test | Teknisi 3 | Teknisi di luar tim; uji akses yang harus ditolak. |
-| uat.lokal@example.test | Mahasiswa S1 | Pelapor utama setelah check-in. |
-| uat.teman@example.test | Mahasiswa S1 | Teman sekamar pelapor utama setelah check-in pada kamar yang sama. |
-| uat.kipk@example.test | Mahasiswa KIP-K | Ulangi alur pelaporan setelah alokasi dan check-in yang sah. |
-| uat.s2@example.test | Mahasiswa S2 | Variasi penghuni S2 atau penghuni kamar lain. |
-| uat.s3@example.test | Mahasiswa S3 | Variasi S3 atau penghuni gedung lain. |
-| uat.internasional@example.test | Internasional | Variasi penghuni internasional setelah check-in. |
-| uat.bulanan@example.test | Mahasiswa non-maba | Variasi penghuni dengan skema bulanan setelah check-in. |
-| uat.keuangan@example.test | Admin layanan | Tetap tersedia untuk UAT pendaftaran/keuangan; bukan aktor wajib perbaikan. |
+| uat.superadmin@unand.ac.id | Superadmin | Persiapan, akun, penugasan gedung, pemeriksaan dan penilaian teknisi. |
+| uat.pengelola@unand.ac.id | Admin layanan | Persiapan hunian dan pendampingan administrasi; bukan teknisi penyelesai tiket. |
+| uat.pimpinan@unand.ac.id | Pimpinan | Perintah pekerjaan, monitoring dan aktivitas harian. |
+| uat.fasilitator@unand.ac.id | Fasilitator A | Melihat laporan dan foto pada gedung penugasannya. |
+| uat.fasilitator2@unand.ac.id | Fasilitator B | Uji penolakan akses gedung A. Periksa penugasan aktual. |
+| uat.aset@unand.ac.id | Admin aset | Inventaris dan pengaitan aset yang belum tercatat. |
+| uat.inspeksi@unand.ac.id | Petugas GO | Temuan checkout dan kaitannya dengan tiket kerusakan. |
+| uat.teknisi@unand.ac.id | Teknisi 1 | Penanggung jawab: mengambil, mengatur anggota, progres dan menyelesaikan. |
+| uat.teknisi2@unand.ac.id | Teknisi 2 | Anggota tim atau pesaing klaim, sesuai skenario. |
+| uat.teknisi3@unand.ac.id | Teknisi 3 | Teknisi di luar tim; uji akses yang harus ditolak. |
+| uat.lokal@student.unand.ac.id | Mahasiswa S1 | Pelapor utama setelah check-in. |
+| uat.teman@student.unand.ac.id | Mahasiswa S1 | Teman sekamar pelapor utama setelah check-in pada kamar yang sama. |
+| uat.kipk@student.unand.ac.id | Mahasiswa KIP-K | Ulangi alur pelaporan setelah alokasi dan check-in yang sah. |
+| uat.s2@student.unand.ac.id | Mahasiswa S2 | Variasi penghuni S2 atau penghuni kamar lain. |
+| uat.s3@student.unand.ac.id | Mahasiswa S3 | Variasi S3 atau penghuni gedung lain. |
+| uat.internasional@student.unand.ac.id | Internasional | Variasi penghuni internasional setelah check-in. |
+| uat.bulanan@student.unand.ac.id | Mahasiswa non-maba | Variasi penghuni dengan skema bulanan setelah check-in. |
+| uat.keuangan@unand.ac.id | Admin layanan | Tetap tersedia untuk UAT pendaftaran/keuangan; bukan aktor wajib perbaikan. |
 
 Seeder sekarang mencakup **18 akun**. Lima tambahan pelaporan adalah teknisi, teknisi2, teknisi3, aset dan fasilitator2. Password UAT direset menjadi password saat seed ulang; role, penugasan dan transaksi akun yang sudah ada dipertahankan. Fasilitator kedua hanya diberi penugasan otomatis bila tersedia gedung lain; bila belum ada, tetapkan melalui menu master penugasan sebelum uji lintas gedung.
 
