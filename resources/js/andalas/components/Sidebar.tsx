@@ -476,7 +476,6 @@ const registrationAdminNav: NavGroup = {
         { label: 'Buka / Tutup Pendaftaran', page: 'residence-workflow/opening', icon: KeyRound },
         { label: 'Permohonan Institusi & Kegiatan', page: 'residence-workflow/applications', icon: FileText },
         { label: 'Penyewa Umum', page: 'residence-workflow/public', icon: Users },
-        { label: 'Tagihan Kamar Bersama', page: 'residence-workflow/contracts', icon: CreditCard },
         { label: 'Rekonsiliasi & Invoice', page: 'residence-workflow/finance', icon: Landmark },
         { label: 'Pengaturan Layanan', page: 'residence-management', icon: Database },
     ],
@@ -657,7 +656,13 @@ export default function Sidebar({
                                 }
                             >
                                 {g.items.map((item) => {
-                                    const active = currentPage === item.page;
+                                    const active =
+                                        currentPage === item.page ||
+                                        (item.page === 'registration' &&
+                                            currentPage === 'data-hunian') ||
+                                        (item.page === 'residence-workflow' &&
+                                            currentPage ===
+                                                'residence-workflow/contracts');
                                     const Icon = item.icon;
 
                                     return (

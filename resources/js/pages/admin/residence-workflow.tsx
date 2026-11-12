@@ -240,6 +240,7 @@ type Reference = {
 type Props = {
     studentView?: boolean;
     section?: string;
+    pendingRoomContracts?: Registration[];
     registrations: {
         last_page: number;
         data: Registration[];
@@ -1392,22 +1393,50 @@ function RegistrationCard({
 }
 
 function Policies({
-    buildings, policyCatalog, policies, masterHousingUrl,
-}: Pick<Props, 'buildings' | 'policyCatalog' | 'policies' | 'masterHousingUrl'>) {
+    buildings,
+    policyCatalog,
+    policies,
+    masterHousingUrl,
+}: Pick<
+    Props,
+    'buildings' | 'policyCatalog' | 'policies' | 'masterHousingUrl'
+>) {
     const defaults: Settings = {
-        open: false, documents: ['perjanjian'], building_ids: [], rates: [],
-        month_days: 30, day_basis: 'nights', monthly_allowed: false,
+        open: false,
+        documents: ['perjanjian'],
+        building_ids: [],
+        rates: [],
+        month_days: 30,
+        day_basis: 'nights',
+        monthly_allowed: false,
     };
     const firstCategory = 'local_non_kipk';
     const form = useForm({
         category: firstCategory,
-        settings: policies.find((policy) => policy.category === firstCategory)?.settings ?? defaults,
+        settings:
+            policies.find((policy) => policy.category === firstCategory)
+                ?.settings ?? defaults,
     });
-    const active = policies.find((policy) => policy.category === form.data.category);
+    const active = policies.find(
+        (policy) => policy.category === form.data.category,
+    );
     const isOpen = Boolean(active?.published_at && active.settings.open);
     const catalog = policyCatalog[form.data.category] ?? [];
     const ready = catalog.filter((building) => !building.issue);
     const blocked = catalog.filter((building) => building.issue);
+    const policyCategories = Object.entries(categories).filter(
+        ([category]) => category !== 'postgraduate',
+    );
+
+    function selectCategory(category: string) {
+        form.setData({
+            category,
+            settings:
+                policies.find((policy) => policy.category === category)
+                    ?.settings ?? defaults,
+        });
+        form.clearErrors();
+    }
 
     function changeStatus(open: boolean) {
         form.transform(({ category, settings }) => ({
@@ -1424,65 +1453,267 @@ function Policies({
     }
 
     return (
-        <Panel title="Buka / Tutup Pendaftaran">
-            <label className="block space-y-1">
-                <span>Kategori pendaftaran</span>
-                <select className={input} value={form.data.category} onChange={(event) => {
-                    const category = event.target.value;
-                    form.setData({ category, settings: policies.find((policy) => policy.category === category)?.settings ?? defaults });
-                    form.clearErrors();
-                }}>
-                    {Object.entries(categories).filter(([category]) => category !== 'postgraduate').map(([category, label]) => (
-                        <option key={category} value={category}>{label}</option>
-                    ))}
-                </select>
-            </label>
-            <p>Status <strong>{isOpen ? 'Dibuka' : 'Ditutup'}</strong></p>
-            <div className="rounded-lg border border-base-300 p-4">
-                <h3 className="font-semibold">Gedung yang siap</h3>
-                <p className="text-sm">Sistem mengambil kategori penghuni, tipe kamar, dan tarif dari Gedung &amp; Kamar.</p>
-                <p className="mt-2">{ready.length ? ready.map((building) => building.name).join(', ') : 'Belum ada gedung siap untuk kategori ini.'}</p>
+        <div className="space-y-5">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                {policyCategories.map(([catKey, catLabel]) => {
+                    const catPolicy = policies.find(
+                        (p) => p.category === catKey,
+                    );
+                    const catOpen = Boolean(
+                        catPolicy?.published_at && catPolicy.settings.open,
+                    );
+                    const catReadyCount = (policyCatalog[catKey] ?? []).filter(
+                        (b) => !b.issue,
+                    ).length;
+                    const selected = form.data.category === catKey;
+
+                    return (
+                        <button
+                            key={catKey}
+                            type="button"
+                            onClick={() => selectCategory(catKey)}
+                            className={`rounded-xl border p-4 text-left transition ${
+                                selected
+                                    ? 'border-primary bg-primary/5 ring-primary/20 ring-2'
+                                    : 'border-base-300 bg-base-100 hover:border-primary/50'
+                            }`}
+                        >
+                            <div className="flex items-center justify-between gap-2">
+                                <span
+                                    className={`badge badge-xs ${
+                                        catOpen
+                                            ? 'badge-success'
+                                            : 'badge-ghost'
+                                    }`}
+                                >
+                                    {catOpen ? 'Dibuka' : 'Ditutup'}
+                                </span>
+                                {catPolicy?.version ? (
+                                    <span className="text-base-content/50 text-xs">
+                                        v{catPolicy.version}
+                                    </span>
+                                ) : null}
+                            </div>
+                            <p className="mt-2 font-semibold">{catLabel}</p>
+                            <p className="text-base-content/60 mt-1 text-xs">
+                                {catReadyCount} gedung siap dibuka
+                            </p>
+                        </button>
+                    );
+                })}
             </div>
-            {(blocked.length > 0 || !ready.length) && (
-                <div className="space-y-2 rounded-lg border border-warning/40 bg-warning/10 p-4" role="status">
-                    <p>Gedung yang belum siap tidak ikut dibuka.</p>
-                    {blocked.map((building) => {
-                        const url = buildings.find((item) => item.id === building.id)?.settings_url;
-                        return <div key={building.id} className="flex flex-wrap items-center gap-2">
-                            <p>{building.name} · {building.issue}</p>
-                            {url && <a className="btn btn-sm" href={url} target="_blank" rel="noreferrer">Atur gedung</a>}
-                        </div>;
-                    })}
-                    {masterHousingUrl && <a className="btn btn-sm" href={masterHousingUrl} target="_blank" rel="noreferrer">Buka Gedung &amp; Kamar</a>}
-                    <button type="button" className="btn btn-sm btn-outline" onClick={() => router.reload({ only: ['policyCatalog', 'buildings'] })}>
-                        Periksa ulang konfigurasi
+
+            <Panel title="Buka / Tutup Pendaftaran">
+                <div className="flex flex-wrap items-end justify-between gap-4">
+                    <label className="block min-w-64 flex-1 space-y-1 text-sm font-medium">
+                        <span>Kategori pendaftaran</span>
+                        <select
+                            className={input}
+                            value={form.data.category}
+                            onChange={(event) =>
+                                selectCategory(event.target.value)
+                            }
+                        >
+                            {policyCategories.map(([category, label]) => (
+                                <option key={category} value={category}>
+                                    {label}
+                                </option>
+                            ))}
+                        </select>
+                    </label>
+                    <div className="bg-base-200/60 border-base-300 rounded-lg border px-4 py-2.5 text-sm">
+                        Status{' '}
+                        <strong
+                            className={
+                                isOpen ? 'text-success' : 'text-base-content'
+                            }
+                        >
+                            {isOpen ? 'Dibuka' : 'Ditutup'}
+                        </strong>
+                    </div>
+                </div>
+
+                <div className="border-base-300 space-y-3 rounded-xl border p-4">
+                    <div>
+                        <h3 className="font-semibold">Gedung yang siap</h3>
+                        <p className="text-base-content/70 text-sm">
+                            Sistem mengambil kategori penghuni, tipe kamar, dan
+                            tarif dari Gedung &amp; Kamar secara otomatis tanpa
+                            input berulang.
+                        </p>
+                    </div>
+                    {ready.length > 0 ? (
+                        <div className="grid gap-3 sm:grid-cols-2">
+                            {ready.map((building) => (
+                                <div
+                                    key={building.id}
+                                    className="bg-base-200/50 border-base-300 space-y-2 rounded-lg border p-3"
+                                >
+                                    <div className="flex items-center justify-between gap-2">
+                                        <span className="font-semibold">
+                                            {building.name}
+                                        </span>
+                                        <span className="badge badge-success badge-xs">
+                                            Siap
+                                        </span>
+                                    </div>
+                                    {building.rates.length > 0 && (
+                                        <ul className="text-base-content/70 space-y-1 text-xs">
+                                            {building.rates.map((r, idx) => (
+                                                <li key={idx}>
+                                                    Tipe {r.type} ({r.unit}):{' '}
+                                                    {formatRupiah(
+                                                        Number(r.amount),
+                                                    )}
+                                                    {Number(r.room_amount) > 0
+                                                        ? ` · Sewa kamar: ${formatRupiah(Number(r.room_amount))}`
+                                                        : ''}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <p className="text-base-content/70 text-sm">
+                            Belum ada gedung siap untuk kategori ini.
+                        </p>
+                    )}
+                </div>
+
+                {(blocked.length > 0 || !ready.length) && (
+                    <div
+                        className="border-warning/40 bg-warning/10 space-y-3 rounded-xl border p-4"
+                        role="status"
+                    >
+                        <p className="font-medium">
+                            Gedung yang belum siap tidak ikut dibuka.
+                        </p>
+                        <div className="space-y-2">
+                            {blocked.map((building) => {
+                                const url = buildings.find(
+                                    (item) => item.id === building.id,
+                                )?.settings_url;
+                                return (
+                                    <div
+                                        key={building.id}
+                                        className="bg-base-100/80 border-base-300 flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3 text-sm"
+                                    >
+                                        <p>
+                                            <strong>{building.name}</strong> ·{' '}
+                                            {building.issue}
+                                        </p>
+                                        {url && (
+                                            <a
+                                                className="btn btn-xs btn-outline"
+                                                href={url}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                            >
+                                                Atur gedung
+                                            </a>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        <div className="flex flex-wrap gap-2 pt-1">
+                            {masterHousingUrl && (
+                                <a
+                                    className="btn btn-sm"
+                                    href={masterHousingUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                >
+                                    Buka Gedung &amp; Kamar
+                                </a>
+                            )}
+                            <button
+                                type="button"
+                                className="btn btn-sm btn-outline"
+                                onClick={() =>
+                                    router.reload({
+                                        only: ['policyCatalog', 'buildings'],
+                                    })
+                                }
+                            >
+                                Periksa ulang konfigurasi
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                <details className="border-base-300 rounded-xl border p-4">
+                    <summary className="cursor-pointer font-medium">
+                        Persyaratan dan aturan pengajuan
+                    </summary>
+                    <div className="mt-3 space-y-3">
+                        <label className="block space-y-1 text-sm">
+                            <span>Dokumen wajib (pisahkan dengan koma)</span>
+                            <input
+                                className={input}
+                                value={form.data.settings.documents.join(',')}
+                                onChange={(event) =>
+                                    form.setData('settings', {
+                                        ...form.data.settings,
+                                        documents: event.target.value
+                                            .split(',')
+                                            .map((item) => item.trim()),
+                                    })
+                                }
+                            />
+                        </label>
+                        <label className="flex items-center gap-2 text-sm">
+                            <input
+                                type="checkbox"
+                                checked={form.data.settings.monthly_allowed}
+                                onChange={(event) =>
+                                    form.setData('settings', {
+                                        ...form.data.settings,
+                                        monthly_allowed: event.target.checked,
+                                    })
+                                }
+                            />
+                            Izinkan pengajuan bulanan sesuai syarat
+                        </label>
+                    </div>
+                </details>
+
+                {Object.values(form.errors).map((error, index) => (
+                    <p
+                        key={index}
+                        role="alert"
+                        className="alert alert-error py-2 text-sm"
+                    >
+                        {error}
+                    </p>
+                ))}
+
+                <div className="border-base-300 flex flex-wrap gap-2 border-t pt-4">
+                    <button
+                        type="button"
+                        className="btn btn-primary"
+                        disabled={form.processing || !ready.length}
+                        onClick={() => changeStatus(true)}
+                    >
+                        {isOpen
+                            ? 'Perbarui konfigurasi pembukaan'
+                            : 'Buka Pendaftaran'}
                     </button>
+                    {isOpen && (
+                        <button
+                            type="button"
+                            className="btn btn-outline"
+                            disabled={form.processing}
+                            onClick={() => changeStatus(false)}
+                        >
+                            Tutup Pendaftaran
+                        </button>
+                    )}
                 </div>
-            )}
-            <details className="rounded-lg border border-base-300 p-4">
-                <summary className="cursor-pointer font-medium">Persyaratan dan aturan pengajuan</summary>
-                <div className="mt-3 space-y-3">
-                    <label className="block">Dokumen wajib (pisahkan dengan koma)
-                        <input className={input} value={form.data.settings.documents.join(',')} onChange={(event) =>
-                            form.setData('settings', { ...form.data.settings, documents: event.target.value.split(',').map((item) => item.trim()) })
-                        } />
-                    </label>
-                    <label className="flex items-center gap-2">
-                        <input type="checkbox" checked={form.data.settings.monthly_allowed} onChange={(event) =>
-                            form.setData('settings', { ...form.data.settings, monthly_allowed: event.target.checked })
-                        } />
-                        Izinkan pengajuan bulanan sesuai syarat
-                    </label>
-                </div>
-            </details>
-            {Object.values(form.errors).map((error, index) => <p key={index} role="alert" className="text-error">{error}</p>)}
-            <div className="flex flex-wrap gap-2">
-                <button type="button" className="btn btn-primary" disabled={form.processing || !ready.length} onClick={() => changeStatus(true)}>
-                    {isOpen ? 'Perbarui konfigurasi pembukaan' : 'Buka Pendaftaran'}
-                </button>
-                {isOpen && <button type="button" className="btn btn-outline" disabled={form.processing} onClick={() => changeStatus(false)}>Tutup Pendaftaran</button>}
-            </div>
-        </Panel>
+            </Panel>
+        </div>
     );
 }
 
@@ -1617,181 +1848,202 @@ function Applications({
                         </Field>
                     </fieldset>
 
-                    {Array.from({ length: count }, (_, i) => (
-                        <fieldset
-                            className="grid gap-3 rounded border p-3 sm:grid-cols-2"
+                    <div className="space-y-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                            <h3 className="font-semibold">
+                                Daftar peserta ({count} orang)
+                            </h3>
+                            <div className="flex gap-2">
+                                <button
+                                    className="btn btn-sm btn-outline"
+                                    type="button"
+                                    onClick={() => setCount(count + 1)}
+                                >
+                                    Tambah peserta
+                                </button>
 
-                            key={i}
-                        >
-                            <legend className="font-medium">
-                                Peserta {i + 1}
-                            </legend>
+                                <button
+                                    className="btn btn-sm btn-ghost"
+                                    type="button"
+                                    disabled={count <= 1}
+                                    onClick={() =>
+                                        setCount(Math.max(1, count - 1))
+                                    }
+                                >
+                                    Kurangi peserta
+                                </button>
+                            </div>
+                        </div>
 
-                            <Field
-                                name={`participants[${i}][nama]`}
-
-                                label="Nama sesuai identitas"
-                            />
-
-                            <Field
-                                name={`participants[${i}][nim_nip]`}
-
-                                label="NIM / nomor identitas"
-                            />
-
-                            <Field
-                                name={`participants[${i}][email]`}
-
-                                label="Email"
-
-                                type="email"
-                            />
-
-                            <Field
-                                name={`participants[${i}][gender]`}
-
-                                label="Jenis kelamin"
+                        {Array.from({ length: count }, (_, i) => (
+                            <fieldset
+                                className="bg-base-200/40 border-base-300 grid gap-3 rounded-xl border p-4 sm:grid-cols-2"
+                                key={i}
                             >
-                                <select
-                                    className={input}
+                                <legend className="px-1 font-medium">
+                                    Peserta {i + 1}
+                                </legend>
 
+                                <Field
+                                    name={`participants[${i}][nama]`}
+                                    label="Nama sesuai identitas"
+                                />
+
+                                <Field
+                                    name={`participants[${i}][nim_nip]`}
+                                    label="NIM / nomor identitas"
+                                />
+
+                                <Field
+                                    name={`participants[${i}][email]`}
+                                    label="Email"
+                                    type="email"
+                                />
+
+                                <Field
                                     name={`participants[${i}][gender]`}
+                                    label="Jenis kelamin"
                                 >
-                                    <option value="perempuan">Perempuan</option>
-
-                                    <option value="laki_laki">Laki-laki</option>
-                                </select>
-                            </Field>
-
-                            <Field
-                                name={`participants[${i}][kamar_id]`}
-
-                                label="Kamar"
-                            >
-                                <select
-                                    className={input}
-
-                                    name={`participants[${i}][kamar_id]`}
-
-                                    required
-                                >
-                                    <option value="">Pilih kamar</option>
-
-                                    {rooms.map((r) => (
-                                        <option key={r.id} value={r.id}>
-                                            {r.lantai.gedung.nama_gedung} /{' '}
-                                            {r.nomor_kamar}
+                                    <select
+                                        className={input}
+                                        name={`participants[${i}][gender]`}
+                                    >
+                                        <option value="perempuan">
+                                            Perempuan
                                         </option>
-                                    ))}
-                                </select>
-                            </Field>
 
-                            <Field
-                                name={`participants[${i}][prodi_id]`}
+                                        <option value="laki_laki">
+                                            Laki-laki
+                                        </option>
+                                    </select>
+                                </Field>
 
-                                label="Program studi (bila mahasiswa)"
-                            >
-                                <select
-                                    className={input}
-
-                                    name={`participants[${i}][prodi_id]`}
-
-                                    required={kind === 'postgraduate'}
+                                <Field
+                                    name={`participants[${i}][kamar_id]`}
+                                    label="Kamar"
                                 >
-                                    <option value="">Tidak ada</option>
+                                    <select
+                                        className={input}
+                                        name={`participants[${i}][kamar_id]`}
+                                        required
+                                    >
+                                        <option value="">Pilih kamar</option>
 
-                                    {programs
-                                        .filter(
-                                            (p) =>
-                                                kind !== 'postgraduate' ||
-                                                ['S2', 'S3'].includes(
-                                                    p.jenjang,
-                                                ),
-                                        )
-                                        .map((p) => (
-                                            <option key={p.id} value={p.id}>
-                                                {p.name} {p.jenjang}
+                                        {rooms.map((r) => (
+                                            <option key={r.id} value={r.id}>
+                                                {r.lantai.gedung.nama_gedung} /{' '}
+                                                {r.nomor_kamar}
                                             </option>
                                         ))}
-                                </select>
-                            </Field>
+                                    </select>
+                                </Field>
 
-                            {funding === 'sponsor' && <Field
-                                name={`participants[${i}][sponsor_limit]`}
+                                <Field
+                                    name={`participants[${i}][prodi_id]`}
+                                    label="Program studi (bila mahasiswa)"
+                                >
+                                    <select
+                                        className={input}
+                                        name={`participants[${i}][prodi_id]`}
+                                        required={kind === 'postgraduate'}
+                                    >
+                                        <option value="">Tidak ada</option>
 
-                                label="Batas tanggungan sponsor (kosong = seluruh biaya)"
+                                        {programs
+                                            .filter(
+                                                (p) =>
+                                                    kind !== 'postgraduate' ||
+                                                    ['S2', 'S3'].includes(
+                                                        p.jenjang,
+                                                    ),
+                                            )
+                                            .map((p) => (
+                                                <option key={p.id} value={p.id}>
+                                                    {p.name} {p.jenjang}
+                                                </option>
+                                            ))}
+                                    </select>
+                                </Field>
 
-                                type="number"
-
-                                required={false}
-                            />}
-                        </fieldset>
-                    ))}
-
-                    <div className="flex gap-2">
-                        <button
-                            className="btn btn-sm"
-
-                            type="button"
-
-                            onClick={() => setCount(count + 1)}
-                        >
-                            Tambah peserta
-                        </button>
-
-                        <button
-                            className="btn btn-sm"
-
-                            type="button"
-
-                            onClick={() => setCount(Math.max(1, count - 1))}
-                        >
-                            Kurangi peserta
-                        </button>
+                                {funding === 'sponsor' && (
+                                    <Field
+                                        name={`participants[${i}][sponsor_limit]`}
+                                        label="Batas tanggungan sponsor (kosong = seluruh biaya)"
+                                        type="number"
+                                        required={false}
+                                    />
+                                )}
+                            </fieldset>
+                        ))}
                     </div>
                 </ActionForm>
             </Panel>
 
-            {items.map((a) => (
-                <Panel
-                    key={a.id}
-                    title={`${a.number} · ${a.institution ?? 'Mandiri'}`}
-                >
-                    <p>
-                        {categories[a.kind]} · {a.registrations.length} peserta
+            <section className="space-y-3">
+                <h2 className="text-lg font-semibold">
+                    Daftar permohonan tercatat ({items.length})
+                </h2>
+                {items.length === 0 && (
+                    <p className="bg-base-100 border-base-300 text-base-content/70 rounded-xl border p-5 text-sm">
+                        Belum ada permohonan internasional, S2/S3 mandiri, atau
+                        Summer Course yang tercatat.
                     </p>
+                )}
+                {items.map((a) => (
+                    <Panel
+                        key={a.id}
+                        title={`${a.number} · ${a.institution ?? 'Mandiri'}`}
+                    >
+                        <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                            <p className="font-medium">
+                                {categories[a.kind]} · {a.registrations.length}{' '}
+                                peserta · Email invoice: {a.recipient_email}
+                            </p>
+                            <span
+                                className={`badge badge-sm ${
+                                    a.approved_at
+                                        ? 'badge-success'
+                                        : 'badge-warning'
+                                }`}
+                            >
+                                {a.approved_at
+                                    ? 'Dukungan disahkan'
+                                    : 'Menunggu pengesahan'}
+                            </span>
+                        </div>
 
-                    {a.letter_path && (
-                        <a
-                            className="link"
-                            href={applications.letter.url(a.id)}
-                        >
-                            Unduh surat
-                        </a>
-                    )}
+                        {a.letter_path && (
+                            <a
+                                className="btn btn-xs btn-outline link"
+                                href={applications.letter.url(a.id)}
+                            >
+                                Unduh surat
+                            </a>
+                        )}
 
-                    {a.approved_at ? (
-                        <p className="text-success">
-                            Dukungan pembiayaan disahkan.
+                        {a.approved_at ? (
+                            <p className="text-success text-sm font-medium">
+                                Dukungan pembiayaan disahkan.
+                            </p>
+                        ) : (
+                            <ActionForm
+                                url={applications.approve.url(a.id)}
+                                label="Sahkan dukungan"
+                            >
+                                <Confirm name="support_verified">
+                                    Surat dan penanggung biaya telah
+                                    diverifikasi.
+                                </Confirm>
+                            </ActionForm>
+                        )}
+
+                        <p className="text-base-content/70 text-xs">
+                            Invoice final Summer Course diterbitkan setelah masa
+                            sewa berakhir. Kunci dicatat kembali per peserta.
                         </p>
-                    ) : (
-                        <ActionForm
-                            url={applications.approve.url(a.id)}
-
-                            label="Sahkan dukungan"
-                        >
-                            <Confirm name="support_verified">
-                                Surat dan penanggung biaya telah diverifikasi.
-                            </Confirm>
-                        </ActionForm>
-                    )}
-
-                    <p className="text-sm">
-                        Invoice final Summer Course diterbitkan setelah masa
-                        sewa berakhir. Kunci dicatat kembali per peserta.
-                    </p>
-                </Panel>
-            ))}
+                    </Panel>
+                ))}
+            </section>
         </div>
     );
 }
@@ -2172,28 +2424,131 @@ export default function ResidenceWorkflowPage(props: Props) {
 
     const isOfficerView = !props.studentView;
 
+    const pendingContracts =
+        props.pendingRoomContracts && props.pendingRoomContracts.length > 0
+            ? props.pendingRoomContracts
+            : props.registrations.data.filter(
+                  (r) =>
+                      r.billing_basis === 'room' &&
+                      !r.room_contract_id &&
+                      !r.completed_at &&
+                      r.status !== 'rejected',
+              );
+
+    const sectionTitles: Record<string, { title: string; subtitle: string }> = {
+        registrations: {
+            title: 'Proses Pendaftaran',
+            subtitle:
+                'Administrasi, pembiayaan, check-in fisik, dan pengembalian kunci.',
+        },
+        opening: {
+            title: 'Buka / Tutup Pendaftaran',
+            subtitle:
+                'Kelola pembukaan pendaftaran per kategori penghuni berdasarkan kesiapan Gedung & Kamar.',
+        },
+        applications: {
+            title: 'Permohonan Institusi, S2/S3 & Kegiatan',
+            subtitle:
+                'Catat permohonan mahasiswa internasional, pascasarjana mandiri, dan peserta Summer Course.',
+        },
+        public: {
+            title: 'Pendaftaran Penyewa Umum',
+            subtitle:
+                'Pencatatan dan alokasi kamar untuk tamu atau penyewa umum non-mahasiswa.',
+        },
+        finance: {
+            title: 'Rekonsiliasi DPUB & Invoice Institusi',
+            subtitle:
+                'Pencocokan bukti pembayaran resmi DPUB dan penerbitan invoice gabungan institusi.',
+        },
+        contracts: {
+            title: 'Penerbitan Tagihan Kamar Bersama',
+            subtitle:
+                'Undangan teman sekamar dilakukan antar penghuni. Sahkan anggota kamar untuk membagi tagihan kamar.',
+        },
+    };
+
+    const currentHeader = sectionTitles[tab] ?? sectionTitles.registrations;
+
     return (
         <div className="space-y-5">
             <Head
                 title={
                     isOfficerView
-                        ? 'Proses Pendaftaran'
+                        ? currentHeader.title
                         : 'Status Pendaftaran Asrama'
                 }
             />
 
-            <header>
-                <h1 className="text-2xl font-bold">
-                    {isOfficerView
-                        ? 'Proses Pendaftaran'
-                        : 'Pendaftaran & Status Hunian Saya'}
-                </h1>
+            <header className="space-y-3">
+                <div>
+                    <h1 className="text-2xl font-bold">
+                        {isOfficerView
+                            ? currentHeader.title
+                            : 'Pendaftaran & Status Hunian Saya'}
+                    </h1>
 
-                <p className="text-base-content/70">
-                    {isOfficerView
-                        ? 'Administrasi, pembiayaan, check-in fisik, dan pengembalian kunci.'
-                        : 'Pantau status pengajuan kamar, kelengkapan berkas, pembayaran, dan check-in Anda.'}
-                </p>
+                    <p className="text-base-content/70 text-sm">
+                        {isOfficerView
+                            ? currentHeader.subtitle
+                            : 'Pantau status pengajuan kamar, kelengkapan berkas, pembayaran, dan check-in Anda.'}
+                    </p>
+                </div>
+
+                {isOfficerView && (props.manager || props.finance) && (
+                    <nav
+                        aria-label="Submenu pengelolaan pendaftaran"
+                        className="border-base-300 flex flex-wrap gap-1.5 border-b pb-3"
+                    >
+                        {[
+                            {
+                                id: 'registrations',
+                                label: 'Daftar Pengajuan',
+                                show: true,
+                            },
+                            {
+                                id: 'opening',
+                                label: 'Buka / Tutup Pendaftaran',
+                                show: props.manager,
+                            },
+                            {
+                                id: 'applications',
+                                label: 'Permohonan Institusi & Kegiatan',
+                                show: props.manager,
+                            },
+                            {
+                                id: 'public',
+                                label: 'Penyewa Umum',
+                                show: props.manager,
+                            },
+                            {
+                                id: 'finance',
+                                label: 'Rekonsiliasi & Invoice',
+                                show: props.finance,
+                            },
+                        ]
+                            .filter((item) => item.show)
+                            .map((item) => (
+                                <Link
+                                    key={item.id}
+                                    href={
+                                        item.id === 'registrations'
+                                            ? workflow.index.url()
+                                            : workflow.index.url({
+                                                  query: { section: item.id },
+                                              })
+                                    }
+                                    className={`btn btn-sm ${
+                                        tab === item.id
+                                            ? 'btn-primary'
+                                            : 'btn-ghost'
+                                    }`}
+                                >
+                                    {item.label}
+                                </Link>
+                            ))}
+                    </nav>
+                )}
             </header>
 
             {Object.entries(errors ?? {}).map(([key, error]) => (
@@ -2204,11 +2559,10 @@ export default function ResidenceWorkflowPage(props: Props) {
 
             {isOfficerView && tab === 'registrations' && (
                 <>
-                    <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+                    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                         {Object.entries(props.summary).map(([key, count]) => (
                             <div
-                                className="bg-base-100 rounded border p-4"
-
+                                className="bg-base-100 border-base-300 rounded-xl border p-4 shadow-xs"
                                 key={key}
                             >
                                 <p className="text-2xl font-semibold">
@@ -2217,7 +2571,7 @@ export default function ResidenceWorkflowPage(props: Props) {
                                         : count}
                                 </p>
 
-                                <p className="text-sm">
+                                <p className="text-base-content/70 text-sm">
                                     {
                                         {
                                             applicants: 'Pendaftar',
@@ -2245,7 +2599,48 @@ export default function ResidenceWorkflowPage(props: Props) {
                         ))}
                     </div>
 
-
+                    {props.manager && pendingContracts.length > 0 && (
+                        <Panel title="Kamar bersama menunggu penerbitan tagihan">
+                            <p className="text-base-content/70 text-sm">
+                                Undangan teman sekamar dikirim dan diterima
+                                langsung antar calon penghuni. Setelah anggota
+                                kamar lengkap, sahkan daftar anggota di bawah
+                                ini untuk membagi tarif kamar tahunan secara
+                                proporsional ke tagihan masing-masing anggota.
+                            </p>
+                            <ActionForm
+                                url={workflow.contract.url()}
+                                label="Sahkan anggota dan terbitkan tagihan"
+                            >
+                                <div className="grid gap-2 sm:grid-cols-2">
+                                    {pendingContracts.map((r) => (
+                                        <label
+                                            key={r.id}
+                                            className="bg-base-200/50 border-base-300 flex items-center gap-2 rounded-lg border p-3 text-sm"
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                name="registration_ids[]"
+                                                value={r.id}
+                                                defaultChecked
+                                            />
+                                            <span>
+                                                <strong>
+                                                    {
+                                                        r.student_profile.user
+                                                            .nama
+                                                    }
+                                                </strong>{' '}
+                                                ({r.student_profile.user.nim_nip}
+                                                ) — Kamar{' '}
+                                                {r.reserved_room?.nomor_kamar}
+                                            </span>
+                                        </label>
+                                    ))}
+                                </div>
+                            </ActionForm>
+                        </Panel>
+                    )}
                 </>
             )}
 
@@ -2262,13 +2657,9 @@ export default function ResidenceWorkflowPage(props: Props) {
                     {props.registrations.data.map((r) => (
                         <RegistrationCard
                             rooms={props.rooms}
-
                             key={r.id}
-
                             r={r}
-
                             manager={props.manager}
-
                             leader={props.leader}
                         />
                     ))}
@@ -2276,7 +2667,6 @@ export default function ResidenceWorkflowPage(props: Props) {
                     {props.registrations.last_page > 1 && (
                         <nav
                             className="flex flex-wrap gap-2"
-
                             aria-label="Halaman pendaftaran"
                         >
                             {props.registrations.links.map(
@@ -2284,15 +2674,11 @@ export default function ResidenceWorkflowPage(props: Props) {
                                     link.url && (
                                         <Link
                                             key={i}
-
                                             href={link.url}
-
                                             className={`btn btn-sm ${link.active ? 'btn-primary' : 'btn-ghost'}`}
                                         >
                                             {link.label
-
                                                 .replace(/&laquo;/g, '‹')
-
                                                 .replace(/&raquo;/g, '›')}
                                         </Link>
                                     ),
@@ -2307,10 +2693,8 @@ export default function ResidenceWorkflowPage(props: Props) {
             {tab === 'opening' && (
                 <Policies
                     buildings={props.buildings}
-
                     policyCatalog={props.policyCatalog}
                     masterHousingUrl={props.masterHousingUrl}
-
                     policies={props.policies}
                 />
             )}
@@ -2318,9 +2702,7 @@ export default function ResidenceWorkflowPage(props: Props) {
             {tab === 'applications' && (
                 <Applications
                     rooms={props.rooms}
-
                     programs={props.programs}
-
                     items={props.applications}
                 />
             )}
@@ -2328,53 +2710,38 @@ export default function ResidenceWorkflowPage(props: Props) {
             {tab === 'finance' && (
                 <Finance
                     proofs={props.paymentProofs}
-
                     references={props.reconciliations}
-
                     invoices={props.invoices}
-
                     groups={props.invoiceGroups}
-
                     applicationItems={props.applications}
                 />
             )}
 
             {tab === 'contracts' && (
                 <Panel title="Pengesahan kontrak kamar bersama">
-                    <p>
-                        Anggota menerima undangan teman sekamar terlebih dahulu.
-                        Pilih seluruh pendaftar untuk satu kamar; total tarif
-                        kamar dibagi tepat kepada anggota yang disahkan.
+                    <p className="text-base-content/70 text-sm">
+                        Undangan teman sekamar dilakukan langsung antar
+                        penghuni/calon penghuni. Pilih seluruh pendaftar untuk
+                        satu kamar; total tarif kamar dibagi tepat kepada
+                        anggota yang disahkan.
                     </p>
 
                     <ActionForm
                         url={workflow.contract.url()}
-
                         label="Sahkan anggota dan terbitkan tagihan"
                     >
-                        {props.registrations.data
-
-                            .filter(
-                                (r) =>
-                                    r.billing_basis === 'room' &&
-                                    !r.room_contract_id &&
-                                    !r.completed_at &&
-                                    r.status !== 'rejected',
-                            )
-
-                            .map((r) => (
-                                <label key={r.id} className="flex gap-2">
-                                    <input
-                                        type="checkbox"
-
-                                        name="registration_ids[]"
-
-                                        value={r.id}
-                                    />
-                                    {r.student_profile.user.nama} —{' '}
-                                    {r.reserved_room?.nomor_kamar}
-                                </label>
-                            ))}
+                        {pendingContracts.map((r) => (
+                            <label key={r.id} className="flex gap-2">
+                                <input
+                                    type="checkbox"
+                                    name="registration_ids[]"
+                                    value={r.id}
+                                    defaultChecked
+                                />
+                                {r.student_profile.user.nama} —{' '}
+                                {r.reserved_room?.nomor_kamar}
+                            </label>
+                        ))}
                     </ActionForm>
                 </Panel>
             )}

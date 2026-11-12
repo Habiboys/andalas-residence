@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Periode;
 use App\Services\ResidenceLifecycle;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -16,7 +17,14 @@ class SubmitResidenceRegistrationRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $student = $this->user()?->mahasiswaProfil;
-        $this->merge(['is_kipk' => $student && app(ResidenceLifecycle::class)->isKipk($student)]);
+        $merge = ['is_kipk' => $student && app(ResidenceLifecycle::class)->isKipk($student)];
+        if (! $this->filled('periode_id')) {
+            $activePeriodId = Periode::where('status', 'aktif')->value('id');
+            if ($activePeriodId) {
+                $merge['periode_id'] = $activePeriodId;
+            }
+        }
+        $this->merge($merge);
     }
 
     /** @return array<string, mixed> */

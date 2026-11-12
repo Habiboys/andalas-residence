@@ -5,12 +5,16 @@ use App\Actions\Checkout\EndTemporaryStays;
 use App\Actions\Registration\AllocateResidenceRoom;
 use App\Actions\Registration\ConfirmResidenceCheckIn;
 use App\Actions\Registration\SubmitResidenceRegistration;
+use App\Models\City;
 use App\Models\MahasiswaProfil;
+use App\Models\Periode;
+use App\Models\Province;
 use App\Models\RegistrationDocument;
 use App\Models\ResidenceApplication;
 use App\Models\ResidenceDecision;
 use App\Models\ResidencePaymentReference;
 use App\Models\ResidencePolicy;
+use App\Models\ResidenceRate;
 use App\Models\ResidenceRegistration;
 use App\Models\RoomInvitation;
 use App\Models\TransaksiKeuangan;
@@ -116,7 +120,7 @@ it('keeps old policy rates unchanged when a new version is published', function 
     $r = toBeSubmit($f);
     $settings = $f['policy']->settings;
     unset($settings['rates']);
-    \App\Models\ResidenceRate::updateOrCreate([
+    ResidenceRate::updateOrCreate([
         'gedung_id' => $f['room']->lantai->gedung_id,
         'tipe_kamar' => $f['room']->tipe_kamar,
         'unit' => 'year',
@@ -132,7 +136,7 @@ it('rejects incomplete publication and publication by a student', function () {
     $f = toBeFixture();
     $settings = $f['policy']->settings;
     unset($settings['rates']);
-    \App\Models\ResidenceRate::where('gedung_id', $f['room']->lantai->gedung_id)->delete();
+    ResidenceRate::where('gedung_id', $f['room']->lantai->gedung_id)->delete();
     $this->actingAs($f['manager'])->post(route('residence.policies'), ['category' => 'local_non_kipk', 'settings' => $settings])->assertSessionHasErrors('settings.building_ids');
     $this->actingAs($f['user'])->post(route('residence.policies'), ['category' => 'local_non_kipk', 'settings' => $f['policy']->settings])->assertForbidden();
     $this->assertDatabaseCount('residence_policies', 1);
@@ -160,8 +164,8 @@ it('requires and saves identity and address on the housing data page', function 
         'periode_id' => $f['period']->id,
         'preferences' => [['kamar_id' => $f['room']->id]],
     ])->assertSessionHasErrors('profile');
-    $province = \App\Models\Province::create(['name' => 'Provinsi Uji', 'wilayah_code' => '98']);
-    $city = \App\Models\City::create(['name' => 'Kota Uji', 'province_id' => $province->id, 'wilayah_code' => '98.99']);
+    $province = Province::create(['name' => 'Provinsi Uji', 'wilayah_code' => '98']);
+    $city = City::create(['name' => 'Kota Uji', 'province_id' => $province->id, 'wilayah_code' => '98.99']);
     $url = route('residence.housing-profile');
     $base = ['gender' => 'perempuan', 'prodi_id' => $f['program']->id, 'no_hp' => '080000000001'];
     $this->actingAs($f['user'])->post($url, $base)->assertSessionHasErrors(['nama', 'nik', 'city_id', 'alamat']);
@@ -361,5 +365,26 @@ it('renders the workflow with scoped registrations and a complete operational pa
     $r = toBeSubmit($f);
     $this->actingAs($f['user'])->get(route('residence.workflow'))->assertRedirect(route('mahasiswa.registration'));
     $this->actingAs($f['user'])->get(route('mahasiswa.registration.status'))->assertInertia(fn (Assert $page) => $page->component('admin/residence-workflow')->where('page', 'registration')->has('registrations.data', 1)->where('registrations.data.0.id', $r->id)->where('manager', false));
-    $this->actingAs($f['manager'])->get(route('residence.workflow'))->assertInertia(fn (Assert $page) => $page->where('manager', true)->has('policies', 1)->has('invoiceGroups'));
+    $this->actingAs($f['manager'])->get(route('residence.workflow'))->assertInertia(fn (Assert $page) => $page->where('manager', true)->has('policies', 1)->has('invoiceGroups')->has('pendingRoomContracts'));
+});
+
+it('renders the student service selection page with shell user payload and auto-provisions an active period when opening registration', function () {
+    $f = toBeFixture();
+    $this->actingAs($f['user'])->get(route('mahasiswa.layanan'))->assertOk()->assertInertia(
+        fn (Assert $page) => $page
+            ->component('mahasiswa/layanan')
+            ->where('role', 'mahasiswa')
+            ->where('page', 'layanan')
+            ->where('initialUser.id', $f['user']->id)
+    );
+
+    Periode::query()->delete();
+    expect(Periode::where('status', 'aktif')->exists())->toBeFalse();
+
+    $this->actingAs($f['manager'])->post(route('residence.policies.store'), [
+        'category' => 'local_non_kipk',
+        'open' => 1,
+    ])->assertRedirect()->assertSessionHasNoErrors();
+
+    expect(Periode::where('status', 'aktif')->exists())->toBeTrue();
 });

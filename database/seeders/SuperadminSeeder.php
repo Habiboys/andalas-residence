@@ -14,7 +14,7 @@ class SuperadminSeeder extends Seeder
     public function run(): void
     {
         Role::firstOrCreate(['name' => 'superadmin', 'guard_name' => 'web']);
-        $user = User::firstOrCreate(['email' => 'superadmin@example.test'], [
+        $user = User::firstOrCreate(['email' => 'superadmin.legacy@unand.ac.id'], [
             'nim_nip' => 'SA-LEGACY', 'nama' => 'Super Admin', 'password' => 'password',
             'status' => 'aktif', 'email_verified_at' => now(),
         ]);

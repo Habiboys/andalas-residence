@@ -38,6 +38,7 @@ use App\Services\ResidenceWorkflowAccess;
 use App\Services\StudentCohort;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -105,7 +106,8 @@ class ResidenceWorkflowController extends Controller
         return Inertia::render('admin/residence-workflow', [
             'role' => $user->getRoleNames()->first(), 'page' => $studentView ? 'registration' : ($section === 'registrations' ? 'residence-workflow' : 'residence-workflow/'.$section), 'initialUser' => app(RolePageController::class)->userPayload($request),
             'section' => $section,
-            'pendingRoomContracts' => $section === 'contracts' ? (clone $registrations)
+            'pendingRoomContracts' => $manager && in_array($section, ['registrations', 'contracts'], true) ? (clone $registrations)
+                ->with(['studentProfile.user', 'reservedRoom.lantai.gedung'])
                 ->where('billing_basis', 'room')->whereNull('room_contract_id')->whereNull('completed_at')
                 ->whereNotNull('reserved_room_id')->whereNotIn('status', ['draft', 'rejected'])->get() : [],
             'registrations' => $page, 'summary' => $summary,
@@ -164,8 +166,9 @@ class ResidenceWorkflowController extends Controller
             if ($categoryInput === 'international_student') {
                 $resolvedCategory = 'international_student';
             } else {
+                $activeMabaYear = Periode::where('status', 'aktif')->value('angkatan_maba') ?? (int) now()->format('Y');
                 $isKipk = KipkRecipient::where('nim', $user->nim_nip)->where('angkatan', $year)->exists()
-                    && (int) Periode::where('status', 'aktif')->value('angkatan_maba') === (int) $year
+                    && (int) $activeMabaYear === (int) $year
                     && ! LegacyResident::where('nim', $user->nim_nip)->exists()
                     && ! in_array(Prodi::whereKey($data['prodi_id'])->value('jenjang'), ['S2', 'S3'], true);
                 $resolvedCategory = $isKipk ? 'local_kipk' : 'local_non_kipk';
@@ -180,9 +183,9 @@ class ResidenceWorkflowController extends Controller
             $profile->update([
                 'prodi_id' => $data['prodi_id'],
                 'angkatan' => $year,
-                ...\Illuminate\Support\Arr::only($data, ['nik', 'city_id', 'alamat']),
+                ...Arr::only($data, ['nik', 'city_id', 'alamat']),
             ]);
-            AuditLogService::log($user, 'residence_profile_completed', $profile, null, \Illuminate\Support\Arr::except($data, ['nik', 'alamat', 'no_hp']));
+            AuditLogService::log($user, 'residence_profile_completed', $profile, null, Arr::except($data, ['nik', 'alamat', 'no_hp']));
         });
 
         if ($housing) {
@@ -210,6 +213,21 @@ class ResidenceWorkflowController extends Controller
             }
             if ($settings['open'] && $settings['building_ids'] === []) {
                 throw ValidationException::withMessages(['settings.building_ids' => 'Belum ada gedung dengan konfigurasi siap untuk kategori ini. Lengkapi Gedung & Kamar.']);
+            }
+            if ($settings['open'] && ! Periode::where('status', 'aktif')->exists()) {
+                $year = (int) now()->format('Y');
+                $period = Periode::firstOrCreate(
+                    ['nama_periode' => $year.'/'.($year + 1)],
+                    [
+                        'status' => 'aktif',
+                        'angkatan_maba' => $year,
+                        'tanggal_mulai' => today()->toDateString(),
+                        'tanggal_selesai' => today()->addYear()->toDateString(),
+                    ],
+                );
+                if ($period->status !== 'aktif') {
+                    $period->update(['status' => 'aktif']);
+                }
             }
             $settings['rates'] = $settings['open'] ? $service->snapshotRates($category, $settings['building_ids']) : [];
             $policy = ResidencePolicy::create(['category' => $request->validated('category'), 'version' => $version, 'settings' => $settings, 'published_at' => now(), 'created_by' => $request->user()->id]);

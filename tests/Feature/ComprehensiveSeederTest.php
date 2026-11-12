@@ -34,7 +34,8 @@ test('seeder supplies every domain model with linked and financially consistent 
             expect($class::count(), $class)->toBeGreaterThan(0);
         }
     }
-    expect(Models\User::where('email', 'like', '%@example.test')->count())->toBe(73);
+    expect(Models\User::where('email', 'like', '%@example.%')->count())->toBe(0);
+    expect(Models\User::where('email', 'like', '%@student.unand.ac.id')->orWhere('email', 'like', '%@unand.ac.id')->count())->toBe(87);
     foreach (Models\MahasiswaProfil::with('user')->get() as $student) {
         if ($student->user->client_profile_category !== ClientProfileCategory::NonStudent) {
             expect($student->user->nim_nip)->toMatch('/^[0-9]{10}$/')

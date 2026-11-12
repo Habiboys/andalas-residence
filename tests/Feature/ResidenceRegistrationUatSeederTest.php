@@ -10,24 +10,24 @@ it('provides all UAT roles and degree profiles with password login without envir
     $f = toBeFixture();
     $this->seed(RolePermissionSeeder::class);
     $this->seed(ResidenceRegistrationUatSeeder::class);
-    expect(User::where('email', 'like', 'uat.%@example.test')->count())->toBe(18);
+    expect(User::where('email', 'like', 'uat.%')->count())->toBe(18);
     foreach (['s2' => 'S2', 's3' => 'S3', 'teman' => 'S1', 'lokal' => 'S1', 'bulanan' => 'S1'] as $name => $degree) {
-        $user = User::where('email', 'uat.'.$name.'@example.test')->sole();
+        $user = User::where('email', 'uat.'.$name.'@student.unand.ac.id')->sole();
         expect($user->mahasiswaProfil->prodi->jenjang)->toBe($degree);
         expect($user->hasRole('mahasiswa'))->toBeTrue();
         expect($user->mahasiswaProfil->residenceRegistrations()->count())->toBe(0);
     }
-    expect(User::where('email', 'uat.bulanan@example.test')->sole()->mahasiswaProfil->angkatan)->toEqual(2025);
-    foreach (User::where('email', 'like', 'uat.%@example.test')->get() as $user) {
+    expect(User::where('email', 'uat.bulanan@student.unand.ac.id')->sole()->mahasiswaProfil->angkatan)->toEqual(2025);
+    foreach (User::where('email', 'like', 'uat.%')->get() as $user) {
         expect(Hash::check('password', $user->password))->toBeTrue();
         $this->post(route('login.store'), ['email' => $user->email, 'password' => 'password'])->assertRedirect();
         $this->assertAuthenticatedAs($user);
         $this->post(route('logout'));
     }
     $this->seed(ResidenceRegistrationUatSeeder::class);
-    expect(User::where('email', 'like', 'uat.%@example.test')->count())->toBe(18);
+    expect(User::where('email', 'like', 'uat.%')->count())->toBe(18);
     foreach (['teknisi', 'teknisi2', 'teknisi3'] as $name) {
-        expect(User::where('email', 'uat.'.$name.'@example.test')->sole()->hasRole('teknisi'))->toBeTrue();
+        expect(User::where('email', 'uat.'.$name.'@unand.ac.id')->sole()->hasRole('teknisi'))->toBeTrue();
     }
     expect(Hash::check('password', $f['user']->fresh()->password))->toBeTrue();
 });

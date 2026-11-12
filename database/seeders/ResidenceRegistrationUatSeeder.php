@@ -36,7 +36,7 @@ class ResidenceRegistrationUatSeeder extends Seeder
                 $programs[$degree] = Prodi::firstOrCreate(['name' => 'Program UAT '.$degree, 'departemen_id' => $department->id, 'jenjang' => $degree]);
             }
             foreach (['superadmin' => 'superadmin', 'pengelola' => 'admin_layanan', 'keuangan' => 'admin_layanan', 'pimpinan' => 'pimpinan', 'fasilitator' => 'fasilitator', 'inspeksi' => 'go', 'teknisi' => 'teknisi', 'teknisi2' => 'teknisi', 'teknisi3' => 'teknisi', 'aset' => 'admin_aset', 'fasilitator2' => 'fasilitator'] as $name => $role) {
-                $user = User::firstOrCreate(['email' => 'uat.'.$name.'@example.test'], ['nim_nip' => 'UAT-'.strtoupper($name), 'nama' => 'UAT '.ucfirst($name), 'password' => $password, 'status' => 'aktif', 'email_verified_at' => now()]);
+                $user = User::firstOrCreate(['email' => 'uat.'.$name.'@unand.ac.id'], ['nim_nip' => 'UAT-'.strtoupper($name), 'nama' => 'UAT '.ucfirst($name), 'password' => $password, 'status' => 'aktif', 'email_verified_at' => now()]);
                 $user->forceFill(['password' => $password, 'email_verified_at' => now()])->save();
                 if ($user->wasRecentlyCreated) {
                     $user->assignRole($role);
@@ -52,7 +52,7 @@ class ResidenceRegistrationUatSeeder extends Seeder
                 $offset = array_search($index, ['lokal', 'kipk', 'teman', 's2', 's3', 'internasional', 'bulanan'], true) + 1;
                 $cohort = $index === 'bulanan' ? $intake - 1 : $intake;
                 $nim = substr((string) $cohort, -2).'9988'.str_pad((string) $offset, 4, '0', STR_PAD_LEFT);
-                $user = User::firstOrCreate(['email' => 'uat.'.$index.'@example.test'], ['nim_nip' => $nim, 'nama' => 'UAT '.ucfirst($index), 'password' => $password, 'gender' => 'perempuan', 'status' => 'aktif', 'email_verified_at' => now(), 'client_profile_category' => $index === 'internasional' ? 'international_student' : ($index === 'kipk' ? 'local_kipk' : 'local_non_kipk')]);
+                $user = User::firstOrCreate(['email' => 'uat.'.$index.'@student.unand.ac.id'], ['nim_nip' => $nim, 'nama' => 'UAT '.ucfirst($index), 'password' => $password, 'gender' => 'perempuan', 'status' => 'aktif', 'email_verified_at' => now(), 'client_profile_category' => $index === 'internasional' ? 'international_student' : ($index === 'kipk' ? 'local_kipk' : 'local_non_kipk')]);
                 $user->forceFill(['password' => $password, 'email_verified_at' => now()])->save();
                 if (! $user->wasRecentlyCreated) {
                     continue;
@@ -63,7 +63,7 @@ class ResidenceRegistrationUatSeeder extends Seeder
                     KipkRecipient::firstOrCreate(['nim' => $nim, 'angkatan' => $intake], ['nama' => $user->nama]);
                 }
             }
-            $this->command->info('Akun baru uat.<peran>@example.test dibuat. Password akun uat.*: password. Seed ulang mereset password akun UAT, bukan transaksi atau akun lain.');
+            $this->command->info('Akun baru uat.<peran>@unand.ac.id dan uat.<mahasiswa>@student.unand.ac.id dibuat. Password akun uat.*: password. Seed ulang mereset password akun UAT, bukan transaksi atau akun lain.');
             $this->command->info('Fasilitator baru ditugaskan pada '.$building->nama_gedung.'. Kebijakan, tarif, dan penghuni lama tidak diubah.');
         });
     }

@@ -37,9 +37,9 @@ class ResidenceLifecycle
 
     public function isBinaan(MahasiswaProfil $student): bool
     {
-        $year = Periode::where('status', 'aktif')->value('angkatan_maba');
+        $year = Periode::where('status', 'aktif')->value('angkatan_maba') ?? (int) now()->format('Y');
 
-        return $year !== null && (int) $student->angkatan === (int) $year && $this->isLocal($student)
+        return (int) $student->angkatan === (int) $year && $this->isLocal($student)
             && ! $student->residenceRegistrations()->whereIn('stay_kind', ['summer_course', 'non_student'])->whereNull('ended_at')->where('status', 'accepted')->exists()
             && ! $this->hasEndedStay($student);
     }

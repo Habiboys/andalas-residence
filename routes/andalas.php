@@ -32,6 +32,7 @@ use App\Http\Controllers\ProvinsiController;
 use App\Http\Controllers\ResidenceDetailController;
 use App\Http\Controllers\ResidenceManagementController;
 use App\Http\Controllers\ResidenceRegistrationController;
+use App\Http\Controllers\RolePageController;
 use App\Http\Controllers\RoomInvitationController;
 use App\Http\Controllers\RoomTypeController;
 use App\Http\Controllers\StokAsetController;
@@ -39,7 +40,9 @@ use App\Http\Controllers\TeknisiController;
 use App\Http\Controllers\TemporaryStayController;
 use App\Http\Controllers\TiketController;
 use App\Http\Middleware\EnsureResidenceAccountAccess;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Inertia\Inertia;
 
 // ─── Public landing pages ────────────────────────────────────────────────────
 Route::get('/', [LandingController::class, 'beranda'])->name('landing');
@@ -64,8 +67,11 @@ Route::middleware(['auth', 'verified', EnsureResidenceAccountAccess::class])->gr
     require __DIR__.'/role-pages.php';
     require __DIR__.'/residence-workflow.php';
 
-    Route::get('/mahasiswa/layanan', function () {
-        return \Inertia\Inertia::render('mahasiswa/layanan', [
+    Route::get('/mahasiswa/layanan', function (Request $request) {
+        return Inertia::render('mahasiswa/layanan', [
+            'role' => 'mahasiswa',
+            'page' => 'layanan',
+            'initialUser' => app(RolePageController::class)->userPayload($request),
             'housingUrl' => route('mahasiswa.registration'),
             'letterUrl' => route('mahasiswa.bebas-asrama'),
             'dashboardUrl' => route('mahasiswa.dashboard'),

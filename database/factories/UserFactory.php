@@ -20,7 +20,7 @@ class UserFactory extends Factory
         return [
             'nim_nip' => fake()->unique()->numerify('##########'),
             'nama' => fake()->name(),
-            'email' => fake()->unique()->safeEmail(),
+            'email' => fake()->unique()->userName().'@unand.ac.id',
             'email_verified_at' => now(),
             'password' => static::$password ??= Hash::make('password'),
             'no_hp' => fake()->phoneNumber(),
@@ -40,6 +40,7 @@ class UserFactory extends Factory
     public function student(): static
     {
         return $this->state(fn (array $attributes) => [
+            'email' => fake()->unique()->userName().'@student.unand.ac.id',
             'client_profile_category' => ClientProfileCategory::Student,
         ]);
     }

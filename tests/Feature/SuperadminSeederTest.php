@@ -7,14 +7,14 @@ it('restores the original superadmin login without creating fake students', func
     $this->seed(SuperadminSeeder::class);
     $user = User::sole();
     expect($user->hasRole('superadmin'))->toBeTrue();
-    $this->post(route('login.store'), ['email' => 'superadmin@example.test', 'password' => 'password'])
+    $this->post(route('login.store'), ['email' => 'superadmin.legacy@unand.ac.id', 'password' => 'password'])
         ->assertSessionHasNoErrors()->assertRedirect('/dashboard/redirect');
     $this->assertAuthenticatedAs($user);
     $this->assertDatabaseCount('mahasiswa_profil', 0);
 });
 
 it('does not reset an existing admin password or disabled status', function () {
-    $user = User::factory()->create(['email' => 'superadmin@example.test', 'password' => 'changed-password', 'status' => 'nonaktif']);
+    $user = User::factory()->create(['email' => 'superadmin.legacy@unand.ac.id', 'password' => 'changed-password', 'status' => 'nonaktif']);
     $password = $user->password;
     $this->seed(SuperadminSeeder::class);
     expect($user->fresh()->password)->toBe($password);

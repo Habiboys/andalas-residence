@@ -26,7 +26,7 @@ class ResidenceScenarioSeeder extends Seeder
             $this->invoiceGroups();
         });
 
-        $this->command?->info('Akun skenario: <nama-skenario>@example.test; password: password. VA DEMO tidak dapat digunakan membayar.');
+        $this->command?->info('Akun skenario: <nama-skenario>@student.unand.ac.id (mahasiswa) / demo.<peran>@unand.ac.id (pengelola); password: password. VA DEMO tidak dapat digunakan membayar.');
     }
 
     /** @return list<array{string, string, string}> */
@@ -73,12 +73,12 @@ class ResidenceScenarioSeeder extends Seeder
 
     public static function student(string $scenario): Models\MahasiswaProfil
     {
-        return Models\MahasiswaProfil::whereHas('user', fn ($query) => $query->where('email', $scenario.'@example.test'))->firstOrFail();
+        return Models\MahasiswaProfil::whereHas('user', fn ($query) => $query->whereIn('email', [$scenario.'@student.unand.ac.id', 'demo.'.$scenario.'@unand.ac.id']))->firstOrFail();
     }
 
     public static function staff(string $role): Models\User
     {
-        return Models\User::where('email', $role.'@example.test')->firstOrFail();
+        return Models\User::where('email', 'demo.'.$role.'@unand.ac.id')->firstOrFail();
     }
 
     public static function fixture(string $name, bool $pdf = false): string
@@ -116,7 +116,7 @@ class ResidenceScenarioSeeder extends Seeder
             'status' => Models\Periode::where('status', 'aktif')->exists() ? 'nonaktif' : 'aktif', 'angkatan_maba' => $year, 'tanggal_mulai' => now()->subMonths(2)->toDateString(), 'tanggal_selesai' => now()->addMonths(10)->toDateString(),
         ]);
         foreach (['superadmin', 'pimpinan', 'staff_admin', 'admin_layanan', 'admin_aset', 'fasilitator', 'teknisi', 'go', 'orang_tua'] as $index => $role) {
-            $user = Models\User::firstOrCreate(['email' => $role.'@example.test'], [
+            $user = Models\User::firstOrCreate(['email' => 'demo.'.$role.'@unand.ac.id'], [
                 'nim_nip' => 'DEMO-STAFF-'.$index, 'nama' => 'Demo '.str_replace('_', ' ', $role),
                 'password' => 'password', 'email_verified_at' => now(), 'no_hp' => '080000000000', 'gender' => 'laki_laki', 'status' => 'aktif',
                 'client_profile_category' => $role === 'orang_tua' ? 'parent' : null,
@@ -188,7 +188,7 @@ class ResidenceScenarioSeeder extends Seeder
             if ($building === null) {
                 continue;
             }
-            $user = Models\User::firstOrCreate(['email' => 'fasilitator-'.$slug.'@example.test'], [
+            $user = Models\User::firstOrCreate(['email' => 'fasilitator-'.$slug.'@unand.ac.id'], [
                 'nim_nip' => 'DEMO-FAS-'.$buildingCode, 'nama' => 'Fasilitator Gedung '.$buildingCode,
                 'password' => 'password', 'email_verified_at' => now(), 'no_hp' => '080000000000', 'gender' => $building->gender_peruntukan === 'perempuan' ? 'perempuan' : 'laki_laki',
                 'status' => 'aktif',
@@ -203,7 +203,7 @@ class ResidenceScenarioSeeder extends Seeder
     private function kipkRoster(): void
     {
         Models\MahasiswaProfil::with('user')->whereHas('user', fn ($query) => $query->where('client_profile_category', 'local_kipk')
-            ->whereIn('email', ['mahasiswa.kipk@unand.ac.id', 'kipk-penempatan@example.test', 'kipk-aktif@example.test']))->get()
+            ->whereIn('email', ['mahasiswa.kipk@unand.ac.id', 'mahasiswa.kipk@student.unand.ac.id', 'kipk-penempatan@student.unand.ac.id', 'kipk-aktif@student.unand.ac.id']))->get()
             ->each(fn (Models\MahasiswaProfil $student) => Models\KipkRecipient::firstOrCreate(
                 ['nim' => $student->user->nim_nip, 'angkatan' => (int) $student->angkatan],
                 ['nama' => $student->user->nama],
@@ -242,7 +242,8 @@ class ResidenceScenarioSeeder extends Seeder
     private function resident(int $index, string $name, string $category, string $state): void
     {
         $cohort = in_array($state, ['legacy', 'returning']) ? '2025' : (string) max(2026, now()->year);
-        $existing = Models\User::with('mahasiswaProfil')->where('email', $name.'@example.test')->first();
+        $email = $category === 'non_student' ? 'demo.'.$name.'@unand.ac.id' : $name.'@student.unand.ac.id';
+        $existing = Models\User::with('mahasiswaProfil')->where('email', $email)->first();
         if ($existing) {
             if ($category !== 'non_student' && $existing->nim_nip === 'DEMO-'.sprintf('%04d', $index)) {
                 $existing->update(['nim_nip' => substr($existing->mahasiswaProfil?->angkatan ?? $cohort, -2).'9900'.sprintf('%04d', $index)]);
@@ -255,7 +256,7 @@ class ResidenceScenarioSeeder extends Seeder
         $active = in_array($state, ['active', 'partial', 'returning', 'departed']);
         $buildingCode = $index % 3 === 0 ? 'W' : ($index % 7 === 0 ? 'T' : 'P');
         $user = Models\User::create([
-            'email' => $name.'@example.test', 'nim_nip' => $category === 'non_student' ? 'DEMO-'.sprintf('%04d', $index) : substr($cohort, -2).'9900'.sprintf('%04d', $index), 'nama' => 'Demo '.ucwords(str_replace('-', ' ', $name)),
+            'email' => $email, 'nim_nip' => $category === 'non_student' ? 'DEMO-'.sprintf('%04d', $index) : substr($cohort, -2).'9900'.sprintf('%04d', $index), 'nama' => 'Demo '.ucwords(str_replace('-', ' ', $name)),
             'password' => 'password', 'email_verified_at' => now(), 'no_hp' => '080000'.sprintf('%06d', $index),
             'gender' => $buildingCode === 'W' ? 'perempuan' : 'laki_laki', 'status' => 'aktif', 'client_profile_category' => $category,
         ]);

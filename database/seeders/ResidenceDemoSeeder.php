@@ -151,19 +151,19 @@ class ResidenceDemoSeeder extends Seeder
             'kamar_id' => $registration->penempatan_kamar_id ? $registration->placement->kamar_id : $registration->reserved_room_id,
         ], ['status' => 'expired', 'expires_at' => now()->subDay()]);
         $this->command?->table(['Akun demo', 'Kegunaan'], [
-            ['superadmin@example.test', 'Seluruh pengelolaan dan audit'],
-            ['admin_layanan@example.test', 'Pendaftaran, tagihan, pembayaran, surat'],
-            ['admin_aset@example.test', 'Stok, lokasi, dan jumlah aset'],
-            ['fasilitator@example.test', 'QR absensi, izin, checkout gedung DEMO-P/W'],
-            ['go@example.test', 'Pemeriksaan kamar checkout'],
-            ['teknisi@example.test', 'Tiket dan bukti perbaikan'],
-            ['pimpinan@example.test', 'Laporan dan dashboard'],
-            ['orang_tua@example.test', 'Pemantauan anak: binaan-aktif'],
-            ['binaan-aktif@example.test', 'Penghuni tahun pertama dan scan QR'],
-            ['bayar-verifikasi@example.test', 'Pembayaran menunggu verifikasi'],
-            ['cicilan-aktif@example.test', 'Cicilan pertama lunas, termin berikutnya terbuka'],
-            ['checkout-siap@example.test', 'Inspeksi GO selesai, menunggu fasilitator'],
-            ['legacy-belum-lunas@example.test', 'Tagihan alumni sebelum terbit surat'],
+            ['demo.superadmin@unand.ac.id', 'Seluruh pengelolaan dan audit'],
+            ['demo.admin_layanan@unand.ac.id', 'Pendaftaran, tagihan, pembayaran, surat'],
+            ['demo.admin_aset@unand.ac.id', 'Stok, lokasi, dan jumlah aset'],
+            ['demo.fasilitator@unand.ac.id', 'QR absensi, izin, checkout gedung DEMO-P/W'],
+            ['demo.go@unand.ac.id', 'Pemeriksaan kamar checkout'],
+            ['demo.teknisi@unand.ac.id', 'Tiket dan bukti perbaikan'],
+            ['demo.pimpinan@unand.ac.id', 'Laporan dan dashboard'],
+            ['demo.orang_tua@unand.ac.id', 'Pemantauan anak: binaan-aktif'],
+            ['binaan-aktif@student.unand.ac.id', 'Penghuni tahun pertama dan scan QR'],
+            ['bayar-verifikasi@student.unand.ac.id', 'Pembayaran menunggu verifikasi'],
+            ['cicilan-aktif@student.unand.ac.id', 'Cicilan pertama lunas, termin berikutnya terbuka'],
+            ['checkout-siap@student.unand.ac.id', 'Inspeksi GO selesai, menunggu fasilitator'],
+            ['legacy-belum-lunas@student.unand.ac.id', 'Tagihan alumni sebelum terbit surat'],
         ]);
         $this->command?->info('Password awal semua akun demo: password. Daftar 54 skenario tersedia di ResidenceScenarioSeeder::scenarios().');
     }

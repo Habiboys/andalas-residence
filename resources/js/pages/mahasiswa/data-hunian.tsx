@@ -55,7 +55,7 @@ export default function DataHunian({
         /^\d{16}$/.test(form.data.nik)
     );
     const addressReady = !!(program && city && form.data.alamat.trim());
-    const control = 'input w-full';
+    const control = 'input input-bordered w-full';
     const categories: Record<string, string> = {
         local_kipk: 'Mahasiswa KIP-K',
         local_non_kipk: 'Mahasiswa lokal non-KIP-K',
@@ -63,9 +63,16 @@ export default function DataHunian({
     };
 
     return (
-        <main className="mx-auto max-w-3xl space-y-5 p-4 md:p-8">
+        <div className="mx-auto max-w-3xl space-y-6">
             <Head title="Data pendaftaran hunian" />
-            <h1 className="text-2xl font-bold">Data pendaftaran hunian</h1>
+            <header className="space-y-1">
+                <h1 className="text-2xl font-bold">Data pendaftaran hunian</h1>
+                <p className="text-base-content/70 text-sm">
+                    Lengkapi data identitas resmi, akademik, dan alamat asal
+                    sebelum memilih kamar asrama.
+                </p>
+            </header>
+
             <ol
                 className="grid grid-cols-3 gap-3 text-sm"
                 aria-label="Tahapan data hunian"
@@ -75,100 +82,134 @@ export default function DataHunian({
                         <li
                             key={label}
                             aria-current={step === index ? 'step' : undefined}
-                            className={
+                            className={`rounded-xl border p-3 transition ${
                                 step === index
-                                    ? 'text-primary font-semibold'
-                                    : ''
-                            }
+                                    ? 'border-primary bg-primary/5 text-primary font-semibold'
+                                    : step > index
+                                      ? 'border-success/40 bg-success/5 text-success font-medium'
+                                      : 'border-base-300 text-base-content/60'
+                            }`}
                         >
+                            <span className="block text-xs opacity-70">
+                                Langkah {index + 1}
+                            </span>
                             {label}
                         </li>
                     ),
                 )}
             </ol>
+
             <form
-                className="card bg-base-100 border-base-300 space-y-4 border p-5"
+                className="card bg-base-100 border-base-300 space-y-5 rounded-xl border p-5 shadow-xs md:p-6"
                 onSubmit={(event) => {
                     event.preventDefault();
-                    if (step === 2 && identityReady && addressReady)
+                    if (step === 2 && identityReady && addressReady) {
                         form.post(saveUrl);
+                    }
                 }}
             >
                 {step === 0 && (
-                    <>
-                        <p>Isi ulang nama lengkap sesuai dokumen resmi.</p>
-                        <label>
-                            Nama lengkap
-                            <input
-                                className={control}
-                                autoComplete="name"
-                                value={form.data.nama}
-                                onChange={(e) =>
-                                    form.setData('nama', e.target.value)
-                                }
-                                maxLength={255}
-                            />
-                        </label>
-                        <label>
-                            NIK
-                            <input
-                                className={control}
-                                inputMode="numeric"
-                                maxLength={16}
-                                value={form.data.nik}
-                                onChange={(e) =>
-                                    form.setData('nik', e.target.value)
-                                }
-                            />
-                        </label>
-                        <label>
-                            Nomor telepon
-                            <input
-                                className={control}
-                                type="tel"
-                                maxLength={20}
-                                value={form.data.no_hp}
-                                onChange={(e) =>
-                                    form.setData('no_hp', e.target.value)
-                                }
-                            />
-                        </label>
-                        <label>
-                            Jenis kelamin
-                            <select
-                                className="select w-full"
-                                value={form.data.gender}
-                                onChange={(e) =>
-                                    form.setData('gender', e.target.value)
-                                }
-                            >
-                                <option value="">Pilih jenis kelamin</option>
-                                <option value="laki_laki">Laki-laki</option>
-                                <option value="perempuan">Perempuan</option>
-                            </select>
-                        </label>
-                        <p>
-                            Nomor identitas {identity.nim_nip} ·{' '}
-                            {identity.email}
-                        </p>
-                        <p>
-                            Mahasiswa ·{' '}
-                            {identity.status === 'aktif'
-                                ? 'Aktif'
-                                : identity.status}
-                        </p>
-                        <p>
-                            {categories[identity.category ?? ''] ??
-                                'Kategori ditentukan setelah verifikasi data'}
-                        </p>
-                    </>
+                    <div className="space-y-4">
+                        <div className="bg-info/10 border-info/30 rounded-lg border p-3 text-sm">
+                            <p className="font-medium">
+                                Isi ulang nama lengkap sesuai dokumen resmi.
+                            </p>
+                            <p className="text-base-content/70 mt-0.5 text-xs">
+                                Nama bawaan SSO dapat belum sesuai ejaan KTP/KTM.
+                                Ketik ulang nama lengkap Anda untuk keperluan
+                                kontrak dan dokumen resmi asrama.
+                            </p>
+                        </div>
+
+                        <div className="grid gap-4 sm:grid-cols-2">
+                            <label className="block space-y-1.5 text-sm font-medium sm:col-span-2">
+                                <span>Nama lengkap</span>
+                                <input
+                                    className={control}
+                                    autoComplete="name"
+                                    placeholder="Ketik nama lengkap sesuai KTP / KTM"
+                                    value={form.data.nama}
+                                    onChange={(e) =>
+                                        form.setData('nama', e.target.value)
+                                    }
+                                    maxLength={255}
+                                />
+                            </label>
+
+                            <label className="block space-y-1.5 text-sm font-medium">
+                                <span>NIK (16 digit)</span>
+                                <input
+                                    className={control}
+                                    inputMode="numeric"
+                                    maxLength={16}
+                                    placeholder="16 digit Nomor Induk Kependudukan"
+                                    value={form.data.nik}
+                                    onChange={(e) =>
+                                        form.setData('nik', e.target.value)
+                                    }
+                                />
+                            </label>
+
+                            <label className="block space-y-1.5 text-sm font-medium">
+                                <span>Nomor telepon</span>
+                                <input
+                                    className={control}
+                                    type="tel"
+                                    maxLength={20}
+                                    placeholder="Contoh: 081234567890"
+                                    value={form.data.no_hp}
+                                    onChange={(e) =>
+                                        form.setData('no_hp', e.target.value)
+                                    }
+                                />
+                            </label>
+
+                            <label className="block space-y-1.5 text-sm font-medium sm:col-span-2">
+                                <span>Jenis kelamin</span>
+                                <select
+                                    className="select select-bordered w-full"
+                                    value={form.data.gender}
+                                    onChange={(e) =>
+                                        form.setData('gender', e.target.value)
+                                    }
+                                >
+                                    <option value="">
+                                        Pilih jenis kelamin
+                                    </option>
+                                    <option value="laki_laki">Laki-laki</option>
+                                    <option value="perempuan">Perempuan</option>
+                                </select>
+                            </label>
+                        </div>
+
+                        <div className="bg-base-200/60 border-base-300 space-y-1.5 rounded-lg border p-4 text-sm">
+                            <p className="text-base-content/60 text-xs font-semibold tracking-wider uppercase">
+                                Informasi Akun Sistem (Otomatis)
+                            </p>
+                            <p className="font-medium">
+                                Nomor identitas {identity.nim_nip} ·{' '}
+                                {identity.email}
+                            </p>
+                            <p className="text-base-content/80">
+                                Mahasiswa ·{' '}
+                                {identity.status === 'aktif'
+                                    ? 'Aktif'
+                                    : identity.status}
+                            </p>
+                            <p className="text-base-content/70 text-xs">
+                                {categories[identity.category ?? ''] ??
+                                    'Kategori ditentukan setelah verifikasi data'}
+                            </p>
+                        </div>
+                    </div>
                 )}
+
                 {step === 1 && (
-                    <>
-                        <label>
-                            Program studi
+                    <div className="space-y-4">
+                        <label className="block space-y-1.5 text-sm font-medium">
+                            <span>Program studi</span>
                             <select
-                                className="select w-full"
+                                className="select select-bordered w-full"
                                 value={form.data.prodi_id}
                                 onChange={(e) =>
                                     form.setData('prodi_id', e.target.value)
@@ -182,20 +223,29 @@ export default function DataHunian({
                                 ))}
                             </select>
                         </label>
+
                         {program && (
-                            <p>
-                                {program.departemen?.faculty?.name} ·{' '}
-                                {program.departemen?.name} · {program.jenjang}
-                            </p>
+                            <div className="bg-base-200/60 border-base-300 rounded-lg border p-3 text-sm">
+                                <span className="text-base-content/60 block text-xs">
+                                    Fakultas, Departemen &amp; Jenjang
+                                </span>
+                                <p className="font-medium">
+                                    {program.departemen?.faculty?.name} ·{' '}
+                                    {program.departemen?.name} ·{' '}
+                                    {program.jenjang}
+                                </p>
+                            </div>
                         )}
-                        <p>
+
+                        <p className="bg-base-200/60 border-base-300 rounded-lg border p-3 text-sm font-medium">
                             Angkatan{' '}
                             {profile?.angkatan || 'ditentukan dari NIM'}
                         </p>
-                        <label>
-                            Kota atau kabupaten
+
+                        <label className="block space-y-1.5 text-sm font-medium">
+                            <span>Kota atau kabupaten</span>
                             <select
-                                className="select w-full"
+                                className="select select-bordered w-full"
                                 value={form.data.city_id}
                                 onChange={(e) =>
                                     form.setData('city_id', e.target.value)
@@ -211,50 +261,102 @@ export default function DataHunian({
                                 ))}
                             </select>
                         </label>
-                        {city?.province && <p>Provinsi {city.province.name}</p>}
-                        <label>
-                            Alamat lengkap
+
+                        {city?.province && (
+                            <p className="bg-base-200/60 border-base-300 rounded-lg border p-3 text-sm font-medium">
+                                Provinsi {city.province.name}
+                            </p>
+                        )}
+
+                        <label className="block space-y-1.5 text-sm font-medium">
+                            <span>Alamat lengkap</span>
                             <textarea
-                                className="textarea w-full"
+                                className="textarea textarea-bordered w-full"
+                                rows={3}
                                 maxLength={500}
+                                placeholder="Nama jalan, nomor rumah, RT/RW, kelurahan/nagari, kecamatan"
                                 value={form.data.alamat}
                                 onChange={(e) =>
                                     form.setData('alamat', e.target.value)
                                 }
                             />
                         </label>
-                    </>
-                )}
-                {step === 2 && (
-                    <div className="space-y-2">
-                        <p className="font-semibold">{form.data.nama}</p>
-                        <p>
-                            {identity.nim_nip} · {identity.email}
-                        </p>
-                        <p>
-                            NIK {form.data.nik} · {form.data.no_hp}
-                        </p>
-                        <p>
-                            {form.data.gender === 'laki_laki'
-                                ? 'Laki-laki'
-                                : 'Perempuan'}
-                        </p>
-                        <p>
-                            {program?.name} ·{' '}
-                            {program?.departemen?.faculty?.name}
-                        </p>
-                        <p>
-                            {form.data.alamat}, {city?.name},{' '}
-                            {city?.province?.name}
-                        </p>
                     </div>
                 )}
+
+                {step === 2 && (
+                    <div className="bg-base-200/50 border-base-300 space-y-3 rounded-xl border p-4 text-sm">
+                        <p className="text-base-content/60 text-xs font-semibold tracking-wider uppercase">
+                            Ringkasan Data Pendaftaran Hunian
+                        </p>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                            <div>
+                                <span className="text-base-content/60 block text-xs">
+                                    Nama lengkap resmi
+                                </span>
+                                <p className="text-base font-semibold">
+                                    {form.data.nama}
+                                </p>
+                            </div>
+                            <div>
+                                <span className="text-base-content/60 block text-xs">
+                                    NIM &amp; Email
+                                </span>
+                                <p>
+                                    {identity.nim_nip} · {identity.email}
+                                </p>
+                            </div>
+                            <div>
+                                <span className="text-base-content/60 block text-xs">
+                                    NIK &amp; Telepon
+                                </span>
+                                <p>
+                                    NIK {form.data.nik} · {form.data.no_hp}
+                                </p>
+                            </div>
+                            <div>
+                                <span className="text-base-content/60 block text-xs">
+                                    Jenis kelamin
+                                </span>
+                                <p>
+                                    {form.data.gender === 'laki_laki'
+                                        ? 'Laki-laki'
+                                        : 'Perempuan'}
+                                </p>
+                            </div>
+                            <div className="sm:col-span-2">
+                                <span className="text-base-content/60 block text-xs">
+                                    Program studi &amp; Fakultas
+                                </span>
+                                <p>
+                                    {program?.name} ·{' '}
+                                    {program?.departemen?.faculty?.name}
+                                </p>
+                            </div>
+                            <div className="sm:col-span-2">
+                                <span className="text-base-content/60 block text-xs">
+                                    Alamat asal
+                                </span>
+                                <p>
+                                    {form.data.alamat}, {city?.name},{' '}
+                                    {city?.province?.name}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {Object.entries(form.errors).map(([key, message]) => (
-                    <p role="alert" className="text-error" key={key}>
+                    <p
+                        role="alert"
+                        className="alert alert-error py-2 text-sm"
+                        key={key}
+                    >
                         {message}
                     </p>
                 ))}
-                <div className="flex justify-between gap-3">
+
+                <div className="border-base-300 flex justify-between gap-3 border-t pt-4">
                     {step > 0 ? (
                         <button
                             type="button"
@@ -290,6 +392,6 @@ export default function DataHunian({
                     )}
                 </div>
             </form>
-        </main>
+        </div>
     );
 }

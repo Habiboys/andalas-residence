@@ -170,13 +170,14 @@ it('seeds the real reconciled dataset against the building and academic masters'
     expect($result['matched'])->toBe(1464);
     expect($result['skipped'])->toBe(10);
     expect($result['pending_rooms'])->toBe(0);
-    expect(User::where('email', 'not like', 'uat.%@example.test')->count())->toBe(1477);
-    expect(MahasiswaProfil::whereHas('user', fn ($q) => $q->where('email', 'not like', 'uat.%@example.test'))->count())->toBe(1467);
+    expect(User::where('email', 'not like', 'uat.%')->count())->toBe(1477);
+    expect(MahasiswaProfil::whereHas('user', fn ($q) => $q->where('email', 'not like', 'uat.%'))->count())->toBe(1467);
     $this->assertDatabaseMissing('users', ['email' => 'mahasiswa.kipk@unand.ac.id']);
     $this->assertDatabaseMissing('users', ['email' => 'mahasiswa.nonkipk@unand.ac.id']);
     $this->assertDatabaseMissing('users', ['email' => 'mahasiswa.penghuni@unand.ac.id']);
-    expect(User::where('email', 'like', '%@example.test')->where('email', 'not like', 'uat.%@example.test')->pluck('email')->all())->toBe(['superadmin@example.test']);
-    expect(User::where('email', 'like', 'uat.%@example.test')->count())->toBe(18);
+    expect(User::where('email', 'like', '%@example.%')->count())->toBe(0);
+    expect(User::where('email', 'superadmin.legacy@unand.ac.id')->exists())->toBeTrue();
+    expect(User::where('email', 'like', 'uat.%')->count())->toBe(18);
     $this->assertDatabaseHas('users', ['email' => 'international@unand.ac.id', 'client_profile_category' => 'international_free_facility']);
     $this->assertDatabaseHas('users', ['email' => 'international.paid@unand.ac.id', 'client_profile_category' => 'international_student']);
     $this->assertDatabaseHas('users', ['email' => 'nonmahasiswa@unand.ac.id', 'client_profile_category' => 'non_student']);

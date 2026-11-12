@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Http\Controllers\RolePageController;
 use App\Models\RoomType;
 use App\Models\User;
 use App\Services\UnandSso;
@@ -44,6 +45,9 @@ class HandleInertiaRequests extends Middleware
             'logoutUrl' => $request->session()->get('unand_sso_authenticated') ? route('sso.logout') : route('logout'),
             'roomTypeCatalog' => fn () => RoomType::orderBy('created_at')->orderBy('code')->get(['id', 'code', 'name', 'active']),
             'ssoUrl' => app(UnandSso::class)->isConfigured() ? route('sso.redirect') : null,
+            'initialUser' => fn () => $request->user()
+                ? app(RolePageController::class)->userPayload($request)
+                : null,
             'auth' => [
                 'user' => $request->user()
                     ? $this->formatAuthUser($request->user()->load('roles', 'mahasiswaProfil'))
