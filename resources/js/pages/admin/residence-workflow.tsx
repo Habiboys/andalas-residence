@@ -12,8 +12,6 @@ import { store as storeGeneralStay } from '@/actions/App/Http/Controllers/Tempor
 
 import * as invoiceActions from '@/actions/App/Http/Controllers/InvoiceController';
 
-import { workflow as residenceWorkflow } from '@/routes/residence';
-
 import { formatRupiah } from '@/andalas/lib/format';
 
 type Building = {
@@ -2496,61 +2494,6 @@ export default function ResidenceWorkflowPage(props: Props) {
                             : 'Pantau status pengajuan kamar, kelengkapan berkas, pembayaran, dan check-in Anda.'}
                     </p>
                 </div>
-
-                {isOfficerView && (props.manager || props.finance) && (
-                    <nav
-                        aria-label="Submenu pengelolaan pendaftaran"
-                        className="border-base-300 flex flex-wrap gap-1.5 border-b pb-3"
-                    >
-                        {[
-                            {
-                                id: 'registrations',
-                                label: 'Daftar Pengajuan',
-                                show: true,
-                            },
-                            {
-                                id: 'opening',
-                                label: 'Buka / Tutup Pendaftaran',
-                                show: props.manager,
-                            },
-                            {
-                                id: 'applications',
-                                label: 'Permohonan Institusi & Kegiatan',
-                                show: props.manager,
-                            },
-                            {
-                                id: 'public',
-                                label: 'Penyewa Umum',
-                                show: props.manager,
-                            },
-                            {
-                                id: 'finance',
-                                label: 'Rekonsiliasi & Invoice',
-                                show: props.finance,
-                            },
-                        ]
-                            .filter((item) => item.show)
-                            .map((item) => (
-                                <Link
-                                    key={item.id}
-                                    href={
-                                        item.id === 'registrations'
-                                            ? residenceWorkflow.url()
-                                            : residenceWorkflow.url({
-                                                  query: { section: item.id },
-                                              })
-                                    }
-                                    className={`btn btn-sm ${
-                                        tab === item.id
-                                            ? 'btn-primary'
-                                            : 'btn-ghost'
-                                    }`}
-                                >
-                                    {item.label}
-                                </Link>
-                            ))}
-                    </nav>
-                )}
             </header>
 
             {Object.entries(errors ?? {}).map(([key, error]) => (
