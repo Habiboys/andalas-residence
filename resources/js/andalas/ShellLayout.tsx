@@ -379,46 +379,53 @@ function ShellInner({
                 </header>
 
                 <main className="w-full min-w-0 flex-1 p-4 md:p-6">
-                    {currentPage !== 'dashboard' && (
-                        <button
-                            type="button"
-                            onClick={() => {
-                                if (window.history.length > 1) {
-                                    window.history.back();
-
-                                    return;
-                                }
-
-                                nav('dashboard');
-                            }}
-                            className="btn btn-ghost btn-sm mb-3 gap-1.5 px-2"
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                        <nav
+                            className="breadcrumbs text-base-content/60 py-0 text-xs"
+                            aria-label="Navigasi halaman"
                         >
-                            <ArrowLeft className="size-4" aria-hidden="true" />
-                            Kembali
-                        </button>
-                    )}
-                    <nav
-                        className="breadcrumbs text-base-content/60 mb-4 text-xs"
-                        aria-label="Navigasi halaman"
-                    >
-                        <ul>
-                            <li>
-                                <button
-                                    type="button"
-                                    onClick={() => nav('dashboard')}
-                                    className="hover:text-primary font-medium"
-                                >
-                                    Home
-                                </button>
-                            </li>
-                            {breadcrumb.group && <li>{breadcrumb.group}</li>}
-                            {breadcrumb.current && (
-                                <li className="text-base-content font-semibold">
-                                    {breadcrumb.current}
+                            <ul>
+                                <li>
+                                    <button
+                                        type="button"
+                                        onClick={() => nav('dashboard')}
+                                        className="hover:text-primary font-medium"
+                                    >
+                                        Home
+                                    </button>
                                 </li>
-                            )}
-                        </ul>
-                    </nav>
+                                {breadcrumb.group && (
+                                    <li>{breadcrumb.group}</li>
+                                )}
+                                {breadcrumb.current && (
+                                    <li className="text-base-content font-semibold">
+                                        {breadcrumb.current}
+                                    </li>
+                                )}
+                            </ul>
+                        </nav>
+                        {currentPage !== 'dashboard' && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    if (window.history.length > 1) {
+                                        window.history.back();
+
+                                        return;
+                                    }
+
+                                    nav('dashboard');
+                                }}
+                                className="btn btn-ghost btn-xs text-base-content/60 hover:text-base-content shrink-0 gap-1"
+                            >
+                                <ArrowLeft
+                                    className="size-3.5"
+                                    aria-hidden="true"
+                                />
+                                Kembali
+                            </button>
+                        )}
+                    </div>
                     {currentPage === 'dashboard' ? (
                         children
                     ) : (
