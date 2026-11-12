@@ -157,6 +157,11 @@ function ShellInner({
             router.visit(residenceWorkflow.url());
             return;
         }
+        if (slug.startsWith('residence-workflow/')) {
+            const section = slug.slice('residence-workflow/'.length);
+            router.visit(residenceWorkflow.url({ query: { section } }));
+            return;
+        }
         if (slug.startsWith('landing-page/')) {
             router.visit(landingManage.url(slug.slice('landing-page/'.length)));
             return;
@@ -414,7 +419,13 @@ function ShellInner({
                             )}
                         </ul>
                     </nav>
-                    {children}
+                    {currentPage === 'dashboard' ? (
+                        children
+                    ) : (
+                        <div className="bg-base-100 border-base-300 min-w-0 rounded-xl border p-4 shadow-sm md:p-6">
+                            {children}
+                        </div>
+                    )}
                 </main>
             </div>
 

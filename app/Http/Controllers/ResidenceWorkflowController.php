@@ -54,6 +54,9 @@ class ResidenceWorkflowController extends Controller
         $studentView = $request->routeIs('mahasiswa.registration.status');
         $manager = ! $studentView && ResidenceWorkflowAccess::manager($user);
         $finance = ! $studentView && $user->can('pembayaran.verify');
+        $section = $studentView ? 'registrations' : $request->query('section', 'registrations');
+        $allowedSections = ['registrations', ...($manager ? ['opening', 'applications', 'public', 'contracts'] : []), ...($finance ? ['finance'] : [])];
+        abort_unless(in_array($section, $allowedSections, true), 404);
         if (! $studentView && ! $manager && $user->hasRole('mahasiswa')) {
             return redirect()->route('mahasiswa.registration');
         }
@@ -100,7 +103,11 @@ class ResidenceWorkflowController extends Controller
         });
 
         return Inertia::render('admin/residence-workflow', [
-            'role' => $user->getRoleNames()->first(), 'page' => $studentView ? 'registration' : 'residence-workflow', 'initialUser' => app(RolePageController::class)->userPayload($request),
+            'role' => $user->getRoleNames()->first(), 'page' => $studentView ? 'registration' : ($section === 'registrations' ? 'residence-workflow' : 'residence-workflow/'.$section), 'initialUser' => app(RolePageController::class)->userPayload($request),
+            'section' => $section,
+            'pendingRoomContracts' => $section === 'contracts' ? (clone $registrations)
+                ->where('billing_basis', 'room')->whereNull('room_contract_id')->whereNull('completed_at')
+                ->whereNotNull('reserved_room_id')->whereNotIn('status', ['draft', 'rejected'])->get() : [],
             'registrations' => $page, 'summary' => $summary,
             'studentView' => $studentView,
             'manager' => $manager, 'finance' => $finance, 'leader' => ! $studentView && $user->hasRole('pimpinan'),
@@ -196,9 +203,15 @@ class ResidenceWorkflowController extends Controller
             Gedung::query()->orderBy('id')->lockForUpdate()->get();
             $version = (int) ResidencePolicy::where('category', $request->validated('category'))->max('version') + 1;
             $settings = $request->validated('settings');
-            $settings['rates'] = $settings['open']
-                ? app(ResidencePolicyService::class)->snapshotRates($request->validated('category'), $settings['building_ids'])
-                : [];
+            $service = app(ResidencePolicyService::class);
+            $category = $request->validated('category');
+            if (! isset($settings['building_ids'])) {
+                $settings['building_ids'] = $service->masterCatalog($category)->whereNull('issue')->pluck('id')->all();
+            }
+            if ($settings['open'] && $settings['building_ids'] === []) {
+                throw ValidationException::withMessages(['settings.building_ids' => 'Belum ada gedung dengan konfigurasi siap untuk kategori ini. Lengkapi Gedung & Kamar.']);
+            }
+            $settings['rates'] = $settings['open'] ? $service->snapshotRates($category, $settings['building_ids']) : [];
             $policy = ResidencePolicy::create(['category' => $request->validated('category'), 'version' => $version, 'settings' => $settings, 'published_at' => now(), 'created_by' => $request->user()->id]);
             AuditLogService::log($request->user(), 'residence_policy_published', $policy, null, $policy->toArray());
         });

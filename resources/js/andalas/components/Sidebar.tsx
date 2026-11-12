@@ -459,30 +459,56 @@ const PIMPINAN_NAV: NavGroup[] = [
 ];
 
 const workflowNav: NavGroup = {
+    group: 'Pengelolaan Pendaftaran',
     items: [
         {
-            label: 'Proses Pendaftaran',
+            label: 'Daftar Pengajuan',
             page: 'residence-workflow',
             icon: KeyRound,
         },
     ],
 };
 
+const registrationAdminNav: NavGroup = {
+    ...workflowNav,
+    items: [
+        ...workflowNav.items,
+        { label: 'Buka / Tutup Pendaftaran', page: 'residence-workflow/opening', icon: KeyRound },
+        { label: 'Permohonan Institusi & Kegiatan', page: 'residence-workflow/applications', icon: FileText },
+        { label: 'Penyewa Umum', page: 'residence-workflow/public', icon: Users },
+        { label: 'Tagihan Kamar Bersama', page: 'residence-workflow/contracts', icon: CreditCard },
+        { label: 'Rekonsiliasi & Invoice', page: 'residence-workflow/finance', icon: Landmark },
+        { label: 'Pengaturan Layanan', page: 'residence-management', icon: Database },
+    ],
+};
+
 const reportingNav: NavGroup = {
+    group: 'Pemeliharaan',
     items: [{ label: 'Pelaporan Kerusakan', page: 'pelaporan', icon: Ticket }],
 };
 
+function withOperations(
+    [dashboard, ...groups]: NavGroup[],
+    registration?: NavGroup,
+): NavGroup[] {
+    const sections = registration === registrationAdminNav
+        ? groups.map((group) => ({ ...group, items: group.items.filter((item) => item.page !== 'residence-management') }))
+            .filter((group) => group.items.length > 0)
+        : groups;
+    return [dashboard, ...(registration ? [registration] : []), ...sections, reportingNav];
+}
+
 export const NAV_MAP: Record<UserRole, NavGroup[]> = {
     mahasiswa: MAHASISWA_NAV,
-    fasilitator: [workflowNav, reportingNav, ...FASILITATOR_NAV],
-    staff_admin: [workflowNav, reportingNav, ...ADMIN_NAV],
-    admin_layanan: [workflowNav, reportingNav, ...ADMIN_LAYANAN_NAV],
-    admin_aset: [reportingNav, ...ADMIN_ASET_NAV],
-    superadmin: [workflowNav, reportingNav, ...ADMIN_NAV],
+    fasilitator: withOperations(FASILITATOR_NAV, workflowNav),
+    staff_admin: withOperations(ADMIN_NAV, registrationAdminNav),
+    admin_layanan: withOperations(ADMIN_LAYANAN_NAV, registrationAdminNav),
+    admin_aset: withOperations(ADMIN_ASET_NAV),
+    superadmin: withOperations(ADMIN_NAV, registrationAdminNav),
     teknisi: TEKNISI_NAV,
-    pimpinan: [workflowNav, reportingNav, ...PIMPINAN_NAV],
+    pimpinan: withOperations(PIMPINAN_NAV, workflowNav),
     orang_tua: ORANG_TUA_NAV,
-    go: [reportingNav, ...GO_NAV],
+    go: withOperations(GO_NAV),
 };
 
 interface SidebarProps {

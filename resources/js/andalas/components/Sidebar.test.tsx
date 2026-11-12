@@ -1,6 +1,12 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { expect, it } from 'vite-plus/test';
-import Sidebar, { type UserRole } from './Sidebar';
+import Sidebar, { NAV_MAP, type UserRole } from './Sidebar';
+
+it('puts the dashboard first for every role with a sidebar', () => {
+    for (const groups of Object.values(NAV_MAP)) {
+        expect(groups[0]?.items[0]?.page).toBe('dashboard');
+    }
+});
 
 it.each(['staff_admin', 'superadmin'] as UserRole[])(
     'shows the Data Master navigation as active for %s',

@@ -239,6 +239,7 @@ type Reference = {
 
 type Props = {
     studentView?: boolean;
+    section?: string;
     registrations: {
         last_page: number;
         data: Registration[];
@@ -1391,592 +1392,96 @@ function RegistrationCard({
 }
 
 function Policies({
-    buildings,
-
-    policyCatalog,
-
-    policies,
-    masterHousingUrl,
-}: Pick<
-    Props,
-    'buildings' | 'policyCatalog' | 'policies' | 'masterHousingUrl'
->) {
-    const [step, setStep] = useState(0);
-    const steps = [
-        'Kategori',
-        'Persyaratan',
-        'Gedung dan tarif',
-        'Kesiapan',
-        'Konfirmasi',
-    ];
-    const form = useForm<{ category: string; settings: Settings }>({
-        category: 'local_non_kipk',
-
-        settings: {
-            open: false,
-
-            documents: ['perjanjian'],
-
-            building_ids: [],
-
-            rates: [],
-
-            month_days: 30,
-
-            day_basis: 'nights',
-
-            monthly_allowed: false,
-        },
+    buildings, policyCatalog, policies, masterHousingUrl,
+}: Pick<Props, 'buildings' | 'policyCatalog' | 'policies' | 'masterHousingUrl'>) {
+    const defaults: Settings = {
+        open: false, documents: ['perjanjian'], building_ids: [], rates: [],
+        month_days: 30, day_basis: 'nights', monthly_allowed: false,
+    };
+    const firstCategory = 'local_non_kipk';
+    const form = useForm({
+        category: firstCategory,
+        settings: policies.find((policy) => policy.category === firstCategory)?.settings ?? defaults,
     });
-
-    const set = <K extends keyof Settings>(key: K, value: Settings[K]) =>
-        form.setData('settings', { ...form.data.settings, [key]: value });
-
+    const active = policies.find((policy) => policy.category === form.data.category);
+    const isOpen = Boolean(active?.published_at && active.settings.open);
     const catalog = policyCatalog[form.data.category] ?? [];
-    const selected = form.data.settings.building_ids;
-    const buildingsReady =
-        selected.length > 0 &&
-        selected.every((id) =>
-            catalog.some((entry) => entry.id === id && !entry.issue),
-        );
-    const documents = form.data.settings.documents;
-    const documentsReady =
-        documents.length > 0 &&
-        documents.every((name) => /^[a-z0-9_]{1,80}$/.test(name)) &&
-        new Set(documents).size === documents.length &&
-        (form.data.category !== 'local_kipk' ||
-            documents.includes('perjanjian'));
-    const buildingIssues = selected.flatMap((id) => {
-        const entry = catalog.find((item) => item.id === id);
-        if (entry && !entry.issue) return [];
-        return [
-            {
-                id,
-                building: buildings.find((item) => item.id === id),
-                message: entry?.issue ?? 'Gedung tidak menerima kategori ini.',
+    const ready = catalog.filter((building) => !building.issue);
+    const blocked = catalog.filter((building) => building.issue);
+
+    function changeStatus(open: boolean) {
+        form.transform(({ category, settings }) => ({
+            category,
+            settings: {
+                open,
+                documents: settings.documents,
+                month_days: settings.month_days,
+                day_basis: settings.day_basis,
+                monthly_allowed: settings.monthly_allowed,
             },
-        ];
-    });
-    const [refreshing, setRefreshing] = useState(false);
+        }));
+        form.post(workflow.policy.url(), { preserveScroll: true });
+    }
 
     return (
-        <Panel title="Kebijakan pendaftaran">
-            <p className="text-sm">
-                Buka pendaftaran setelah dokumen wajib dan gedung ditetapkan.
-                Urutan gedung menentukan prioritas alokasi. Pendaftaran lama
-                tetap memakai versi asal.
-            </p>
-
-            <div className="flex flex-wrap gap-2">
-                {policies
-                    .filter(
-                        (p, i) =>
-                            policies.findIndex(
-                                (entry) => entry.category === p.category,
-                            ) === i,
-                    )
-                    .map((p) => (
-                        <button
-                            key={p.id}
-
-                            className="btn btn-xs"
-
-                            onClick={() =>
-                                form.setData({
-                                    category: p.category,
-
-                                    settings: {
-                                        ...p.settings,
-
-                                        rates: p.settings.rates.map((r) => ({
-                                            ...r,
-
-                                            room_amount: r.room_amount ?? '',
-                                        })),
-                                    },
-                                })
-                            }
-                        >
-                            {categories[p.category]} ·{' '}
-                            {p.published_at
-                                ? p.settings.open
-                                    ? 'Dibuka'
-                                    : 'Ditutup'
-                                : 'Belum dibuka'}
-                        </button>
+        <Panel title="Buka / Tutup Pendaftaran">
+            <label className="block space-y-1">
+                <span>Kategori pendaftaran</span>
+                <select className={input} value={form.data.category} onChange={(event) => {
+                    const category = event.target.value;
+                    form.setData({ category, settings: policies.find((policy) => policy.category === category)?.settings ?? defaults });
+                    form.clearErrors();
+                }}>
+                    {Object.entries(categories).filter(([category]) => category !== 'postgraduate').map(([category, label]) => (
+                        <option key={category} value={category}>{label}</option>
                     ))}
+                </select>
+            </label>
+            <p>Status <strong>{isOpen ? 'Dibuka' : 'Ditutup'}</strong></p>
+            <div className="rounded-lg border border-base-300 p-4">
+                <h3 className="font-semibold">Gedung yang siap</h3>
+                <p className="text-sm">Sistem mengambil kategori penghuni, tipe kamar, dan tarif dari Gedung &amp; Kamar.</p>
+                <p className="mt-2">{ready.length ? ready.map((building) => building.name).join(', ') : 'Belum ada gedung siap untuk kategori ini.'}</p>
             </div>
-
-            <ol
-                className="flex flex-wrap gap-2 text-sm"
-                aria-label="Tahapan pengaturan"
-            >
-                {steps.map((label, index) => (
-                    <li
-                        key={label}
-                        aria-current={index === step ? 'step' : undefined}
-                        className={
-                            index === step ? 'text-primary font-semibold' : ''
-                        }
-                    >
-                        {index + 1}. {label}
-                    </li>
-                ))}
-            </ol>
-            <form
-                className="space-y-4"
-
-                onSubmit={(e) => {
-                    e.preventDefault();
-                    if (step !== 4) return;
-
-                    form.transform(({ category, settings }) => ({
-                        category,
-                        settings: {
-                            open: settings.open,
-                            documents: settings.documents,
-                            building_ids: settings.building_ids,
-                            month_days: settings.month_days,
-                            day_basis: settings.day_basis,
-                            monthly_allowed: settings.monthly_allowed,
-                        },
-                    }));
-                    form.post(workflow.policy.url(), { preserveScroll: true });
-                }}
-            >
-                {step === 0 && (
-                    <label className="block">
-                        Kategori
-                        <select
-                            className={input}
-
-                            value={form.data.category}
-
-                            onChange={(e) =>
-                                form.setData({
-                                    category: e.target.value,
-                                    settings: policies.find(
-                                        (p) => p.category === e.target.value,
-                                    )?.settings ?? {
-                                        ...form.data.settings,
-                                        open: false,
-                                        documents: ['perjanjian'],
-                                        building_ids: [],
-                                        rates: [],
-                                    },
-                                })
-                            }
-                        >
-                            {Object.entries(categories).map(([key, name]) => (
-                                <option key={key} value={key}>
-                                    {name}
-                                </option>
-                            ))}
-                        </select>
-                    </label>
-                )}
-
-                {step === 4 && (
-                    <label className="flex gap-2">
-                        <input
-                            type="checkbox"
-
-                            checked={form.data.settings.open}
-
-                            onChange={(e) => set('open', e.target.checked)}
-                        />
-                        Buka pendaftaran kategori ini
-                    </label>
-                )}
-
-                {step === 1 && (
-                    <label className="block">
-                        Dokumen wajib (pisahkan dengan koma; gunakan nama
-                        singkat seperti perjanjian, identitas)
-                        <input
-                            className={input}
-
-                            value={form.data.settings.documents.join(',')}
-
-                            onChange={(e) =>
-                                set(
-                                    'documents',
-
-                                    e.target.value
-                                        .split(',')
-                                        .map((s) => s.trim()),
-                                )
-                            }
-                        />
-                    </label>
-                )}
-
-                {step === 2 && (
-                    <>
-                        <div className="space-y-2">
-                            <p>Gedung dan urutan prioritas</p>
-
-                            {form.data.settings.building_ids.map((id, i) => (
-                                <div
-                                    key={id}
-                                    className="flex items-center gap-2"
-                                >
-                                    <span>
-                                        {i + 1}.{' '}
-                                        {
-                                            buildings.find((b) => b.id === id)
-                                                ?.nama_gedung
-                                        }
-                                    </span>
-
-                                    <button
-                                        className="btn btn-xs"
-
-                                        type="button"
-
-                                        onClick={() =>
-                                            set(
-                                                'building_ids',
-
-                                                form.data.settings.building_ids.filter(
-                                                    (x) => x !== id,
-                                                ),
-                                            )
-                                        }
-                                    >
-                                        Hapus
-                                    </button>
-                                </div>
-                            ))}
-
-                            <select
-                                className={input}
-
-                                value=""
-
-                                onChange={(e) =>
-                                    set('building_ids', [
-                                        ...form.data.settings.building_ids,
-
-                                        e.target.value,
-                                    ])
-                                }
-                            >
-                                <option value="" disabled>
-                                    Tambahkan gedung…
-                                </option>
-
-                                {buildings
-
-                                    .filter(
-                                        (b) =>
-                                            catalog.some(
-                                                (entry) => entry.id === b.id,
-                                            ) &&
-                                            !form.data.settings.building_ids.includes(
-                                                b.id,
-                                            ),
-                                    )
-
-                                    .map((b) => (
-                                        <option key={b.id} value={b.id}>
-                                            {b.nama_gedung}
-                                        </option>
-                                    ))}
-                            </select>
-                        </div>
-
-                        <div className="grid gap-3 sm:grid-cols-3">
-                            <label>
-                                Hitungan harian
-                                <select
-                                    className={input}
-
-                                    value={form.data.settings.day_basis}
-
-                                    onChange={(e) =>
-                                        set('day_basis', e.target.value)
-                                    }
-                                >
-                                    <option value="nights">Jumlah malam</option>
-
-                                    <option value="inclusive_days">
-                                        Hari masuk dan keluar dihitung
-                                    </option>
-                                </select>
-                            </label>
-
-                            <label>
-                                Jumlah hari satu bulan
-                                <input
-                                    className={input}
-
-                                    type="number"
-
-                                    min="1"
-
-                                    max="31"
-
-                                    value={form.data.settings.month_days}
-
-                                    onChange={(e) =>
-                                        set(
-                                            'month_days',
-                                            Number(e.target.value),
-                                        )
-                                    }
-                                />
-                            </label>
-
-                            <label className="flex items-center gap-2">
-                                <input
-                                    type="checkbox"
-
-                                    checked={form.data.settings.monthly_allowed}
-
-                                    onChange={(e) =>
-                                        set('monthly_allowed', e.target.checked)
-                                    }
-                                />
-                                Izinkan pengajuan bulanan non-maba
-                            </label>
-                        </div>
-
-                        <div className="space-y-2">
-                            <h3 className="font-semibold">
-                                Tarif dari Master Gedung
-                            </h3>
-                            {form.data.settings.building_ids.map((id) => {
-                                const building = buildings.find(
-                                    (entry) => entry.id === id,
-                                );
-                                const master = policyCatalog[
-                                    form.data.category
-                                ]?.find((entry) => entry.id === id);
-                                const rates = master?.rates ?? [];
-                                return (
-                                    <div
-                                        key={id}
-                                        className="rounded border p-3"
-                                    >
-                                        <p className="font-medium">
-                                            {building?.nama_gedung}
-                                        </p>
-                                        {!master || master.issue ? (
-                                            <p className="text-error">
-                                                {master?.issue ??
-                                                    'Gedung tidak menerima kategori ini.'}
-                                            </p>
-                                        ) : (
-                                            <ul>
-                                                {rates.map((rate) => (
-                                                    <li
-                                                        key={
-                                                            rate.type +
-                                                            '/' +
-                                                            rate.unit
-                                                        }
-                                                    >
-                                                        {rate.type} ·{' '}
-                                                        {Number(
-                                                            rate.amount,
-                                                        ).toLocaleString(
-                                                            'id-ID',
-                                                            {
-                                                                style: 'currency',
-                                                                currency: 'IDR',
-                                                            },
-                                                        )}{' '}
-                                                        /{' '}
-                                                        {
-                                                            (
-                                                                {
-                                                                    year: 'tahun',
-                                                                    semester:
-                                                                        'semester',
-                                                                    month: 'bulan',
-                                                                    day: 'hari',
-                                                                } as Record<
-                                                                    string,
-                                                                    string
-                                                                >
-                                                            )[rate.unit]
-                                                        }
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </>
-                )}
-                {step >= 3 && (!documentsReady || !buildingsReady) && (
-                    <div className="border-warning/40 bg-warning/10 space-y-3 rounded-xl border p-4">
-                        <p role="status" className="font-semibold">
-                            Lengkapi konfigurasi sebelum membuka pendaftaran.
-                        </p>
-                        {!documentsReady && (
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                                <p>
-                                    Periksa dokumen wajib. KIP-K memerlukan
-                                    dokumen perjanjian.
-                                </p>
-                                <button
-                                    type="button"
-                                    className="btn btn-sm"
-                                    onClick={() => setStep(1)}
-                                >
-                                    Atur dokumen
-                                </button>
-                            </div>
-                        )}
-                        {selected.length === 0 && (
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                                <p>
-                                    {catalog.length === 0
-                                        ? 'Belum ada gedung yang menerima kategori ini.'
-                                        : 'Belum ada gedung yang dipilih.'}
-                                </p>
-                                <button
-                                    type="button"
-                                    className="btn btn-sm"
-                                    onClick={() => setStep(2)}
-                                >
-                                    Pilih gedung
-                                </button>
-                                {catalog.length === 0 && masterHousingUrl && (
-                                    <a
-                                        className="btn btn-sm"
-                                        href={masterHousingUrl}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                    >
-                                        Atur Gedung &amp; Kamar
-                                    </a>
-                                )}
-                                {catalog.length === 0 && !masterHousingUrl && (
-                                    <p className="text-sm">
-                                        Minta admin Gedung &amp; Kamar mengatur
-                                        kategori penghuni.
-                                    </p>
-                                )}
-                            </div>
-                        )}
-                        {buildingIssues.map(({ id, building, message }) => (
-                            <div
-                                key={id}
-                                className="flex flex-wrap items-center justify-between gap-2"
-                            >
-                                <p>
-                                    {building?.nama_gedung ?? 'Gedung terpilih'}{' '}
-                                    · {message}
-                                </p>
-                                {building?.settings_url ? (
-                                    <a
-                                        className="btn btn-sm"
-                                        href={building.settings_url}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                    >
-                                        Atur gedung ini
-                                    </a>
-                                ) : (
-                                    <button
-                                        type="button"
-                                        className="btn btn-sm"
-                                        onClick={() => setStep(2)}
-                                    >
-                                        Ubah pilihan gedung
-                                    </button>
-                                )}
-                            </div>
-                        ))}
-                        {!buildingsReady && (
-                            <div className="flex flex-wrap items-center gap-2">
-                                <button
-                                    type="button"
-                                    className="btn btn-sm btn-outline"
-                                    disabled={refreshing}
-                                    onClick={() =>
-                                        router.reload({
-                                            only: [
-                                                'policyCatalog',
-                                                'buildings',
-                                            ],
-                                            onStart: () => setRefreshing(true),
-                                            onFinish: () =>
-                                                setRefreshing(false),
-                                        })
-                                    }
-                                >
-                                    {refreshing
-                                        ? 'Memeriksa…'
-                                        : 'Periksa ulang konfigurasi'}
-                                </button>
-                                <span className="text-sm">
-                                    Gunakan setelah menyimpan perubahan di
-                                    Gedung &amp; Kamar.
-                                </span>
-                            </div>
-                        )}
-                    </div>
-                )}
-                {step === 3 && documentsReady && buildingsReady && (
-                    <div className="space-y-2">
-                        <p>Dokumen siap.</p>
-                        <p>Gedung terpilih memiliki tarif yang sesuai.</p>
-                    </div>
-                )}
-                {step === 4 && (
-                    <p>
-                        {categories[form.data.category]} · {selected.length}{' '}
-                        gedung · {documents.join(', ')}
-                    </p>
-                )}
-                {Object.entries(form.errors).map(([key, error]) => (
-                    <p role="alert" className="text-error" key={key}>
-                        {error}
-                    </p>
-                ))}
-
-                <div className="flex gap-2">
-                    {step > 0 && (
-                        <button
-                            type="button"
-                            className="btn"
-                            onClick={() => setStep(step - 1)}
-                        >
-                            Kembali
-                        </button>
-                    )}
-                    {step < 4 && (
-                        <button
-                            type="button"
-                            className="btn btn-primary"
-                            onClick={() => setStep(step + 1)}
-                        >
-                            Lanjut
-                        </button>
-                    )}
-                    {step === 4 && (
-                        <button
-                            disabled={
-                                form.processing ||
-                                (form.data.settings.open &&
-                                    (!buildingsReady || !documentsReady))
-                            }
-
-                            className="btn btn-primary"
-                        >
-                            {form.data.settings.open
-                                ? 'Buka Pendaftaran'
-                                : 'Tutup Pendaftaran'}
-                        </button>
-                    )}
+            {(blocked.length > 0 || !ready.length) && (
+                <div className="space-y-2 rounded-lg border border-warning/40 bg-warning/10 p-4" role="status">
+                    <p>Gedung yang belum siap tidak ikut dibuka.</p>
+                    {blocked.map((building) => {
+                        const url = buildings.find((item) => item.id === building.id)?.settings_url;
+                        return <div key={building.id} className="flex flex-wrap items-center gap-2">
+                            <p>{building.name} · {building.issue}</p>
+                            {url && <a className="btn btn-sm" href={url} target="_blank" rel="noreferrer">Atur gedung</a>}
+                        </div>;
+                    })}
+                    {masterHousingUrl && <a className="btn btn-sm" href={masterHousingUrl} target="_blank" rel="noreferrer">Buka Gedung &amp; Kamar</a>}
+                    <button type="button" className="btn btn-sm btn-outline" onClick={() => router.reload({ only: ['policyCatalog', 'buildings'] })}>
+                        Periksa ulang konfigurasi
+                    </button>
                 </div>
-            </form>
+            )}
+            <details className="rounded-lg border border-base-300 p-4">
+                <summary className="cursor-pointer font-medium">Persyaratan dan aturan pengajuan</summary>
+                <div className="mt-3 space-y-3">
+                    <label className="block">Dokumen wajib (pisahkan dengan koma)
+                        <input className={input} value={form.data.settings.documents.join(',')} onChange={(event) =>
+                            form.setData('settings', { ...form.data.settings, documents: event.target.value.split(',').map((item) => item.trim()) })
+                        } />
+                    </label>
+                    <label className="flex items-center gap-2">
+                        <input type="checkbox" checked={form.data.settings.monthly_allowed} onChange={(event) =>
+                            form.setData('settings', { ...form.data.settings, monthly_allowed: event.target.checked })
+                        } />
+                        Izinkan pengajuan bulanan sesuai syarat
+                    </label>
+                </div>
+            </details>
+            {Object.values(form.errors).map((error, index) => <p key={index} role="alert" className="text-error">{error}</p>)}
+            <div className="flex flex-wrap gap-2">
+                <button type="button" className="btn btn-primary" disabled={form.processing || !ready.length} onClick={() => changeStatus(true)}>
+                    {isOpen ? 'Perbarui konfigurasi pembukaan' : 'Buka Pendaftaran'}
+                </button>
+                {isOpen && <button type="button" className="btn btn-outline" disabled={form.processing} onClick={() => changeStatus(false)}>Tutup Pendaftaran</button>}
+            </div>
         </Panel>
     );
 }
@@ -1997,6 +1502,7 @@ function Applications({
     const [count, setCount] = useState(1);
 
     const [kind, setKind] = useState('international');
+    const [funding, setFunding] = useState('sponsor');
 
     return (
         <div className="space-y-5">
@@ -2006,7 +1512,8 @@ function Applications({
 
                     label="Simpan permohonan dan peserta"
                 >
-                    <div className="grid gap-3 sm:grid-cols-2">
+                    <fieldset className="grid gap-3 rounded-lg border border-base-300 p-4 sm:grid-cols-2">
+                        <legend className="px-1 font-medium">Identitas permohonan</legend>
                         <Field name="number" label="Nomor surat / permohonan" />
 
                         <Field name="kind" label="Jenis">
@@ -2014,7 +1521,10 @@ function Applications({
                                 className={input}
                                 name="kind"
                                 value={kind}
-                                onChange={(e) => setKind(e.target.value)}
+                                onChange={(e) => {
+                                    setKind(e.target.value);
+                                    setFunding(e.target.value === 'postgraduate' ? 'personal' : 'sponsor');
+                                }}
                             >
                                 <option value="international">
                                     Internasional
@@ -2039,14 +1549,6 @@ function Applications({
                         />
 
                         <Field
-                            name="recipient_email"
-
-                            label="Email penerima invoice"
-
-                            type="email"
-                        />
-
-                        <Field
                             name="letter"
 
                             label="Surat permohonan (opsional untuk S2/S3 mandiri)"
@@ -2055,17 +1557,16 @@ function Applications({
 
                             type="file"
                         />
+                    </fieldset>
 
+                    <fieldset className="grid gap-3 rounded-lg border border-base-300 p-4 sm:grid-cols-2">
+                        <legend className="px-1 font-medium">Pembiayaan dan kontak</legend>
                         <Field name="funding" label="Pembiayaan">
                             <select
                                 className={input}
                                 name="funding"
-                                key={kind}
-                                defaultValue={
-                                    kind === 'postgraduate'
-                                        ? 'personal'
-                                        : 'sponsor'
-                                }
+                                value={funding}
+                                onChange={(event) => setFunding(event.target.value)}
                             >
                                 {kind !== 'postgraduate' && (
                                     <option value="sponsor">
@@ -2076,7 +1577,11 @@ function Applications({
                                 <option value="personal">Pribadi</option>
                             </select>
                         </Field>
+                        <Field name="recipient_email" label="Email penerima invoice" type="email" />
+                    </fieldset>
 
+                    <fieldset className="grid gap-3 rounded-lg border border-base-300 p-4 sm:grid-cols-2">
+                        <legend className="px-1 font-medium">Rencana masa tinggal</legend>
                         <Field
                             name="starts_at"
 
@@ -2098,7 +1603,9 @@ function Applications({
 
                             label="Satuan tarif (Summer Course selalu harian)"
                         >
-                            <select name="rate_unit" className={input}>
+                            {kind === 'summer_course' ? (
+                                <><input type="hidden" name="rate_unit" value="day" /><p>Per hari</p></>
+                            ) : <select name="rate_unit" className={input}>
                                 <option value="year">Tahun</option>
 
                                 <option value="semester">Semester</option>
@@ -2106,9 +1613,9 @@ function Applications({
                                 <option value="month">Bulan</option>
 
                                 <option value="day">Hari</option>
-                            </select>
+                            </select>}
                         </Field>
-                    </div>
+                    </fieldset>
 
                     {Array.from({ length: count }, (_, i) => (
                         <fieldset
@@ -2209,7 +1716,7 @@ function Applications({
                                 </select>
                             </Field>
 
-                            <Field
+                            {funding === 'sponsor' && <Field
                                 name={`participants[${i}][sponsor_limit]`}
 
                                 label="Batas tanggungan sponsor (kosong = seluruh biaya)"
@@ -2217,7 +1724,7 @@ function Applications({
                                 type="number"
 
                                 required={false}
-                            />
+                            />}
                         </fieldset>
                     ))}
 
@@ -2659,29 +2166,11 @@ function Finance({
 }
 
 export default function ResidenceWorkflowPage(props: Props) {
-    const [tab, setTab] = useState('registrations');
+    const tab = props.section ?? 'registrations';
 
     const { errors } = usePage().props;
 
     const isOfficerView = !props.studentView;
-
-    const tabs = [
-        ['registrations', 'Pendaftaran'],
-
-        ...(props.manager
-            ? [
-                  ['policies', 'Kebijakan'],
-
-                  ['applications', 'Institusi / kegiatan'],
-
-                  ['public', 'Penyewa umum'],
-
-                  ['contracts', 'Kamar bersama'],
-              ]
-            : []),
-
-        ...(props.finance ? [['finance', 'Rekonsiliasi & invoice']] : []),
-    ];
 
     return (
         <div className="space-y-5">
@@ -2713,7 +2202,7 @@ export default function ResidenceWorkflowPage(props: Props) {
                 </p>
             ))}
 
-            {isOfficerView && (
+            {isOfficerView && tab === 'registrations' && (
                 <>
                     <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
                         {Object.entries(props.summary).map(([key, count]) => (
@@ -2756,23 +2245,7 @@ export default function ResidenceWorkflowPage(props: Props) {
                         ))}
                     </div>
 
-                    <div className="flex flex-wrap gap-2" role="tablist">
-                        {tabs.map(([key, title]) => (
-                            <button
-                                key={key}
 
-                                role="tab"
-
-                                aria-selected={tab === key}
-
-                                onClick={() => setTab(key)}
-
-                                className={`btn btn-sm ${tab === key ? 'btn-primary' : 'btn-ghost'}`}
-                            >
-                                {title}
-                            </button>
-                        ))}
-                    </div>
                 </>
             )}
 
@@ -2831,7 +2304,7 @@ export default function ResidenceWorkflowPage(props: Props) {
 
             {tab === 'public' && <GeneralPublic rooms={props.rooms} />}
 
-            {tab === 'policies' && (
+            {tab === 'opening' && (
                 <Policies
                     buildings={props.buildings}
 

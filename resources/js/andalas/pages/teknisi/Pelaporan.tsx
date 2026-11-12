@@ -53,6 +53,7 @@ type Pagination<T> = {
     data: T[];
     links: { url: string | null; label: string; active: boolean }[];
     total: number;
+    last_page: number;
 };
 type Props = {
     reports: Pagination<Report>;
@@ -97,14 +98,18 @@ function Errors({ errors }: { errors: Record<string, string | undefined> }) {
         </>
     );
 }
-function Pages<T>({ page }: { page: Pagination<T> }) {
+function Pages<T>({ page, label }: { page: Pagination<T>; label: string }) {
+    if (page.total === 0 || page.last_page <= 1) return null;
+
     return (
-        <nav aria-label="Halaman" className="flex flex-wrap gap-2">
+        <nav aria-label={label} className="flex flex-wrap gap-2">
             {page.links.map((link, i) =>
                 link.url ? (
                     <Link
                         key={i}
                         href={link.url}
+                        preserveScroll
+                        aria-current={link.active ? 'page' : undefined}
                         className={`btn btn-sm ${link.active ? 'btn-primary' : 'btn-ghost'}`}
                     >
                         {link.label
@@ -471,7 +476,22 @@ function Ticket({
                             });
                         }}
                     >
-                        <select aria-label="Item yang ditautkan ke inventaris" className={inputClass} value={asset.data.item_id} onChange={e => asset.setData('item_id', e.target.value)} required={r.items.length > 1}><option value="">Pilih item laporan</option>{r.items.map(item => <option key={item.id} value={item.id}>{item.description}</option>)}</select>
+                        <select
+                            aria-label="Item yang ditautkan ke inventaris"
+                            className={inputClass}
+                            value={asset.data.item_id}
+                            onChange={(e) =>
+                                asset.setData('item_id', e.target.value)
+                            }
+                            required={r.items.length > 1}
+                        >
+                            <option value="">Pilih item laporan</option>
+                            {r.items.map((item) => (
+                                <option key={item.id} value={item.id}>
+                                    {item.description}
+                                </option>
+                            ))}
+                        </select>
                         <select
                             aria-label="Inventaris yang ditautkan"
                             className={inputClass}
@@ -650,7 +670,10 @@ export default function Pelaporan(p: Props) {
                 />
             )}
             {p.can_logbook && <LogbookForm today={p.today} />}
-            <section className="space-y-3" aria-label="Logbook harian">
+            <section
+                className="bg-base-100 border-base-300 space-y-3 rounded-xl border p-4 md:p-5"
+                aria-label="Logbook harian"
+            >
                 <h2 className="font-semibold">
                     Logbook pekerjaan lain pada {p.filters.date}
                 </h2>
@@ -677,11 +700,17 @@ export default function Pelaporan(p: Props) {
                     </Card>
                 ))}
                 {!p.logbooks.data.length && (
-                    <p>Belum ada catatan logbook pada tanggal ini.</p>
+                    <p className="bg-base-200/50 text-muted rounded-lg p-4 text-sm">
+                        Belum ada catatan logbook pada tanggal ini.
+                    </p>
                 )}
-                <Pages page={p.logbooks} />
+                <Pages page={p.logbooks} label="Halaman logbook" />
             </section>
-            <section className="space-y-3" aria-label="Daftar laporan">
+            <section
+                className="bg-base-100 border-base-300 space-y-3 rounded-xl border p-4 md:p-5"
+                aria-label="Daftar laporan"
+            >
+                <h2 className="font-semibold">Daftar laporan kerusakan</h2>
                 <p className="text-muted text-sm">
                     {p.reports.total} laporan dalam cakupan akses/filter.
                 </p>
@@ -695,11 +724,16 @@ export default function Pelaporan(p: Props) {
                     />
                 ))}
                 {!p.reports.data.length && (
-                    <p>Belum ada laporan yang dapat ditampilkan.</p>
+                    <p className="bg-base-200/50 text-muted rounded-lg p-4 text-sm">
+                        Belum ada laporan yang dapat ditampilkan.
+                    </p>
                 )}
-                <Pages page={p.reports} />
+                <Pages page={p.reports} label="Halaman laporan kerusakan" />
             </section>
-            <section className="space-y-3" aria-label="Aktivitas harian">
+            <section
+                className="bg-base-100 border-base-300 space-y-3 rounded-xl border p-4 md:p-5"
+                aria-label="Aktivitas harian"
+            >
                 <h2 className="font-semibold">
                     Aktivitas teknisi pada {p.filters.date}
                 </h2>
@@ -715,9 +749,11 @@ export default function Pelaporan(p: Props) {
                     </Card>
                 ))}
                 {!p.daily.data.length && (
-                    <p>Belum ada aktivitas tercatat untuk tanggal ini.</p>
+                    <p className="bg-base-200/50 text-muted rounded-lg p-4 text-sm">
+                        Belum ada aktivitas tercatat untuk tanggal ini.
+                    </p>
                 )}
-                <Pages page={p.daily} />
+                <Pages page={p.daily} label="Halaman aktivitas teknisi" />
             </section>
         </div>
     );

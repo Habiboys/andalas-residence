@@ -23,7 +23,7 @@ class PublishResidencePolicyRequest extends FormRequest
             'settings.open' => ['required', 'boolean'],
             'settings.documents' => ['required', 'array', 'min:1'],
             'settings.documents.*' => ['required', 'string', 'regex:/^[a-z0-9_]{1,80}$/', 'distinct'],
-            'settings.building_ids' => ['required', 'array', 'min:1'],
+            'settings.building_ids' => ['sometimes', 'array', 'min:1'],
             'settings.building_ids.*' => ['required', 'uuid', 'exists:gedung,id', 'distinct'],
             'settings.month_days' => ['required', 'integer', 'min:1', 'max:31'],
             'settings.day_basis' => ['required', 'in:nights,inclusive_days'],
