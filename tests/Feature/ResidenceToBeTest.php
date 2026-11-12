@@ -17,6 +17,7 @@ use App\Models\ResidencePolicy;
 use App\Models\ResidenceRate;
 use App\Models\ResidenceRegistration;
 use App\Models\RoomInvitation;
+use App\Models\RoomType;
 use App\Models\TransaksiKeuangan;
 use App\Models\User;
 use App\Notifications\ResidenceWorkflowNotification;
@@ -378,10 +379,12 @@ it('renders the student service selection page with shell user payload and auto-
             ->where('initialUser.id', $f['user']->id)
     );
 
+    RoomType::firstOrCreate(['code' => 'standar'], ['name' => 'Standar', 'active' => true]);
+    ResidenceRate::create(['gedung_id' => $f['building']->id, 'tipe_kamar' => 'standar', 'unit' => 'year', 'amount' => 1000000, 'room_amount' => 10000000]);
     Periode::query()->delete();
     expect(Periode::where('status', 'aktif')->exists())->toBeFalse();
 
-    $this->actingAs($f['manager'])->post(route('residence.policies.store'), [
+    $this->actingAs($f['manager'])->post(route('residence.policies'), [
         'category' => 'local_non_kipk',
         'open' => 1,
     ])->assertRedirect()->assertSessionHasNoErrors();

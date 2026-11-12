@@ -80,9 +80,48 @@ class ResidenceOperationsSeeder extends Seeder
         if (! in_array($status, ['selesai', 'dibatalkan'])) {
             $asset->update(['kondisi' => 'rusak_ringan']);
         }
-        Models\LaporanKerusakanPhoto::create(['laporan_kerusakan_id' => $report->id, 'type' => 'before', 'path' => ResidenceScenarioSeeder::fixture('kerusakan-sebelum'), 'uploaded_by' => $reporter]);
+        $item = Models\DamageReportItem::create([
+            'laporan_kerusakan_id' => $report->id,
+            'aset_id' => $asset->id,
+            'reported_by' => $reporter,
+            'description' => $report->deskripsi,
+            'location_label' => $asset->nama_aset,
+            'completed_at' => $status === 'selesai' ? now()->subDays(2) : null,
+            'completed_by' => $status === 'selesai' ? $technician->id : null,
+            'completion_note' => $report->catatan_penyelesaian,
+        ]);
+        Models\LaporanKerusakanPhoto::create(['laporan_kerusakan_id' => $report->id, 'item_id' => $item->id, 'type' => 'before', 'path' => ResidenceScenarioSeeder::fixture('kerusakan-sebelum'), 'uploaded_by' => $reporter]);
         if ($status === 'selesai') {
-            Models\LaporanKerusakanPhoto::create(['laporan_kerusakan_id' => $report->id, 'type' => 'after', 'path' => ResidenceScenarioSeeder::fixture('kerusakan-sesudah'), 'uploaded_by' => $technician->id]);
+            Models\LaporanKerusakanPhoto::create(['laporan_kerusakan_id' => $report->id, 'item_id' => $item->id, 'type' => 'after', 'path' => ResidenceScenarioSeeder::fixture('kerusakan-sesudah'), 'uploaded_by' => $technician->id]);
+            Models\DamageReportProgress::create([
+                'laporan_kerusakan_id' => $report->id,
+                'user_id' => $technician->id,
+                'work_date' => now()->subDays(3)->toDateString(),
+                'description' => 'DEMO: pemeriksaan dan perbaikan selesai.',
+                'is_blocked' => false,
+                'request_key' => 'DEMO-PROG-'.$ticket,
+                'request_hash' => hash('sha256', 'DEMO-PROG-'.$ticket),
+            ]);
+            Models\DamageReportComplaint::create([
+                'laporan_kerusakan_id' => $report->id,
+                'item_id' => $item->id,
+                'user_id' => $reporter,
+                'reason' => 'DEMO: catatan tindak lanjut pemeriksaan.',
+                'status' => 'open',
+                'request_key' => 'DEMO-COMP-'.$ticket,
+            ]);
+            $logbook = Models\TechnicianLogbook::create([
+                'user_id' => $technician->id,
+                'work_date' => now()->subDays(2)->toDateString(),
+                'description' => 'DEMO: logbook pemeliharaan berkala teknisi.',
+                'source' => 'manual',
+                'request_key' => 'DEMO-LOG-'.$ticket,
+                'request_hash' => hash('sha256', 'DEMO-LOG-'.$ticket),
+            ]);
+            Models\TechnicianLogbookPhoto::create([
+                'logbook_id' => $logbook->id,
+                'path' => ResidenceScenarioSeeder::fixture('kerusakan-sesudah'),
+            ]);
         }
         if ($assigned) {
             Models\LaporanKerusakanAssignment::create(['laporan_kerusakan_id' => $report->id, 'technician_id' => $technician->id, 'assigned_by' => $admin->id, 'assigned_at' => now()->subDays(6), 'ended_at' => $status === 'selesai' ? now()->subDays(2) : null]);

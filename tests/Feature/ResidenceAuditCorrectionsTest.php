@@ -255,7 +255,7 @@ it('moves one shared member with consent and reprices both obligations atomicall
     expect((float) $other->fresh()->tagihan->total)->toBe(10000000.0);
     expect($other->fresh()->roomContract->occupants)->toBe(1);
     $this->actingAs($member)->get(route('residence.amendments.document', $body['reference']))->assertOk();
-    $this->get(route('residence.workflow'))->assertInertia(fn (AssertableInertia $p) => $p->has('registrations.data.0.amendments', 1));
+    $this->actingAs($f['manager'])->get(route('residence.workflow'))->assertInertia(fn (AssertableInertia $p) => $p->has('registrations.data.0.amendments', 1));
     $this->assertDatabaseCount('residence_amendments', 1);
 });
 

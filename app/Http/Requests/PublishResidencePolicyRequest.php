@@ -14,6 +14,22 @@ class PublishResidencePolicyRequest extends FormRequest
         return ResidenceWorkflowAccess::manager($this->user());
     }
 
+    protected function prepareForValidation(): void
+    {
+        if (! $this->has('settings') && $this->has('open')) {
+            $category = (string) $this->input('category');
+            $this->merge([
+                'settings' => [
+                    'open' => $this->boolean('open'),
+                    'documents' => $category === 'local_kipk' ? ['ktp', 'perjanjian'] : ['ktp'],
+                    'month_days' => 30,
+                    'day_basis' => 'nights',
+                    'monthly_allowed' => true,
+                ],
+            ]);
+        }
+    }
+
     /** @return array<string, mixed> */
     public function rules(): array
     {
