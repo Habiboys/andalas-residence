@@ -1,4 +1,3 @@
-import { useRoomTypeCatalog } from '@/andalas/lib/room-types';
 import { router, useForm } from '@inertiajs/react';
 import { useState, type ReactNode } from 'react';
 import { formatRupiah } from '../../lib/format';
@@ -670,12 +669,7 @@ export default function ResidenceManagement({
     legacy_residents = [],
     legacy_rates = [],
     kipk_recipients = [],
-    residence_rates = [],
-    rooms = [],
 }: Props) {
-    const typeOptions: Array<[string, string]> = useRoomTypeCatalog()
-        .filter((type) => type.active)
-        .map((type) => [type.code, type.name]);
     const [tab, setTab] = useState('legacy');
     const [importModalOpen, setImportModalOpen] = useState(false);
     const [kipkImportOpen, setKipkImportOpen] = useState(false);
@@ -736,7 +730,7 @@ export default function ResidenceManagement({
         <div className="space-y-5">
             <PageHeader
                 title="Pengaturan Layanan"
-                subtitle="Arsip alumni, tarif, penerimaan, dan kategori penghuni."
+                subtitle="Arsip bebas asrama, periode hunian, dan data penerima KIP-K."
             />
             <Modal
                 open={kipkImportOpen}
@@ -805,7 +799,8 @@ export default function ResidenceManagement({
             <div className="flex flex-wrap gap-2">
                 {[
                     ['legacy', 'Bebas asrama'],
-                    ['registration', 'Pendaftaran'],
+                    ['period', 'Periode Hunian'],
+                    ['kipk', 'Penerima KIP-K'],
                 ].map(([v, l]) => (
                     <button
                         key={v}
@@ -942,256 +937,80 @@ export default function ResidenceManagement({
                         </div>
                     </Modal>
                 </>
+            ) : tab === 'period' ? (
+                <Editor
+                    kind="period"
+                    title="Periode penerimaan"
+                    rows={periods.filter(
+                        (period) =>
+                            !String(period.nama_periode ?? '').startsWith(
+                                'DEMO',
+                            ),
+                    )}
+                    buildings={orderedBuildings}
+                    fields={[
+                        {
+                            name: 'id',
+                            label: 'ID periode',
+                            optional: true,
+                            hidden: true,
+                        },
+                        {
+                            name: 'nama_periode',
+                            label: 'Tahun Ajaran',
+                            options: Array.from({ length: 75 }, (_, index) => {
+                                const year = 2025 + index;
+                                return [
+                                    `${year}/${year + 1}`,
+                                    `${year}/${year + 1}`,
+                                ] as [string, string];
+                            }),
+                        },
+                        {
+                            name: 'status',
+                            label: 'Status',
+                            options: [
+                                ['aktif', 'Aktif'],
+                                ['nonaktif', 'Nonaktif'],
+                            ],
+                        },
+                        {
+                            name: 'tanggal_mulai',
+                            label: 'Mulai hunian',
+                            type: 'date',
+                        },
+                        {
+                            name: 'tanggal_selesai',
+                            label: 'Akhir hunian',
+                            type: 'date',
+                        },
+                        {
+                            name: 'reservation_hours',
+                            label: 'Batas reservasi (jam)',
+                            type: 'number',
+                        },
+                    ]}
+                />
             ) : (
-                <>
-                    <Editor
-                        kind="period"
-                        title="Periode penerimaan"
-                        rows={periods.filter(
-                            (period) =>
-                                !String(period.nama_periode ?? '').startsWith(
-                                    'DEMO',
-                                ),
-                        )}
-                        buildings={orderedBuildings}
-                        fields={[
-                            {
-                                name: 'id',
-                                label: 'ID periode',
-                                optional: true,
-                                hidden: true,
-                            },
-                            {
-                                name: 'nama_periode',
-                                label: 'Tahun Ajaran',
-                                options: Array.from(
-                                    { length: 75 },
-                                    (_, index) => {
-                                        const year = 2025 + index;
-                                        return [
-                                            `${year}/${year + 1}`,
-                                            `${year}/${year + 1}`,
-                                        ] as [string, string];
-                                    },
-                                ),
-                            },
-                            {
-                                name: 'status',
-                                label: 'Status',
-                                options: [
-                                    ['aktif', 'Aktif'],
-                                    ['nonaktif', 'Nonaktif'],
-                                ],
-                            },
-                            {
-                                name: 'tanggal_mulai',
-                                label: 'Mulai hunian',
-                                type: 'date',
-                            },
-                            {
-                                name: 'tanggal_selesai',
-                                label: 'Akhir hunian',
-                                type: 'date',
-                            },
-                            {
-                                name: 'reservation_hours',
-                                label: 'Batas reservasi (jam)',
-                                type: 'number',
-                            },
-                        ]}
-                    />
-                    <Editor
-                        kind="kipk"
-                        title="Penerima KIP-K"
-                        actions={
-                            <button
-                                className="btn btn-outline btn-sm"
-                                onClick={() => setKipkImportOpen(true)}
-                            >
-                                <FileUp className="size-4" />
-                                Impor Excel
-                            </button>
-                        }
-                        rows={kipk_recipients}
-                        buildings={orderedBuildings}
-                        fields={[
-                            { name: 'nim', label: 'NIM' },
-                            { name: 'nama', label: 'Nama' },
-                        ]}
-                    />
-                    <Editor
-                        kind="room-type"
-                        title="Jenis tipe kamar per gedung"
-                        rows={orderedBuildings.flatMap((building) =>
-                            (building.room_types ?? []).map((type) => ({
-                                gedung_id: building.id,
-                                type: type.type,
-                                enabled: type.enabled ? 1 : 0,
-                                max_capacity: type.max_capacity,
-                                facilities: type.facilities,
-                            })),
-                        )}
-                        buildings={orderedBuildings}
-                        fields={[
-                            buildingField,
-                            {
-                                name: 'type',
-                                label: 'Tipe',
-                                options: typeOptions,
-                            },
-                            {
-                                name: 'enabled',
-                                label: 'Tersedia',
-                                options: [
-                                    ['1', 'Ya'],
-                                    ['0', 'Tidak'],
-                                ],
-                            },
-                            {
-                                name: 'max_capacity',
-                                label: 'Kapasitas maksimal (orang)',
-                                type: 'number',
-                                optional: true,
-                            },
-                            {
-                                name: 'facilities',
-                                label: 'Fasilitas',
-                                optional: true,
-                            },
-                        ]}
-                    />
-                    <Editor
-                        kind="rate"
-                        title="Tarif gedung dan tipe kamar"
-                        rows={residence_rates.filter((row) =>
-                            visibleBuildingIds.has(String(row.gedung_id ?? '')),
-                        )}
-                        buildings={orderedBuildings}
-                        fields={[
-                            buildingTextField,
-                            {
-                                name: 'tipe_kamar',
-                                label: 'Tipe',
-                                options: typeOptions,
-                            },
-                            {
-                                name: 'unit',
-                                label: 'Satuan',
-                                options: [
-                                    ['year', 'Per tahun'],
-                                    ['month', 'Per bulan'],
-                                    ['day', 'Per hari'],
-                                ],
-                            },
-                            {
-                                name: 'amount',
-                                label: 'Tarif (Rp)',
-                                type: 'number',
-                            },
-                            {
-                                name: 'student_amount',
-                                label: 'Tarif harian mahasiswa (Rp)',
-                                type: 'number',
-                                optional: true,
-                            },
-                            {
-                                name: 'room_amount',
-                                label: 'Tarif tahunan per kamar (Rp)',
-                                type: 'number',
-                                optional: true,
-                            },
-                        ]}
-                    />
-                    <Editor
-                        kind="room"
-                        title="Nomor dan kondisi kamar"
-                        rows={rooms.filter((row) =>
-                            visibleBuildingIds.has(String(row.gedung_id ?? '')),
-                        )}
-                        buildings={orderedBuildings}
-                        fields={[
-                            {
-                                name: 'id',
-                                label: 'ID',
-                                hidden: true,
-                                optional: true,
-                            },
-                            buildingField,
-                            {
-                                name: 'nomor_lantai',
-                                label: 'Lantai',
-                                type: 'number',
-                            },
-                            { name: 'nomor_kamar', label: 'Nomor kamar' },
-                            {
-                                name: 'tipe_kamar',
-                                label: 'Tipe',
-                                options: typeOptions,
-                            },
-                            {
-                                name: 'kapasitas',
-                                label: 'Kapasitas',
-                                type: 'number',
-                            },
-                            {
-                                name: 'status',
-                                label: 'Kondisi',
-                                options: [
-                                    [
-                                        'kosong',
-                                        'Siap digunakan (status hunian otomatis)',
-                                    ],
-                                    [
-                                        'terisi_sebagian',
-                                        'Terisi sebagian (otomatis)',
-                                    ],
-                                    ['penuh', 'Penuh (otomatis)'],
-                                    ['maintenance', 'Rusak / tidak tersedia'],
-                                ],
-                            },
-                        ]}
-                    />
-                    <Editor
-                        kind="building"
-                        title="Kategori penghuni per gedung"
-                        rows={orderedBuildings.map((b) => ({
-                            id: b.id,
-                            kode_gedung: b.kode_gedung,
-                            nama_gedung: b.nama_gedung,
-                            gender_peruntukan: b.gender_peruntukan ?? 'campur',
-                            allowed_categories: b.allowed_categories ?? [],
-                            gedung_id: b.id,
-                        }))}
-                        buildings={orderedBuildings}
-                        fields={[
-                            { ...buildingField, optional: true },
-                            {
-                                name: 'kode_gedung',
-                                label: 'Kode gedung baru / kode gedung',
-                                optional: true,
-                            },
-                            {
-                                name: 'nama_gedung',
-                                label: 'Nama gedung',
-                                optional: true,
-                            },
-                            {
-                                name: 'gender_peruntukan',
-                                label: 'Peruntukan',
-                                options: [
-                                    ['campur', 'Campur'],
-                                    ['perempuan', 'Perempuan'],
-                                    ['laki_laki', 'Laki-laki'],
-                                ],
-                            },
-                            {
-                                name: 'allowed_categories',
-                                label: 'Kategori yang diizinkan',
-                                type: 'categories',
-                            },
-                        ]}
-                    />
-                </>
+                <Editor
+                    kind="kipk"
+                    title="Penerima KIP-K"
+                    actions={
+                        <button
+                            className="btn btn-outline btn-sm"
+                            onClick={() => setKipkImportOpen(true)}
+                        >
+                            <FileUp className="size-4" />
+                            Impor Excel
+                        </button>
+                    }
+                    rows={kipk_recipients}
+                    buildings={orderedBuildings}
+                    fields={[
+                        { name: 'nim', label: 'NIM' },
+                        { name: 'nama', label: 'Nama' },
+                    ]}
+                />
             )}
         </div>
     );

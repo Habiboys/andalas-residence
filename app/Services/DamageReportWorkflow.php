@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\LaporanKerusakanStatus as Status;
 use App\Jobs\SendDamageReportNotification;
 use App\Models\Aset;
+use App\Models\DamageReportItem;
 use App\Models\DamageReportProgress;
 use App\Models\FasilitasUmum;
 use App\Models\Gedung;
@@ -18,85 +19,22 @@ use Illuminate\Validation\ValidationException;
 
 class DamageReportWorkflow
 {
+    /**
+     * @param  list<string>  $paths
+     * @param  array<string, mixed>  $options
+     */
     public function resident(User $actor, string $description, array $paths, ?string $assetId, array $options = []): LaporanKerusakan
     {
-        Gate::forUser($actor)->authorize('create', LaporanKerusakan::class);
-        return DB::transaction(function () use ($actor, $description, $paths, $assetId, $options): LaporanKerusakan {
-            $placement = $actor->mahasiswaProfil->penempatanKamar()->where('status', 'aktif')->latest('tanggal_mulai')->lockForUpdate()->first();
-            if (! $placement) {
-                $this->fail('deskripsi', 'Penempatan aktif wajib tersedia.');
-            }
-            $room = $placement->kamar;
-            Kamar::whereKey($room->id)->lockForUpdate()->firstOrFail();
-            $asset = $assetId ? Aset::reportableFor($room)->find($assetId) : null;
-            if ($assetId && ! $asset) {
-                $this->fail('aset_id', 'Pilih barang di kamar Anda atau fasilitas umum gedung Anda yang masih digunakan.');
-            }
-            $facilityId = $asset?->fasilitas_umum_id ?? ($options['fasilitas_umum_id'] ?? null);
-            if ($facilityId && ! FasilitasUmum::whereKey($facilityId)->where('gedung_id', $room->lantai->gedung_id)->exists()) {
-                $this->fail('fasilitas_umum_id', 'Fasilitas harus berada di gedung hunian Anda.');
-            }
-            return $this->insert($actor, $description, $paths, [
-                'gedung_id' => $room->lantai->gedung_id, 'kamar_id' => $facilityId ? null : $room->id,
-                'fasilitas_umum_id' => $facilityId, 'aset_id' => $assetId, 'source' => 'resident',
-                'location_label' => $asset?->nama_aset ?? trim($options['location_label'] ?? 'Kamar '.$room->nomor_kamar),
-            ], $options);
-        }, 3);
-    }
+        $facilityId = $options['fasilitas_umum_id'] ?? null;
+        if ($assetId) {
+            $asset = Aset::whereKey($assetId)->first();
+            $facilityId = $asset ? ($asset->fasilitas_umum_id ?? $facilityId) : $facilityId;
+        }
 
-    public function order(User $actor, array $data, array $paths = []): LaporanKerusakan
-    {
-        abort_unless($actor->status === 'aktif' && $actor->hasAnyRole(['pimpinan', 'superadmin']), 403);
-        return DB::transaction(function () use ($actor, $data, $paths): LaporanKerusakan {
-            $room = empty($data['kamar_id']) ? null : Kamar::with('lantai')->findOrFail($data['kamar_id']);
-            $facility = empty($data['fasilitas_umum_id']) ? null : FasilitasUmum::findOrFail($data['fasilitas_umum_id']);
-            $building = Gedung::findOrFail($data['gedung_id']);
-            if (($room && $room->lantai->gedung_id !== $building->id) || ($facility && $facility->gedung_id !== $building->id) || ($room && $facility)) {
-                $this->fail('gedung_id', 'Lokasi pekerjaan tidak cocok dengan gedung.');
-            }
-            $asset = empty($data['aset_id']) ? null : Aset::findOrFail($data['aset_id']);
-            if ($asset && ($asset->kamar_id !== $room?->id || $asset->fasilitas_umum_id !== $facility?->id)) {
-                $this->fail('aset_id', 'Aset harus sesuai lokasi pekerjaan.');
-            }
-            return $this->insert($actor, $data['deskripsi'], $paths, [
-                'gedung_id' => $building->id, 'kamar_id' => $room?->id, 'fasilitas_umum_id' => $facility?->id,
-                'aset_id' => $asset?->id, 'source' => 'leader', 'location_label' => trim($data['location_label']), 'priority' => $data['priority'],
-            ], $data);
-        }, 3);
-    }
-
-    public function insert(User $actor, string $description, array $paths, array $location, array $options = []): LaporanKerusakan
-    {
-        if (trim($description) === '') {
-            $this->fail('deskripsi', 'Deskripsi wajib diisi.');
-        }
-        $this->lockLocation($location);
-        $key = $options['request_key'] ?? null;
-        if ($key) {
-            User::whereKey($actor->id)->lockForUpdate()->firstOrFail();
-        }
-        $hash = $options['request_hash'] ?? hash('sha256', json_encode([$description, $location, $options['different_incident_reason'] ?? null]));
-        if ($key && ($previous = LaporanKerusakan::where('dilaporkan_oleh', $actor->id)->where('request_key', $key)->lockForUpdate()->first())) {
-            if (! hash_equals((string) $previous->request_hash, $hash)) {
-                $this->fail('request_key', 'Kunci pengiriman sudah digunakan dengan isi berbeda.');
-            }
-            return $previous->load('photos');
-        }
-        $candidate = LaporanKerusakan::whereNotIn('status', [Status::Selesai, Status::Dibatalkan])
-            ->where('kamar_id', $location['kamar_id'] ?? null)->where('fasilitas_umum_id', $location['fasilitas_umum_id'] ?? null)
-            ->where('gedung_id', $location['gedung_id'])->where('aset_id', $location['aset_id'] ?? null)
-            ->when(empty($location['aset_id']), fn ($q) => $q->where(fn ($label) => $label->where('location_label', $location['location_label'])->orWhereNull('location_label')))->lockForUpdate()->first();
-        if ($candidate && trim($options['different_incident_reason'] ?? '') === '') {
-            $this->fail('different_incident_reason', 'Kejadian aktif sudah tercatat. Tautkan laporan yang ada atau jelaskan kerusakan yang berbeda.');
-        }
-        $report = LaporanKerusakan::create([
-            ...$location, 'nomor_tiket' => 'TKT-'.Str::upper(Str::random(12)), 'dilaporkan_oleh' => $actor->id,
-            'deskripsi' => trim($description), 'status' => Status::MenungguTriage, 'tanggal_lapor' => now(),
-            'request_key' => $key, 'request_hash' => $hash, 'different_incident_reason' => $options['different_incident_reason'] ?? null,
-        ]);
-        $this->photos($report, $actor, $paths, 'before');
-        $this->history($report, $actor, null, Status::MenungguTriage, 'Laporan dibuat ('.$report->source.').');
-        return $report->load(['photos', 'statusHistories']);
+        return app(DamageReportRevision::class)->submit($actor, [[
+            'description' => $description, 'aset_id' => $assetId,
+            'location_label' => $options['location_label'] ?? null, 'paths' => $paths,
+        ]], $facilityId, $options['request_key'] ?? null, $options['request_hash'] ?? null);
     }
 
     public function claim(LaporanKerusakan $report, User $actor): LaporanKerusakan
@@ -111,33 +49,65 @@ class DamageReportWorkflow
             $report->update(['teknisi_id' => $actor->id, 'status' => Status::SedangDikerjakan]);
             $report->assignments()->firstOrCreate(['technician_id' => $actor->id, 'ended_at' => null], ['assigned_by' => $actor->id, 'assigned_at' => now(), 'role' => 'lead']);
             $this->history($report, $actor, $from, Status::SedangDikerjakan, 'Diklaim teknisi.');
+
             return $report->load(['assignments', 'statusHistories']);
         }, 3);
     }
 
-    public function complete(LaporanKerusakan $report, User $actor, string $description, array $paths, ?string $hash = null): LaporanKerusakan
+    /**
+     * @param  list<string>  $paths
+     * @param  list<string>|null  $participants
+     */
+    public function complete(LaporanKerusakan $report, User $actor, string $description, array $paths, ?string $hash = null, ?array $participants = null): LaporanKerusakan
     {
-        $hash ??= hash('sha256', json_encode([trim($description), $paths]));
-        return DB::transaction(function () use ($report, $actor, $description, $paths, $hash): LaporanKerusakan {
+        $hash ??= hash('sha256', json_encode([trim($description), $paths], JSON_THROW_ON_ERROR));
+
+        return DB::transaction(function () use ($report, $actor, $description, $paths, $hash, $participants): LaporanKerusakan {
             $report = $this->locked($report);
             Gate::forUser($actor)->authorize('complete', $report);
             if ($report->status === Status::Selesai) {
                 if (! $report->completion_hash || ! hash_equals($report->completion_hash, $hash)) {
                     $this->fail('status', 'Penyelesaian sudah tercatat dengan isi berbeda.');
                 }
+
                 return $report->load(['photos', 'assignments', 'statusHistories']);
             }
             if (trim($description) === '' || $paths === []) {
                 $this->fail('completion', 'Deskripsi dan minimal satu bukti penyelesaian wajib diisi.');
             }
+            if ($participants !== null) {
+                $this->team($report, $actor, $participants, 'Partisipan saat penyelesaian.');
+            }
+            $items = $report->items()->lockForUpdate()->get();
+            // The single-item legacy endpoint's final action also declares its one item repaired.
+            if ($items->count() === 1 && $items->first()->completed_at === null) {
+                $items->first()->update(['completed_at' => now(), 'completed_by' => $actor->id, 'completion_note' => trim($description)]);
+            } elseif ($items->contains(fn ($item) => $item->completed_at === null)) {
+                $this->fail('items', 'Seluruh item kerusakan harus selesai sebelum laporan ditutup.');
+            }
             $this->photos($report, $actor, $paths, 'after');
+            if ($items->count() === 1) {
+                $report->photos()->where('type', 'after')->whereNull('item_id')->update(['item_id' => $items->first()->id]);
+            }
+            $report->progress()->firstOrCreate(['request_key' => $report->id, 'user_id' => $actor->id], [
+                'work_date' => today()->toDateString(), 'description' => 'Penyelesaian: '.trim($description),
+                'is_blocked' => false, 'request_hash' => hash('sha256', 'completion:'.$report->id),
+            ]);
             $report->update(['status' => Status::Selesai, 'catatan_penyelesaian' => trim($description), 'tanggal_selesai' => now(), 'completion_hash' => $hash, 'is_blocked' => false]);
-            if ($report->aset_id && ! LaporanKerusakan::where('aset_id', $report->aset_id)->whereKeyNot($report->id)->whereNotIn('status', [Status::Selesai, Status::Dibatalkan])->exists()) {
-                $report->aset()->update(['kondisi' => 'baik']);
+            foreach ($items->pluck('aset_id')->filter()->unique()->sort()->values() as $assetId) {
+                $asset = Aset::whereKey($assetId)->lockForUpdate()->first();
+                $active = DamageReportItem::join('laporan_kerusakan', 'laporan_kerusakan.id', '=', 'damage_report_items.laporan_kerusakan_id')
+                    ->where('damage_report_items.aset_id', $assetId)->where('laporan_kerusakan.id', '!=', $report->id)
+                    ->whereNotIn('laporan_kerusakan.status', [Status::Selesai, Status::Dibatalkan])
+                    ->select('damage_report_items.id')->lockForUpdate()->first() !== null;
+                if ($asset && ! $active) {
+                    $asset->update(['kondisi' => 'baik']);
+                }
             }
             $report->assignments()->whereNull('ended_at')->update(['ended_at' => now()]);
             $this->history($report, $actor, Status::SedangDikerjakan, Status::Selesai, trim($description));
             $this->notifyCompletion($report);
+
             return $report->load(['photos', 'assignments', 'statusHistories']);
         }, 3);
     }
@@ -154,36 +124,42 @@ class DamageReportWorkflow
                 if ($report->cancelled_by !== $actor->id || $report->cancellation_reason !== trim($reason)) {
                     $this->fail('status', 'Pembatalan sudah tercatat dengan keputusan berbeda.');
                 }
+
                 return $report;
             }
             $from = $report->status;
             $report->update(['status' => Status::Dibatalkan, 'cancellation_reason' => trim($reason), 'cancelled_by' => $actor->id, 'is_blocked' => false]);
             $report->assignments()->whereNull('ended_at')->update(['ended_at' => now()]);
             $this->history($report, $actor, $from, Status::Dibatalkan, trim($reason));
+
             return $report;
         }, 3);
     }
 
+    /** @param array{description:string,work_date:string,is_blocked?:bool,request_key:string} $data */
     public function progress(LaporanKerusakan $report, User $actor, array $data): DamageReportProgress
     {
         return DB::transaction(function () use ($report, $actor, $data): DamageReportProgress {
             $report = $this->locked($report);
             Gate::forUser($actor)->authorize('progress', $report);
             User::whereKey($actor->id)->lockForUpdate()->firstOrFail();
-            $hash = hash('sha256', json_encode([$report->id, $data['description'], $data['work_date'], (bool) ($data['is_blocked'] ?? false)]));
+            $hash = hash('sha256', json_encode([$report->id, $data['description'], $data['work_date'], (bool) ($data['is_blocked'] ?? false)], JSON_THROW_ON_ERROR));
             $existing = DamageReportProgress::where('user_id', $actor->id)->where('request_key', $data['request_key'])->first();
             if ($existing) {
                 if (! hash_equals($existing->request_hash, $hash)) {
                     $this->fail('request_key', 'Kunci progres sudah digunakan dengan isi berbeda.');
                 }
+
                 return $existing;
             }
             $progress = $report->progress()->create([...$data, 'user_id' => $actor->id, 'request_hash' => $hash]);
             $report->update(['is_blocked' => (bool) ($data['is_blocked'] ?? false)]);
+
             return $progress;
         }, 3);
     }
 
+    /** @param list<string> $ids */
     public function team(LaporanKerusakan $report, User $actor, array $ids, string $reason): LaporanKerusakan
     {
         return DB::transaction(function () use ($report, $actor, $ids, $reason): LaporanKerusakan {
@@ -194,7 +170,8 @@ class DamageReportWorkflow
                 $this->fail('technician_ids', 'Seluruh anggota harus teknisi aktif.');
             }
             $active = $report->assignments()->where('role', 'member')->whereNull('ended_at')->pluck('technician_id')->all();
-            sort($ids); sort($active);
+            sort($ids);
+            sort($active);
             if ($ids === $active) {
                 return $report->load('assignments.technician');
             }
@@ -203,6 +180,7 @@ class DamageReportWorkflow
                 $report->assignments()->create(['technician_id' => $id, 'assigned_by' => $actor->id, 'assigned_at' => now(), 'role' => 'member']);
             }
             $this->history($report, $actor, $report->status, $report->status, 'Anggota tim diperbarui: '.trim($reason));
+
             return $report->load('assignments.technician');
         }, 3);
     }
@@ -216,23 +194,29 @@ class DamageReportWorkflow
         }, 3);
     }
 
-    public function linkAsset(LaporanKerusakan $report, User $actor, string $assetId, string $reason): void
+    public function linkAsset(LaporanKerusakan $report, User $actor, string $assetId, string $reason, ?string $itemId = null): void
     {
-        DB::transaction(function () use ($report, $actor, $assetId, $reason): void {
+        DB::transaction(function () use ($report, $actor, $assetId, $reason, $itemId): void {
             $report = $this->locked($report);
             Gate::forUser($actor)->authorize('linkAsset', $report);
             $asset = Aset::whereKey($assetId)->lockForUpdate()->firstOrFail();
             if ($asset->kamar_id !== $report->kamar_id || $asset->fasilitas_umum_id !== $report->fasilitas_umum_id || (! $asset->kamar_id && ! $asset->fasilitas_umum_id)) {
                 $this->fail('aset_id', 'Aset harus sesuai lokasi awal laporan.');
             }
-            if ($report->aset_id === $assetId) {
+            $items = $report->items()->lockForUpdate()->get();
+            $item = $itemId ? $items->firstWhere('id', $itemId) : ($items->count() === 1 ? $items->first() : null);
+            if (! $item) {
+                $this->fail('item_id', 'Pilih item laporan yang akan dihubungkan dengan inventaris.');
+            }
+            if ($item->aset_id === $assetId) {
                 return;
             }
             if (LaporanKerusakan::where('aset_id', $assetId)->whereKeyNot($report->id)->whereNotIn('status', [Status::Selesai, Status::Dibatalkan])->exists()) {
                 $this->fail('aset_id', 'Aset mempunyai kejadian aktif lain. Tinjau keterkaitan kejadian sebelum mengubah inventaris.');
             }
-            $old = $report->aset_id ?? 'tanpa inventaris';
-            $report->update(['aset_id' => $assetId]);
+            $old = $item->aset_id ?? 'tanpa inventaris';
+            $item->update(['aset_id' => $assetId]);
+            if ($items->count() === 1) { $report->update(['aset_id' => $assetId]); }
             $this->history($report, $actor, $report->status, $report->status, 'Pengaitan aset '.$old.' -> '.$assetId.': '.trim($reason));
         }, 3);
     }
@@ -240,9 +224,11 @@ class DamageReportWorkflow
     public function locked(LaporanKerusakan $report): LaporanKerusakan
     {
         $this->lockLocation($report->only(['kamar_id', 'fasilitas_umum_id', 'gedung_id', 'aset_id']));
+
         return LaporanKerusakan::whereKey($report->id)->lockForUpdate()->firstOrFail();
     }
 
+    /** @param array<string, mixed> $location */
     private function lockLocation(array $location): void
     {
         if (! empty($location['kamar_id'])) {
@@ -257,6 +243,7 @@ class DamageReportWorkflow
         }
     }
 
+    /** @param list<string> $paths */
     private function photos(LaporanKerusakan $report, User $actor, array $paths, string $type): void
     {
         foreach ($paths as $path) {

@@ -6,7 +6,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class LaporanKerusakanPhoto extends BaseModel
 {
-    protected $fillable = ['laporan_kerusakan_id', 'type', 'path', 'uploaded_by'];
+    protected $fillable = ['laporan_kerusakan_id', 'item_id', 'type', 'path', 'uploaded_by'];
+
+    protected $hidden = ['path'];
 
     /** @return BelongsTo<LaporanKerusakan, $this> */
     public function report(): BelongsTo

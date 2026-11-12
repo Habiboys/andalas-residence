@@ -28,7 +28,9 @@ it('offers room selection and daily or period pricing for personal registration'
     const html = renderToStaticMarkup(
         <Registration initialUser={{ is_kipk: false }} />,
     );
-    expect(html).toContain('Katalog kamar');
+    expect(html).toContain('Tahapan pendaftaran');
+    expect(html).toContain('Lanjut ke pilihan kamar');
+    expect(html).not.toContain('Katalog kamar');
     expect(html).toContain('Per hari');
     expect(html).toContain('Per tahun');
     expect(html).toContain('Per orang');

@@ -3,9 +3,9 @@
 namespace App\Actions\Checkout;
 
 use App\Enums\LaporanKerusakanStatus;
+use App\Models\Kamar;
 use App\Models\LaporanKerusakan;
 use App\Models\RoomInspectionFinding;
-use App\Models\Kamar;
 use Illuminate\Support\Facades\DB;
 
 class CreateDamageReportFromFinding
@@ -29,6 +29,7 @@ class CreateDamageReportFromFinding
             if ($existing) {
                 $lockedFinding->update(['laporan_kerusakan_id' => $existing->id]);
                 $existing->statusHistories()->create(['from_status' => $existing->status, 'to_status' => $existing->status, 'changed_by' => $reporterId, 'description' => 'Temuan checkout ditautkan ke kejadian aktif: '.$lockedFinding->description]);
+
                 return $existing;
             }
             $report = LaporanKerusakan::create([
@@ -48,6 +49,8 @@ class CreateDamageReportFromFinding
                 'changed_by' => $reporterId,
                 'description' => 'Dibuat dari temuan checkout.',
             ]);
+
+            $report->items()->create(['aset_id' => $lockedFinding->aset_id, 'reported_by' => $reporterId, 'description' => $lockedFinding->description, 'location_label' => 'Kamar '.$room->nomor_kamar]);
 
             $lockedFinding->update(['laporan_kerusakan_id' => $report->id]);
 

@@ -832,7 +832,7 @@ export function DataTable<T extends Record<string, unknown>>({
                         </select>
                     </label>
 
-                    {
+                    {totalPages > 1 && (
                         <div className="join" aria-label="Navigasi halaman">
                             <PageButton
                                 onClick={() => changePage(1)}
@@ -908,7 +908,7 @@ export function DataTable<T extends Record<string, unknown>>({
                                 />
                             </PageButton>
                         </div>
-                    }
+                    )}
                 </div>
             </div>
         </div>

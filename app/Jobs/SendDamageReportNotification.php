@@ -30,10 +30,11 @@ class SendDamageReportNotification implements ShouldQueue
             if (! $event || $event->status !== 'pending') {
                 return;
             }
-            $user = User::find($event->user_id);
-            $report = LaporanKerusakan::find($event->laporan_kerusakan_id);
+            $user = User::whereKey($event->user_id)->first();
+            $report = LaporanKerusakan::whereKey($event->laporan_kerusakan_id)->first();
             if (! $user || ! $report || ! DamageReportAccess::canView($user, $report)) {
                 DB::table('damage_report_notifications')->where('id', $event->id)->update(['status' => 'skipped', 'updated_at' => now()]);
+
                 return;
             }
             DB::table('notifications')->insertOrIgnore([

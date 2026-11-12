@@ -27,7 +27,6 @@ use App\Models\ResidencePaymentReference;
 use App\Models\ResidencePolicy;
 use App\Models\ResidenceRegistration;
 use App\Models\RoomContract;
-use App\Models\RoomType;
 use App\Models\Tagihan;
 use App\Models\User;
 use App\Notifications\ResidenceWorkflowNotification;
@@ -106,8 +105,16 @@ class ResidenceWorkflowController extends Controller
             'departemen' => Departemen::orderBy('name')->get(['id', 'name', 'faculty_id']),
             'programs' => Prodi::orderBy('name')->get(['id', 'name', 'jenjang', 'departemen_id']),
             'policies' => $manager ? ResidencePolicy::orderBy('category')->orderByDesc('version')->get() : [],
-            'buildings' => $manager ? Gedung::orderBy('kode_gedung')->get(['id', 'kode_gedung', 'nama_gedung']) : [],
-            'roomTypes' => $manager ? RoomType::where('active', true)->get(['code', 'name']) : [],
+            'buildings' => $manager ? Gedung::orderBy('kode_gedung')->get(['id', 'kode_gedung', 'nama_gedung'])
+                ->map(fn (Gedung $building): array => [
+                    ...$building->toArray(),
+                    'settings_url' => $user->can('gedung.manage') && $user->can('gedung.view')
+                        ? route('andalas.gedung.show', $building)
+                        : null,
+                ]) : [],
+            'policyCatalog' => $manager ? collect(ResidencePolicyService::CATEGORIES)
+                ->mapWithKeys(fn (string $category): array => [$category => app(ResidencePolicyService::class)->masterCatalog($category)]) : [],
+            'masterHousingUrl' => $user->hasAnyRole(['staff_admin', 'superadmin']) ? route('admin.kelola-bangunan') : null,
             'rooms' => ($manager || $user->hasRole('fasilitator')) ? Kamar::with('lantai.gedung')->where('status', '!=', 'maintenance')->when(! $manager, fn ($q) => $q->whereHas('lantai', fn ($q) => $q->whereIn('gedung_id', ResidenceBuildingAccess::ids($user))))->get() : [],
             'applications' => ($manager || $finance) ? ResidenceApplication::with('registrations.tagihan')->latest()->limit(100)->get() : [],
             'paymentProofs' => $finance ? Pembayaran::with('mahasiswa.user')->where('status', 'menunggu_verifikasi')->latest()->limit(200)->get() : [],
@@ -166,11 +173,15 @@ class ResidenceWorkflowController extends Controller
         DB::transaction(function () use ($request): void {
             Gedung::query()->orderBy('id')->lockForUpdate()->get();
             $version = (int) ResidencePolicy::where('category', $request->validated('category'))->max('version') + 1;
-            $policy = ResidencePolicy::create(['category' => $request->validated('category'), 'version' => $version, 'settings' => $request->validated('settings'), 'published_at' => now(), 'created_by' => $request->user()->id]);
+            $settings = $request->validated('settings');
+            $settings['rates'] = $settings['open']
+                ? app(ResidencePolicyService::class)->snapshotRates($request->validated('category'), $settings['building_ids'])
+                : [];
+            $policy = ResidencePolicy::create(['category' => $request->validated('category'), 'version' => $version, 'settings' => $settings, 'published_at' => now(), 'created_by' => $request->user()->id]);
             AuditLogService::log($request->user(), 'residence_policy_published', $policy, null, $policy->toArray());
         });
 
-        return back()->with('toast', ['type' => 'success', 'message' => 'Versi kebijakan diterbitkan. Pendaftaran lama tetap menggunakan versi sebelumnya.']);
+        return back()->with('toast', ['type' => 'success', 'message' => $request->validated('settings.open') ? 'Pendaftaran kategori dibuka.' : 'Pendaftaran kategori ditutup.']);
     }
 
     public function upload(Request $request, ResidenceRegistration $registration): RedirectResponse

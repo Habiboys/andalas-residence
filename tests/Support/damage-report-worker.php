@@ -10,6 +10,7 @@ if (! app()->environment('testing') || ! preg_match('/^andalas_damage_test_[a-z0
 $user = App\Models\User::findOrFail($actorId);
 fwrite(STDOUT, "READY\n");
 fflush(STDOUT);
+touch($gate.'.ready-'.getmypid());
 $deadline = microtime(true) + 180;
 while (! is_file($gate)) {
     if (microtime(true) > $deadline) {

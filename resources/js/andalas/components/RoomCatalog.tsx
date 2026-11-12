@@ -81,6 +81,7 @@ export default function RoomCatalog({
     const catalog = useRoomTypeCatalog();
     const [building, setBuilding] = useState('');
     const [type, setType] = useState('');
+    const [page, setPage] = useState(1);
     const [search, setSearch] = useState('');
     const [sort, setSort] = useState('price');
     const buildings = Array.from(
@@ -110,6 +111,9 @@ export default function RoomCatalog({
                 ),
         [rooms, building, type, search, sort, rates, unit, basis, isStudent],
     );
+    const pageSize = 9;
+    const totalPages = Math.ceil(filtered.length / pageSize);
+    const currentPage = Math.min(page, Math.max(1, totalPages));
     return (
         <section className="space-y-4" aria-label="Katalog kamar">
             <div>
@@ -121,19 +125,25 @@ export default function RoomCatalog({
                     pengisian lantai. Pilih satu kamar untuk melanjutkan.
                 </p>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="border-base-300 bg-base-100 grid gap-3 rounded-xl border p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-4">
                 <input
                     aria-label="Cari kamar atau gedung"
                     className="input w-full"
                     placeholder="Cari kamar atau gedung"
                     value={search}
-                    onChange={(event) => setSearch(event.target.value)}
+                    onChange={(event) => {
+                        setSearch(event.target.value);
+                        setPage(1);
+                    }}
                 />
                 <select
                     aria-label="Filter gedung"
                     className="select w-full"
                     value={building}
-                    onChange={(event) => setBuilding(event.target.value)}
+                    onChange={(event) => {
+                        setBuilding(event.target.value);
+                        setPage(1);
+                    }}
                 >
                     <option value="">Semua gedung</option>
                     {buildings.map(([id, name]) => (
@@ -146,7 +156,10 @@ export default function RoomCatalog({
                     aria-label="Filter tipe kamar"
                     className="select w-full"
                     value={type}
-                    onChange={(event) => setType(event.target.value)}
+                    onChange={(event) => {
+                        setType(event.target.value);
+                        setPage(1);
+                    }}
                 >
                     <option value="">Semua tipe</option>
                     {Array.from(
@@ -161,7 +174,10 @@ export default function RoomCatalog({
                     aria-label="Urutkan kamar"
                     className="select w-full"
                     value={sort}
-                    onChange={(event) => setSort(event.target.value)}
+                    onChange={(event) => {
+                        setSort(event.target.value);
+                        setPage(1);
+                    }}
                 >
                     <option value="price">Harga terendah</option>
                     <option value="number">Nomor kamar</option>
@@ -171,124 +187,158 @@ export default function RoomCatalog({
                 {filtered.length} kamar tersedia
             </p>
             <div className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
-                {filtered.map((room) => {
-                    const price = roomPrice(
-                        room,
-                        rates,
-                        unit,
-                        basis,
-                        isStudent,
-                    );
-                    const disabled =
-                        price <= 0 ||
-                        (basis === 'room' &&
-                            room.available_places != null &&
-                            room.available_places < (room.kapasitas ?? 0));
-                    const photo = room.foto ?? room.lantai?.gedung?.foto;
-                    return (
-                        <article
-                            key={room.id}
-                            className={`bg-base-100 overflow-hidden rounded-xl border ${selected === room.id ? 'border-primary ring-primary/20 ring-2' : 'border-base-300'}`}
-                        >
-                            {photo ? (
-                                <img
-                                    src={`/storage/${photo}`}
-                                    alt={`Kamar ${room.nomor_kamar} di ${room.lantai?.gedung?.nama_gedung}`}
-                                    className="h-44 w-full object-cover"
-                                    loading="lazy"
-                                />
-                            ) : (
-                                <div className="bg-base-200 text-base-content/30 flex h-44 items-center justify-center">
-                                    <BedDouble className="size-12" />
-                                    <span className="sr-only">
-                                        Foto belum tersedia
-                                    </span>
-                                </div>
-                            )}
-                            <div className="space-y-3 p-4">
-                                <div className="flex items-center justify-between gap-2">
-                                    <span className="badge badge-ghost capitalize">
-                                        {roomTypeName(catalog, room.tipe_kamar)}
-                                    </span>
-                                    {selected === room.id && (
-                                        <span className="text-primary flex items-center gap-1 text-sm">
-                                            <Check className="size-4" />
-                                            Terpilih
+                {filtered
+                    .slice((currentPage - 1) * pageSize, currentPage * pageSize)
+                    .map((room) => {
+                        const price = roomPrice(
+                            room,
+                            rates,
+                            unit,
+                            basis,
+                            isStudent,
+                        );
+                        const disabled =
+                            price <= 0 ||
+                            (basis === 'room' &&
+                                room.available_places != null &&
+                                room.available_places < (room.kapasitas ?? 0));
+                        const photo = room.foto ?? room.lantai?.gedung?.foto;
+                        return (
+                            <article
+                                key={room.id}
+                                className={`bg-base-100 overflow-hidden rounded-xl border shadow-sm ${selected === room.id ? 'border-primary ring-primary/20 ring-2' : 'border-base-300'}`}
+                            >
+                                {photo ? (
+                                    <img
+                                        src={`/storage/${photo}`}
+                                        alt={`Kamar ${room.nomor_kamar} di ${room.lantai?.gedung?.nama_gedung}`}
+                                        className="h-44 w-full object-cover"
+                                        loading="lazy"
+                                    />
+                                ) : (
+                                    <div className="bg-base-200 text-base-content/30 flex h-44 items-center justify-center">
+                                        <BedDouble className="size-12" />
+                                        <span className="sr-only">
+                                            Foto belum tersedia
                                         </span>
-                                    )}
-                                </div>
-                                <h3 className="text-lg font-semibold">
-                                    Kamar {room.nomor_kamar}
-                                </h3>
-                                <p className="text-muted flex items-center gap-1 text-sm">
-                                    <MapPin className="size-4 shrink-0" />
-                                    {room.lantai?.gedung?.nama_gedung} /{' '}
-                                    {room.lantai?.nama_lantai ??
-                                        `Lantai ${room.lantai?.nomor_lantai ?? ''}`}
-                                </p>
-                                <p className="flex items-center gap-1 text-sm">
-                                    <Users className="size-4" />
-                                    {room.kapasitas ?? '—'} orang ·{' '}
-                                    {room.available_places ?? '—'} tempat
-                                    tersedia
-                                </p>
-                                <p className="text-muted min-h-10 text-sm">
-                                    {room.facilities ||
-                                        'Informasi fasilitas belum diisi.'}
-                                </p>
-                                <div className="border-base-200 space-y-3 border-t pt-3">
-                                    <p className="text-primary text-xl font-semibold">
-                                        {price > 0
-                                            ? formatRupiah(price)
-                                            : 'Tarif belum tersedia'}
-                                        <span className="text-muted block text-xs font-normal">
-                                            per{' '}
-                                            {basis === 'room'
-                                                ? 'kamar'
-                                                : 'orang'}{' '}
-                                            /{' '}
-                                            {
-                                                {
-                                                    year: 'tahun',
-                                                    month: 'bulan',
-                                                    day: 'hari',
-                                                }[unit]
-                                            }
+                                    </div>
+                                )}
+                                <div className="space-y-3 p-4">
+                                    <div className="flex items-center justify-between gap-2">
+                                        <span className="badge badge-ghost capitalize">
+                                            {roomTypeName(
+                                                catalog,
+                                                room.tipe_kamar,
+                                            )}
                                         </span>
+                                        {selected === room.id && (
+                                            <span className="text-primary flex items-center gap-1 text-sm">
+                                                <Check className="size-4" />
+                                                Terpilih
+                                            </span>
+                                        )}
+                                    </div>
+                                    <h3 className="text-lg font-semibold">
+                                        Kamar {room.nomor_kamar}
+                                    </h3>
+                                    <p className="text-muted flex items-center gap-1 text-sm">
+                                        <MapPin className="size-4 shrink-0" />
+                                        {
+                                            room.lantai?.gedung?.nama_gedung
+                                        } /{' '}
+                                        {room.lantai?.nama_lantai ??
+                                            `Lantai ${room.lantai?.nomor_lantai ?? ''}`}
                                     </p>
-                                    <button
-                                        type="button"
-                                        aria-pressed={selected === room.id}
-                                        disabled={disabled}
-                                        className={`btn w-full ${selected === room.id ? 'btn-primary' : 'btn-outline'}`}
-                                        onClick={() => onSelect(room.id)}
-                                    >
-                                        {selected === room.id
-                                            ? 'Kamar dipilih'
-                                            : 'Pilih kamar'}
-                                    </button>
-                                    {disabled && (
-                                        <p className="text-muted text-xs">
-                                            {price <= 0
-                                                ? 'Tarif untuk pilihan ini belum ditetapkan.'
-                                                : 'Sewa seluruh kamar memerlukan kamar kosong.'}
+                                    <p className="flex items-center gap-1 text-sm">
+                                        <Users className="size-4" />
+                                        {room.kapasitas ?? '—'} orang ·{' '}
+                                        {room.available_places ?? '—'} tempat
+                                        tersedia
+                                    </p>
+                                    <p className="text-muted min-h-10 text-sm">
+                                        {room.facilities ||
+                                            'Informasi fasilitas belum diisi.'}
+                                    </p>
+                                    <div className="border-base-200 space-y-3 border-t pt-3">
+                                        <p className="text-primary text-xl font-semibold">
+                                            {price > 0
+                                                ? formatRupiah(price)
+                                                : 'Tarif belum tersedia'}
+                                            <span className="text-muted block text-xs font-normal">
+                                                per{' '}
+                                                {basis === 'room'
+                                                    ? 'kamar'
+                                                    : 'orang'}{' '}
+                                                /{' '}
+                                                {
+                                                    {
+                                                        year: 'tahun',
+                                                        month: 'bulan',
+                                                        day: 'hari',
+                                                    }[unit]
+                                                }
+                                            </span>
                                         </p>
-                                    )}
+                                        <button
+                                            type="button"
+                                            aria-pressed={selected === room.id}
+                                            disabled={disabled}
+                                            className={`btn w-full ${selected === room.id ? 'btn-primary' : 'btn-outline'}`}
+                                            onClick={() => onSelect(room.id)}
+                                        >
+                                            {selected === room.id
+                                                ? 'Kamar dipilih'
+                                                : 'Pilih kamar'}
+                                        </button>
+                                        {disabled && (
+                                            <p className="text-muted text-xs">
+                                                {price <= 0
+                                                    ? 'Tarif untuk pilihan ini belum ditetapkan.'
+                                                    : 'Sewa seluruh kamar memerlukan kamar kosong.'}
+                                            </p>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
-                        </article>
-                    );
-                })}
+                            </article>
+                        );
+                    })}
             </div>
+            {totalPages > 1 && (
+                <nav
+                    className="flex items-center justify-center gap-3"
+                    aria-label="Halaman katalog kamar"
+                >
+                    <button
+                        type="button"
+                        className="btn btn-outline btn-sm"
+                        disabled={currentPage === 1}
+                        onClick={() => setPage(currentPage - 1)}
+                    >
+                        Sebelumnya
+                    </button>
+                    <span>
+                        {currentPage} dari {totalPages}
+                    </span>
+                    <button
+                        type="button"
+                        className="btn btn-outline btn-sm"
+                        disabled={currentPage === totalPages}
+                        onClick={() => setPage(currentPage + 1)}
+                    >
+                        Berikutnya
+                    </button>
+                </nav>
+            )}
             {filtered.length === 0 && (
-                <div className="bg-base-200 rounded-xl p-8 text-center">
+                <div className="bg-base-100 border-base-300 rounded-xl border p-8 text-center shadow-sm">
                     <BedDouble className="text-muted mx-auto mb-3 size-10" />
                     <h3 className="font-semibold">
                         Belum ada kamar yang sesuai
                     </h3>
                     <p className="text-muted mt-1 text-sm">
-                        Ubah filter, atau hubungi pengelola untuk pembukaan
-                        lantai berikutnya.
+                        {rooms.length === 0
+                            ? 'Belum ada kamar yang dibuka untuk kategori Anda.'
+                            : 'Coba ubah filter pencarian.'}
                     </p>
                 </div>
             )}

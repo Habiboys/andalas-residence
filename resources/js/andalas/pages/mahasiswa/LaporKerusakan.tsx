@@ -87,10 +87,10 @@ export default function LaporKerusakan({
         <div className="max-w-3xl space-y-4">
             <PageHeader
                 title="Laporkan Kerusakan"
-                subtitle="Pilih lokasi dan barang inventaris yang rusak, lalu lampirkan foto."
+                subtitle="Catat kerusakan kamar; tambahan item sebelum dikerjakan memakai laporan yang sama."
             />
             <Link href="/pelaporan" className="btn btn-outline">
-                Buka detail, laporan sekamar dan hasil perbaikan
+                Form banyak item, laporan sekamar, hasil dan komplain ulang
             </Link>
             {!can_report ? (
                 <Card className="p-6">
@@ -200,7 +200,6 @@ export default function LaporKerusakan({
                         <FormField label="Foto kerusakan">
                             <input
                                 ref={photos}
-                                required
                                 type="file"
                                 multiple
                                 accept="image/jpeg,image/png"
@@ -213,7 +212,8 @@ export default function LaporKerusakan({
                                 }
                             />
                             <p className="text-muted mt-1 text-sm">
-                                1-5 foto JPG/PNG, maksimal 5 MB per foto.
+                                Foto awal opsional: maksimal 5 JPG/PNG, 5 MB per
+                                foto.
                             </p>
                         </FormField>
                         {Object.entries(form.errors).map(([key, error]) => (

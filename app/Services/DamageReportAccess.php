@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\LaporanKerusakan;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Carbon;
 
 class DamageReportAccess
 {
@@ -23,6 +24,7 @@ class DamageReportAccess
         if (self::global($user)) {
             return $query;
         }
+
         return $query->where(function (Builder $visible) use ($user): void {
             $visible->where('dilaporkan_oleh', $user->id);
             if ($user->hasRole('fasilitator')) {
@@ -38,10 +40,10 @@ class DamageReportAccess
             if ($user->hasRole('mahasiswa') && $user->mahasiswaProfil?->status_huni === 'aktif') {
                 foreach ($user->mahasiswaProfil->penempatanKamar()->where('status', 'aktif')->get() as $placement) {
                     $visible->orWhere(function (Builder $room) use ($placement): void {
-                        $room->where('kamar_id', $placement->kamar_id)->where('tanggal_lapor', '>=', $placement->tanggal_mulai->startOfDay());
+                        $room->where('kamar_id', $placement->kamar_id)->where('tanggal_lapor', '>=', Carbon::parse($placement->getRawOriginal('tanggal_mulai'))->startOfDay());
                     });
                     $visible->orWhere(function (Builder $facility) use ($placement): void {
-                        $facility->whereNull('kamar_id')->whereNotNull('fasilitas_umum_id')->where('gedung_id', $placement->kamar->lantai->gedung_id)->where('tanggal_lapor', '>=', $placement->tanggal_mulai->startOfDay());
+                        $facility->whereNull('kamar_id')->whereNotNull('fasilitas_umum_id')->where('gedung_id', $placement->kamar->lantai->gedung_id)->where('tanggal_lapor', '>=', Carbon::parse($placement->getRawOriginal('tanggal_mulai'))->startOfDay());
                     });
                 }
             }

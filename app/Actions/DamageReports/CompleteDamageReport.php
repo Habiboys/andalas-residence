@@ -8,8 +8,12 @@ use App\Services\DamageReportWorkflow;
 
 class CompleteDamageReport
 {
-    public function handle(LaporanKerusakan $report, User $technician, string $description, array $evidencePaths, ?string $requestHash = null): LaporanKerusakan
+    /**
+     * @param  list<string>  $evidencePaths
+     * @param  list<string>|null  $participants
+     */
+    public function handle(LaporanKerusakan $report, User $technician, string $description, array $evidencePaths, ?string $requestHash = null, ?array $participants = null): LaporanKerusakan
     {
-        return app(DamageReportWorkflow::class)->complete($report, $technician, $description, $evidencePaths, $requestHash);
+        return app(DamageReportWorkflow::class)->complete($report, $technician, $description, $evidencePaths, $requestHash, $participants);
     }
 }

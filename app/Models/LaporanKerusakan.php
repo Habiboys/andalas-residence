@@ -6,9 +6,12 @@ use App\Enums\LaporanKerusakanStatus;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Carbon;
 
 /**
  * @property LaporanKerusakanStatus $status
+ * @property Carbon $tanggal_lapor
+ * @property Carbon|null $tanggal_selesai
  */
 class LaporanKerusakan extends BaseModel
 {
@@ -88,18 +91,33 @@ class LaporanKerusakan extends BaseModel
         return $this->hasOne(RoomInspectionFinding::class);
     }
 
+    /** @return HasMany<DamageReportProgress, $this> */
     public function progress(): HasMany
     {
         return $this->hasMany(DamageReportProgress::class, 'laporan_kerusakan_id')->orderBy('work_date')->orderBy('created_at');
     }
 
+    /** @return BelongsTo<Gedung, $this> */
     public function gedung(): BelongsTo
     {
         return $this->belongsTo(Gedung::class);
     }
 
+    /** @return BelongsTo<FasilitasUmum, $this> */
     public function fasilitasUmum(): BelongsTo
     {
         return $this->belongsTo(FasilitasUmum::class);
+    }
+
+    /** @return HasMany<DamageReportItem, $this> */
+    public function items(): HasMany
+    {
+        return $this->hasMany(DamageReportItem::class)->orderBy('created_at')->orderBy('id');
+    }
+
+    /** @return HasMany<DamageReportComplaint, $this> */
+    public function complaints(): HasMany
+    {
+        return $this->hasMany(DamageReportComplaint::class)->latest();
     }
 }

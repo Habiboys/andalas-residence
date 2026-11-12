@@ -115,9 +115,15 @@ it('keeps old policy rates unchanged when a new version is published', function 
     $f = toBeFixture();
     $r = toBeSubmit($f);
     $settings = $f['policy']->settings;
-    $settings['rates'][0]['amount'] = '2000000';
+    unset($settings['rates']);
+    \App\Models\ResidenceRate::updateOrCreate([
+        'gedung_id' => $f['room']->lantai->gedung_id,
+        'tipe_kamar' => $f['room']->tipe_kamar,
+        'unit' => 'year',
+    ], ['amount' => 2000000]);
     $this->actingAs($f['manager'])->post(route('residence.policies'), ['category' => 'local_non_kipk', 'settings' => $settings])->assertRedirect()->assertSessionHasNoErrors();
     expect(ResidencePolicy::where('category', 'local_non_kipk')->count())->toBe(2);
+    expect((float) ResidencePolicy::where('category', 'local_non_kipk')->latest('version')->firstOrFail()->settings['rates'][0]['amount'])->toBe(2000000.0);
     expect($r->fresh()->residence_policy_id)->toBe($f['policy']->id);
     expect((float) $r->tagihan->total)->toBe(1000000.0);
 });
@@ -125,8 +131,9 @@ it('keeps old policy rates unchanged when a new version is published', function 
 it('rejects incomplete publication and publication by a student', function () {
     $f = toBeFixture();
     $settings = $f['policy']->settings;
-    $settings['rates'] = [];
-    $this->actingAs($f['manager'])->post(route('residence.policies'), ['category' => 'local_non_kipk', 'settings' => $settings])->assertSessionHasErrors('settings.rates');
+    unset($settings['rates']);
+    \App\Models\ResidenceRate::where('gedung_id', $f['room']->lantai->gedung_id)->delete();
+    $this->actingAs($f['manager'])->post(route('residence.policies'), ['category' => 'local_non_kipk', 'settings' => $settings])->assertSessionHasErrors('settings.building_ids');
     $this->actingAs($f['user'])->post(route('residence.policies'), ['category' => 'local_non_kipk', 'settings' => $f['policy']->settings])->assertForbidden();
     $this->assertDatabaseCount('residence_policies', 1);
 });

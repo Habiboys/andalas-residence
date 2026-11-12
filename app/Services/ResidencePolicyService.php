@@ -2,16 +2,89 @@
 
 namespace App\Services;
 
+use App\Models\Gedung;
 use App\Models\Kamar;
 use App\Models\MahasiswaProfil;
 use App\Models\ResidencePolicy;
 use App\Models\ResidenceRegistration;
+use App\Models\ResidenceRate;
+use App\Models\RoomType;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 
 class ResidencePolicyService
 {
     public const CATEGORIES = ['local_non_kipk', 'local_kipk', 'international', 'summer_course', 'non_student'];
+
+    public function masterCatalog(string $category): Collection
+    {
+        $masterCategory = $category === 'international' ? 'international_student' : $category;
+        $types = RoomType::where('active', true)->pluck('name', 'code');
+        $rates = ResidenceRate::where('amount', '>', 0)->get()->groupBy('gedung_id');
+
+        return Gedung::with('lantai.kamar')->orderBy('kode_gedung')->get()
+            ->filter(fn (Gedung $building): bool => $building->allowed_categories === null
+                || in_array($masterCategory, $building->allowed_categories, true))
+            ->map(function (Gedung $building) use ($types, $rates, $category): array {
+                $roomTypes = $building->lantai->flatMap->kamar->pluck('tipe_kamar')->unique()
+                    ->filter(fn (string $type): bool => $types->has($type) && ($building->room_types === null
+                        || (bool) (collect($building->room_types)->firstWhere('type', $type)['enabled'] ?? false)));
+                $buildingRates = $rates->get($building->id, collect())
+                    ->whereIn('tipe_kamar', $roomTypes)
+                    ->map(function (ResidenceRate $rate) use ($category): array {
+                        $amount = $category !== 'non_student' && $rate->unit === 'day'
+                            ? ($rate->student_amount ?? $rate->amount)
+                            : $rate->amount;
+
+                        return [
+                            'gedung_id' => $rate->gedung_id, 'type' => $rate->tipe_kamar,
+                            'type_name' => $rate->tipe_kamar, 'unit' => $rate->unit,
+                            'amount' => $amount, 'room_amount' => $rate->room_amount,
+                        ];
+                    })->filter(fn (array $rate): bool => (float) $rate['amount'] > 0)
+                    ->map(fn (array $rate): array => array_replace($rate, ['type_name' => $types[$rate['type']]]))
+                    ->values();
+                $requiredUnit = match ($category) {
+                    'local_kipk' => 'year',
+                    'summer_course' => 'day',
+                    default => null,
+                };
+                $eligibleRates = $requiredUnit ? $buildingRates->where('unit', $requiredUnit) : $buildingRates;
+                $missing = $roomTypes->diff($eligibleRates->pluck('type'))->map(fn ($type) => $types[$type])->values();
+                $rateLabel = match ($requiredUnit) {
+                    'year' => 'Tarif tahunan',
+                    'day' => 'Tarif harian',
+                    default => 'Tarif',
+                };
+
+                return [
+                    'id' => $building->id, 'name' => $building->nama_gedung,
+                    'rates' => $buildingRates->all(),
+                    'issue' => $roomTypes->isEmpty() ? 'Belum ada kamar dengan tipe aktif.'
+                        : ($missing->isNotEmpty() ? $rateLabel.' belum tersedia untuk '.$missing->implode(', ').'.' : null),
+                ];
+            })->values();
+    }
+
+    public function snapshotRates(string $category, array $buildingIds): array
+    {
+        $catalog = $this->masterCatalog($category)->keyBy('id');
+        $rates = [];
+        foreach ($buildingIds as $id) {
+            $building = $catalog->get($id);
+            if (! $building || $building['issue']) {
+                throw ValidationException::withMessages(['settings.building_ids' => $building
+                    ? $building['name'].': '.$building['issue'].' Lengkapi Master Gedung.'
+                    : 'Gedung tidak menerima kategori pendaftaran ini.']);
+            }
+            foreach ($building['rates'] as $rate) {
+                unset($rate['type_name']);
+                $rates[] = $rate;
+            }
+        }
+
+        return $rates;
+    }
 
     public function category(MahasiswaProfil $student, string $kind = 'regular'): string
     {

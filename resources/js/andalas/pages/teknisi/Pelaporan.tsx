@@ -1,5 +1,12 @@
+import {
+    MultiItemForm,
+    ItemCompletion,
+    ComplaintForm,
+    LogbookForm,
+    type DamageItem,
+    type LogbookRow,
+} from './RevisionPanels';
 import { Link, router, useForm } from '@inertiajs/react';
-import type { FormEvent } from 'react';
 import { PageHeader, Card, Button, inputClass } from '../../components/ui';
 import { newDamageRequestKey as key } from '../../lib/damage-reports';
 
@@ -20,6 +27,7 @@ type Report = {
     deskripsi: string;
     source: string;
     location_label?: string;
+    kamar?: { nomor_kamar: string };
     priority: string;
     is_blocked: boolean;
     catatan_penyelesaian?: string;
@@ -36,6 +44,8 @@ type Report = {
     }[];
     status_histories: { id: string; description: string; created_at: string }[];
     progress: Progress[];
+    items: DamageItem[];
+    complaints: { id: string; reason: string; status: string }[];
     abilities: Record<string, boolean>;
     linkable_assets?: { id: string; nama_aset: string }[];
 };
@@ -54,14 +64,22 @@ type Props = {
     filters: Record<string, string>;
     today: string;
     can_order: boolean;
+    can_logbook: boolean;
+    can_complain: boolean;
+    resident_name: string;
+    room?: {
+        nomor_kamar: string;
+        lantai?: { gedung?: { nama_gedung: string } };
+    } | null;
+    logbooks: Pagination<LogbookRow>;
     can_report: boolean;
     assets: { id: string; nama_aset: string }[];
     facilities: { id: string; nama_fasilitas: string }[];
     notifications: { id: string; data: { subject: string; message: string } }[];
 };
 const labels: Record<string, string> = {
-    menunggu_triage: 'Belum dimulai',
-    didisposisikan: 'Disposisi',
+    menunggu_triage: 'Belum Dikerjakan',
+    didisposisikan: 'Belum Dikerjakan (disposisi)',
     sedang_dikerjakan: 'Sedang dikerjakan',
     selesai: 'Selesai',
     dibatalkan: 'Dibatalkan',
@@ -104,10 +122,12 @@ function Ticket({
     report: r,
     technicians,
     today,
+    canComplain,
 }: {
     report: Report;
     technicians: Option[];
     today: string;
+    canComplain: boolean;
 }) {
     const progress = useForm({
         description: '',
@@ -126,14 +146,18 @@ function Ticket({
         status: string;
         catatan_penyelesaian: string;
         bukti_penyelesaian: File[];
+        participant_ids: string[];
     }>({
         _method: 'put',
         status: 'selesai',
         catatan_penyelesaian: '',
         bukti_penyelesaian: [],
+        participant_ids: r.assignments
+            .filter((a) => !a.ended_at && a.role === 'member')
+            .map((a) => a.technician_id),
     });
     const cancel = useForm({ reason: '' });
-    const asset = useForm({ aset_id: '', reason: '' });
+    const asset = useForm({ aset_id: '', reason: '', item_id: '' });
     const base = `/andalas/tiket/${r.id}`;
     return (
         <Card className="space-y-4 p-5">
@@ -157,6 +181,27 @@ function Ticket({
                 </span>
             </div>
             <p>{r.deskripsi}</p>
+            {r.kamar && <p>Kamar {r.kamar.nomor_kamar}</p>}
+            <section className="space-y-2" aria-label="Item kerusakan">
+                {r.items.map((item) => (
+                    <ItemCompletion
+                        key={item.id}
+                        item={item}
+                        canComplete={
+                            r.abilities.complete &&
+                            r.status === 'sedang_dikerjakan'
+                        }
+                    />
+                ))}
+            </section>
+            {r.complaints.map((c) => (
+                <p key={c.id} className="rounded border p-2">
+                    Komplain tercatat: {c.reason}
+                </p>
+            ))}
+            {canComplain && r.status === 'selesai' && (
+                <ComplaintForm reportId={r.id} items={r.items} />
+            )}
             <p className="text-sm">
                 Penanggung jawab: {r.teknisi?.nama ?? 'Belum diambil'} /
                 Prioritas: {r.priority}
@@ -342,6 +387,40 @@ function Ticket({
                     }}
                 >
                     <h3 className="font-medium">Selesaikan pekerjaan</h3>
+                    <p className="text-sm">
+                        Semua item harus selesai. Bukti final laporan wajib
+                        disimpan.
+                    </p>
+                    <fieldset>
+                        <legend>Partisipan saat penyelesaian</legend>
+                        {technicians
+                            .filter((t) => t.id !== r.teknisi?.id)
+                            .map((t) => (
+                                <label className="flex gap-2" key={t.id}>
+                                    <input
+                                        type="checkbox"
+                                        checked={complete.data.participant_ids.includes(
+                                            t.id,
+                                        )}
+                                        onChange={(e) =>
+                                            complete.setData(
+                                                'participant_ids',
+                                                e.target.checked
+                                                    ? [
+                                                          ...complete.data
+                                                              .participant_ids,
+                                                          t.id,
+                                                      ]
+                                                    : complete.data.participant_ids.filter(
+                                                          (id) => id !== t.id,
+                                                      ),
+                                            )
+                                        }
+                                    />
+                                    {t.nama}
+                                </label>
+                            ))}
+                    </fieldset>
                     <textarea
                         aria-label="Catatan penyelesaian"
                         className={inputClass}
@@ -392,6 +471,7 @@ function Ticket({
                             });
                         }}
                     >
+                        <select aria-label="Item yang ditautkan ke inventaris" className={inputClass} value={asset.data.item_id} onChange={e => asset.setData('item_id', e.target.value)} required={r.items.length > 1}><option value="">Pilih item laporan</option>{r.items.map(item => <option key={item.id} value={item.id}>{item.description}</option>)}</select>
                         <select
                             aria-label="Inventaris yang ditautkan"
                             className={inputClass}
@@ -469,46 +549,11 @@ export default function Pelaporan(p: Props) {
         technician_id: p.filters.technician_id ?? '',
         date: p.filters.date,
     });
-    const order = useForm({
-        gedung_id: '',
-        location_label: '',
-        deskripsi: '',
-        priority: 'normal',
-        different_incident_reason: '',
-        request_key: key(),
-    });
-    const resident = useForm<{
-        aset_id: string;
-        fasilitas_umum_id: string;
-        location_label: string;
-        deskripsi: string;
-        different_incident_reason: string;
-        request_key: string;
-        foto_awal: File[];
-    }>({
-        aset_id: '',
-        fasilitas_umum_id: '',
-        location_label: '',
-        deskripsi: '',
-        different_incident_reason: '',
-        request_key: key(),
-        foto_awal: [],
-    });
-    function submitResident(e: FormEvent) {
-        e.preventDefault();
-        resident.post('/andalas/laporan-kerusakan', {
-            forceFormData: true,
-            onSuccess: () => {
-                resident.reset();
-                resident.setData('request_key', key());
-            },
-        });
-    }
     return (
         <div className="space-y-5">
             <PageHeader
                 title="Pelaporan dan pekerjaan teknisi"
-                subtitle="Laporan penghuni, perintah pimpinan, progres harian dan hasil perbaikan"
+                subtitle="Item laporan penghuni, logbook teknisi, progres harian dan hasil perbaikan"
             />
             {p.notifications.map((n) => (
                 <Card key={n.id} className="space-y-2 p-4">
@@ -597,192 +642,45 @@ export default function Pelaporan(p: Props) {
                 <Button>Terapkan filter</Button>
             </form>
             {p.can_report && (
-                <details>
-                    <summary className="cursor-pointer font-semibold">
-                        Buat laporan kerusakan
-                    </summary>
-                    <form onSubmit={submitResident} className="mt-3 space-y-3">
-                        <select
-                            aria-label="Aset laporan"
-                            className={inputClass}
-                            value={resident.data.aset_id}
-                            onChange={(e) =>
-                                resident.setData('aset_id', e.target.value)
-                            }
-                        >
-                            <option value="">
-                                Tanpa inventaris / belum terdaftar
-                            </option>
-                            {p.assets.map((a) => (
-                                <option key={a.id} value={a.id}>
-                                    {a.nama_aset}
-                                </option>
-                            ))}
-                        </select>
-                        {!resident.data.aset_id && (
-                            <>
-                                <select
-                                    aria-label="Lokasi fasilitas"
-                                    className={inputClass}
-                                    value={resident.data.fasilitas_umum_id}
-                                    onChange={(e) =>
-                                        resident.setData(
-                                            'fasilitas_umum_id',
-                                            e.target.value,
-                                        )
-                                    }
-                                >
-                                    <option value="">Kamar saya</option>
-                                    {p.facilities.map((f) => (
-                                        <option key={f.id} value={f.id}>
-                                            {f.nama_fasilitas}
-                                        </option>
-                                    ))}
-                                </select>
-                                <input
-                                    aria-label="Rincian lokasi"
-                                    className={inputClass}
-                                    value={resident.data.location_label}
-                                    onChange={(e) =>
-                                        resident.setData(
-                                            'location_label',
-                                            e.target.value,
-                                        )
-                                    }
-                                    placeholder="Rincian lokasi, misalnya dinding dekat jendela"
-                                    required
-                                />
-                            </>
-                        )}
-                        <textarea
-                            aria-label="Deskripsi kerusakan"
-                            className={inputClass}
-                            value={resident.data.deskripsi}
-                            onChange={(e) =>
-                                resident.setData('deskripsi', e.target.value)
-                            }
-                            placeholder="Jelaskan kejadian kerusakan"
-                            required
-                        />
-                        <input
-                            aria-label="Pembeda kejadian"
-                            className={inputClass}
-                            value={resident.data.different_incident_reason}
-                            onChange={(e) =>
-                                resident.setData(
-                                    'different_incident_reason',
-                                    e.target.value,
-                                )
-                            }
-                            placeholder="Isi jika berbeda dari kejadian aktif pada lokasi yang sama"
-                        />
-                        <label className="block">
-                            Foto awal (JPG/PNG)
-                            <input
-                                type="file"
-                                accept="image/jpeg,image/png"
-                                multiple
-                                required
-                                className="file-input w-full"
-                                onChange={(e) =>
-                                    resident.setData(
-                                        'foto_awal',
-                                        Array.from(e.target.files ?? []),
-                                    )
-                                }
-                            />
-                        </label>
-                        <Errors errors={resident.errors} />
-                        <Button disabled={resident.processing}>
-                            Kirim laporan
-                        </Button>
-                    </form>
-                </details>
+                <MultiItemForm
+                    name={p.resident_name}
+                    room={p.room}
+                    assets={p.assets}
+                    facilities={p.facilities}
+                />
             )}
-            {p.can_order && (
-                <details>
-                    <summary className="cursor-pointer font-semibold">
-                        Catat perintah pimpinan
-                    </summary>
-                    <form
-                        className="mt-3 space-y-3"
-                        onSubmit={(e) => {
-                            e.preventDefault();
-                            order.post('/pekerjaan-teknisi', {
-                                onSuccess: () => {
-                                    order.reset();
-                                    order.setData('request_key', key());
-                                },
-                            });
-                        }}
-                    >
-                        <select
-                            aria-label="Gedung perintah"
-                            className={inputClass}
-                            value={order.data.gedung_id}
-                            onChange={(e) =>
-                                order.setData('gedung_id', e.target.value)
-                            }
-                            required
-                        >
-                            <option value="">Pilih gedung</option>
-                            {p.buildings.map((b) => (
-                                <option key={b.id} value={b.id}>
-                                    {b.nama_gedung}
-                                </option>
-                            ))}
-                        </select>
-                        <input
-                            aria-label="Lokasi perintah"
-                            className={inputClass}
-                            value={order.data.location_label}
-                            onChange={(e) =>
-                                order.setData('location_label', e.target.value)
-                            }
-                            placeholder="Lokasi pekerjaan, termasuk di luar kamar"
-                            required
-                        />
-                        <textarea
-                            aria-label="Instruksi pimpinan"
-                            className={inputClass}
-                            value={order.data.deskripsi}
-                            onChange={(e) =>
-                                order.setData('deskripsi', e.target.value)
-                            }
-                            placeholder="Instruksi pekerjaan"
-                            required
-                        />
-                        <select
-                            aria-label="Prioritas perintah"
-                            className={inputClass}
-                            value={order.data.priority}
-                            onChange={(e) =>
-                                order.setData('priority', e.target.value)
-                            }
-                        >
-                            <option value="normal">Normal</option>
-                            <option value="high">Tinggi</option>
-                            <option value="urgent">Mendesak</option>
-                        </select>
-                        <input
-                            aria-label="Alasan kejadian berbeda perintah"
-                            className={inputClass}
-                            value={order.data.different_incident_reason}
-                            onChange={(e) =>
-                                order.setData(
-                                    'different_incident_reason',
-                                    e.target.value,
-                                )
-                            }
-                            placeholder="Pembeda jika ada kejadian aktif lain"
-                        />
-                        <Errors errors={order.errors} />
-                        <Button disabled={order.processing}>
-                            Catat perintah
-                        </Button>
-                    </form>
-                </details>
-            )}
+            {p.can_logbook && <LogbookForm today={p.today} />}
+            <section className="space-y-3" aria-label="Logbook harian">
+                <h2 className="font-semibold">
+                    Logbook pekerjaan lain pada {p.filters.date}
+                </h2>
+                {p.logbooks.data.map((entry) => (
+                    <Card className="space-y-2 p-3" key={entry.id}>
+                        <strong>
+                            {entry.user?.nama} /{' '}
+                            {entry.source === 'leader_instruction'
+                                ? 'Perintah pimpinan'
+                                : 'Pekerjaan lain'}
+                        </strong>
+                        <p>{entry.description}</p>
+                        {entry.photos.map((photo) => (
+                            <a
+                                className="link mr-3"
+                                key={photo.id}
+                                href={`/pelaporan/logbook/foto/${photo.id}`}
+                                target="_blank"
+                                rel="noreferrer"
+                            >
+                                Foto dokumentasi
+                            </a>
+                        ))}
+                    </Card>
+                ))}
+                {!p.logbooks.data.length && (
+                    <p>Belum ada catatan logbook pada tanggal ini.</p>
+                )}
+                <Pages page={p.logbooks} />
+            </section>
             <section className="space-y-3" aria-label="Daftar laporan">
                 <p className="text-muted text-sm">
                     {p.reports.total} laporan dalam cakupan akses/filter.
@@ -793,6 +691,7 @@ export default function Pelaporan(p: Props) {
                         report={r}
                         technicians={p.technicians}
                         today={p.today}
+                        canComplain={p.can_complain}
                     />
                 ))}
                 {!p.reports.data.length && (

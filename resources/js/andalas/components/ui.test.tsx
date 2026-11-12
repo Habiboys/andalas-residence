@@ -41,7 +41,7 @@ it.each(['staff_admin', 'superadmin', 'admin_layanan', 'fasilitator'] as const)(
     },
 );
 
-it('gives legacy tables search filters sorting pagination and per-page controls', () => {
+it('keeps table controls and hides pagination when there is one page', () => {
     const html = renderToStaticMarkup(
         <Table
             columns={[{ key: 'nama', label: 'Nama' }]}
@@ -52,12 +52,12 @@ it('gives legacy tables search filters sorting pagination and per-page controls'
         'type="search"',
         'Urutkan berdasarkan Nama',
         'Baris per halaman',
-        'Halaman berikutnya',
         'No.',
         'Penghuni',
     ]) {
         expect(html).toContain(label);
     }
+    expect(html).not.toContain('Navigasi halaman');
 });
 it('paginates records and keeps allowed row actions visible', () => {
     const html = renderToStaticMarkup(
@@ -76,6 +76,7 @@ it('paginates records and keeps allowed row actions visible', () => {
         />,
     );
     expect(html).toContain('Record-9-end');
+    expect(html).toContain('Halaman berikutnya');
     expect(html).not.toContain('Record-10-end');
     expect(html).toContain('Ubah');
     expect(html).not.toContain('Hapus</button>');

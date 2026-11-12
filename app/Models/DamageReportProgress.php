@@ -15,11 +15,13 @@ class DamageReportProgress extends BaseModel
         return ['work_date' => 'date', 'is_blocked' => 'boolean'];
     }
 
+    /** @return BelongsTo<LaporanKerusakan, $this> */
     public function report(): BelongsTo
     {
         return $this->belongsTo(LaporanKerusakan::class, 'laporan_kerusakan_id');
     }
 
+    /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

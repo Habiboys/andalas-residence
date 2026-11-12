@@ -5,6 +5,7 @@ use App\Http\Controllers\ActivityMasterController;
 use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AsetController;
 use App\Http\Controllers\CheckoutController;
+use App\Http\Controllers\DamageReportController;
 use App\Http\Controllers\DepartemenController;
 use App\Http\Controllers\DocumentSignerController;
 use App\Http\Controllers\DocumentVerificationController;
@@ -53,9 +54,13 @@ Route::get('/kontak', [LandingController::class, 'kontak'])->name('landing.konta
 Route::get('/dokumen/verifikasi/{token}', [DocumentVerificationController::class, 'show'])->name('dokumen.verifikasi');
 
 Route::middleware(['auth', 'verified', EnsureResidenceAccountAccess::class])->group(function () {
-    Route::get('/pelaporan', [\App\Http\Controllers\DamageReportController::class, 'index'])->name('damage-reports.index');
-    Route::post('/pelaporan/notifications/{notification}/read', [\App\Http\Controllers\DamageReportController::class, 'readNotification'])->name('damage-reports.notifications.read');
-    Route::post('/pekerjaan-teknisi', [\App\Http\Controllers\DamageReportController::class, 'order'])->name('damage-reports.order');
+    Route::get('/pelaporan', [DamageReportController::class, 'index'])->name('damage-reports.index');
+    Route::post('/pelaporan/logbook', [DamageReportController::class, 'logbook'])->name('damage-reports.logbook');
+    Route::get('/pelaporan/logbook/foto/{photo}', [DamageReportController::class, 'logbookPhoto'])->name('damage-reports.logbook.photo');
+    Route::post('/pelaporan/items/{item}/complete', [DamageReportController::class, 'completeItem'])->name('damage-reports.items.complete');
+    Route::post('/pelaporan/{laporan}/complaints', [DamageReportController::class, 'complain'])->name('damage-reports.complain');
+    Route::post('/pelaporan/notifications/{notification}/read', [DamageReportController::class, 'readNotification'])->name('damage-reports.notifications.read');
+    Route::post('/pekerjaan-teknisi', [DamageReportController::class, 'order'])->name('damage-reports.order');
     require __DIR__.'/role-pages.php';
     require __DIR__.'/residence-workflow.php';
 
@@ -202,12 +207,12 @@ Route::middleware(['auth', 'verified', EnsureResidenceAccountAccess::class])->gr
         Route::post('/laporan-kerusakan', [TiketController::class, 'store'])->name('laporan.store');
         Route::get('/tiket/foto/{photo}', [TiketController::class, 'photo'])->name('tiket.photo');
         Route::put('/tiket/{laporan}', [TiketController::class, 'update'])->name('tiket.update');
-        Route::post('/tiket/{laporan}/claim', [\App\Http\Controllers\DamageReportController::class, 'claim'])->name('tiket.claim');
-        Route::post('/tiket/{laporan}/progress', [\App\Http\Controllers\DamageReportController::class, 'progress'])->name('tiket.progress');
-        Route::post('/tiket/{laporan}/team', [\App\Http\Controllers\DamageReportController::class, 'team'])->name('tiket.team');
-        Route::post('/tiket/{laporan}/cancel', [\App\Http\Controllers\DamageReportController::class, 'cancel'])->name('tiket.cancel');
-        Route::post('/tiket/{laporan}/confirm', [\App\Http\Controllers\DamageReportController::class, 'confirm'])->name('tiket.confirm');
-        Route::post('/tiket/{laporan}/asset', [\App\Http\Controllers\DamageReportController::class, 'linkAsset'])->name('tiket.asset');
+        Route::post('/tiket/{laporan}/claim', [DamageReportController::class, 'claim'])->name('tiket.claim');
+        Route::post('/tiket/{laporan}/progress', [DamageReportController::class, 'progress'])->name('tiket.progress');
+        Route::post('/tiket/{laporan}/team', [DamageReportController::class, 'team'])->name('tiket.team');
+        Route::post('/tiket/{laporan}/cancel', [DamageReportController::class, 'cancel'])->name('tiket.cancel');
+        Route::post('/tiket/{laporan}/confirm', [DamageReportController::class, 'confirm'])->name('tiket.confirm');
+        Route::post('/tiket/{laporan}/asset', [DamageReportController::class, 'linkAsset'])->name('tiket.asset');
         Route::get('/absensi/sesi/{session}', [AbsensiController::class, 'show'])->name('absensi.sesi.show');
         Route::put('/absensi/sesi/{session}/participants/{student}', [AbsensiController::class, 'correct'])->name('absensi.sesi.correct');
         Route::post('/absensi/sesi/{session}/location', [AbsensiController::class, 'updateLocation'])->name('absensi.sesi.location');

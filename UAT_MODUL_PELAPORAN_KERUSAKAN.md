@@ -1,8 +1,8 @@
 # UAT Modul Pelaporan dan Kerusakan Andalas Residence
 
-Tanggal: **11 November 2026**. Acuan: PROSES PELAPORAN, Gap.xlsx beserta Validasi Stake Holder, To-Be Bizagi dan keputusan tambahan pengguna.
+Tanggal: **11 November 2026**. Acuan: Business Rules/Functional Requirements Revisi Final, Validasi, BPMN To-Be dan keputusan pengguna mengenai logbook.
 
-Status panduan: **refaktor diterapkan; pengujian akhir sedang berjalan**. Kolom hasil UAT diisi oleh penguji; keberadaan panduan tidak berarti client sudah menerima seluruh skenario.
+Status: kode revisi tersedia; hasil pengujian teknis dicatat pada bagian akhir. **Tabel skenario adalah panduan UAT, bukan pernyataan seluruh skenario telah diterima client.**
 
 ## 1. Rekap akun
 
@@ -33,103 +33,102 @@ Seeder sekarang mencakup **18 akun**. Lima tambahan pelaporan adalah teknisi, te
 
 Perintah setelah kode terbaru dan migration tersedia: `docker compose exec -T andalas-app php artisan db:seed --class=ResidenceRegistrationUatSeeder --force --no-interaction`. Ini menyiapkan akun, bukan menjalankan UAT. Jangan menganggap akun sudah ada di produksi sebelum perintah dijalankan di server tersebut.
 
-## 2. Persiapan sekali sebelum mulai
+## 2. Persiapan data dan cara masuk
 
-1. Catat URL lingkungan, versi kode, tanggal dan nama penguji. Gunakan data uji yang dapat dikenali; jangan menjalankan migrate fresh untuk memulai UAT pada database operasional.
-2. Pastikan migration terbaru sudah dijalankan, kemudian seed akun di atas. Masuk sebagai superadmin dan periksa role serta status aktifnya.
-3. Melalui alur pendaftaran, selesaikan pelengkapan profil, alokasi, dokumen dan check-in untuk uat.lokal serta uat.teman pada kamar yang sama. **Akun baru masih calon; harus ada status penghuni aktif dan penempatan aktif.** Pembayaran saja tidak cukup.
-4. Siapkan uat.s2 pada kamar berbeda dan uat.s3 pada gedung berbeda. Siapkan satu calon yang belum check-in untuk uji penolakan. Ulangi kategori KIP-K/internasional/bulanan setelah syarat check-in kategorinya terpenuhi.
-5. Tetapkan fasilitator A ke gedung pelapor dan fasilitator B ke gedung lain. Nama A/B di panduan adalah penanda pengujian, bukan kewajiban memakai kode gedung tertentu.
-6. Siapkan inventaris kamar pelapor, satu fasilitas bersama dan satu lokasi tanpa inventaris. Siapkan foto awal dan hasil JPG/PNG, masing-masing maksimal 5 MB. Jangan memakai kejadian yang sama untuk setiap variasi tanpa menutup/menautkannya.
-7. Pastikan queue worker dan scheduler berjalan agar pemberitahuan diproses. Pengiriman aplikasi memakai antrean tahan gagal; tidak menunggu email/WhatsApp untuk menyelesaikan tiket.
-8. Buka **Pelaporan dan pekerjaan teknisi** pada portal, atau URL `/pelaporan`. Gunakan jendela privat/profil browser terpisah untuk setiap peran agar sesi tidak tertukar.
+1. Gunakan lingkungan uji. Jalankan migration kompatibel sebelum seed; tidak perlu migrate fresh. Catat versi kode, tanggal dan nama penguji.
+2. Gunakan login akun biasa. Akun mahasiswa baru masih calon: selesaikan alokasi, dokumen, dan check-in lewat UAT pendaftaran. Status aktif dan penempatan aktif wajib tersedia sebelum melapor; pembayaran saja tidak cukup.
+3. Tempatkan lokal dan teman pada kamar yang sama. Siapkan S2 di kamar lain serta S3 di gedung lain; satu calon yang belum check-in dipertahankan untuk uji penolakan.
+4. Tetapkan fasilitator A ke gedung pelapor dan fasilitator B ke gedung pembanding. Jangan menganggap nama akun sama dengan kode gedung tertentu; lihat penugasan aktual.
+5. Siapkan AC, pintu dan lampu sebagai contoh item berbeda, satu fasilitas bersama serta lokasi tanpa inventaris. Foto awal item opsional. Bukti final laporan dan foto logbook wajib pada implementasi ini: JPG/PNG, maksimal lima foto masing-masing 5 MB.
+6. Buka menu Pelaporan dan pekerjaan teknisi atau `/pelaporan`. Gunakan sesi browser terpisah per akun. Pastikan queue worker dan scheduler hidup untuk pemberitahuan aplikasi.
 
-Catat sebelum uji: gedung pelapor ___; kamar pelapor ___; fasilitator A ___; gedung pembanding ___; inventaris ___; ID/nomor tiket yang dibuat ___. Akun UAT tidak otomatis mempunyai kamar aktif hanya karena berhasil login.
+Catat: gedung ___; kamar ___; fasilitator A/B ___; penguji ___; tanggal ___; versi kode ___; ID laporan ___; item ___; ID logbook ___. Database/browser fixture terisolasi tidak menjadi bukti akun dan hunian sudah disiapkan di produksi.
 
-## 3. Alur utama yang dicoba lebih dahulu
+## 3. Alur utama secara berurutan
 
-| Tahap | Akun dan tindakan | Hasil yang diharapkan |
+| Tahap | Akun / tindakan | Hasil yang diharapkan |
 | --- | --- | --- |
-| 1. Lapor | Lokal: buat laporan, pilih aset atau tanpa inventaris, isi lokasi/deskripsi dan foto awal. | Nomor tiket muncul; status belum dimulai; langsung masuk daftar teknisi tanpa persetujuan fasilitator wajib. |
-| 2. Pantau | Teman: buka laporan kamar. Fasilitator A dan pimpinan membuka monitoring. | Detail lengkap sesuai haknya tersedia. Penghuni/gedung lain tidak ikut mendapat akses. |
-| 3. Ambil | Teknisi 1: klik Ambil pekerjaan. | Penanggung jawab tercatat dan status menjadi sedang dikerjakan. |
-| 4. Bentuk tim | Teknisi 1: pilih Teknisi 2, isi alasan lalu simpan anggota. | Satu penanggung jawab tetap; Teknisi 2 dapat melihat dan menulis progres. Teknisi 3 di luar tim tidak dapat mengambil alih. |
-| 5. Progres | Teknisi 2: isi tanggal, uraian dan penanda hambatan material/akses. | Progres muncul pada tiket dan rekap harian; tiket tetap dikerjakan. |
-| 6. Perintah | Pimpinan: catat instruksi perbaikan di lokasi lain. | Sumber perintah terlihat; tiket yang sedang dikerjakan tidak otomatis dihentikan. |
-| 7. Tuntaskan | Teknisi 1: isi catatan akhir dan unggah bukti final. | Status otomatis selesai, assignment aktif ditutup dan histori final disimpan sekali. Anggota tidak mempunyai tombol penyelesaian. |
-| 8. Lihat hasil | Lokal dan teman: buka bukti hasil serta pemberitahuan. Pimpinan: periksa dashboard/harian. | Bukti privat dapat dibuka oleh yang berhak, hasil terbaca dan jumlah status benar. Rating bukan syarat penutupan. |
+| 1 | Lokal: buka formulir, masukkan AC rusak dan pintu macet sebagai dua item. Foto masing-masing dapat ditambahkan. | Identitas kamar otomatis; satu nomor laporan dan dua item/deskripsi terpisah. |
+| 2 | Teman: sebelum laporan diambil, tambahkan lampu rusak dari kamar yang sama. | Tetap nomor laporan yang sama, kini tiga item. Pelapor/waktu setiap item tercatat. |
+| 3 | Teknisi 1: ambil laporan. Fasilitator A dan pimpinan memantau. | Teknisi 1 menjadi penanggung jawab; status Sedang Dikerjakan. Membuka detail saja tidak mengubah status. |
+| 4 | Teknisi 1: tambahkan Teknisi 2 sebagai anggota dan isi alasan. Teknisi 2 mencatat progres serta hambatan. | Tim/progres tercatat; status tetap dikerjakan. Teknisi 3 di luar tim tidak dapat mengambil alih. |
+| 5 | Teknisi 1: tandai AC dan pintu selesai, sisakan lampu; coba selesaikan seluruh laporan dengan bukti. | Final ditolak karena lampu belum selesai. Tidak ada notifikasi selesai atau perubahan final parsial. |
+| 6 | Teknisi 1: tandai lampu selesai, isi hasil akhir, pilih partisipan dan unggah bukti final. | Semua item selesai; laporan final sekali; partisipan dan bukti tersimpan atomik. |
+| 7 | Lokal/teman: buka hasil dan pemberitahuan. Pimpinan: buka rekap tanggal itu. | Bukti privat tampil sesuai hak; aktivitas selesai tercatat walau tidak ada progres manual hari itu. |
+| 8 | Lokal: ajukan komplain ulang dengan alasan dan item/laporan yang kembali bermasalah. | Komplain tercatat terkait laporan lama; histori selesai tidak ditimpa dan tidak otomatis dibuka ulang. |
+| 9 | Teknisi 2: catat pekerjaan lain/perintah pimpinan sebagai logbook berisi tanggal, uraian dan foto. | Masuk rekap harian pimpinan, tanpa membuat tiket, klaim atau status kerusakan baru. |
+| 10 | Fasilitator B/penghuni kamar lain: coba buka detail dan URL foto. | Akses di luar cakupan ditolak server. Logbook hanya dapat dibaca teknisi pemilik, pimpinan atau superadmin. |
 
-Setelah alur utama, ulangi tahap 1-8 menggunakan KIP-K, S2, S3, internasional dan bulanan yang sudah menjadi penghuni aktif. Kategori pendaftaran tidak boleh menghilangkan hak pelaporan penghuni yang sah. Gunakan lokasi/kejadian berbeda agar hasil tidak tercampur kontrol duplikasi.
+Ulangi alur pelapor dengan KIP-K, S2, S3, internasional dan bulanan yang sudah check-in. Kategori tidak menghapus hak penghuni sah. Ketika laporan sudah dikerjakan, pengiriman item baru pada implementasi ini membuat laporan belum dikerjakan yang terpisah; laporan lama tidak diubah. Ini pilihan operasional sementara yang perlu dicocokkan pada keputusan client berikutnya.
 
-## 4. Pemeriksaan kelengkapan To-Be
+## 4. Daftar pemeriksaan U01-U35
 
-Nomor U01-U35 sama dengan rancangan audit agar hasil mudah ditelusuri. Hasil setiap baris: **Lulus / Gagal / Belum diuji / Terhambat**, disertai bukti. Kasus dua proses, request key, migration dan pemeriksaan database dikerjakan pendamping teknis; penguji client berfokus pada alur dan hak peran.
+ID lama dipertahankan tetapi makna pengelompokan diperbarui sesuai Revisi Final. Isi setiap hasil dengan Lulus/Gagal/Belum diuji/Terhambat dan bukti. Permintaan bersamaan, request key dan snapshot migration dibantu pengembang.
 
-### A. Pelaporan dan akses
-
-| ID | Pelaku / langkah | Hasil yang wajib terlihat |
+| ID | Langkah pemeriksaan | Hasil wajib |
 | --- | --- | --- |
-| U01 | Lokal aktif mengirim laporan aset kamar sendiri. | Tiket, lokasi, foto dan histori tercatat; langsung tersedia bagi teknisi. |
-| U02 | Calon belum check-in mencoba melapor. | Ditolak, tanpa tiket atau file sisa. |
-| U03 | Pendamping mengirim aset/kamar milik penghuni lain lewat request. | Server menolak, walaupun isian dimanipulasi. |
-| U04 | Lokal melapor fasilitas bersama. | Lokasi berada pada gedung/fasilitas yang benar, bukan kamar pribadi. |
-| U05 | Lokal melapor lokasi tanpa inventaris. | Laporan tetap dapat dibuat; aset boleh kosong. |
-| U06 | Fasilitator B membuka daftar/detail/foto dan mencoba tindakan tiket A. | Tidak dapat mengakses atau memutasi tiket di luar kewenangannya. |
-| U07 | Teman aktif sekamar membuka laporan dan bukti hasil. | Deskripsi, foto awal/final serta histori yang berhak terlihat lengkap. |
-| U08 | Mantan teman atau penghuni baru mencoba laporan sebelum masa tinggalnya. | Akses berdasarkan kamar ditolak; laporan milik sendiri tetap mengikuti hak pelapor. |
-| U09 | Salin URL foto ke akun kamar lain atau browser tanpa login. | File tetap privat dan tidak dapat dibuka. |
+| U01 | Penghuni aktif melapor kerusakan. | Data, lokasi, item dan histori tercatat; langsung ke teknisi. |
+| U02 | Calon tanpa check-in mencoba melapor. | Ditolak tanpa tiket/file sisa. |
+| U03 | Manipulasi aset/kamar pada request. | Server menolak aset di luar hunian/fasilitas yang berhak. |
+| U04 | Laporkan fasilitas bersama. | Lokasi sesuai fasilitas, bukan dipalsukan sebagai kamar pribadi. |
+| U05 | Laporkan item tanpa inventaris. | Dapat disimpan dengan uraian/lokasi sah. |
+| U06 | Fasilitator B melihat/memutasi tiket A. | Daftar/detail/foto/tindakan di luar gedung ditolak. |
+| U07 | Teman aktif sekamar melihat detail. | Item, foto awal/hasil dan histori yang berhak terlihat. |
+| U08 | Mantan teman atau penghuni baru melihat arsip sebelum masa huniannya. | Akses berbasis kamar dibatasi; hak pelapor sendiri tetap terpisah. |
+| U09 | URL foto dibuka akun lain/tanpa login. | Tidak membuka file privat. |
+| U10 | Teman menambahkan kerusakan sebelum pekerjaan dimulai. | Item ditambahkan pada header kamar yang sama; konfirmasi bukan pengganti item. |
+| U11 | AC dan pintu berbeda dilaporkan pada kamar sama sebelum mulai. | Tetap satu header Belum Dikerjakan dengan dua item. |
+| U12 | Ulang submit dengan key sama. | Tidak menambah item/foto dua kali. |
+| U13 | Key sama dengan isi berbeda. | Konflik ditolak; data awal tidak ditimpa. |
+| U14 | Dua penghuni menambah item bersamaan. | Satu header belum dikerjakan; item keduanya tersimpan. |
+| U15 | Dua teknisi mengambil laporan bersamaan. | Tepat satu penanggung jawab. |
+| U16 | Pemilik mengulang klaim identik. | Tidak menambah assignment/histori mulai. |
+| U17 | Tambah anggota dan coba akses teknisi di luar tim. | Anggota boleh progres; orang di luar tim tidak mengambil alih. |
+| U18 | Tambah anggota nonaktif/duplikat. | Nonaktif ditolak; tidak ada assignment aktif ganda. |
+| U19 | Akhiri anggota. | Hak aktif berakhir, histori bertahan. Penggantian ketua bukan fitur yang diputuskan di sini. |
+| U20 | Ada instruksi pimpinan ketika teknisi sedang bekerja. | Tidak otomatis memotong pekerjaan; pekerjaan lain dicatat lewat logbook. |
+| U21 | Teknisi mencatat tugas di luar kamar. | Logbook mandiri tanpa pelapor penghuni fiktif atau tiket wajib. |
+| U22 | Catat progres belum selesai. | Masuk rekap pada tanggal tepat; bukan selesai semu. |
+| U23 | Catat hambatan lalu kerjakan laporan lain. | Tiket awal tetap dikerjakan dengan histori hambatan. |
+| U24 | Pimpinan memfilter tanggal/teknisi. | Progres, penyelesaian dan logbook dapat ditelusuri; jenis catatan dibedakan. |
+| U25 | Coba final tanpa catatan/bukti. | Ditolak tanpa transisi final. |
+| U26 | Anggota/teknisi lain mencoba menyelesaikan. | Ditolak; hanya penanggung jawab sah. |
+| U27 | Ulang penyelesaian yang sama. | Satu hasil final, histori, bukti dan pemberitahuan. |
+| U28 | Batalkan tanpa hak atau setelah selesai. | Ditolak. Pembatalan aktif berwenang beralasan dan tercatat. |
+| U29 | Pengiriman notifikasi gagal lalu retry. | Tiket tetap selesai; informasi aplikasi tidak digandakan. |
+| U30 | Cocokkan dashboard dan dataset kontrol. | Header, item dan logbook tidak dicampur; hambatan tidak dihitung ganda. |
+| U31 | Beri rating pada tiket selesai/belum selesai. | Guard enum benar dan otorisasi tetap berlaku. |
+| U32 | Buat temuan checkout berulang. | Satu relasi finding, histori tidak hilang dan item terhubung benar. |
+| U33 | Selesaikan dua pekerjaan aset sama lewat proses terpisah. | Kondisi aset konsisten; kamar maintenance tidak otomatis dialokasikan. |
+| U34 | Migration pada snapshot lama. | Saldo, hunian, ID/status/bukti/histori lama utuh; satu item legacy ditambahkan. |
+| U35 | Jalankan perjalanan browser per peran. | Alur bisnis selesai; hasil browser dibedakan dari feature test HTTP. |
 
-### B. Kejadian ganda dan pengiriman ulang
+## 5. Tambahan U36-U50 dari audit Revisi Final
 
-| ID | Pelaku / langkah | Hasil yang wajib terlihat |
+| ID | Langkah pemeriksaan | Hasil wajib |
 | --- | --- | --- |
-| U10 | Teman menautkan kejadian sama ke laporan lokal. | Tetap satu tiket utama; konfirmasi teman tercatat sekali. |
-| U11 | Buat kejadian berbeda pada lokasi/aset yang masih mempunyai tiket aktif. | Diperbolehkan setelah memberi pembeda; kamar tidak dibatasi satu laporan selamanya. |
-| U12 | Pendamping mengulang submit yang identik dengan request key sama. | Hasil awal dikembalikan; tiket dan foto tidak bertambah. |
-| U13 | Pendamping memakai key sama dengan isi berbeda. | Ditolak sebagai konflik; data awal tidak ditimpa. |
-| U14 | Dua proses MySQL membuat kejadian sama bersamaan. | Satu tiket utama; permintaan lain harus menautkan atau menjelaskan kejadian berbeda. |
-| U15 | Teknisi 1 dan 2 mengambil tiket yang sama bersamaan. | Tepat satu penanggung jawab dan satu assignment awal. |
-| U16 | Penanggung jawab mengulang aksi ambil yang sama. | Tidak menambah assignment atau histori mulai. |
+| U36 | Kirim beberapa kerusakan sekaligus. | Satu header, deskripsi tiap item terpisah. |
+| U37 | Teman menambahkan item pada header Belum Dikerjakan. | Nomor header tetap; pelapor/waktu item tercatat. |
+| U38 | Penambahan bersamaan dari dua penghuni. | Tidak membuat dua header kamar belum dikerjakan. |
+| U39 | Retry tambah item dengan key sama. | Item/foto tidak ganda; perubahan isi dengan key sama ditolak. |
+| U40 | Tambah item dan klaim bersamaan. | Lock kamar menentukan hasil atomik; tidak menyisipkan item diam-diam ke pekerjaan berjalan. |
+| U41 | Buka foto item AC dan pintu. | Foto tidak tertukar, akses privat. |
+| U42 | Dua dari tiga item selesai lalu final. | Ditolak, status dikerjakan dan tidak ada informasi final. |
+| U43 | Semua item selesai, final lengkap. | Final sekali beserta partisipan/histori/bukti. |
+| U44 | Catat perintah pimpinan sebagai logbook. | Tanggal, uraian dan foto; tidak membuat tiket. |
+| U45 | Logbook tanpa foto/uraian/tanggal atau pelaku tidak berhak. | Ditolak, tidak meninggalkan data/file parsial. |
+| U46 | Selesaikan tanpa progres manual hari itu. | Aktivitas penyelesaian tetap terlihat pada rekap. |
+| U47 | Komplain ulang hasil selesai. | Alasan dan referensi item/laporan tersimpan; status lama tetap. |
+| U48 | Sertakan partisipan saat final lalu buat salah satu syarat gagal. | Tidak meninggalkan perubahan tim/selesai parsial. |
+| U49 | Akses foto logbook/item atau komplain dengan akun di luar hak. | Server menolak. Pemilik/pimpinan mendapat akses logbook sesuai aturan. |
+| U50 | Bandingkan snapshot sebelum/sesudah migration. | Data lama utuh; item legacy jelas; jumlah logbook tidak menambah tiket. |
 
-### C. Tim, perintah dan pekerjaan harian
+## 6. Pencatatan hasil dan keputusan yang terbuka
 
-| ID | Pelaku / langkah | Hasil yang wajib terlihat |
-| --- | --- | --- |
-| U17 | Tambah Teknisi 2 sebagai anggota; Teknisi 3 mencoba akses. | Anggota berhak membaca/progres; teknisi luar tim tidak dapat mengambil alih. |
-| U18 | Tambahkan teknisi nonaktif atau anggota yang sama berulang. | Nonaktif ditolak dan tidak ada anggota aktif ganda. |
-| U19 | Akhiri anggota lewat pengelolaan tim. | Hak anggota berakhir dan histori tetap. Penggantian penanggung jawab/pembukaan ulang tidak diuji sebagai fitur yang sudah disetujui. |
-| U20 | Pimpinan memberi perintah saat teknisi sedang bekerja. | Instruksi tercatat tanpa memotong atau membatalkan pekerjaan berjalan. |
-| U21 | Pimpinan mencatat tugas di luar kamar pada gedung sah. | Ada lokasi dan sumber pimpinan, tanpa pelapor penghuni fiktif. |
-| U22 | Teknisi menulis progres pekerjaan belum selesai. | Tersimpan pada hari yang benar; bukan bukti final atau selesai semu. |
-| U23 | Tandai hambatan, kemudian ambil pekerjaan lain. | Tiket pertama tetap dikerjakan dan hambatannya tercatat; pekerjaan lain boleh ditangani. |
-| U24 | Pimpinan memfilter rekap tanggal, gedung dan teknisi. | Progres parsial ikut tampil; bukan hanya tiket selesai pada hari itu. |
+Untuk setiap uji isi: ID ___; akun ___; penguji ___; tanggal ___; nomor header/item/logbook ___; hasil aktual ___; status ___; bukti ___; temuan ___. Simpan screenshot untuk kasus gagal dan jangan hapus histori untuk merapikan hasil.
 
-### D. Penyelesaian, pembatalan dan pemeriksaan akhir
+Keputusan operasional yang belum final: penanganan tambahan setelah pekerjaan dimulai, kewajiban foto per item (saat ini foto awal opsional dan bukti final header wajib), penggantian penanggung jawab, tindak lanjut komplain setelah diajukan, koreksi logbook dan akses historis tim. Komplain tidak otomatis membuka ulang; logbook bersifat pencatatan pekerjaan, bukan workflow persetujuan. Tidak ada email/WhatsApp yang ditambahkan untuk penyelesaian kerusakan.
 
-| ID | Pelaku / langkah | Hasil yang wajib terlihat |
-| --- | --- | --- |
-| U25 | Penanggung jawab menyelesaikan tanpa catatan atau bukti. | Ditolak dan tidak mengubah status. |
-| U26 | Anggota atau teknisi lain mencoba menyelesaikan. | Ditolak; penyelesaian dilakukan penanggung jawab sah. |
-| U27 | Selesaikan lalu ulangi permintaan yang identik. | Satu penyelesaian, set bukti, histori dan penutupan assignment. |
-| U28 | Akun tanpa hak atau tiket final dicoba dibatalkan. | Ditolak. Pembatalan tiket aktif yang berwenang memerlukan alasan dan histori; tidak membuka ulang tiket final. |
-| U29 | Gagal kirim pemberitahuan lalu coba ulang antrean. | Tiket tetap selesai; pemberitahuan yang berhasil tidak diduplikasi. |
-| U30 | Bandingkan jumlah dashboard dengan daftar kontrol. | Belum dimulai, dikerjakan, selesai dan batal tepat; hambatan tidak dihitung dua kali. |
-| U31 | Superadmin/staf berpermission memberi rating tiket selesai dan belum selesai. | Tiket selesai dapat dinilai sesuai kelayakan; belum selesai ditolak. |
-| U32 | GO membuat laporan temuan checkout dua kali atau atas kejadian aktif yang sama. | Finding tetap satu relasi dan tidak menghasilkan tiket utama ganda. |
-| U33 | Dua kerusakan pada aset sama diselesaikan lewat proses MySQL terpisah. | Kondisi aset konsisten; kamar maintenance tidak otomatis dibuka untuk alokasi. |
-| U34 | Pendamping membandingkan snapshot sebelum/sesudah migration. | Data lama, saldo, penempatan, foto dan histori dipertahankan; tidak mengarang check-in. |
-| U35 | Jalankan perjalanan browser per peran dan regresi pendaftaran/checkout. | Alur selesai tanpa kesalahan runtime; bukti browser dipisahkan dari tes HTTP. |
+## 7. Verifikasi teknis
 
-## 5. Catatan hasil dan batas penerimaan
-
-Untuk setiap skenario catat: **ID ___; penguji ___; tanggal ___; akun ___; nomor tiket ___; langkah ___; hasil aktual ___; status ___; bukti/screenshot ___; temuan terkait ___**. Jika gagal, sertakan pesan yang muncul dan apakah transaksi/foto sudah tersimpan. Jangan menghapus histori untuk mengulangi tes.
-
-Pimpinan, fasilitator, teknisi dan perwakilan penghuni meninjau hasil masing-masing. Kelulusan pengujian otomatis bukan tanda tangan UAT client. Peran pengelola lebih rinci, prosedur penggantian penanggung jawab, pembukaan ulang, serta kewajiban foto awal dan rincian jam/material tetap dicatat sebagai keputusan bisnis yang perlu disahkan; tidak ditambahkan sebagai gate baru secara sepihak.
-
-Pemberitahuan yang dicakup panduan ini adalah notifikasi aplikasi. SMTP, SSO kampus dan DPUB nyata tidak disertifikasi oleh UAT pelaporan. Tidak ada WhatsApp yang ditambahkan.
-
-## 6. Referensi dan hasil verifikasi teknis
-
-Acuan rinci: AUDIT_PELAPORAN_KERUSAKAN.md, RENCANA_PENYESUAIAN_PELAPORAN.md dan STATUS_AUDIT_MODUL.md pada folder outputs workspace audit. UAT pendaftaran tetap menggunakan UAT_MODUL_PENDAFTARAN.md.
-
-Hasil teknis terbaru akan diisi setelah pengujian final selesai; jangan membaca hasil 12 tes lifecycle sebelum refaktor sebagai bukti seluruh U01-U35 sudah lulus. Akun/penempatan yang dibuat pada database pengujian terisolasi juga bukan bukti akun dan data yang sama sudah tersedia di server produksi.
+Hasil pengujian terarah, MySQL, TypeScript, PHPStan, build dan browser dicatat pada laporan verifikasi implementasi. Kelulusan teknis bukan pengesahan UAT client. Akun/fixture dalam database terisolasi tidak membuktikan data yang sama tersedia di produksi. Pengujian SSO kampus, SMTP dan DPUB nyata tetap di luar pernyataan kelulusan modul pelaporan.
