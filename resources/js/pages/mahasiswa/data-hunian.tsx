@@ -47,18 +47,57 @@ export default function DataHunian({
         alamat: profile?.alamat ?? '',
     });
     const program = programs.find((item) => item.id === form.data.prodi_id);
-    const city = cities.find((item) => item.id === form.data.city_id);
-    const [provinceId, setProvinceId] = useState(city?.province?.id ?? '');
-    const provinces = Array.from(
+    const [facultyId, setFacultyId] = useState(
+        program?.departemen?.faculty?.id ?? '',
+    );
+    const [departmentId, setDepartmentId] = useState(
+        program?.departemen?.id ?? '',
+    );
+    const faculties = Array.from(
         new Map(
-            cities
-                .filter((item) => item.province)
-                .map((item) => [item.province!.id, item.province!]),
+            programs
+                .filter((item) => item.departemen?.faculty)
+                .map((item) => [
+                    item.departemen!.faculty!.id,
+                    item.departemen!.faculty!,
+                ]),
         ).values(),
     ).sort((a, b) => a.name.localeCompare(b.name));
-    const provinceCities = cities.filter(
-        (item) => item.province?.id === provinceId,
+    const departments = Array.from(
+        new Map(
+            programs
+                .filter(
+                    (item) =>
+                        item.departemen &&
+                        (!facultyId ||
+                            item.departemen.faculty?.id === facultyId),
+                )
+                .map((item) => [item.departemen!.id, item.departemen!]),
+        ).values(),
+    ).sort((a, b) => a.name.localeCompare(b.name));
+    const filteredPrograms = programs.filter(
+        (item) =>
+            (!facultyId || item.departemen?.faculty?.id === facultyId) &&
+            (!departmentId || item.departemen?.id === departmentId),
     );
+
+    const city = cities.find((item) => item.id === form.data.city_id);
+    const [cityQuery, setCityQuery] = useState(
+        city
+            ? `${city.name}${city.province ? ` · ${city.province.name}` : ''}`
+            : '',
+    );
+    const [cityMenuOpen, setCityMenuOpen] = useState(false);
+    const normalizedCityQuery = cityQuery.trim().toLowerCase();
+    const matchedCities = (
+        normalizedCityQuery && !city
+            ? cities.filter((item) => {
+                  const label =
+                      `${item.name} ${item.province?.name ?? ''}`.toLowerCase();
+                  return label.includes(normalizedCityQuery);
+              })
+            : cities
+    ).slice(0, 30);
     const identityReady = !!(
         form.data.nama.trim() &&
         form.data.no_hp.trim() &&
@@ -230,36 +269,74 @@ export default function DataHunian({
 
                 {step === 1 && (
                     <div className="space-y-4">
+                        <div className="grid gap-4 sm:grid-cols-2">
+                            <label className="block space-y-1.5 text-sm font-medium">
+                                <span>Fakultas</span>
+                                <select
+                                    className="select select-bordered w-full"
+                                    value={facultyId}
+                                    onChange={(e) => {
+                                        setFacultyId(e.target.value);
+                                        setDepartmentId('');
+                                        form.setData('prodi_id', '');
+                                    }}
+                                >
+                                    <option value="">Pilih fakultas</option>
+                                    {faculties.map((item) => (
+                                        <option key={item.id} value={item.id}>
+                                            {item.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </label>
+
+                            <label className="block space-y-1.5 text-sm font-medium">
+                                <span>Departemen</span>
+                                <select
+                                    className="select select-bordered w-full"
+                                    value={departmentId}
+                                    disabled={!facultyId}
+                                    onChange={(e) => {
+                                        setDepartmentId(e.target.value);
+                                        form.setData('prodi_id', '');
+                                    }}
+                                >
+                                    <option value="">
+                                        {facultyId
+                                            ? 'Pilih departemen'
+                                            : 'Pilih fakultas terlebih dahulu'}
+                                    </option>
+                                    {departments.map((item) => (
+                                        <option key={item.id} value={item.id}>
+                                            {item.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </label>
+                        </div>
+
                         <label className="block space-y-1.5 text-sm font-medium">
                             <span>Program studi</span>
                             <select
                                 className="select select-bordered w-full"
                                 value={form.data.prodi_id}
+                                disabled={!departmentId}
                                 onChange={(e) =>
                                     form.setData('prodi_id', e.target.value)
                                 }
                             >
-                                <option value="">Pilih program studi</option>
-                                {programs.map((item) => (
+                                <option value="">
+                                    {departmentId
+                                        ? 'Pilih program studi'
+                                        : 'Pilih departemen terlebih dahulu'}
+                                </option>
+                                {filteredPrograms.map((item) => (
                                     <option key={item.id} value={item.id}>
                                         {item.name} ({item.jenjang})
                                     </option>
                                 ))}
                             </select>
                         </label>
-
-                        {program && (
-                            <div className="bg-base-200/60 border-base-300 rounded-lg border p-3 text-sm">
-                                <span className="text-base-content/60 block text-xs">
-                                    Fakultas, Departemen &amp; Jenjang
-                                </span>
-                                <p className="font-medium">
-                                    {program.departemen?.faculty?.name} ·{' '}
-                                    {program.departemen?.name} ·{' '}
-                                    {program.jenjang}
-                                </p>
-                            </div>
-                        )}
 
                         <p className="bg-base-200/60 border-base-300 rounded-lg border p-3 text-sm font-medium">
                             Angkatan{' '}
@@ -276,48 +353,134 @@ export default function DataHunian({
                                 wilayah terlebih dahulu.
                             </p>
                         ) : (
-                            <div className="grid gap-4 sm:grid-cols-2">
-                                <label className="block space-y-1.5 text-sm font-medium">
-                                    <span>Provinsi asal</span>
-                                    <select
-                                        className="select select-bordered w-full"
-                                        value={provinceId}
-                                        onChange={(e) => {
-                                            setProvinceId(e.target.value);
-                                            form.setData('city_id', '');
-                                        }}
-                                    >
-                                        <option value="">Pilih provinsi</option>
-                                        {provinces.map((item) => (
-                                            <option key={item.id} value={item.id}>
-                                                {item.name}
-                                            </option>
-                                        ))}
-                                    </select>
+                            <div className="relative space-y-1.5 text-sm">
+                                <label className="block space-y-1.5 font-medium">
+                                    <span>Kota atau kabupaten asal</span>
+                                    <div className="relative">
+                                        <input
+                                            type="text"
+                                            className={control}
+                                            role="combobox"
+                                            aria-expanded={cityMenuOpen}
+                                            aria-autocomplete="list"
+                                            placeholder="Ketik nama kota/kabupaten atau provinsi (misal: Padang, Tanah Datar)"
+                                            value={cityQuery}
+                                            onFocus={() =>
+                                                setCityMenuOpen(true)
+                                            }
+                                            onBlur={() =>
+                                                setTimeout(
+                                                    () =>
+                                                        setCityMenuOpen(false),
+                                                    150,
+                                                )
+                                            }
+                                            onChange={(e) => {
+                                                setCityQuery(e.target.value);
+                                                if (form.data.city_id) {
+                                                    form.setData('city_id', '');
+                                                }
+                                                setCityMenuOpen(true);
+                                            }}
+                                        />
+                                        {cityQuery && (
+                                            <button
+                                                type="button"
+                                                aria-label="Hapus pilihan kota atau kabupaten"
+                                                onClick={() => {
+                                                    setCityQuery('');
+                                                    form.setData('city_id', '');
+                                                    setCityMenuOpen(true);
+                                                }}
+                                                className="btn btn-ghost btn-xs absolute top-1/2 right-2 -translate-y-1/2"
+                                            >
+                                                ×
+                                            </button>
+                                        )}
+                                    </div>
                                 </label>
 
-                                <label className="block space-y-1.5 text-sm font-medium">
-                                    <span>Kota atau kabupaten asal</span>
-                                    <select
-                                        className="select select-bordered w-full"
-                                        value={form.data.city_id}
-                                        disabled={!provinceId}
-                                        onChange={(e) =>
-                                            form.setData('city_id', e.target.value)
-                                        }
+                                {cityMenuOpen && (
+                                    <ul
+                                        role="listbox"
+                                        aria-label="Daftar kota atau kabupaten"
+                                        className="bg-base-100 border-base-300 absolute z-20 max-h-60 w-full overflow-y-auto rounded-lg border p-1 shadow-lg"
                                     >
-                                        <option value="">
-                                            {provinceId
-                                                ? 'Pilih kota atau kabupaten'
-                                                : 'Pilih provinsi terlebih dahulu'}
-                                        </option>
-                                        {provinceCities.map((item) => (
-                                            <option key={item.id} value={item.id}>
-                                                {item.name}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </label>
+                                        {matchedCities.length === 0 ? (
+                                            <li className="text-base-content/60 px-3 py-2 text-xs">
+                                                Kota atau kabupaten tidak
+                                                ditemukan.
+                                            </li>
+                                        ) : (
+                                            matchedCities.map((item) => (
+                                                <li key={item.id}>
+                                                    <button
+                                                        type="button"
+                                                        role="option"
+                                                        aria-selected={
+                                                            form.data
+                                                                .city_id ===
+                                                            item.id
+                                                        }
+                                                        onMouseDown={(e) =>
+                                                            e.preventDefault()
+                                                        }
+                                                        onClick={() => {
+                                                            form.setData(
+                                                                'city_id',
+                                                                item.id,
+                                                            );
+                                                            setCityQuery(
+                                                                `${item.name}${item.province ? ` · ${item.province.name}` : ''}`,
+                                                            );
+                                                            setCityMenuOpen(
+                                                                false,
+                                                            );
+                                                        }}
+                                                        className={`flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm transition-colors ${
+                                                            form.data
+                                                                .city_id ===
+                                                            item.id
+                                                                ? 'bg-primary text-primary-content font-medium'
+                                                                : 'hover:bg-base-200'
+                                                        }`}
+                                                    >
+                                                        <span>{item.name}</span>
+                                                        {item.province && (
+                                                            <span
+                                                                className={`text-xs ${
+                                                                    form.data
+                                                                        .city_id ===
+                                                                    item.id
+                                                                        ? 'text-primary-content/80'
+                                                                        : 'text-base-content/60'
+                                                                }`}
+                                                            >
+                                                                {
+                                                                    item
+                                                                        .province
+                                                                        .name
+                                                                }
+                                                            </span>
+                                                        )}
+                                                    </button>
+                                                </li>
+                                            ))
+                                        )}
+                                    </ul>
+                                )}
+
+                                {city?.province ? (
+                                    <p className="text-success text-xs font-medium">
+                                        Terpilih: {city.name} · Provinsi{' '}
+                                        {city.province.name}
+                                    </p>
+                                ) : cityQuery.trim() ? (
+                                    <p className="text-warning text-xs">
+                                        Klik salah satu kota/kabupaten dari
+                                        daftar yang muncul.
+                                    </p>
+                                ) : null}
                             </div>
                         )}
 
