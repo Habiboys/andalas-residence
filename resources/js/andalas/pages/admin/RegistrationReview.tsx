@@ -1,7 +1,8 @@
-import { router, useForm } from '@inertiajs/react';
+import { Link, router, useForm } from '@inertiajs/react';
 import { useState } from 'react';
 import {
     Button,
+    ConfirmDialog,
     DataTable,
     Drawer,
     inputClass,
@@ -11,6 +12,7 @@ import {
     type DataTableQuery,
 } from '../../components/ui';
 import { assignRoom, sponsor, update } from '@/routes/andalas/registrations';
+import { show as showWorkflowRegistration } from '@/routes/residence/registrations';
 import { registrationReview as adminPage } from '@/routes/admin';
 import { registrationReview as adminLayananPage } from '@/routes/admin_layanan';
 
@@ -23,6 +25,7 @@ type Row = {
     id: string;
     funding?: string;
     is_kipk: boolean;
+    workflow_version?: number | null;
     reserved_room_id?: string;
     sponsor_name?: string;
     status: string;
@@ -61,6 +64,7 @@ export default function RegistrationReview({
     role?: string;
 }) {
     const [selected, setSelected] = useState<Row | null>(null);
+    const [confirmCancel, setConfirmCancel] = useState(false);
     const [loading, setLoading] = useState(false);
     const [requestError, setRequestError] = useState<string | null>(null);
     const rows = registrations?.data ?? [];
@@ -86,10 +90,12 @@ export default function RegistrationReview({
             sponsor_name: row.sponsor_name ?? '',
             notes: '',
         });
+        setConfirmCancel(false);
         setSelected(row);
     }
 
     function closeReview() {
+        setConfirmCancel(false);
         setSelected(null);
         form.reset();
         form.clearErrors();
@@ -156,7 +162,7 @@ export default function RegistrationReview({
                 row.funding === 'sponsor'
                     ? 'Sponsor'
                     : row.is_kipk
-                      ? 'KIP-K ? Bayar pribadi'
+                      ? 'KIP-K · Bayar pribadi'
                       : 'Mandiri',
         },
         {
@@ -230,16 +236,20 @@ export default function RegistrationReview({
             >
                 {selected && (
                     <div className="space-y-5">
-                        <div className="border-base-200 space-y-1 border-b pb-4 text-sm">
+                        <div className="border-base-200 space-y-2 border-b pb-4 text-sm">
                             <p>
                                 <span className="font-medium">NIM:</span>{' '}
                                 {selected.student_profile?.user?.nim_nip ?? '-'}
                             </p>
-                            <p>
-                                <span className="font-medium">Status:</span>{' '}
-                                {selected.completed_at
-                                    ? 'Aktif'
-                                    : selected.status}
+                            <p className="flex items-center gap-2">
+                                <span className="font-medium">Status:</span>
+                                <StatusBadge
+                                    status={
+                                        selected.completed_at
+                                            ? 'aktif'
+                                            : selected.status
+                                    }
+                                />
                             </p>
                             <p>
                                 {selected.funding === 'sponsor'
@@ -250,8 +260,27 @@ export default function RegistrationReview({
                                       : 'Pembayaran pribadi menyelesaikan pendaftaran secara otomatis.'}
                             </p>
                         </div>
+                        {selected.workflow_version === 2 && (
+                            <div className="alert alert-info text-sm">
+                                <span>
+                                    Pendaftaran ini menggunakan alur proses
+                                    terpadu (v2). Kelola dokumen, pembiayaan,
+                                    dan pengesahan melalui{' '}
+                                    <Link
+                                        href={showWorkflowRegistration.url(
+                                            selected.id,
+                                        )}
+                                        className="link font-medium"
+                                    >
+                                        halaman detail proses pendaftaran
+                                    </Link>
+                                    .
+                                </span>
+                            </div>
+                        )}
                         {!selected.completed_at &&
-                            selected.status !== 'rejected' && (
+                            selected.status !== 'rejected' &&
+                            selected.workflow_version !== 2 && (
                                 <>
                                     {(selected.funding === 'sponsor' ||
                                         (selected.is_kipk &&
@@ -390,15 +419,7 @@ export default function RegistrationReview({
                                         className="border-base-200 space-y-3 border-t pt-4"
                                         onSubmit={(event) => {
                                             event.preventDefault();
-                                            form.patch(
-                                                update.url({
-                                                    registration: selected.id,
-                                                }),
-                                                {
-                                                    preserveScroll: true,
-                                                    onSuccess: closeReview,
-                                                },
-                                            );
+                                            setConfirmCancel(true);
                                         }}
                                     >
                                         <label className="block space-y-1 text-sm">
@@ -425,12 +446,41 @@ export default function RegistrationReview({
                                         )}
                                         <div className="flex justify-end">
                                             <Button
-                                                variant="secondary"
+                                                variant="danger"
                                                 disabled={form.processing}
                                             >
                                                 Batalkan pendaftaran
                                             </Button>
                                         </div>
+                                        {confirmCancel && (
+                                            <ConfirmDialog
+                                                open
+                                                onClose={() =>
+                                                    setConfirmCancel(false)
+                                                }
+                                                loading={form.processing}
+                                                title="Batalkan Pendaftaran?"
+                                                message={`Batalkan pendaftaran milik ${selected.student_profile?.user?.nama ?? 'mahasiswa'}? Kamar yang dipesan akan dilepas.`}
+                                                confirmLabel="Ya, batalkan"
+                                                onConfirm={() =>
+                                                    form.patch(
+                                                        update.url({
+                                                            registration:
+                                                                selected.id,
+                                                        }),
+                                                        {
+                                                            preserveScroll: true,
+                                                            onSuccess:
+                                                                closeReview,
+                                                            onFinish: () =>
+                                                                setConfirmCancel(
+                                                                    false,
+                                                                ),
+                                                        },
+                                                    )
+                                                }
+                                            />
+                                        )}
                                     </form>
                                 </>
                             )}

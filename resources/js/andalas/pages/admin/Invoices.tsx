@@ -31,6 +31,31 @@ export type Invoice = {
         };
     };
     residence_snapshot?: { category?: string };
+    registration?: { id?: string; workflow_version?: number | null } | null;
+};
+type SignerRow = {
+    id: string;
+    nama: string;
+    jabatan?: string | null;
+    aktif?: boolean;
+};
+const INVOICE_CATEGORY_LABELS: Record<string, string> = {
+    local_kipk: 'Lokal KIP-K',
+    local_non_kipk: 'Lokal Non-KIP-K',
+    international: 'Mahasiswa Internasional',
+    non_mahasiswa: 'Nonmahasiswa / Umum',
+    summer_course: 'Summer Course',
+    general_stay: 'Hunian Umum',
+    dpub: 'DPUB',
+};
+const formatCategoryLabel = (value?: string) => {
+    if (!value) return '-';
+    return (
+        INVOICE_CATEGORY_LABELS[value] ??
+        value
+            .replaceAll('_', ' ')
+            .replace(/\b\w/g, (letter) => letter.toUpperCase())
+    );
 };
 type Group = {
     id: string;
@@ -67,6 +92,7 @@ function PaymentSettings({
     account?: Account;
     onClose: () => void;
 }) {
+    const isWorkflowV2 = invoice.registration?.workflow_version === 2;
     const form = useForm({
         amount_due_now:
             invoice.amount_due_now ?? String(remaining(invoice, 'personal')),
@@ -96,6 +122,16 @@ function PaymentSettings({
                     tidak mengubah total utang. VA belum terhubung otomatis ke
                     bank.
                 </p>
+                {isWorkflowV2 && (
+                    <div className="alert alert-info text-sm">
+                        <span>
+                            Tagihan ini berasal dari pendaftaran alur terpadu
+                            (v2). Nominal bayar sekarang dikunci sesuai keputusan
+                            pembiayaan pada menu Proses Pendaftaran; Anda tetap
+                            dapat memperbarui data VA di bawah ini.
+                        </span>
+                    </div>
+                )}
                 <div className="grid gap-3 sm:grid-cols-2">
                     {(
                         [
@@ -104,22 +140,30 @@ function PaymentSettings({
                             ['nomor', 'Nomor VA'],
                             ['atas_nama', 'Atas nama'],
                         ] as const
-                    ).map(([k, l]) => (
-                        <label key={k} className="space-y-1 text-sm">
-                            <span>{l}</span>
-                            <input
-                                className={inputClass}
-                                type={
-                                    k === 'amount_due_now' ? 'number' : 'text'
-                                }
-                                value={form.data[k]}
-                                required
-                                onChange={(e) =>
-                                    form.setData(k, e.target.value)
-                                }
-                            />
-                        </label>
-                    ))}
+                    ).map(([k, l]) => {
+                        const locked = k === 'amount_due_now' && isWorkflowV2;
+                        return (
+                            <label key={k} className="space-y-1 text-sm">
+                                <span>{l}</span>
+                                <input
+                                    className={`${inputClass} ${locked ? 'bg-base-200 cursor-not-allowed' : ''}`}
+                                    type={
+                                        k === 'amount_due_now'
+                                            ? 'number'
+                                            : 'text'
+                                    }
+                                    value={form.data[k]}
+                                    readOnly={locked}
+                                    required
+                                    onChange={(e) => {
+                                        if (!locked) {
+                                            form.setData(k, e.target.value);
+                                        }
+                                    }}
+                                />
+                            </label>
+                        );
+                    })}
                 </div>
                 <div className="space-y-1">
                     {Object.values(form.errors).map((e, i) => (
@@ -151,10 +195,12 @@ export default function Invoices({
     billing = [],
     groups = [],
     virtual_accounts = [],
+    signers = [],
 }: {
     billing?: Invoice[];
     groups?: Group[];
     virtual_accounts?: Account[];
+    signers?: SignerRow[];
 }) {
     usePoll(5000, { only: ['billing', 'groups', 'virtual_accounts'] });
     const [payer, setPayer] = useState('personal');
@@ -209,7 +255,7 @@ export default function Invoices({
         new Set(invoiceRows.map((row) => row.category).filter(Boolean)),
     ).map((value) => ({
         value,
-        label: value.replaceAll('_', ' ').toUpperCase(),
+        label: formatCategoryLabel(value),
     }));
     const invoiceColumns: DataColumn<(typeof invoiceRows)[number]>[] = [
         {
@@ -260,10 +306,7 @@ export default function Invoices({
             key: 'category',
             label: 'Kategori',
             filter: { type: 'select', options: categoryOptions },
-            render: (row) =>
-                row.category
-                    ? row.category.replaceAll('_', ' ').toUpperCase()
-                    : '-',
+            render: (row) => formatCategoryLabel(row.category),
         },
         {
             key: 'status',
@@ -563,6 +606,47 @@ export default function Invoices({
                     </section>
                     <section className="border-base-200 space-y-3 border-t pt-5">
                         <h3 className="font-semibold">Penandatangan</h3>
+                        {signers.length > 0 && (
+                            <label className="block space-y-1 text-sm">
+                                <span>
+                                    Isi cepat dari master penandatangan
+                                    (opsional)
+                                </span>
+                                <select
+                                    className={inputClass}
+                                    defaultValue=""
+                                    onChange={(event) => {
+                                        const picked = signers.find(
+                                            (item) =>
+                                                item.id === event.target.value,
+                                        );
+                                        if (picked) {
+                                            form.setData(
+                                                'signer',
+                                                picked.nama,
+                                            );
+                                        }
+                                    }}
+                                >
+                                    <option value="">
+                                        Pilih nama pimpinan dari master...
+                                    </option>
+                                    {signers
+                                        .filter((item) => item.aktif !== false)
+                                        .map((item) => (
+                                            <option
+                                                key={item.id}
+                                                value={item.id}
+                                            >
+                                                {item.nama}
+                                                {item.jabatan
+                                                    ? ` — ${item.jabatan}`
+                                                    : ''}
+                                            </option>
+                                        ))}
+                                </select>
+                            </label>
+                        )}
                         <div className="grid gap-3 sm:grid-cols-2">
                             <label className="space-y-1 text-sm">
                                 <span>Nama pimpinan penandatangan</span>

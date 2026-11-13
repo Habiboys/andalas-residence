@@ -40,6 +40,23 @@ export default function AdminDashboard({
         (p) => p.status === 'menunggu_verifikasi',
     );
 
+    const isVerifiedPayment = (status?: string) =>
+        ['lunas', 'terverifikasi'].includes(status ?? '');
+    const formatPaymentKind = (jenis?: string) => {
+        const labels: Record<string, string> = {
+            sewa_asrama: 'Sewa Asrama',
+            sewa: 'Sewa Asrama',
+            tagihan_registrasi: 'Tagihan Registrasi',
+            registrasi: 'Registrasi Asrama',
+            deposit: 'Deposit',
+            denda: 'Denda',
+            perpanjangan: 'Perpanjangan',
+            listrik_air: 'Listrik & Air',
+        };
+        if (!jenis) return 'Belum dikategorikan';
+        return labels[jenis] ?? jenis;
+    };
+
     const role = usePage().props.role;
     const paymentUrl =
         role === 'admin_layanan'
@@ -48,7 +65,7 @@ export default function AdminDashboard({
     const monthly = Object.values(
         pembayaran
             .filter(
-                (item) => item.status === 'terverifikasi' && item.created_at,
+                (item) => isVerifiedPayment(item.status) && item.created_at,
             )
             .reduce<Record<string, { bulan: string; total: number }>>(
                 (result, item) => {
@@ -70,7 +87,7 @@ export default function AdminDashboard({
     const paymentTypes = Object.values(
         pembayaran.reduce<Record<string, { jenis: string; jumlah: number }>>(
             (result, item) => {
-                const jenis = item.jenis_pembayaran || 'Belum dikategorikan';
+                const jenis = formatPaymentKind(item.jenis_pembayaran);
                 result[jenis] ??= { jenis, jumlah: 0 };
                 result[jenis].jumlah += 1;
                 return result;
@@ -103,7 +120,7 @@ export default function AdminDashboard({
             if (item.status === 'menunggu_verifikasi') {
                 result[bulan].menunggu += 1;
             }
-            if (item.status === 'terverifikasi') {
+            if (isVerifiedPayment(item.status)) {
                 result[bulan].terverifikasi += 1;
             }
             if (item.status === 'ditolak') {
@@ -132,7 +149,16 @@ export default function AdminDashboard({
                         '-',
                 ),
         },
-        { key: 'jenis_pembayaran', label: 'Jenis' },
+        {
+            key: 'jenis_pembayaran',
+            label: 'Jenis',
+            render: (row: Record<string, unknown>) =>
+                formatPaymentKind(
+                    typeof row.jenis_pembayaran === 'string'
+                        ? row.jenis_pembayaran
+                        : undefined,
+                ),
+        },
         {
             key: 'nominal',
             label: 'Jumlah',
@@ -213,8 +239,8 @@ export default function AdminDashboard({
                         data={[
                             {
                                 name: 'Terverifikasi',
-                                value: pembayaran.filter(
-                                    (p) => p.status === 'terverifikasi',
+                                value: pembayaran.filter((p) =>
+                                    isVerifiedPayment(p.status),
                                 ).length,
                                 color: '#27745a',
                             },

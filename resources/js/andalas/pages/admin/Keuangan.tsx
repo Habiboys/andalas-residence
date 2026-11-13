@@ -10,6 +10,7 @@ import {
     ConfirmDialog,
     RowActions,
     Modal,
+    StatusBadge,
 } from '../../components/ui';
 import {
     store as transaksiStore,
@@ -155,11 +156,13 @@ export default function Keuangan({
                             required
                         >
                             <option value="">Pilih kategori</option>
-                            {(kategori ?? []).map((k) => (
-                                <option key={k.id} value={k.id}>
-                                    {k.nama_kategori} ({k.tipe})
-                                </option>
-                            ))}
+                            {(kategori ?? [])
+                                .filter((k) => !k.tipe || k.tipe === data.tipe)
+                                .map((k) => (
+                                    <option key={k.id} value={k.id}>
+                                        {k.nama_kategori}
+                                    </option>
+                                ))}
                         </select>
                         {errors.kategori_id && (
                             <p className="text-error mt-1 text-sm">
@@ -171,7 +174,22 @@ export default function Keuangan({
                         <select
                             className={inputClass}
                             value={data.tipe}
-                            onChange={(e) => setData('tipe', e.target.value)}
+                            onChange={(e) => {
+                                const nextTipe = e.target.value;
+                                const selectedCategory = (kategori ?? []).find(
+                                    (item) => item.id === data.kategori_id,
+                                );
+                                setData((prev) => ({
+                                    ...prev,
+                                    tipe: nextTipe,
+                                    kategori_id:
+                                        selectedCategory &&
+                                        selectedCategory.tipe &&
+                                        selectedCategory.tipe !== nextTipe
+                                            ? ''
+                                            : prev.kategori_id,
+                                }));
+                            }}
                         >
                             <option value="pemasukan">Pemasukan</option>
                             <option value="pengeluaran">Pengeluaran</option>
@@ -269,6 +287,9 @@ export default function Keuangan({
                     {
                         key: 'tipe',
                         label: 'Tipe',
+                        render: (r: TransaksiRow) => (
+                            <StatusBadge status={r.tipe ?? 'pemasukan'} />
+                        ),
                         filter: {
                             type: 'select',
                             options: [
@@ -391,7 +412,7 @@ export default function Keuangan({
                 onConfirm={confirmDelete}
                 loading={deleteForm.processing}
                 title="Hapus Transaksi"
-                message={`Hapus transaksi ${deleting?.tipe ?? ''} ${deleting?.nominal ? formatRupiah(Number(deleting.nominal)) : ''} ini? Tindakan ini tidak dapat dibatalkan.`}
+                message={`Hapus transaksi ${deleting?.tipe === 'pengeluaran' ? 'Pengeluaran' : deleting?.tipe === 'pemasukan' ? 'Pemasukan' : (deleting?.tipe ?? '')} ${deleting?.nominal ? formatRupiah(Number(deleting.nominal)) : ''} ini? Tindakan ini tidak dapat dibatalkan.`}
             />
         </div>
     );

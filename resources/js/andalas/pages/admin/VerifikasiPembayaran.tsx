@@ -1,6 +1,7 @@
-import { router, useForm, usePoll } from '@inertiajs/react';
+import { Link, router, useForm, usePoll } from '@inertiajs/react';
 import { useState } from 'react';
 import {
+    ConfirmDialog,
     DataTable,
     inputClass,
     PageHeader,
@@ -10,6 +11,7 @@ import {
 } from '../../components/ui';
 import { Modal } from '../../components/atoms/Modal';
 import { verify, bukti } from '@/routes/andalas/pembayaran';
+import { show as showWorkflowRegistration } from '@/routes/residence/registrations';
 import { verifikasiPembayaran as adminPage } from '@/routes/admin';
 import { verifikasiPembayaran as adminLayananPage } from '@/routes/admin_layanan';
 import { formatRupiah } from '../../lib/format';
@@ -22,7 +24,10 @@ type Payment = {
     catatan_verifikasi?: string;
     bukti_transfer_path?: string;
     mahasiswa?: { user?: { nama: string; nim_nip: string } };
-    tagihan?: { nomor: string };
+    tagihan?: {
+        nomor: string;
+        registration?: { id: string; workflow_version?: number | null } | null;
+    };
 };
 type PaginatedPayments = {
     data: Payment[];
@@ -55,6 +60,7 @@ export default function VerifikasiPembayaran({
 }) {
     usePoll(5000, { only: ['pembayaran', 'table_state'] });
     const [selected, setSelected] = useState<Payment | null>(null);
+    const [confirmVerify, setConfirmVerify] = useState(false);
     const [loading, setLoading] = useState(false);
     const [requestError, setRequestError] = useState<string | null>(null);
     const rows = pembayaran?.data ?? [];
@@ -72,10 +78,12 @@ export default function VerifikasiPembayaran({
         form.reset();
         form.clearErrors();
         form.setData({ status: 'lunas', catatan_verifikasi: '' });
+        setConfirmVerify(false);
         setSelected(payment);
     }
 
     function closeReview() {
+        setConfirmVerify(false);
         setSelected(null);
         form.reset();
         form.clearErrors();
@@ -269,15 +277,29 @@ export default function VerifikasiPembayaran({
                                 className="space-y-4"
                                 onSubmit={(event) => {
                                     event.preventDefault();
-                                    form.post(
-                                        verify.url({ pembayaran: selected.id }),
-                                        {
-                                            preserveScroll: true,
-                                            onSuccess: closeReview,
-                                        },
-                                    );
+                                    setConfirmVerify(true);
                                 }}
                             >
+                                {selected.tagihan?.registration
+                                    ?.workflow_version === 2 && (
+                                    <div className="alert alert-info text-sm">
+                                        <span>
+                                            Tagihan ini terhubung ke alur
+                                            pendaftaran baru. Anda tetap dapat
+                                            memverifikasi di sini atau membuka{' '}
+                                            <Link
+                                                href={showWorkflowRegistration.url(
+                                                    selected.tagihan
+                                                        .registration.id,
+                                                )}
+                                                className="link font-medium"
+                                            >
+                                                detail proses pendaftaran
+                                            </Link>
+                                            .
+                                        </span>
+                                    </div>
+                                )}
                                 <label className="block space-y-1 text-sm">
                                     <span>Keputusan</span>
                                     <select
@@ -304,10 +326,15 @@ export default function VerifikasiPembayaran({
                                     )}
                                 </label>
                                 <label className="block space-y-1 text-sm">
-                                    <span>Catatan</span>
+                                    <span>
+                                        {form.data.status === 'ditolak'
+                                            ? 'Catatan penolakan'
+                                            : 'Catatan (opsional)'}
+                                    </span>
                                     <textarea
                                         className={inputClass}
                                         rows={3}
+                                        required={form.data.status === 'ditolak'}
                                         value={form.data.catatan_verifikasi}
                                         onChange={(event) =>
                                             form.setData(
@@ -340,6 +367,41 @@ export default function VerifikasiPembayaran({
                                             : 'Simpan verifikasi'}
                                     </button>
                                 </div>
+                                {confirmVerify && (
+                                    <ConfirmDialog
+                                        open
+                                        onClose={() => setConfirmVerify(false)}
+                                        loading={form.processing}
+                                        title={
+                                            form.data.status === 'ditolak'
+                                                ? 'Tolak Bukti Pembayaran?'
+                                                : 'Sahkan Pembayaran?'
+                                        }
+                                        message={
+                                            form.data.status === 'ditolak'
+                                                ? `Tolak bukti pembayaran ${formatRupiah(Number(selected.nominal ?? 0))} milik ${selected.mahasiswa?.user?.nama ?? 'penghuni'}?`
+                                                : `Konfirmasi pembayaran sebesar ${formatRupiah(Number(selected.nominal ?? 0))} untuk ${selected.mahasiswa?.user?.nama ?? 'penghuni'} telah masuk ke rekening?`
+                                        }
+                                        confirmLabel={
+                                            form.data.status === 'ditolak'
+                                                ? 'Ya, tolak bukti'
+                                                : 'Ya, sahkan pembayaran'
+                                        }
+                                        onConfirm={() =>
+                                            form.post(
+                                                verify.url({
+                                                    pembayaran: selected.id,
+                                                }),
+                                                {
+                                                    preserveScroll: true,
+                                                    onSuccess: closeReview,
+                                                    onFinish: () =>
+                                                        setConfirmVerify(false),
+                                                },
+                                            )
+                                        }
+                                    />
+                                )}
                             </form>
                         )}
                     </div>

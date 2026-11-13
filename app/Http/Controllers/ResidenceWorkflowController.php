@@ -84,13 +84,35 @@ class ResidenceWorkflowController extends Controller
         $summary['physical'] = (clone $registrations)->whereNotNull('checked_in_at')->whereNull('keys_returned_at')->whereHas('placement', fn ($q) => $q->where('status', 'aktif'))->count();
         $summary['receivables'] = (float) Tagihan::whereIn('id', (clone $registrations)->select('tagihan_id'))->where('status', '!=', 'batal')->sum(DB::raw('CASE WHEN total > total_dibayar THEN total - total_dibayar ELSE 0 END + CASE WHEN sponsor_total > sponsor_paid THEN sponsor_total - sponsor_paid ELSE 0 END'));
         $summary['credits'] = (float) Tagihan::whereIn('id', (clone $registrations)->select('tagihan_id'))->where('status', '!=', 'batal')->whereColumn('total_dibayar', '>', 'total')->sum(DB::raw('total_dibayar - total'));
-        $page = $registrations->latest()->paginate(30)->withQueryString();
+        $searchFilter = ! $studentView ? trim((string) $request->query('search', '')) : '';
+        $statusFilter = ! $studentView ? trim((string) $request->query('status', '')) : '';
+        $categoryFilter = ! $studentView ? trim((string) $request->query('category', '')) : '';
+        $filteredRegistrations = (clone $registrations)
+            ->when($searchFilter !== '', function ($q) use ($searchFilter): void {
+                $q->where(function ($sub) use ($searchFilter): void {
+                    $sub->whereHas('studentProfile.user', fn ($u) => $u->where('nama', 'like', "%{$searchFilter}%")->orWhere('nim_nip', 'like', "%{$searchFilter}%"))
+                        ->orWhereHas('reservedRoom', fn ($r) => $r->where('nomor_kamar', 'like', "%{$searchFilter}%")
+                            ->orWhereHas('lantai.gedung', fn ($g) => $g->where('nama_gedung', 'like', "%{$searchFilter}%")));
+                });
+            })
+            ->when($statusFilter !== '', function ($q) use ($statusFilter): void {
+                if ($statusFilter === 'checked_in') {
+                    $q->whereNotNull('checked_in_at')->whereNull('keys_returned_at');
+                } elseif ($statusFilter === 'keys_returned') {
+                    $q->whereNotNull('keys_returned_at');
+                } else {
+                    $q->where('status', $statusFilter);
+                }
+            })
+            ->when($categoryFilter !== '', fn ($q) => $q->whereHas('policy', fn ($p) => $p->where('category', $categoryFilter)));
+        $page = $filteredRegistrations->latest()->paginate(30)->withQueryString();
         $page->getCollection()->transform(fn (ResidenceRegistration $r): ResidenceRegistration => $this->decorateRegistration($r, $user));
 
         return Inertia::render($studentView ? 'mahasiswa/registration-status' : 'admin/residence-workflow', [
             'role' => $user->getRoleNames()->first(), 'page' => $studentView ? 'registration' : ($section === 'registrations' ? 'residence-workflow' : 'residence-workflow/'.$section), 'initialUser' => app(RolePageController::class)->userPayload($request),
             'section' => $section,
             'detailMode' => false,
+            'filters' => ['search' => $searchFilter, 'status' => $statusFilter, 'category' => $categoryFilter],
             'pendingRoomContracts' => $manager && in_array($section, ['registrations', 'contracts'], true) ? (clone $registrations)
                 ->with(['studentProfile.user', 'reservedRoom.lantai.gedung'])
                 ->where('billing_basis', 'room')->whereNull('room_contract_id')->whereNull('completed_at')
@@ -121,7 +143,8 @@ class ResidenceWorkflowController extends Controller
             'paymentProofs' => $finance ? Pembayaran::with('mahasiswa.user')->where('status', 'menunggu_verifikasi')->latest()->limit(200)->get() : [],
             'invoiceGroups' => $finance ? InvoiceGroup::latest()->limit(100)->get() : [],
             'reconciliations' => $finance ? ResidencePaymentReference::latest()->limit(100)->get() : [],
-            'invoices' => $finance ? Tagihan::with('mahasiswa.user')->where('status', '!=', 'batal')->where(fn ($q) => $q->whereColumn('total', '>', 'total_dibayar')->orWhereColumn('sponsor_total', '>', 'sponsor_paid'))->latest()->limit(200)->get() : [],
+            'invoices' => $finance ? Tagihan::with(['mahasiswa.user', 'registration:id,tagihan_id,residence_application_id'])->where('status', '!=', 'batal')->where(fn ($q) => $q->whereColumn('total', '>', 'total_dibayar')->orWhereColumn('sponsor_total', '>', 'sponsor_paid'))->latest()->limit(200)->get() : [],
+            'publicStays' => $manager && $section === 'public' ? ResidenceRegistration::with(['studentProfile.user', 'reservedRoom.lantai.gedung', 'tagihan', 'placement'])->where('stay_kind', 'non_student')->latest()->limit(50)->get() : [],
         ]);
     }
 
@@ -144,6 +167,7 @@ class ResidenceWorkflowController extends Controller
             'initialUser' => app(RolePageController::class)->userPayload($request),
             'section' => 'registrations',
             'detailMode' => true,
+            'filters' => ['search' => '', 'status' => '', 'category' => ''],
             'pendingRoomContracts' => [],
             'registrations' => ['data' => [$registration], 'last_page' => 1, 'links' => []],
             'summary' => [],
@@ -163,6 +187,7 @@ class ResidenceWorkflowController extends Controller
             'invoiceGroups' => [],
             'reconciliations' => [],
             'invoices' => [],
+            'publicStays' => [],
         ]);
     }
 
@@ -464,7 +489,7 @@ class ResidenceWorkflowController extends Controller
             app(ResidenceWorkflow::class)->evaluate($r->fresh());
         });
 
-        return back();
+        return back()->with('toast', ['type' => 'success', 'message' => 'Dokumen kelengkapan dan pilihan pembiayaan tersimpan permanen.']);
     }
 
     public function document(Request $request, RegistrationDocument $document): StreamedResponse
@@ -496,7 +521,7 @@ class ResidenceWorkflowController extends Controller
             app(ResidenceWorkflow::class)->evaluate($r->fresh());
         });
 
-        return back();
+        return back()->with('toast', ['type' => 'success', 'message' => 'Hasil pemeriksaan dokumen tersimpan.']);
     }
 
     public function requestDecision(Request $request, ResidenceRegistration $registration): RedirectResponse
@@ -611,7 +636,7 @@ class ResidenceWorkflowController extends Controller
             app(ResidenceWorkflow::class)->evaluate($r->fresh());
         });
 
-        return back();
+        return back()->with('toast', ['type' => 'success', 'message' => 'Keputusan pembiayaan tersimpan.']);
     }
 
     public function checkIn(Request $request, ResidenceRegistration $registration, ConfirmResidenceCheckIn $confirm): RedirectResponse
@@ -637,7 +662,7 @@ class ResidenceWorkflowController extends Controller
             }
         });
 
-        return back();
+        return back()->with('toast', ['type' => 'success', 'message' => 'Permohonan pemeriksaan kamar dikirim ke GO.']);
     }
 
     public function returnKeys(Request $request, ResidenceRegistration $registration, ReturnResidenceKeys $return): RedirectResponse
@@ -645,7 +670,7 @@ class ResidenceWorkflowController extends Controller
         $data = $request->validate(['keys_received' => ['accepted'], 'room_vacated' => ['accepted'], 'condition' => ['required', 'in:ready,damaged'], 'notes' => ['required', 'string', 'max:2000']]);
         $return->handle($registration, $request->user(), $data['condition'], $data['notes']);
 
-        return back();
+        return back()->with('toast', ['type' => 'success', 'message' => 'Pengembalian kunci tercatat.']);
     }
 
     public function allocate(Request $request, ResidenceRegistration $registration, AllocateResidenceRoom $allocate): RedirectResponse
@@ -653,7 +678,7 @@ class ResidenceWorkflowController extends Controller
         abort_unless(ResidenceWorkflowAccess::manager($request->user()) && $registration->is_kipk && $registration->workflow_version === 2, 403);
         $allocate->handle($registration);
 
-        return back();
+        return back()->with('toast', ['type' => 'success', 'message' => 'Pemeriksaan antrean alokasi KIP-K dijalankan.']);
     }
 
     public function disburse(Request $request, ResidenceRegistration $registration): RedirectResponse
@@ -671,7 +696,7 @@ class ResidenceWorkflowController extends Controller
             app(ResidenceWorkflow::class)->evaluate($r->fresh());
         });
 
-        return back();
+        return back()->with('toast', ['type' => 'success', 'message' => 'Pencairan KIP-K tercatat.']);
     }
 
     public function contract(Request $request): RedirectResponse
@@ -706,7 +731,7 @@ class ResidenceWorkflowController extends Controller
             AuditLogService::log($request->user(), 'room_contract_approved', $contract, null, $contract->toArray());
         });
 
-        return back();
+        return back()->with('toast', ['type' => 'success', 'message' => 'Kontrak kamar bersama disahkan dan tagihan diterbitkan.']);
     }
 
     public function historical(Request $request, ResidenceRegistration $registration): RedirectResponse
@@ -740,7 +765,7 @@ class ResidenceWorkflowController extends Controller
         ]);
         AuditLogService::log($request->user(), 'dpub_transaction_recorded', $reference, null, ['reference' => $reference->reference, 'source' => $reference->source]);
 
-        return back();
+        return back()->with('toast', ['type' => 'success', 'message' => 'Transaksi DPUB dicatat ke antrean rekonsiliasi.']);
     }
 
     public function reconcile(Request $request, ResidencePaymentReference $reference, ReconcileResidencePayment $reconcile): RedirectResponse

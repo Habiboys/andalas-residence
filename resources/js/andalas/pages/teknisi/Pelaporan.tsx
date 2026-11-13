@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
     MultiItemForm,
     ItemCompletion,
@@ -7,7 +8,14 @@ import {
     type LogbookRow,
 } from './RevisionPanels';
 import { Link, router, useForm } from '@inertiajs/react';
-import { PageHeader, Card, Button, inputClass } from '../../components/ui';
+import {
+    PageHeader,
+    Card,
+    Button,
+    ConfirmDialog,
+    StatusBadge,
+    inputClass,
+} from '../../components/ui';
 import { newDamageRequestKey as key } from '../../lib/damage-reports';
 
 type Option = { id: string; nama: string };
@@ -174,6 +182,9 @@ function Ticket({
     });
     const cancel = useForm({ reason: '' });
     const asset = useForm({ aset_id: '', reason: '', item_id: '' });
+    const [confirmClaim, setConfirmClaim] = useState(false);
+    const [confirmCancel, setConfirmCancel] = useState(false);
+    const [busyClaim, setBusyClaim] = useState(false);
     const base = `/andalas/tiket/${r.id}`;
     return (
         <Card className="space-y-4 p-5">
@@ -191,10 +202,15 @@ function Ticket({
                                 : 'Riwayat lama'}
                     </p>
                 </div>
-                <span className="badge badge-outline">
-                    {labels[r.status]}
-                    {r.is_blocked ? ' - terhambat' : ''}
-                </span>
+                <div className="flex flex-wrap items-center gap-1.5">
+                    <StatusBadge
+                        status={r.status}
+                        label={labels[r.status] ?? r.status}
+                    />
+                    {r.is_blocked && (
+                        <StatusBadge status="rusak_berat" label="Terhambat" />
+                    )}
+                </div>
             </div>
             <p>{r.deskripsi}</p>
             {r.kamar && <p>Kamar {r.kamar.nomor_kamar}</p>}
@@ -223,12 +239,37 @@ function Ticket({
                 Prioritas: {r.priority}
             </p>
             {r.abilities.claim && r.status !== 'sedang_dikerjakan' && (
-                <Button onClick={() => router.post(`${base}/claim`)}>
-                    Ambil pekerjaan
-                </Button>
+                <>
+                    <Button onClick={() => setConfirmClaim(true)}>
+                        Ambil pekerjaan
+                    </Button>
+                    {confirmClaim && (
+                        <ConfirmDialog
+                            open
+                            onClose={() => setConfirmClaim(false)}
+                            loading={busyClaim}
+                            title="Ambil Pekerjaan Tiket?"
+                            message={`Ambil tanggung jawab perbaikan untuk tiket ${r.nomor_tiket}?`}
+                            confirmLabel="Ya, ambil pekerjaan"
+                            onConfirm={() => {
+                                setBusyClaim(true);
+                                router.post(
+                                    `${base}/claim`,
+                                    {},
+                                    {
+                                        preserveScroll: true,
+                                        onSuccess: () => setConfirmClaim(false),
+                                        onFinish: () => setBusyClaim(false),
+                                    },
+                                );
+                            }}
+                        />
+                    )}
+                </>
             )}
             {r.abilities.confirm && (
                 <button
+                    type="button"
                     className="btn btn-outline btn-sm"
                     onClick={() => router.post(`${base}/confirm`)}
                 >
@@ -335,7 +376,7 @@ function Ticket({
                         Terhambat material/akses; pekerjaan belum selesai
                     </label>
                     <Errors errors={progress.errors} />
-                    <Button disabled={progress.processing}>
+                    <Button type="submit" disabled={progress.processing}>
                         Simpan progres
                     </Button>
                 </form>
@@ -389,7 +430,9 @@ function Ticket({
                         required
                     />
                     <Errors errors={team.errors} />
-                    <Button disabled={team.processing}>Simpan anggota</Button>
+                    <Button type="submit" disabled={team.processing}>
+                        Simpan anggota
+                    </Button>
                 </form>
             )}
             {r.abilities.complete && r.status === 'sedang_dikerjakan' && (
@@ -476,6 +519,7 @@ function Ticket({
                         </p>
                     )}
                     <Button
+                        type="submit"
                         disabled={
                             complete.processing ||
                             r.items.some((item) => !item.completed_at)
@@ -544,7 +588,7 @@ function Ticket({
                             required
                         />
                         <Errors errors={asset.errors} />
-                        <Button disabled={asset.processing}>
+                        <Button type="submit" disabled={asset.processing}>
                             Tautkan inventaris
                         </Button>
                     </form>
@@ -559,9 +603,7 @@ function Ticket({
                         className="mt-2 space-y-2"
                         onSubmit={(e) => {
                             e.preventDefault();
-                            cancel.post(`${base}/cancel`, {
-                                preserveScroll: true,
-                            });
+                            setConfirmCancel(true);
                         }}
                     >
                         <input
@@ -575,9 +617,29 @@ function Ticket({
                             required
                         />
                         <Errors errors={cancel.errors} />
-                        <Button disabled={cancel.processing}>
+                        <Button
+                            type="submit"
+                            variant="danger"
+                            disabled={cancel.processing}
+                        >
                             Konfirmasi pembatalan
                         </Button>
+                        {confirmCancel && (
+                            <ConfirmDialog
+                                open
+                                onClose={() => setConfirmCancel(false)}
+                                loading={cancel.processing}
+                                title="Batalkan Tiket?"
+                                message={`Batalkan tiket ${r.nomor_tiket} dengan alasan tersebut?`}
+                                confirmLabel="Ya, batalkan tiket"
+                                onConfirm={() =>
+                                    cancel.post(`${base}/cancel`, {
+                                        preserveScroll: true,
+                                        onSuccess: () => setConfirmCancel(false),
+                                    })
+                                }
+                            />
+                        )}
                     </form>
                 </details>
             )}
@@ -603,6 +665,7 @@ export default function Pelaporan(p: Props) {
                     <h2 className="font-semibold">{n.data.subject}</h2>
                     <p>{n.data.message}</p>
                     <button
+                        type="button"
                         className="btn btn-sm"
                         onClick={() =>
                             router.post(`/pelaporan/notifications/${n.id}/read`)
@@ -682,7 +745,16 @@ export default function Pelaporan(p: Props) {
                     value={filter.data.date}
                     onChange={(e) => filter.setData('date', e.target.value)}
                 />
-                <Button>Terapkan filter</Button>
+                <div className="flex flex-wrap gap-2">
+                    <Button type="submit">Terapkan filter</Button>
+                    {(p.filters.status ||
+                        p.filters.gedung_id ||
+                        p.filters.technician_id) && (
+                        <Link href="/pelaporan" className="btn btn-ghost">
+                            Reset
+                        </Link>
+                    )}
+                </div>
             </form>
             {p.can_report && (
                 <MultiItemForm

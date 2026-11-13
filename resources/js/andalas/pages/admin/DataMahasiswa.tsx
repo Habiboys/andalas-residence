@@ -18,6 +18,7 @@ import {
     inputClass,
     ConfirmDialog,
     RowActions,
+    StatusBadge,
     type DataColumn,
 } from '../../components/ui';
 import {
@@ -135,11 +136,13 @@ export default function DataMahasiswa({
         {
             key: 'nim',
             label: 'NIM',
+            value: (r) => r.user?.nim_nip ?? '',
             render: (r: MhsRow) => r.user?.nim_nip ?? '-',
         },
         {
             key: 'nama',
             label: 'Nama',
+            value: (r) => r.user?.nama ?? '',
             render: (r: MhsRow) => (
                 <Link
                     className="link link-primary"
@@ -215,6 +218,9 @@ export default function DataMahasiswa({
                     label: status.replaceAll('_', ' '),
                 })),
             },
+            render: (r: MhsRow) => (
+                <StatusBadge status={r.status_huni ?? 'calon'} />
+            ),
         },
         {
             key: 'email',
@@ -238,13 +244,14 @@ export default function DataMahasiswa({
         <div className="space-y-4">
             <PageHeader
                 title="Data Mahasiswa"
-                subtitle="Identitas, kategori akun, dan status hunian mahasiswa maupun nonmahasiswa"
+                subtitle="Identitas, kategori akun, dan status hunian mahasiswa"
                 actions={<Button onClick={openCreate}>Tambah Mahasiswa</Button>}
             />
             <DataTable
                 columns={columns}
                 data={mahasiswa ?? []}
-                searchKeys={['angkatan', 'status_huni']}
+                searchKeys={['nim', 'nama', 'angkatan', 'status_huni']}
+                searchPlaceholder="Cari NIM, nama, angkatan..."
             />
 
             <Drawer

@@ -116,9 +116,24 @@ const statusMap: Record<string, { label: string; color: BadgeColor }> = {
     kadaluarsa: { label: 'Kedaluwarsa', color: 'gray' },
     pemasukan: { label: 'Pemasukan', color: 'green' },
     pengeluaran: { label: 'Pengeluaran', color: 'red' },
+    valid: { label: 'Valid', color: 'green' },
+    revisi: { label: 'Perlu Revisi', color: 'red' },
+    revision: { label: 'Perlu Revisi', color: 'red' },
+    alokasi_kamar: { label: 'Kamar Dialokasikan', color: 'blue' },
+    menunggu_validasi: { label: 'Menunggu Validasi', color: 'yellow' },
+    siap_checkin: { label: 'Siap Check-in', color: 'green' },
+    checkin_fisik: { label: 'Menghuni', color: 'green' },
+    kunci_dikembalikan: { label: 'Kunci Kembali', color: 'gray' },
+    checkout_selesai: { label: 'Selesai', color: 'gray' },
 };
 
-export function StatusBadge({ status }: { status: string }) {
+export function StatusBadge({
+    status,
+    label,
+}: {
+    status: string;
+    label?: string;
+}) {
     const value = status.trim();
     const s = statusMap[value.toLowerCase()] ?? {
         label:
@@ -128,7 +143,7 @@ export function StatusBadge({ status }: { status: string }) {
             'Belum tersedia',
         color: 'gray' as BadgeColor,
     };
-    return <Badge color={s.color}>{s.label}</Badge>;
+    return <Badge color={s.color}>{label ?? s.label}</Badge>;
 }
 
 // ─── CARD ───────────────────────────────────────────────────────────────────

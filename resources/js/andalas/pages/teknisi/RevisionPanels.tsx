@@ -217,7 +217,9 @@ export function MultiItemForm({
                     Tambah item lain
                 </button>
                 <ErrorList errors={form.errors} />
-                <Button disabled={form.processing}>Simpan item laporan</Button>
+                <Button type="submit" disabled={form.processing}>
+                    Simpan item laporan
+                </Button>
             </form>
         </details>
     );
@@ -291,7 +293,7 @@ export function ItemCompletion({
                         />
                     </label>
                     <ErrorList errors={form.errors} />
-                    <Button disabled={form.processing}>
+                    <Button type="submit" disabled={form.processing}>
                         Catat item selesai
                     </Button>
                 </form>
@@ -357,7 +359,9 @@ export function ComplaintForm({
                     ulang.
                 </p>
                 <ErrorList errors={form.errors} />
-                <Button disabled={form.processing}>Kirim komplain ulang</Button>
+                <Button type="submit" disabled={form.processing}>
+                    Kirim komplain ulang
+                </Button>
             </form>
         </details>
     );

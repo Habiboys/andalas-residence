@@ -56,10 +56,15 @@ export default function UpdateTiket({ tiket = [] }: Props) {
         if (!selected) return;
         transform((values) => ({ ...values, _method: 'put' }));
         post(tiketUpdate.url({ laporan: selected }), {
+            forceFormData: true,
             onSuccess: () => {
                 setSelected('');
-                setData('catatan_penyelesaian', '');
-                setData('request_key', newDamageRequestKey());
+                setData({
+                    status: 'sedang_dikerjakan',
+                    catatan_penyelesaian: '',
+                    bukti_penyelesaian: [],
+                    request_key: newDamageRequestKey(),
+                });
             },
         });
     }
@@ -69,12 +74,19 @@ export default function UpdateTiket({ tiket = [] }: Props) {
             <PageHeader
                 title="Update Tiket"
                 subtitle="Perbarui status pengerjaan tiket"
+                actions={
+                    <Link href="/pelaporan" className="btn btn-outline btn-sm">
+                        Buka Pelaporan Lengkap
+                    </Link>
+                }
             />
-            <Link href="/pelaporan" className="btn btn-outline">
-                Tim, progres harian, hambatan dan detail lengkap
-            </Link>
             <Card className="mb-4 space-y-2 p-6">
-                {aktif.map((t) => (
+                {aktif.length === 0 ? (
+                    <p className="text-muted text-sm">
+                        Tidak ada tiket aktif yang perlu diperbarui saat ini.
+                    </p>
+                ) : (
+                    aktif.map((t) => (
                     <button
                         key={t.id}
                         type="button"
@@ -98,7 +110,8 @@ export default function UpdateTiket({ tiket = [] }: Props) {
                         </p>
                         <p className="text-muted mt-1">{t.deskripsi}</p>
                     </button>
-                ))}
+                    ))
+                )}
             </Card>
             <Card className="p-6">
                 <form onSubmit={submit} className="space-y-4">

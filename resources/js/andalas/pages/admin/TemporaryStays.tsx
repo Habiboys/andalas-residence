@@ -1,6 +1,12 @@
 import { Link, usePoll } from '@inertiajs/react';
 import { workflow } from '@/routes/residence';
-import { Card, PageHeader, DataTable } from '../../components/ui';
+import { show as showRegistration } from '@/routes/residence/registrations';
+import {
+    Card,
+    PageHeader,
+    DataTable,
+    StatusBadge,
+} from '../../components/ui';
 import { formatRupiah } from '../../lib/format';
 
 type Room = {
@@ -107,27 +113,39 @@ export default function TemporaryStays({
                     {
                         key: 'starts_at',
                         label: 'Masuk',
-                        render: (row) => row.starts_at?.slice(0, 10),
+                        render: (row) => row.starts_at?.slice(0, 10) ?? '-',
                     },
                     {
                         key: 'ends_at',
                         label: 'Keluar',
-                        render: (row) => row.ends_at?.slice(0, 10),
+                        render: (row) => row.ends_at?.slice(0, 10) ?? '-',
                     },
                     {
                         key: 'status',
                         label: 'Status',
-                        render: (row) =>
-                            row.placement?.status === 'aktif'
-                                ? 'Menghuni'
-                                : row.ended_at
-                                  ? 'Kunci kembali'
-                                  : 'Belum check-in',
+                        render: (row) => (
+                            <StatusBadge
+                                status={
+                                    row.placement?.status === 'aktif'
+                                        ? 'checkin_fisik'
+                                        : row.ended_at
+                                          ? 'kunci_dikembalikan'
+                                          : 'pending'
+                                }
+                                label={
+                                    row.placement?.status === 'aktif'
+                                        ? 'Menghuni'
+                                        : row.ended_at
+                                          ? 'Kunci kembali'
+                                          : 'Belum check-in'
+                                }
+                            />
+                        ),
                     },
                     {
                         key: 'invoice',
                         label: 'Invoice',
-                        render: (row) => row.tagihan?.nomor,
+                        render: (row) => row.tagihan?.nomor ?? '-',
                     },
                     {
                         key: 'balance',
@@ -138,7 +156,21 @@ export default function TemporaryStays({
                                     Number(row.tagihan?.total_dibayar ?? 0),
                             ),
                     },
+                    {
+                        key: 'aksi',
+                        label: 'Aksi',
+                        action: true,
+                        render: (row) => (
+                            <Link
+                                className="btn btn-xs btn-primary"
+                                href={showRegistration.url(row.id)}
+                            >
+                                Kelola
+                            </Link>
+                        ),
+                    },
                 ]}
+                searchKeys={['nama', 'identity', 'stay_kind']}
             />
         </div>
     );

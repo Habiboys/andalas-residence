@@ -507,43 +507,42 @@ function Editor({
                                         ))}
                                     </div>
                                 ) : field.type === 'building' ? (
-                                    <>
-                                        <input
-                                            className={inputClass}
-                                            list={`buildings-${kind}-${field.name}`}
-                                            value={
-                                                buildings.find(
-                                                    (building) =>
-                                                        building.id ===
-                                                        String(
-                                                            form.data[
-                                                                field.name
-                                                            ] ?? '',
-                                                        ),
-                                                )?.nama_gedung ??
-                                                String(
-                                                    form.data[field.name] ?? '',
-                                                )
-                                            }
-                                            onChange={(event) =>
-                                                form.setData(
-                                                    field.name,
-                                                    event.target.value,
-                                                )
-                                            }
-                                            required={!field.optional}
-                                        />
-                                        <datalist
-                                            id={`buildings-${kind}-${field.name}`}
-                                        >
-                                            {buildings.map((building) => (
-                                                <option
-                                                    key={building.id}
-                                                    value={building.nama_gedung}
-                                                />
-                                            ))}
-                                        </datalist>
-                                    </>
+                                    <select
+                                        className={inputClass}
+                                        value={
+                                            buildings.find((building) =>
+                                                [
+                                                    building.id,
+                                                    building.kode_gedung,
+                                                    building.nama_gedung,
+                                                ].includes(
+                                                    String(
+                                                        form.data[field.name] ??
+                                                            '',
+                                                    ),
+                                                ),
+                                            )?.id ??
+                                            String(form.data[field.name] ?? '')
+                                        }
+                                        onChange={(event) =>
+                                            form.setData(
+                                                field.name,
+                                                event.target.value,
+                                            )
+                                        }
+                                        required={!field.optional}
+                                    >
+                                        <option value="">Pilih gedung</option>
+                                        {buildings.map((building) => (
+                                            <option
+                                                key={building.id}
+                                                value={building.id}
+                                            >
+                                                {building.nama_gedung} (
+                                                {building.kode_gedung})
+                                            </option>
+                                        ))}
+                                    </select>
                                 ) : field.type === 'year' ? (
                                     <YearPicker
                                         id={`year-picker-${kind}-${field.name}`}
@@ -641,7 +640,7 @@ function Editor({
                             className="btn btn-primary"
                             disabled={form.processing}
                         >
-                            {form.processing ? 'Menyimpan?' : 'Simpan'}
+                            {form.processing ? 'Menyimpan...' : 'Simpan'}
                         </button>
                     </div>
                 </form>
@@ -958,8 +957,9 @@ export default function ResidenceManagement({
                         {
                             name: 'nama_periode',
                             label: 'Tahun Ajaran',
-                            options: Array.from({ length: 75 }, (_, index) => {
-                                const year = 2025 + index;
+                            options: Array.from({ length: 11 }, (_, index) => {
+                                const year =
+                                    new Date().getFullYear() - 5 + index;
                                 return [
                                     `${year}/${year + 1}`,
                                     `${year}/${year + 1}`,

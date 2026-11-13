@@ -1,6 +1,7 @@
 import { router, useForm } from '@inertiajs/react';
 import { useState } from 'react';
 import {
+    ConfirmDialog,
     DataTable,
     inputClass,
     PageHeader,
@@ -84,6 +85,7 @@ export default function ApprovalPengajuan({
     role?: string;
 }) {
     const [selected, setSelected] = useState<Row | null>(null);
+    const [confirmDecision, setConfirmDecision] = useState(false);
     const [tableLoading, setTableLoading] = useState(false);
     const [requestError, setRequestError] = useState<string | null>(null);
     const rows = bebas_asrama?.data ?? [];
@@ -109,10 +111,12 @@ export default function ApprovalPengajuan({
             catatan_penolakan: row.catatan_penolakan ?? '',
             nomor_surat_resmi: row.nomor_surat_resmi ?? '',
         });
+        setConfirmDecision(false);
         setSelected(row);
     }
 
     function closeReview() {
+        setConfirmDecision(false);
         setSelected(null);
         form.reset();
         form.clearErrors();
@@ -372,15 +376,7 @@ export default function ApprovalPengajuan({
                                 className="border-base-200 space-y-4 border-t pt-4"
                                 onSubmit={(event) => {
                                     event.preventDefault();
-                                    form.post(
-                                        approve.url({
-                                            pengajuan: selected.id,
-                                        }),
-                                        {
-                                            preserveScroll: true,
-                                            onSuccess: closeReview,
-                                        },
-                                    );
+                                    setConfirmDecision(true);
                                 }}
                             >
                                 <label className="block space-y-1 text-sm">
@@ -388,12 +384,21 @@ export default function ApprovalPengajuan({
                                     <select
                                         className={inputClass}
                                         value={form.data.status}
-                                        onChange={(event) =>
-                                            form.setData(
-                                                'status',
-                                                event.target.value,
-                                            )
-                                        }
+                                        onChange={(event) => {
+                                            const next = event.target.value;
+                                            form.setData((current) => ({
+                                                ...current,
+                                                status: next,
+                                                nomor_surat_resmi:
+                                                    next === 'disetujui'
+                                                        ? current.nomor_surat_resmi
+                                                        : '',
+                                                catatan_penolakan:
+                                                    next === 'ditolak'
+                                                        ? current.catatan_penolakan
+                                                        : '',
+                                            }));
+                                        }}
                                     >
                                         <option value="disetujui">
                                             Verifikasi dan setujui
@@ -411,49 +416,70 @@ export default function ApprovalPengajuan({
                                         </span>
                                     )}
                                 </label>
-                                <label className="block space-y-1 text-sm">
-                                    <span>Nomor surat resmi (opsional)</span>
-                                    <input
-                                        className={inputClass}
-                                        value={form.data.nomor_surat_resmi}
-                                        onChange={(event) =>
-                                            form.setData(
-                                                'nomor_surat_resmi',
-                                                event.target.value,
-                                            )
-                                        }
-                                    />
-                                    {form.errors.nomor_surat_resmi && (
-                                        <span
-                                            role="alert"
-                                            className="text-error text-xs"
-                                        >
-                                            {form.errors.nomor_surat_resmi}
-                                        </span>
-                                    )}
-                                </label>
-                                <label className="block space-y-1 text-sm">
-                                    <span>Catatan penolakan (opsional)</span>
-                                    <textarea
-                                        className={inputClass}
-                                        rows={3}
-                                        value={form.data.catatan_penolakan}
-                                        onChange={(event) =>
-                                            form.setData(
-                                                'catatan_penolakan',
-                                                event.target.value,
-                                            )
-                                        }
-                                    />
-                                    {form.errors.catatan_penolakan && (
-                                        <span
-                                            role="alert"
-                                            className="text-error text-xs"
-                                        >
-                                            {form.errors.catatan_penolakan}
-                                        </span>
-                                    )}
-                                </label>
+                                {form.data.status === 'disetujui' ? (
+                                    <>
+                                        <div className="alert alert-info text-sm">
+                                            <span>
+                                                Bila mahasiswa masih memiliki
+                                                tunggakan asrama, status menjadi
+                                                terverifikasi hingga tagihan
+                                                dilunasi sebelum surat terbit.
+                                            </span>
+                                        </div>
+                                        <label className="block space-y-1 text-sm">
+                                            <span>
+                                                Nomor surat resmi (opsional)
+                                            </span>
+                                            <input
+                                                className={inputClass}
+                                                value={
+                                                    form.data.nomor_surat_resmi
+                                                }
+                                                onChange={(event) =>
+                                                    form.setData(
+                                                        'nomor_surat_resmi',
+                                                        event.target.value,
+                                                    )
+                                                }
+                                            />
+                                            {form.errors.nomor_surat_resmi && (
+                                                <span
+                                                    role="alert"
+                                                    className="text-error text-xs"
+                                                >
+                                                    {
+                                                        form.errors
+                                                            .nomor_surat_resmi
+                                                    }
+                                                </span>
+                                            )}
+                                        </label>
+                                    </>
+                                ) : (
+                                    <label className="block space-y-1 text-sm">
+                                        <span>Catatan penolakan</span>
+                                        <textarea
+                                            className={inputClass}
+                                            rows={3}
+                                            required
+                                            value={form.data.catatan_penolakan}
+                                            onChange={(event) =>
+                                                form.setData(
+                                                    'catatan_penolakan',
+                                                    event.target.value,
+                                                )
+                                            }
+                                        />
+                                        {form.errors.catatan_penolakan && (
+                                            <span
+                                                role="alert"
+                                                className="text-error text-xs"
+                                            >
+                                                {form.errors.catatan_penolakan}
+                                            </span>
+                                        )}
+                                    </label>
+                                )}
                                 <div className="flex justify-end gap-2">
                                     <button
                                         type="button"
@@ -472,6 +498,45 @@ export default function ApprovalPengajuan({
                                             : 'Simpan keputusan'}
                                     </button>
                                 </div>
+                                {confirmDecision && (
+                                    <ConfirmDialog
+                                        open
+                                        onClose={() =>
+                                            setConfirmDecision(false)
+                                        }
+                                        loading={form.processing}
+                                        title={
+                                            form.data.status === 'ditolak'
+                                                ? 'Tolak Pengajuan Bebas Asrama?'
+                                                : 'Simpan Keputusan Pengajuan?'
+                                        }
+                                        message={
+                                            form.data.status === 'ditolak'
+                                                ? `Tolak pengajuan ${selected.nomor_pengajuan} milik ${selected.mahasiswa?.user?.nama ?? 'mahasiswa'}?`
+                                                : `Sahkan verifikasi pengajuan ${selected.nomor_pengajuan} milik ${selected.mahasiswa?.user?.nama ?? 'mahasiswa'}?`
+                                        }
+                                        confirmLabel={
+                                            form.data.status === 'ditolak'
+                                                ? 'Ya, tolak'
+                                                : 'Ya, simpan keputusan'
+                                        }
+                                        onConfirm={() =>
+                                            form.post(
+                                                approve.url({
+                                                    pengajuan: selected.id,
+                                                }),
+                                                {
+                                                    preserveScroll: true,
+                                                    onSuccess: closeReview,
+                                                    onFinish: () =>
+                                                        setConfirmDecision(
+                                                            false,
+                                                        ),
+                                                },
+                                            )
+                                        }
+                                    />
+                                )}
                             </form>
                         )}
                     </div>

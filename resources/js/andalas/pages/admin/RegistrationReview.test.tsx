@@ -55,5 +55,5 @@ it('identifies personal KIPK payments separately from sponsored registration', (
             }}
         />,
     );
-    expect(html).toContain('KIP-K ? Bayar pribadi');
+    expect(html).toContain('KIP-K · Bayar pribadi');
 });

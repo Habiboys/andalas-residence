@@ -11,6 +11,7 @@ import {
     Tabs,
     ConfirmDialog,
     RowActions,
+    StatusBadge,
 } from '../../components/ui';
 import {
     store as usersStore,
@@ -28,6 +29,7 @@ type UserRow = {
     nim_nip?: string;
     nama?: string;
     email?: string;
+    no_hp?: string;
     status?: string;
     roles?: string[];
 };
@@ -39,10 +41,24 @@ type Props = { users: UserRow[] | null; roles: RoleRow[] | null };
 const ROLES = [
     'superadmin',
     'pimpinan',
+    'admin_layanan',
+    'admin_aset',
     'staff_admin',
     'fasilitator',
     'teknisi',
+    'go',
 ];
+
+const ROLE_LABELS: Record<string, string> = {
+    superadmin: 'Superadmin',
+    pimpinan: 'Pimpinan',
+    admin_layanan: 'Admin Layanan & Keuangan',
+    admin_aset: 'Admin Aset & Fasilitas',
+    staff_admin: 'Staff Administrasi',
+    fasilitator: 'Fasilitator Gedung',
+    teknisi: 'Teknisi',
+    go: 'Petugas General Operation (GO)',
+};
 const emptyForm = {
     nim_nip: '',
     nama: '',
@@ -101,7 +117,7 @@ export default function AkunInternal({ users, roles }: Props) {
             nama: row.nama ?? '',
             email: row.email ?? '',
             password: '',
-            no_hp: '',
+            no_hp: row.no_hp ?? '',
             role: row.roles?.[0] ?? 'staff_admin',
         });
         clearErrors();
@@ -151,9 +167,19 @@ export default function AkunInternal({ users, roles }: Props) {
                             {
                                 key: 'role',
                                 label: 'Role',
-                                render: (r: UserRow) => r.roles?.[0] ?? '-',
+                                render: (r: UserRow) =>
+                                    r.roles?.[0]
+                                        ? (ROLE_LABELS[r.roles[0]] ??
+                                          r.roles[0].replace('_', ' '))
+                                        : '-',
                             },
-                            { key: 'status', label: 'Status' },
+                            {
+                                key: 'status',
+                                label: 'Status',
+                                render: (r: UserRow) => (
+                                    <StatusBadge status={r.status ?? 'aktif'} />
+                                ),
+                            },
                             {
                                 key: 'aksi',
                                 label: '',
@@ -176,8 +202,9 @@ export default function AkunInternal({ users, roles }: Props) {
                                 key={r.name}
                                 className="rounded-box border-base-300 bg-base-200 border p-4"
                             >
-                                <p className="font-semibold capitalize">
-                                    {r.name.replace('_', ' ')}
+                                <p className="font-semibold">
+                                    {ROLE_LABELS[r.name] ??
+                                        r.name.replace('_', ' ')}
                                 </p>
                                 <p className="text-muted text-sm">
                                     {r.users_count} pengguna
@@ -266,6 +293,20 @@ export default function AkunInternal({ users, roles }: Props) {
                             </p>
                         )}
                     </FormField>
+                    <FormField label="No. HP (opsional)">
+                        <input
+                            type="tel"
+                            className={inputClass}
+                            value={data.no_hp}
+                            onChange={(e) => setData('no_hp', e.target.value)}
+                            placeholder="Contoh: 081234567890"
+                        />
+                        {errors.no_hp && (
+                            <p className="text-error mt-1 text-sm">
+                                {errors.no_hp}
+                            </p>
+                        )}
+                    </FormField>
                     <FormField
                         label={
                             editing
@@ -297,7 +338,7 @@ export default function AkunInternal({ users, roles }: Props) {
                         >
                             {ROLES.map((r) => (
                                 <option key={r} value={r}>
-                                    {r.replace('_', ' ')}
+                                    {ROLE_LABELS[r] ?? r.replace('_', ' ')}
                                 </option>
                             ))}
                         </select>
