@@ -18,8 +18,8 @@ it('offers historical evidence only when allowed by the server', () => {
         />,
     );
     expect(html).toContain('Anda terdata sebagai alumni');
-    expect(html).toContain('Bukti pembayaran');
-    expect(html).toContain('Rekening koran');
+    expect(html).toContain('Surat checkout asrama');
+    expect(html).toContain('Rekening Koran/Bukti Pembayaran');
     expect(html).not.toContain('<select');
 });
 it('links unpaid applications to billing', () => {

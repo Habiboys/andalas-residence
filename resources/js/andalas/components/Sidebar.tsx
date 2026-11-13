@@ -92,7 +92,7 @@ const MAHASISWA_NAV: NavGroup[] = [
         group: 'Pengajuan',
         items: [
             {
-                label: 'Surat Keterangan Asrama',
+                label: 'Surat Keterangan Bebas Asrama',
                 page: 'bebas-asrama',
                 icon: FileText,
             },

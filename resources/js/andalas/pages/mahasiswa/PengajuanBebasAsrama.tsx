@@ -37,7 +37,7 @@ export default function PengajuanBebasAsrama({
     return (
         <div className="space-y-5">
             <PageHeader
-                title="Surat Keterangan Asrama"
+                title="Surat Keterangan Bebas Asrama"
                 subtitle="Surat bebas asrama untuk mantan penghuni; surat keterangan tidak tinggal untuk mahasiswa yang tidak pernah tinggal."
             />
             <Card className="space-y-4 p-5">
@@ -112,8 +112,8 @@ export default function PengajuanBebasAsrama({
                                     ).map((key) => (
                                         <label className="block" key={key}>
                                             {key === 'payment_evidence'
-                                                ? 'Bukti pembayaran'
-                                                : 'Rekening koran'}
+                                                ? 'Surat checkout asrama'
+                                                : 'Rekening Koran/Bukti Pembayaran'}
                                             <input
                                                 className="file-input block"
                                                 type="file"

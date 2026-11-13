@@ -86,3 +86,15 @@ test('sync requires master permission and makes no outbound request when denied'
     $this->actingAs(wilayahAdmin(false))->post(route('admin.master-data.wilayah.sync'))->assertForbidden();
     Http::assertNothingSent();
 });
+
+test('artisan command imports regions so the housing form can list cities', function () {
+    fakeWilayah();
+    $this->artisan('wilayah:sync')->assertSuccessful();
+    expect(City::count())->toBe(2);
+});
+
+test('artisan command fails without touching data when the public api is down', function () {
+    Http::fake(['wilayah.id/api/provinces.json' => Http::response([], 503)]);
+    $this->artisan('wilayah:sync')->assertFailed();
+    expect(Province::count())->toBe(0);
+});

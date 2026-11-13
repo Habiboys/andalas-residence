@@ -48,6 +48,17 @@ export default function DataHunian({
     });
     const program = programs.find((item) => item.id === form.data.prodi_id);
     const city = cities.find((item) => item.id === form.data.city_id);
+    const [provinceId, setProvinceId] = useState(city?.province?.id ?? '');
+    const provinces = Array.from(
+        new Map(
+            cities
+                .filter((item) => item.province)
+                .map((item) => [item.province!.id, item.province!]),
+        ).values(),
+    ).sort((a, b) => a.name.localeCompare(b.name));
+    const provinceCities = cities.filter(
+        (item) => item.province?.id === provinceId,
+    );
     const identityReady = !!(
         form.data.nama.trim() &&
         form.data.no_hp.trim() &&
@@ -182,21 +193,34 @@ export default function DataHunian({
                             </label>
                         </div>
 
-                        <div className="bg-base-200/60 border-base-300 space-y-1.5 rounded-lg border p-4 text-sm">
+                        <div className="bg-base-200/60 border-base-300 min-w-0 space-y-1.5 rounded-lg border p-4 text-sm">
                             <p className="text-base-content/60 text-xs font-semibold tracking-wider uppercase">
                                 Informasi Akun Sistem (Otomatis)
                             </p>
-                            <p className="font-medium">
-                                Nomor identitas {identity.nim_nip} ·{' '}
-                                {identity.email}
-                            </p>
-                            <p className="text-base-content/80">
-                                Mahasiswa ·{' '}
-                                {identity.status === 'aktif'
-                                    ? 'Aktif'
-                                    : identity.status}
-                            </p>
-                            <p className="text-base-content/70 text-xs">
+                            <dl className="grid gap-x-4 gap-y-1.5 sm:grid-cols-[auto_1fr]">
+                                <dt className="text-base-content/60 text-xs">
+                                    Nomor identitas
+                                </dt>
+                                <dd className="font-medium break-all">
+                                    {identity.nim_nip}
+                                </dd>
+                                <dt className="text-base-content/60 text-xs">
+                                    Email
+                                </dt>
+                                <dd className="font-medium break-all">
+                                    {identity.email}
+                                </dd>
+                                <dt className="text-base-content/60 text-xs">
+                                    Status
+                                </dt>
+                                <dd>
+                                    Mahasiswa ·{' '}
+                                    {identity.status === 'aktif'
+                                        ? 'Aktif'
+                                        : identity.status}
+                                </dd>
+                            </dl>
+                            <p className="text-base-content/70 text-xs break-words">
                                 {categories[identity.category ?? ''] ??
                                     'Kategori ditentukan setelah verifikasi data'}
                             </p>
@@ -242,30 +266,59 @@ export default function DataHunian({
                             {profile?.angkatan || 'ditentukan dari NIM'}
                         </p>
 
-                        <label className="block space-y-1.5 text-sm font-medium">
-                            <span>Kota atau kabupaten</span>
-                            <select
-                                className="select select-bordered w-full"
-                                value={form.data.city_id}
-                                onChange={(e) =>
-                                    form.setData('city_id', e.target.value)
-                                }
+                        {cities.length === 0 ? (
+                            <p
+                                role="alert"
+                                className="alert alert-warning py-2 text-sm"
                             >
-                                <option value="">
-                                    Pilih kota atau kabupaten
-                                </option>
-                                {cities.map((item) => (
-                                    <option key={item.id} value={item.id}>
-                                        {item.name} · {item.province?.name}
-                                    </option>
-                                ))}
-                            </select>
-                        </label>
-
-                        {city?.province && (
-                            <p className="bg-base-200/60 border-base-300 rounded-lg border p-3 text-sm font-medium">
-                                Provinsi {city.province.name}
+                                Data kota/kabupaten belum tersedia di sistem.
+                                Hubungi Admin Asrama agar menyinkronkan data
+                                wilayah terlebih dahulu.
                             </p>
+                        ) : (
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                <label className="block space-y-1.5 text-sm font-medium">
+                                    <span>Provinsi asal</span>
+                                    <select
+                                        className="select select-bordered w-full"
+                                        value={provinceId}
+                                        onChange={(e) => {
+                                            setProvinceId(e.target.value);
+                                            form.setData('city_id', '');
+                                        }}
+                                    >
+                                        <option value="">Pilih provinsi</option>
+                                        {provinces.map((item) => (
+                                            <option key={item.id} value={item.id}>
+                                                {item.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </label>
+
+                                <label className="block space-y-1.5 text-sm font-medium">
+                                    <span>Kota atau kabupaten asal</span>
+                                    <select
+                                        className="select select-bordered w-full"
+                                        value={form.data.city_id}
+                                        disabled={!provinceId}
+                                        onChange={(e) =>
+                                            form.setData('city_id', e.target.value)
+                                        }
+                                    >
+                                        <option value="">
+                                            {provinceId
+                                                ? 'Pilih kota atau kabupaten'
+                                                : 'Pilih provinsi terlebih dahulu'}
+                                        </option>
+                                        {provinceCities.map((item) => (
+                                            <option key={item.id} value={item.id}>
+                                                {item.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </label>
+                            </div>
                         )}
 
                         <label className="block space-y-1.5 text-sm font-medium">
