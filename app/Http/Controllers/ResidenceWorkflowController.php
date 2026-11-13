@@ -23,6 +23,7 @@ use App\Models\Prodi;
 use App\Models\RegistrationDocument;
 use App\Models\ResidenceApplication;
 use App\Models\ResidenceDecision;
+use App\Models\ResidenceDocumentTemplate;
 use App\Models\ResidencePaymentReference;
 use App\Models\ResidencePolicy;
 use App\Models\ResidenceRegistration;
@@ -42,6 +43,7 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -120,6 +122,7 @@ class ResidenceWorkflowController extends Controller
             'departemen' => Departemen::orderBy('name')->get(['id', 'name', 'faculty_id']),
             'programs' => Prodi::orderBy('name')->get(['id', 'name', 'jenjang', 'departemen_id']),
             'policies' => $manager ? ResidencePolicy::orderBy('category')->orderByDesc('version')->get() : [],
+            'templates' => ResidenceDocumentTemplate::orderBy('category')->orderBy('kind')->get(['id', 'category', 'kind', 'original_name', 'updated_at']),
             'buildings' => $manager ? Gedung::orderBy('kode_gedung')->get(['id', 'kode_gedung', 'nama_gedung'])
                 ->map(fn (Gedung $building): array => [
                     ...$building->toArray(),
@@ -235,6 +238,72 @@ class ResidenceWorkflowController extends Controller
         });
 
         return back()->with('toast', ['type' => 'success', 'message' => $request->validated('settings.open') ? 'Pendaftaran kategori dibuka.' : 'Pendaftaran kategori ditutup.']);
+    }
+
+    public function uploadTemplate(Request $request): RedirectResponse
+    {
+        abort_unless(ResidenceWorkflowAccess::manager($request->user()), 403);
+        $data = $request->validate([
+            'category' => ['required', Rule::in(ResidencePolicyService::CATEGORIES)],
+            'kind' => ['required', 'string', 'regex:/^[a-z0-9_]{1,80}$/'],
+            'file' => ['required', 'file', 'mimes:doc,docx,pdf,odt,rtf', 'max:5120'],
+        ]);
+
+        $file = $request->file('file');
+        $existing = ResidenceDocumentTemplate::where('category', $data['category'])->where('kind', $data['kind'])->first();
+        if ($existing && Storage::disk('local')->exists($existing->path)) {
+            Storage::disk('local')->delete($existing->path);
+        }
+
+        $extension = $file->getClientOriginalExtension() ?: 'docx';
+        $path = $file->storeAs('templates/residence/'.$data['category'], $data['kind'].'.'.$extension, 'local');
+
+        $template = ResidenceDocumentTemplate::updateOrCreate(
+            ['category' => $data['category'], 'kind' => $data['kind']],
+            [
+                'original_name' => $file->getClientOriginalName(),
+                'path' => $path,
+                'mime_type' => $file->getMimeType(),
+                'uploaded_by' => $request->user()->id,
+            ],
+        );
+
+        AuditLogService::log($request->user(), 'residence_template_uploaded', $template, null, $template->toArray());
+
+        return back()->with('toast', ['type' => 'success', 'message' => 'Template dokumen '.$data['kind'].' berhasil disimpan.']);
+    }
+
+    public function deleteTemplate(Request $request, ResidenceDocumentTemplate $template): RedirectResponse
+    {
+        abort_unless(ResidenceWorkflowAccess::manager($request->user()), 403);
+        if (Storage::disk('local')->exists($template->path)) {
+            Storage::disk('local')->delete($template->path);
+        }
+        AuditLogService::log($request->user(), 'residence_template_deleted', $template, $template->toArray(), null);
+        $template->delete();
+
+        return back()->with('toast', ['type' => 'success', 'message' => 'Template dokumen dihapus.']);
+    }
+
+    public function downloadTemplate(Request $request, string $category, string $kind): StreamedResponse|RedirectResponse
+    {
+        abort_unless(
+            in_array($category, ResidencePolicyService::CATEGORIES, true)
+            && preg_match('/^[a-z0-9_]{1,80}$/', $kind) === 1,
+            404,
+        );
+        abort_unless(
+            $request->user()->hasAnyRole(['mahasiswa', 'fasilitator', 'pimpinan'])
+            || ResidenceWorkflowAccess::manager($request->user()),
+            403,
+        );
+
+        $template = ResidenceDocumentTemplate::where('category', $category)->where('kind', $kind)->first();
+        if (! $template || Storage::disk('local')->missing($template->path)) {
+            return back()->with('toast', ['type' => 'error', 'message' => 'Template belum tersedia, hubungi pengelola.']);
+        }
+
+        return Storage::disk('local')->download($template->path, $template->original_name);
     }
 
     public function upload(Request $request, ResidenceRegistration $registration): RedirectResponse

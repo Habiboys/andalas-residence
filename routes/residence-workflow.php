@@ -17,6 +17,9 @@ Route::prefix('residence-process')->name('residence.')->group(function (): void 
     Route::post('/profile', [Workflow::class, 'profile'])->name('profile');
     Route::post('/housing-profile', [Workflow::class, 'profile'])->name('housing-profile');
     Route::post('/policies', [Workflow::class, 'policy'])->name('policies');
+    Route::post('/templates', [Workflow::class, 'uploadTemplate'])->name('templates.store');
+    Route::delete('/templates/{template}', [Workflow::class, 'deleteTemplate'])->name('templates.destroy');
+    Route::get('/templates/{category}/{kind}', [Workflow::class, 'downloadTemplate'])->name('templates.download');
     Route::post('/contracts', [Workflow::class, 'contract'])->name('contracts');
     Route::post('/payments', [Workflow::class, 'recordPayment'])->name('payments.record');
     Route::post('/payments/{reference}/match', [Workflow::class, 'reconcile'])->name('payments.match');

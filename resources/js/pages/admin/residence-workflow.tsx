@@ -306,6 +306,14 @@ type Props = {
 
     policies: Policy[];
 
+    templates?: Array<{
+        id: string;
+        category: string;
+        kind: string;
+        original_name: string;
+        updated_at?: string;
+    }>;
+
     applications: Application[];
 
     reconciliations: Reference[];
@@ -855,6 +863,8 @@ function RegistrationCard({
     leader,
 
     rooms,
+
+    templates = [],
 }: {
     r: Registration;
 
@@ -863,6 +873,8 @@ function RegistrationCard({
     leader: boolean;
 
     rooms: Room[];
+
+    templates?: NonNullable<Props['templates']>;
 }) {
     const latestDocuments = r.documents.filter(
         (d) =>
@@ -993,10 +1005,16 @@ function RegistrationCard({
                             const doc = latestDocuments.find(
                                 (d) => d.kind === kind,
                             );
+                            const docCategory = r.policy?.category ?? '';
+                            const template = templates.find(
+                                (t) =>
+                                    t.category === docCategory &&
+                                    t.kind === kind,
+                            );
 
                             return (
                                 <div
-                                    className="border-base-200 border-b pb-3"
+                                    className="border-base-200 space-y-2 border-b pb-3"
 
                                     key={kind}
                                 >
@@ -1006,6 +1024,32 @@ function RegistrationCard({
                                             ? statuses[doc.status]
                                             : 'Belum diunggah'}
                                     </p>
+
+                                    {template ? (
+                                        <div className="bg-info/10 border-info/30 flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2 text-xs">
+                                            <span>
+                                                Unduh template resmi, isi di
+                                                Word/Docs, lalu unggah kembali.
+                                            </span>
+                                            <a
+                                                className="btn btn-xs btn-outline"
+                                                href={`/residence-process/templates/${docCategory}/${kind}`}
+                                            >
+                                                Unduh Template (
+                                                {template.original_name})
+                                            </a>
+                                        </div>
+                                    ) : (
+                                        kind !== 'ktp' && (
+                                            <p
+                                                role="alert"
+                                                className="alert alert-warning py-2 text-xs"
+                                            >
+                                                Template belum tersedia, hubungi
+                                                pengelola.
+                                            </p>
+                                        )
+                                    )}
 
                                     {doc && (
                                         <>
@@ -1397,9 +1441,10 @@ function Policies({
     policyCatalog,
     policies,
     masterHousingUrl,
+    templates = [],
 }: Pick<
     Props,
-    'buildings' | 'policyCatalog' | 'policies' | 'masterHousingUrl'
+    'buildings' | 'policyCatalog' | 'policies' | 'masterHousingUrl' | 'templates'
 >) {
     const defaults: Settings = {
         open: false,
@@ -1677,6 +1722,103 @@ function Policies({
                             />
                             Izinkan pengajuan bulanan sesuai syarat
                         </label>
+
+                        <div className="border-base-200 space-y-2 border-t pt-3">
+                            <p className="text-sm font-medium">
+                                Template Dokumen (Word / PDF)
+                            </p>
+                            <p className="text-base-content/70 text-xs">
+                                Unggah format resmi per jenis dokumen agar
+                                mahasiswa dapat mengunduh, mengisi, dan
+                                mengunggah kembali.
+                            </p>
+                            <div className="space-y-2">
+                                {Array.from(
+                                    new Set([
+                                        ...form.data.settings.documents.filter(
+                                            Boolean,
+                                        ),
+                                        'perjanjian',
+                                    ]),
+                                ).map((kind) => {
+                                    const tpl = templates.find(
+                                        (t) =>
+                                            t.category ===
+                                                form.data.category &&
+                                            t.kind === kind,
+                                    );
+                                    return (
+                                        <div
+                                            key={kind}
+                                            className="bg-base-200/40 flex flex-wrap items-center justify-between gap-2 rounded-lg p-2.5 text-xs"
+                                        >
+                                            <div>
+                                                <strong className="capitalize">
+                                                    {kind.replaceAll('_', ' ')}
+                                                </strong>
+                                                <span className="text-base-content/70 block">
+                                                    {tpl
+                                                        ? `Tersedia: ${tpl.original_name}`
+                                                        : 'Belum ada template'}
+                                                </span>
+                                            </div>
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                {tpl && (
+                                                    <>
+                                                        <a
+                                                            className="btn btn-xs btn-outline"
+                                                            href={`/residence-process/templates/${form.data.category}/${kind}`}
+                                                        >
+                                                            Unduh
+                                                        </a>
+                                                        <button
+                                                            type="button"
+                                                            className="btn btn-xs btn-ghost text-error"
+                                                            onClick={() =>
+                                                                router.delete(
+                                                                    `/residence-process/templates/${tpl.id}`,
+                                                                    {
+                                                                        preserveScroll: true,
+                                                                    },
+                                                                )
+                                                            }
+                                                        >
+                                                            Hapus
+                                                        </button>
+                                                    </>
+                                                )}
+                                                <input
+                                                    type="file"
+                                                    accept=".doc,.docx,.pdf,.odt,.rtf"
+                                                    aria-label={`Unggah template ${kind}`}
+                                                    className="file-input file-input-xs max-w-52"
+                                                    onChange={(e) => {
+                                                        const file =
+                                                            e.target.files?.[0];
+                                                        if (!file) return;
+                                                        router.post(
+                                                            '/residence-process/templates',
+                                                            {
+                                                                category:
+                                                                    form.data
+                                                                        .category,
+                                                                kind,
+                                                                file,
+                                                            },
+                                                            {
+                                                                forceFormData: true,
+                                                                preserveScroll: true,
+                                                            },
+                                                        );
+                                                        e.target.value = '';
+                                                    }}
+                                                />
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
                     </div>
                 </details>
 
@@ -2424,6 +2566,24 @@ export default function ResidenceWorkflowPage(props: Props) {
 
     const isOfficerView = !props.studentView;
 
+    const [selectedRegistrationId, setSelectedRegistrationId] = useState<
+        string | null
+    >(null);
+    const [searchQuery, setSearchQuery] = useState('');
+
+    const selectedRegistration =
+        props.registrations.data.find(
+            (item) => item.id === selectedRegistrationId,
+        ) ?? null;
+
+    const filteredRegistrations = props.registrations.data.filter((item) => {
+        if (!searchQuery.trim()) return true;
+        const q = searchQuery.toLowerCase();
+        return `${item.student_profile.user.nama} ${item.student_profile.user.nim_nip} ${item.reserved_room?.nomor_kamar ?? ''} ${item.reserved_room?.lantai?.gedung?.nama_gedung ?? ''}`
+            .toLowerCase()
+            .includes(q);
+    });
+
     const pendingContracts =
         props.pendingRoomContracts && props.pendingRoomContracts.length > 0
             ? props.pendingRoomContracts
@@ -2599,15 +2759,202 @@ export default function ResidenceWorkflowPage(props: Props) {
                         </p>
                     )}
 
-                    {props.registrations.data.map((r) => (
-                        <RegistrationCard
-                            rooms={props.rooms}
-                            key={r.id}
-                            r={r}
-                            manager={props.manager}
-                            leader={props.leader}
-                        />
-                    ))}
+                    {isOfficerView ? (
+                        selectedRegistration ? (
+                            <div className="space-y-4">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <button
+                                        type="button"
+                                        className="btn btn-outline btn-sm"
+                                        onClick={() =>
+                                            setSelectedRegistrationId(null)
+                                        }
+                                    >
+                                        ← Kembali ke daftar pengajuan
+                                    </button>
+                                    <span className="text-base-content/70 text-xs">
+                                        Detail pengajuan{' '}
+                                        {
+                                            selectedRegistration.student_profile
+                                                .user.nama
+                                        }
+                                    </span>
+                                </div>
+                                <RegistrationCard
+                                    rooms={props.rooms}
+                                    templates={props.templates ?? []}
+                                    key={selectedRegistration.id}
+                                    r={selectedRegistration}
+                                    manager={props.manager}
+                                    leader={props.leader}
+                                />
+                            </div>
+                        ) : (
+                            props.registrations.data.length > 0 && (
+                                <div className="bg-base-100 border-base-300 space-y-3 rounded-xl border p-4 shadow-xs">
+                                    <div className="flex flex-wrap items-center justify-between gap-3">
+                                        <input
+                                            type="search"
+                                            className="input input-bordered input-sm w-full max-w-sm"
+                                            placeholder="Cari nama, NIM, gedung, atau kamar..."
+                                            value={searchQuery}
+                                            onChange={(e) =>
+                                                setSearchQuery(e.target.value)
+                                            }
+                                        />
+                                        <span className="text-base-content/70 text-xs">
+                                            Menampilkan{' '}
+                                            {filteredRegistrations.length} dari{' '}
+                                            {props.registrations.data.length}{' '}
+                                            pengajuan
+                                        </span>
+                                    </div>
+                                    <div className="overflow-x-auto">
+                                        <table className="table-zebra table w-full text-sm">
+                                            <thead>
+                                                <tr>
+                                                    <th>Mahasiswa</th>
+                                                    <th>Kategori &amp; Skema</th>
+                                                    <th>Kamar</th>
+                                                    <th>Status &amp; Syarat</th>
+                                                    <th className="text-right">
+                                                        Aksi
+                                                    </th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {filteredRegistrations.map(
+                                                    (r) => (
+                                                        <tr key={r.id}>
+                                                            <td>
+                                                                <div className="font-semibold">
+                                                                    {
+                                                                        r
+                                                                            .student_profile
+                                                                            .user
+                                                                            .nama
+                                                                    }
+                                                                </div>
+                                                                <div className="text-base-content/60 text-xs">
+                                                                    {
+                                                                        r
+                                                                            .student_profile
+                                                                            .user
+                                                                            .nim_nip
+                                                                    }
+                                                                </div>
+                                                            </td>
+                                                            <td>
+                                                                <div>
+                                                                    {r.policy
+                                                                        ?.category ??
+                                                                        (r.is_kipk
+                                                                            ? 'KIP-K'
+                                                                            : 'Reguler')}
+                                                                </div>
+                                                                <div className="text-base-content/60 text-xs">
+                                                                    {r.rate_unit ===
+                                                                    'day'
+                                                                        ? 'Harian'
+                                                                        : r.rate_unit ===
+                                                                            'month'
+                                                                          ? 'Bulanan'
+                                                                          : 'Tahunan'}{' '}
+                                                                    ·{' '}
+                                                                    {r.billing_basis ===
+                                                                    'room'
+                                                                        ? 'Per kamar'
+                                                                        : 'Per orang'}
+                                                                </div>
+                                                            </td>
+                                                            <td>
+                                                                {r.reserved_room ? (
+                                                                    <span>
+                                                                        {
+                                                                            r
+                                                                                .reserved_room
+                                                                                .lantai
+                                                                                ?.gedung
+                                                                                ?.nama_gedung
+                                                                        }{' '}
+                                                                        · Kamar{' '}
+                                                                        {
+                                                                            r
+                                                                                .reserved_room
+                                                                                .nomor_kamar
+                                                                        }
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="text-base-content/60">
+                                                                        Menunggu
+                                                                        alokasi
+                                                                    </span>
+                                                                )}
+                                                            </td>
+                                                            <td>
+                                                                <span className="badge badge-outline badge-sm">
+                                                                    {
+                                                                        statuses[
+                                                                            r
+                                                                                .status
+                                                                        ] ??
+                                                                        r.status
+                                                                    }
+                                                                </span>
+                                                                {r.blockers
+                                                                    .length >
+                                                                0 ? (
+                                                                    <span className="text-warning mt-1 block text-xs">
+                                                                        {
+                                                                            r
+                                                                                .blockers
+                                                                                .length
+                                                                        }{' '}
+                                                                        kendala
+                                                                        syarat
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="text-success mt-1 block text-xs">
+                                                                        {r.completed_at
+                                                                            ? 'Aktif / selesai'
+                                                                            : 'Siap check-in'}
+                                                                    </span>
+                                                                )}
+                                                            </td>
+                                                            <td className="text-right">
+                                                                <button
+                                                                    type="button"
+                                                                    className="btn btn-primary btn-xs"
+                                                                    onClick={() =>
+                                                                        setSelectedRegistrationId(
+                                                                            r.id,
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    Detail
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    ),
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )
+                        )
+                    ) : (
+                        props.registrations.data.map((r) => (
+                            <RegistrationCard
+                                rooms={props.rooms}
+                                templates={props.templates ?? []}
+                                key={r.id}
+                                r={r}
+                                manager={props.manager}
+                                leader={props.leader}
+                            />
+                        ))
+                    )}
 
                     {props.registrations.last_page > 1 && (
                         <nav
@@ -2641,6 +2988,7 @@ export default function ResidenceWorkflowPage(props: Props) {
                     policyCatalog={props.policyCatalog}
                     masterHousingUrl={props.masterHousingUrl}
                     policies={props.policies}
+                    templates={props.templates ?? []}
                 />
             )}
 

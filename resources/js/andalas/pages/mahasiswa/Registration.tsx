@@ -227,26 +227,40 @@ export default function Registration({
                                 sebelum mendaftar lagi.
                             </p>
                         ) : pending ? (
-                            <p>
-                                Pendaftaran sedang diproses.{' '}
-                                {registration.some(
-                                    (r) =>
-                                        !r.completed_at &&
-                                        !['draft', 'rejected'].includes(
-                                            r.status,
-                                        ) &&
-                                        r.is_kipk &&
-                                        r.funding === 'personal' &&
-                                        !r.tagihan_id,
-                                ) ? (
-                                    'Menunggu alokasi kamar sesuai prioritas dan kapasitas. Tagihan diterbitkan setelah kamar dialokasikan.'
-                                ) : (
-                                    <Link className="link" href={tagihan.url()}>
-                                        Lihat tagihan dan bayar
+                            <div className="space-y-3">
+                                <p>
+                                    Pendaftaran sedang diproses.{' '}
+                                    {registration.some(
+                                        (r) =>
+                                            !r.completed_at &&
+                                            !['draft', 'rejected'].includes(
+                                                r.status,
+                                            ) &&
+                                            r.is_kipk &&
+                                            r.funding === 'personal' &&
+                                            !r.tagihan_id,
+                                    ) ? (
+                                        'Menunggu alokasi kamar sesuai prioritas dan kapasitas. Tagihan diterbitkan setelah kamar dialokasikan.'
+                                    ) : (
+                                        <Link
+                                            className="link"
+                                            href={tagihan.url()}
+                                        >
+                                            Lihat tagihan dan bayar
+                                        </Link>
+                                    )}
+                                    .
+                                </p>
+                                {housingStatusUrl && (
+                                    <Link
+                                        href={housingStatusUrl}
+                                        className="btn btn-primary btn-sm"
+                                    >
+                                        Unduh Template, Unggah Dokumen &amp;
+                                        Ajukan Pembiayaan
                                     </Link>
                                 )}
-                                .
-                            </p>
+                            </div>
                         ) : !housingProfileReady && housingProfileUrl ? (
                             <div className="space-y-3">
                                 <p>
@@ -847,11 +861,23 @@ export default function Registration({
                                                 </small>
                                             )}
                                     </span>
-                                    <StatusBadge
-                                        status={
-                                            r.completed_at ? 'aktif' : r.status
-                                        }
-                                    />
+                                    <div className="flex flex-col items-end gap-2">
+                                        <StatusBadge
+                                            status={
+                                                r.completed_at
+                                                    ? 'aktif'
+                                                    : r.status
+                                            }
+                                        />
+                                        {housingStatusUrl && !r.completed_at && (
+                                            <Link
+                                                href={housingStatusUrl}
+                                                className="link text-primary text-xs font-medium"
+                                            >
+                                                Dokumen &amp; Pembiayaan →
+                                            </Link>
+                                        )}
+                                    </div>
                                 </div>
                             ))
                         )}

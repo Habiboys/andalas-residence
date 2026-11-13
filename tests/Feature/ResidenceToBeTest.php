@@ -12,6 +12,7 @@ use App\Models\Province;
 use App\Models\RegistrationDocument;
 use App\Models\ResidenceApplication;
 use App\Models\ResidenceDecision;
+use App\Models\ResidenceDocumentTemplate;
 use App\Models\ResidencePaymentReference;
 use App\Models\ResidencePolicy;
 use App\Models\ResidenceRate;
@@ -430,4 +431,38 @@ it('allows approving monthly scheme with zero upfront after leader approves defe
     app(ResidenceWorkflow::class)->evaluate($r->fresh());
 
     expect($r->fresh()->ready_at)->not->toBeNull();
+});
+
+it('allows managers to upload and delete document templates and students to download or receive missing template feedback', function () {
+    Storage::fake('local');
+    $f = toBeFixture();
+
+    $this->actingAs($f['user'])
+        ->get(route('residence.templates.download', ['category' => 'local_non_kipk', 'kind' => 'perjanjian']))
+        ->assertRedirect()
+        ->assertSessionHas('toast.type', 'error');
+
+    $file = UploadedFile::fake()->create('template-perjanjian.docx', 50, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+
+    $this->actingAs($f['manager'])
+        ->post(route('residence.templates.store'), [
+            'category' => 'local_non_kipk',
+            'kind' => 'perjanjian',
+            'file' => $file,
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $this->actingAs($f['user'])
+        ->get(route('residence.templates.download', ['category' => 'local_non_kipk', 'kind' => 'perjanjian']))
+        ->assertOk()
+        ->assertHeader('content-disposition');
+
+    $template = ResidenceDocumentTemplate::where('category', 'local_non_kipk')->where('kind', 'perjanjian')->firstOrFail();
+
+    $this->actingAs($f['manager'])
+        ->delete(route('residence.templates.destroy', $template))
+        ->assertRedirect();
+
+    expect(ResidenceDocumentTemplate::count())->toBe(0);
 });
