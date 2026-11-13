@@ -25,6 +25,14 @@ type Props = {
     landingSettings?: LandingSettings;
 };
 
+function excerptText(html: string): string {
+    return html
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/&nbsp;/gi, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
 export default function ProgramPage(props: Props) {
     const { programs } = props;
 
@@ -74,10 +82,11 @@ export default function ProgramPage(props: Props) {
                                                     {p.nama}
                                                 </h3>
                                                 {p.deskripsi && (
-                                                    <LandingRichContent
-                                                        html={p.deskripsi}
-                                                        className="mt-3 line-clamp-3"
-                                                    />
+                                                    <p className="text-base-content/75 mt-3 line-clamp-3 text-sm leading-relaxed">
+                                                        {excerptText(
+                                                            p.deskripsi,
+                                                        )}
+                                                    </p>
                                                 )}
                                             </div>
                                             <Link
@@ -108,10 +117,11 @@ export default function ProgramPage(props: Props) {
                                                         {s.judul}
                                                     </div>
                                                     {s.deskripsi && (
-                                                        <LandingRichContent
-                                                            html={s.deskripsi}
-                                                            className="line-clamp-3"
-                                                        />
+                                                        <p className="text-base-content/75 line-clamp-3 text-xs leading-relaxed">
+                                                            {excerptText(
+                                                                s.deskripsi,
+                                                            )}
+                                                        </p>
                                                     )}
                                                 </div>
                                             ))}

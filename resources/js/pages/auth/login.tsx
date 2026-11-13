@@ -45,15 +45,17 @@ export default function Login({ status, canResetPassword, ssoUrl }: Props) {
                  * actually exists for.
                  */}
                 {ssoUrl && (
-                    <a href={ssoUrl} className="btn btn-accent mb-6 w-full">
-                        <KeyRound className="size-4" aria-hidden="true" />
-                        Masuk dengan SSO UNAND
-                    </a>
-                )}
+                    <>
+                        <a href={ssoUrl} className="btn btn-accent mb-6 w-full">
+                            <KeyRound className="size-4" aria-hidden="true" />
+                            Masuk dengan SSO UNAND
+                        </a>
 
-                <div className="divider text-muted mb-6 text-xs">
-                    Atau masuk dengan akun Residence
-                </div>
+                        <div className="divider text-muted mb-6 text-xs">
+                            Atau masuk dengan akun Residence
+                        </div>
+                    </>
+                )}
 
                 <Form
                     {...loginStore.form()}

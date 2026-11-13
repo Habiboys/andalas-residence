@@ -7,6 +7,7 @@ use App\Models\RoomType;
 use App\Models\User;
 use App\Services\UnandSso;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -39,6 +40,10 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
+        if ($request->hasSession() && $request->session()->has('toast')) {
+            Inertia::flash('toast', $request->session()->pull('toast'));
+        }
+
         return [
             ...parent::share($request),
             'name' => config('app.name'),

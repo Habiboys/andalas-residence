@@ -52,6 +52,7 @@ export default function DashboardEksekutif({
     tiket = [],
     performance = [],
     gedungReport = [],
+    gedung_report = [],
     damage_summary,
 }: {
     stats?: DashboardStats;
@@ -59,8 +60,10 @@ export default function DashboardEksekutif({
     tiket?: Report[];
     performance?: TeknisiRow[];
     gedungReport?: GedungReportRow[];
+    gedung_report?: GedungReportRow[];
     damage_summary?: Record<string, number>;
 }) {
+    const buildingRows = gedung_report.length > 0 ? gedung_report : gedungReport;
     const pemasukan = (keuangan ?? [])
         .filter((t) => t.tipe === 'pemasukan')
         .reduce((s, t) => s + Number(t.nominal ?? 0), 0);
@@ -81,10 +84,10 @@ export default function DashboardEksekutif({
                     color="green"
                 />
                 <StatCard
-                    label="Okupansi"
+                    label="Kamar Terisi"
                     value={
                         stats
-                            ? `${stats.okupansi.penuh}/${stats.okupansi.total_kamar}`
+                            ? `${Math.max(0, stats.okupansi.total_kamar - stats.okupansi.kosong)}/${stats.okupansi.total_kamar}`
                             : '-'
                     }
                     color="gold"
@@ -214,6 +217,7 @@ export default function DashboardEksekutif({
                         {
                             key: 'photos',
                             label: 'Bukti',
+                            action: true,
                             render: (report: Report) => (
                                 <div className="flex flex-wrap gap-2">
                                     {report.photos?.map((item, index) => (
@@ -263,7 +267,7 @@ export default function DashboardEksekutif({
                                 String(row.aset_rusak),
                         },
                     ]}
-                    data={gedungReport}
+                    data={buildingRows}
                     emptyMessage="Belum ada data gedung."
                 />
             </section>

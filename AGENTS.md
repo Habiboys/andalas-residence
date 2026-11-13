@@ -23,7 +23,7 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 
 - You must follow all existing code conventions used in this application. When creating or editing a file, check sibling files for the correct structure, approach, and naming.
 - Use descriptive names for variables and methods. For example, `isRegisteredForDiscounts`, not `discount()`.
-- Check for existing components to reuse before writing a new one.
+- Check for existing UI primitives (`Button`, `Modal`, `FormField`, `DataTable`, `StatusBadge`) to reuse before writing new UI primitives, **but NEVER merge distinct user roles or unrelated workflows into one shared page, route alias, or generic form builder**. Every role must have dedicated, ergonomic, role-tailored UX optimized for its actual tasks.
 
 ## Verification Scripts
 

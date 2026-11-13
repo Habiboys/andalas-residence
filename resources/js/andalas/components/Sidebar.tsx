@@ -415,6 +415,7 @@ const ADMIN_NAV: NavGroup[] = [
                 icon: Star,
             },
             { label: 'Akun Internal', page: 'akun-internal', icon: KeyRound },
+            { label: 'Audit Log', page: 'audit-log', icon: FileText },
         ],
     },
 ];
@@ -529,18 +530,45 @@ export default function Sidebar({
     attendanceEligible = false,
     activeResident = false,
 }: SidebarProps) {
+export function canAccessNavItem(
+    role: UserRole,
+    page: string,
+    {
+        attendanceEligible = false,
+        activeResident = false,
+    }: { attendanceEligible?: boolean; activeResident?: boolean } = {},
+): boolean {
+    if (
+        (page === 'audit-log' || page === 'akun-internal') &&
+        role !== 'superadmin'
+    ) {
+        return false;
+    }
+    if (
+        page === 'perizinan' &&
+        ['staff_admin', 'admin_layanan'].includes(role)
+    ) {
+        return false;
+    }
+    if (role === 'mahasiswa') {
+        if (['absensi', 'perizinan'].includes(page) && !attendanceEligible) {
+            return false;
+        }
+        if (['pelaporan', 'checkout'].includes(page) && !activeResident) {
+            return false;
+        }
+    }
+    return true;
+}
+
     const groups = (NAV_MAP[role] ?? [])
         .map((group) => ({
             ...group,
-            items: group.items.filter(
-                (item) =>
-                    (item.page !== 'perizinan' ||
-                        !['staff_admin', 'admin_layanan'].includes(role)) &&
-                    (role !== 'mahasiswa' ||
-                        ((!['absensi', 'perizinan'].includes(item.page) ||
-                            attendanceEligible) &&
-                            (!['pelaporan', 'checkout'].includes(item.page) ||
-                                activeResident))),
+            items: group.items.filter((item) =>
+                canAccessNavItem(role, item.page, {
+                    attendanceEligible,
+                    activeResident,
+                }),
             ),
         }))
         .filter((group) => group.items.length > 0);

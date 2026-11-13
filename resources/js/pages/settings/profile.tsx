@@ -67,7 +67,7 @@ export default function Profile({
 
                                         <input
                                             id="name"
-                                            className="input input-bordered w-full"
+                                            className="input w-full"
                                             defaultValue={auth.user.name}
                                             name="name"
                                             required
@@ -88,7 +88,7 @@ export default function Profile({
                                         <input
                                             id="email"
                                             type="email"
-                                            className="input input-bordered w-full"
+                                            className="input w-full"
                                             defaultValue={auth.user.email}
                                             name="email"
                                             required
@@ -109,6 +109,7 @@ export default function Profile({
                                                 diverifikasi.{' '}
                                                 <Link
                                                     href={send()}
+                                                    method="post"
                                                     as="button"
                                                     className="link"
                                                 >

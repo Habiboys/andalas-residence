@@ -67,7 +67,7 @@ export default function KontakPage() {
                             )}
                             {site.email && (
                                 <form
-                                    className="space-y-4"
+                                    className="border-base-300 bg-base-100 space-y-4 rounded-xl border p-6 shadow-sm"
                                     onSubmit={(event) => {
                                         event.preventDefault();
                                         const data = new FormData(
@@ -79,20 +79,22 @@ export default function KontakPage() {
                                     <h3 className="text-lg font-semibold">
                                         Kirim pesan melalui email
                                     </h3>
-                                    <label className="block text-sm">
+                                    <label className="block text-sm font-medium">
                                         Subjek
                                         <input
                                             className="input mt-1 w-full"
                                             name="subject"
+                                            placeholder="Contoh: Pertanyaan pendaftaran asrama"
                                             required
                                         />
                                     </label>
-                                    <label className="block text-sm">
+                                    <label className="block text-sm font-medium">
                                         Pesan
                                         <textarea
                                             className="textarea mt-1 w-full"
                                             name="message"
                                             rows={4}
+                                            placeholder="Tuliskan pertanyaan atau kebutuhan Anda"
                                             required
                                         />
                                     </label>

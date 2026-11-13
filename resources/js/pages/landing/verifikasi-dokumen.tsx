@@ -1,5 +1,6 @@
 import { Head, Link } from '@inertiajs/react';
-import { BadgeCheck, FileWarning } from 'lucide-react';
+import { BadgeCheck, FileWarning, Search } from 'lucide-react';
+import { useState, type FormEvent } from 'react';
 
 type Document = {
     nomor: string;
@@ -36,6 +37,26 @@ function Field({ label, value }: { label: string; value: string }) {
 }
 
 export default function VerifikasiDokumen({ valid, document, reason }: Props) {
+    const [lookupInput, setLookupInput] = useState('');
+
+    function handleLookup(event: FormEvent) {
+        event.preventDefault();
+        const raw = lookupInput.trim();
+        if (!raw) {
+            return;
+        }
+        const segment = raw.includes('/dokumen/verifikasi/')
+            ? (raw.split('/dokumen/verifikasi/').pop() ?? '')
+            : raw;
+        const cleanToken = segment.split('?')[0].split('#')[0].trim();
+        if (!cleanToken) {
+            return;
+        }
+        window.location.assign(
+            `/dokumen/verifikasi/${encodeURIComponent(cleanToken)}`,
+        );
+    }
+
     return (
         <div className="bg-base-200 min-h-screen">
             <Head title="Verifikasi Dokumen" />
@@ -117,6 +138,37 @@ export default function VerifikasiDokumen({ valid, document, reason }: Props) {
                         </div>
                     )}
                 </div>
+
+                <form
+                    onSubmit={handleLookup}
+                    className="bg-base-100 rounded-box border-base-300 mt-4 border p-4"
+                >
+                    <label
+                        htmlFor="token-lookup"
+                        className="block text-xs font-semibold"
+                    >
+                        Periksa kode / tautan dokumen lain
+                    </label>
+                    <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                        <input
+                            id="token-lookup"
+                            type="text"
+                            className="input input-bordered w-full text-sm"
+                            value={lookupInput}
+                            onChange={(event) =>
+                                setLookupInput(event.target.value)
+                            }
+                            placeholder="Tempel token atau tautan verifikasi dokumen"
+                        />
+                        <button
+                            type="submit"
+                            className="btn btn-primary btn-sm shrink-0 gap-1.5"
+                        >
+                            <Search className="size-4" aria-hidden="true" />
+                            Periksa
+                        </button>
+                    </div>
+                </form>
 
                 <p className="text-base-content/60 mt-6 text-center text-xs">
                     Halaman ini menampilkan data resmi dari sistem Andalas

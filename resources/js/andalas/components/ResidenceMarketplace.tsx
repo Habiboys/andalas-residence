@@ -93,7 +93,7 @@ export default function ResidenceMarketplace({
                         (!gender ||
                             item.gender === gender ||
                             item.gender === 'campur') &&
-                        `${item.name} ${item.address ?? ''} ${item.types.map((type) => type.type).join(' ')}`
+                        `${item.name} ${item.code} ${item.address ?? ''} ${item.description} ${item.types.map((type) => type.type).join(' ')}`
                             .toLowerCase()
                             .includes(query.toLowerCase()) &&
                         (!onlyAvailable || item.places > 0),

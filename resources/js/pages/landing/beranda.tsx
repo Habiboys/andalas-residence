@@ -91,12 +91,12 @@ export default function Beranda({
                             >
                                 Temukan kamar pilihanmu
                             </a>
-                            <a
+                            <Link
                                 href={login.url()}
                                 className="inline-flex rounded-md border border-white/70 bg-transparent px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-white/10"
                             >
                                 Masuk ke Portal
-                            </a>
+                            </Link>
                         </div>
                     </div>
                 </section>

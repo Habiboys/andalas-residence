@@ -1,103 +1,93 @@
 import { Form, Head } from '@inertiajs/react';
-import InputError from '@/components/input-error';
-import PasswordInput from '@/components/password-input';
-import { LoaderCircle } from 'lucide-react';
+import { useState } from 'react';
+import {
+    AndalasAuthShell,
+    AuthField,
+    AuthSubmitButton,
+    PasswordInput,
+    authInputClass,
+} from '@/andalas/components/AndalasAuthShell';
+import { AndalasLogo } from '@/andalas/components/AndalasLogo';
 import { update } from '@/routes/password';
 
 type Props = {
     token: string;
     email: string;
-    passwordRules: string;
+    passwordRules?: string;
 };
 
-export default function ResetPassword({ token, email, passwordRules }: Props) {
+export default function ResetPassword({ token, email }: Props) {
+    const [password, setPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+
     return (
         <>
-            <Head title="Reset password" />
+            <Head title="Atur Ulang Kata Sandi" />
+            <AndalasAuthShell>
+                <div className="mb-8 hidden justify-center md:flex">
+                    <AndalasLogo size="md" />
+                </div>
 
-            <Form
-                action={update.url()}
-                method="post"
-                transform={(data) => ({ ...data, token, email })}
-                resetOnSuccess={['password', 'password_confirmation']}
-            >
-                {({ processing, errors }) => (
-                    <div className="grid gap-6">
-                        <div className="grid gap-2">
-                            <label className="label" htmlFor="email">
-                                Email
-                            </label>
-                            <input
-                                id="email"
-                                type="email"
-                                name="email"
-                                autoComplete="email"
-                                value={email}
-                                className="input input-bordered mt-1 w-full"
-                                readOnly
-                            />
-                            <InputError
-                                message={errors.email}
-                                className="mt-2"
-                            />
-                        </div>
+                <div className="mb-6 text-center">
+                    <h1 className="text-base-content mb-1 font-sans text-2xl font-bold md:text-3xl">
+                        Atur Ulang Kata Sandi
+                    </h1>
+                    <p className="text-muted text-sm">
+                        Masukkan kata sandi baru untuk akun Anda di bawah ini.
+                    </p>
+                </div>
 
-                        <div className="grid gap-2">
-                            <label className="label" htmlFor="password">
-                                Password
-                            </label>
+                <Form
+                    action={update.url()}
+                    method="post"
+                    transform={(data) => ({ ...data, token, email })}
+                    resetOnSuccess={['password', 'password_confirmation']}
+                    className="flex flex-col gap-4"
+                >
+                    {({ processing, errors }) => (
+                        <>
+                            <AuthField label="Email" error={errors.email}>
+                                <input
+                                    id="email"
+                                    type="email"
+                                    name="email"
+                                    autoComplete="email"
+                                    value={email}
+                                    className={authInputClass}
+                                    readOnly
+                                />
+                            </AuthField>
+
                             <PasswordInput
                                 id="password"
                                 name="password"
+                                label="Kata sandi baru"
+                                value={password}
+                                onChange={setPassword}
+                                error={errors.password}
                                 autoComplete="new-password"
-                                className="mt-1 block w-full"
-                                autoFocus
-                                placeholder="Password"
-                                passwordrules={passwordRules}
                             />
-                            <InputError message={errors.password} />
-                        </div>
 
-                        <div className="grid gap-2">
-                            <label
-                                className="label"
-                                htmlFor="password_confirmation"
-                            >
-                                Confirm password
-                            </label>
                             <PasswordInput
                                 id="password_confirmation"
                                 name="password_confirmation"
+                                label="Konfirmasi kata sandi baru"
+                                value={confirmPassword}
+                                onChange={setConfirmPassword}
+                                error={errors.password_confirmation}
                                 autoComplete="new-password"
-                                className="mt-1 block w-full"
-                                placeholder="Confirm password"
-                                passwordrules={passwordRules}
                             />
-                            <InputError
-                                message={errors.password_confirmation}
-                                className="mt-2"
-                            />
-                        </div>
 
-                        <button
-                            type="submit"
-                            className="btn btn-primary mt-4 w-full"
-                            disabled={processing}
-                            data-test="reset-password-button"
-                        >
-                            {processing && (
-                                <LoaderCircle className="size-4 animate-spin" />
-                            )}
-                            Reset password
-                        </button>
-                    </div>
-                )}
-            </Form>
+                            <AuthSubmitButton
+                                processing={processing}
+                                idle="Simpan Kata Sandi Baru"
+                                busy="Menyimpan..."
+                                data-test="reset-password-button"
+                            />
+                        </>
+                    )}
+                </Form>
+            </AndalasAuthShell>
         </>
     );
 }
-
-ResetPassword.layout = {
-    title: 'Reset password',
-    description: 'Please enter your new password below',
-};

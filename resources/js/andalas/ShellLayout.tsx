@@ -332,9 +332,12 @@ function ShellInner({
                                     <span className="text-base-content truncate text-xs">
                                         {currentUser.nama}
                                     </span>
-                                    <span className="text-muted truncate text-xs">
-                                        {currentUser.nim}
-                                    </span>
+                                    {(currentUser.nim || currentUser.email) && (
+                                        <span className="text-muted truncate text-xs">
+                                            {currentUser.nim ||
+                                                currentUser.email}
+                                        </span>
+                                    )}
                                 </li>
                                 <li>
                                     <Link
@@ -391,7 +394,7 @@ function ShellInner({
                                         onClick={() => nav('dashboard')}
                                         className="hover:text-primary font-medium"
                                     >
-                                        Home
+                                        Beranda
                                     </button>
                                 </li>
                                 {breadcrumb.group && (

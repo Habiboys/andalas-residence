@@ -57,7 +57,7 @@ export default function InformasiPage(props: Props) {
                                             className={`rounded px-3 py-2 text-sm transition-colors ${
                                                 kategori === cat
                                                     ? 'bg-primary text-primary-content'
-                                                    : 'text-primary/70 text-base-content/80 hover:bg-primary/5 hover:bg-base-200 hover:text-primary hover:text-base-content'
+                                                    : 'text-base-content/80 hover:bg-base-200 hover:text-base-content'
                                             }`}
                                         >
                                             {KATEGORI_LABEL[cat] ?? cat}
@@ -82,6 +82,8 @@ export default function InformasiPage(props: Props) {
                                             className="bg-base-100 border-base-300 overflow-hidden rounded-lg border"
                                         >
                                             <button
+                                                type="button"
+                                                aria-expanded={open === item.id}
                                                 onClick={() =>
                                                     setOpen(
                                                         open === item.id
@@ -96,8 +98,17 @@ export default function InformasiPage(props: Props) {
                                                         {item.judul}
                                                     </h3>
                                                     {item.tanggal && (
-                                                        <span className="text-base-content/50 mt-1 block text-xs">
-                                                            {item.tanggal}
+                                                        <span className="text-base-content/60 mt-1 block text-xs">
+                                                            {new Date(
+                                                                item.tanggal,
+                                                            ).toLocaleDateString(
+                                                                'id-ID',
+                                                                {
+                                                                    day: 'numeric',
+                                                                    month: 'long',
+                                                                    year: 'numeric',
+                                                                },
+                                                            )}
                                                         </span>
                                                     )}
                                                 </div>

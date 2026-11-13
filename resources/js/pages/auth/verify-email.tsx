@@ -1,54 +1,61 @@
-// Components
-import { Form, Head } from '@inertiajs/react';
-import { LoaderCircle } from 'lucide-react';
-import TextLink from '@/components/text-link';
+import { Form, Head, Link } from '@inertiajs/react';
+import {
+    AndalasAuthShell,
+    AuthSubmitButton,
+} from '@/andalas/components/AndalasAuthShell';
+import { AndalasLogo } from '@/andalas/components/AndalasLogo';
 import { logout } from '@/routes';
 import { send } from '@/routes/verification';
 
 export default function VerifyEmail({ status }: { status?: string }) {
+    const statusMessage =
+        status === 'verification-link-sent'
+            ? 'Tautan verifikasi baru telah dikirim ke alamat email Anda.'
+            : undefined;
+
     return (
         <>
-            <Head title="Email verification" />
-
-            {status === 'verification-link-sent' && (
-                <div className="text-success mb-4 text-center text-sm font-medium">
-                    A new verification link has been sent to the email address
-                    you provided during registration.
+            <Head title="Verifikasi Email" />
+            <AndalasAuthShell status={statusMessage}>
+                <div className="mb-8 hidden justify-center md:flex">
+                    <AndalasLogo size="md" />
                 </div>
-            )}
 
-            <Form
-                action={send.url()}
-                method="post"
-                className="space-y-6 text-center"
-            >
-                {({ processing }) => (
-                    <>
-                        <button
-                            className="btn btn-secondary"
-                            disabled={processing}
-                        >
-                            {processing && (
-                                <LoaderCircle className="size-4 animate-spin" />
-                            )}
-                            Resend verification email
-                        </button>
+                <div className="mb-6 text-center">
+                    <h1 className="text-base-content mb-1 font-sans text-2xl font-bold md:text-3xl">
+                        Verifikasi Alamat Email
+                    </h1>
+                    <p className="text-muted text-sm">
+                        Silakan periksa kotak masuk Anda dan klik tautan
+                        verifikasi yang telah kami kirimkan.
+                    </p>
+                </div>
 
-                        <TextLink
-                            href={logout()}
-                            className="mx-auto block text-sm"
-                        >
-                            Log out
-                        </TextLink>
-                    </>
-                )}
-            </Form>
+                <Form
+                    action={send.url()}
+                    method="post"
+                    className="flex flex-col gap-4"
+                >
+                    {({ processing }) => (
+                        <AuthSubmitButton
+                            processing={processing}
+                            idle="Kirim Ulang Email Verifikasi"
+                            busy="Mengirim..."
+                        />
+                    )}
+                </Form>
+
+                <div className="mt-6 text-center">
+                    <Link
+                        href={logout()}
+                        method="post"
+                        as="button"
+                        className="btn btn-ghost btn-sm text-base-content/70"
+                    >
+                        Keluar dari akun
+                    </Link>
+                </div>
+            </AndalasAuthShell>
         </>
     );
 }
-
-VerifyEmail.layout = {
-    title: 'Email verification',
-    description:
-        'Please verify your email address by clicking on the link we just emailed to you.',
-};

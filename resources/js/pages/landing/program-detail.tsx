@@ -50,7 +50,7 @@ export default function ProgramDetailPage(props: Props) {
                                             className={`rounded px-3 py-2 text-sm transition-colors ${
                                                 program?.id === p.id
                                                     ? 'bg-primary text-primary-content'
-                                                    : 'text-primary/70 text-base-content/80 hover:bg-primary/5 hover:bg-base-200 hover:text-primary hover:text-base-content'
+                                                    : 'text-base-content/80 hover:bg-base-200 hover:text-base-content'
                                             }`}
                                         >
                                             {p.nama}
@@ -61,6 +61,12 @@ export default function ProgramDetailPage(props: Props) {
                         </aside>
 
                         <div className="lg:col-span-3">
+                            <Link
+                                href="/program"
+                                className="text-base-content/70 hover:text-primary mb-5 inline-flex items-center gap-1.5 text-sm font-medium lg:hidden"
+                            >
+                                ← Semua program
+                            </Link>
                             {program?.deskripsi && (
                                 <LandingRichContent
                                     html={program.deskripsi}

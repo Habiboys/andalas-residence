@@ -35,11 +35,11 @@ const URL_SLUG: Record<string, string> = {
 
 function Statistik({ label, value }: { label: string; value: string }) {
     return (
-        <div className="bg-primary text-primary-content rounded-sm px-4 py-8 text-center">
+        <div className="bg-primary text-primary-content rounded-lg px-4 py-8 text-center">
             <div className="text-accent font-[DM_Serif_Display,Georgia,serif] text-3xl">
                 {value}
             </div>
-            <div className="text-primary-content/60 mt-1 text-xs">{label}</div>
+            <div className="text-primary-content/80 mt-1 text-xs">{label}</div>
         </div>
     );
 }
@@ -74,7 +74,7 @@ export default function ProfilPage(props: Props) {
                                                 className={`rounded px-3 py-2 text-sm transition-colors ${
                                                     section === key
                                                         ? 'bg-primary text-primary-content'
-                                                        : 'text-primary/70 text-base-content/80 hover:bg-primary/5 hover:bg-base-200 hover:text-primary hover:text-base-content'
+                                                        : 'text-base-content/80 hover:bg-base-200 hover:text-base-content'
                                                 }`}
                                             >
                                                 {title}

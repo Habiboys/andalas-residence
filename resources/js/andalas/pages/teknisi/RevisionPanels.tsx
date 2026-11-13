@@ -446,7 +446,9 @@ export function LogbookForm({ today }: { today: string }) {
                     />
                 </label>
                 <ErrorList errors={form.errors} />
-                <Button disabled={form.processing}>Simpan logbook</Button>
+                <Button type="submit" disabled={form.processing}>
+                    Simpan logbook
+                </Button>
             </form>
         </details>
     );

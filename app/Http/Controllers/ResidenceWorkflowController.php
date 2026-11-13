@@ -87,7 +87,7 @@ class ResidenceWorkflowController extends Controller
         $page = $registrations->latest()->paginate(30)->withQueryString();
         $page->getCollection()->transform(fn (ResidenceRegistration $r): ResidenceRegistration => $this->decorateRegistration($r, $user));
 
-        return Inertia::render('admin/residence-workflow', [
+        return Inertia::render($studentView ? 'mahasiswa/registration-status' : 'admin/residence-workflow', [
             'role' => $user->getRoleNames()->first(), 'page' => $studentView ? 'registration' : ($section === 'registrations' ? 'residence-workflow' : 'residence-workflow/'.$section), 'initialUser' => app(RolePageController::class)->userPayload($request),
             'section' => $section,
             'detailMode' => false,
@@ -138,7 +138,7 @@ class ResidenceWorkflowController extends Controller
         $registration->load(['studentProfile.user', 'reservedRoom.lantai.gedung', 'placement.kamar.lantai.gedung', 'policy', 'documents.reviewer:id,nama', 'decisions', 'tagihan', 'application', 'roomContract']);
         $registration = $this->decorateRegistration($registration, $user);
 
-        return Inertia::render('admin/residence-workflow', [
+        return Inertia::render($studentView ? 'mahasiswa/registration-status' : 'admin/residence-workflow', [
             'role' => $user->getRoleNames()->first(),
             'page' => 'residence-workflow',
             'initialUser' => app(RolePageController::class)->userPayload($request),

@@ -366,7 +366,7 @@ it('renders the workflow with scoped registrations and a complete operational pa
     $f = toBeFixture();
     $r = toBeSubmit($f);
     $this->actingAs($f['user'])->get(route('residence.workflow'))->assertRedirect(route('mahasiswa.registration'));
-    $this->actingAs($f['user'])->get(route('mahasiswa.registration.status'))->assertInertia(fn (Assert $page) => $page->component('admin/residence-workflow')->where('page', 'registration')->has('registrations.data', 1)->where('registrations.data.0.id', $r->id)->where('manager', false));
+    $this->actingAs($f['user'])->get(route('mahasiswa.registration.status'))->assertInertia(fn (Assert $page) => $page->component('mahasiswa/registration-status')->where('page', 'registration')->has('registrations.data', 1)->where('registrations.data.0.id', $r->id)->where('manager', false));
     $this->actingAs($f['manager'])->get(route('residence.workflow'))->assertInertia(fn (Assert $page) => $page->where('manager', true)->has('policies', 1)->has('invoiceGroups')->has('pendingRoomContracts'));
 });
 

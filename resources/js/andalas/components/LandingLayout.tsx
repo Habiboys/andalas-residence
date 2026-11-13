@@ -69,6 +69,24 @@ export default function LandingLayout({ active, children }: Props) {
         return () => window.removeEventListener('scroll', onScroll);
     }, []);
 
+    useEffect(() => {
+        if (!openDropdown) {
+            return;
+        }
+        const onPointerDown = (event: PointerEvent) => {
+            if (
+                event.target instanceof Element &&
+                event.target.closest('.dropdown')
+            ) {
+                return;
+            }
+            setOpenDropdown(null);
+        };
+        document.addEventListener('pointerdown', onPointerDown);
+
+        return () => document.removeEventListener('pointerdown', onPointerDown);
+    }, [openDropdown]);
+
     // Both menus are real menus: Escape dismisses them without a pointer.
     useEffect(() => {
         if (!openDropdown && !menuOpen) {
@@ -89,7 +107,7 @@ export default function LandingLayout({ active, children }: Props) {
 
     // Over the hero the bar is transparent with light copy; once scrolled (or on
     // internal pages) it becomes a solid white bar, like profile-akademik.
-    const solid = scrolled || !active;
+    const solid = scrolled || !active || active === 'unit';
 
     const linkClass = (name: string) =>
         `text-sm font-medium transition-colors ${

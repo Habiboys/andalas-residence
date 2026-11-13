@@ -52,7 +52,7 @@ class DamageReportController extends Controller
         $placement = $user->mahasiswaProfil?->penempatanKamar()->where('status', 'aktif')->with('kamar.lantai.gedung')->first();
         $staff = ! $user->hasRole('mahasiswa') || DamageReportAccess::global($user);
 
-        return Inertia::render('teknisi/pelaporan', [
+        return Inertia::render($user->hasRole('mahasiswa') ? 'mahasiswa/pelaporan' : 'teknisi/pelaporan', [
             'initialUser' => app(RolePageController::class)->userPayload($request), 'role' => $user->getRoleNames()->first(), 'page' => 'pelaporan',
             'reports' => $reports, 'filters' => [...$filters, 'date' => $date], 'summary' => $summary, 'today' => today()->toDateString(),
             'blocked_count' => (clone $query)->where('status', Status::SedangDikerjakan)->where('is_blocked', true)->count(),

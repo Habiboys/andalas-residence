@@ -19,7 +19,21 @@ class EnsureResidenceAccountAccess
         if ($user && $user->status !== 'aktif') {
             abort_unless($user->inactive_reason === 'letter_issued', 403, 'Akun dinonaktifkan oleh administrator.');
             if (! $request->isMethod('GET') && ! $request->isMethod('HEAD')) {
-                abort_unless($request->routeIs('logout', 'andalas.registrations.store', 'andalas.pembayaran.store', 'andalas.pengajuan.bebas'), 403, 'Akun hanya dapat mengakses arsip dan pendaftaran hunian kembali.');
+                abort_unless($request->routeIs(
+                    'logout',
+                    'andalas.registrations.store',
+                    'andalas.pembayaran.store',
+                    'andalas.pengajuan.bebas',
+                    'residence.profile',
+                    'residence.housing-profile',
+                    'residence.documents.upload',
+                    'residence.package.submit',
+                    'residence.decisions.request',
+                    'residence.transfer-proof',
+                    'andalas.room-invitations.store',
+                    'andalas.room-invitations.update',
+                    'andalas.room-invitations.destroy',
+                ), 403, 'Akun hanya dapat mengakses arsip dan pendaftaran hunian kembali.');
             }
         }
 

@@ -1,69 +1,76 @@
-// Components
-import { Form, Head } from '@inertiajs/react';
-import { LoaderCircle } from 'lucide-react';
-import InputError from '@/components/input-error';
-import TextLink from '@/components/text-link';
+import { Form, Head, Link } from '@inertiajs/react';
+import {
+    AndalasAuthShell,
+    AuthField,
+    AuthSubmitButton,
+    authInputClass,
+} from '@/andalas/components/AndalasAuthShell';
+import { AndalasLogo } from '@/andalas/components/AndalasLogo';
 import { login } from '@/routes';
 import { email } from '@/routes/password';
 
 export default function ForgotPassword({ status }: { status?: string }) {
     return (
         <>
-            <Head title="Forgot password" />
-
-            {status && (
-                <div className="text-success mb-4 text-center text-sm font-medium">
-                    {status}
+            <Head title="Lupa Kata Sandi" />
+            <AndalasAuthShell status={status}>
+                <div className="mb-8 hidden justify-center md:flex">
+                    <AndalasLogo size="md" />
                 </div>
-            )}
 
-            <div className="space-y-6">
-                <Form action={email.url()} method="post">
+                <div className="mb-6 text-center">
+                    <h1 className="text-base-content mb-1 font-sans text-2xl font-bold md:text-3xl">
+                        Lupa Kata Sandi
+                    </h1>
+                    <p className="text-muted text-sm">
+                        Masukkan alamat email akun Anda untuk menerima tautan
+                        pemulihan kata sandi.
+                    </p>
+                </div>
+
+                <Form
+                    action={email.url()}
+                    method="post"
+                    className="flex flex-col gap-4"
+                >
                     {({ processing, errors }) => (
                         <>
-                            <fieldset className="fieldset">
-                                <label className="label" htmlFor="email">
-                                    Email address
-                                </label>
+                            <AuthField
+                                label="Alamat email"
+                                error={errors.email}
+                            >
                                 <input
                                     id="email"
                                     type="email"
                                     name="email"
-                                    autoComplete="off"
+                                    autoComplete="email"
                                     autoFocus
-                                    placeholder="email@example.com"
-                                    className="input input-bordered w-full"
+                                    required
+                                    placeholder="nama@unand.ac.id"
+                                    className={authInputClass}
                                 />
+                            </AuthField>
 
-                                <InputError message={errors.email} />
-                            </fieldset>
-
-                            <div className="my-6 flex items-center justify-start">
-                                <button
-                                    className="btn btn-primary w-full"
-                                    disabled={processing}
-                                    data-test="email-password-reset-link-button"
-                                >
-                                    {processing && (
-                                        <LoaderCircle className="h-4 w-4 animate-spin" />
-                                    )}
-                                    Email password reset link
-                                </button>
-                            </div>
+                            <AuthSubmitButton
+                                processing={processing}
+                                idle="Kirim Tautan Reset"
+                                busy="Mengirim..."
+                                data-test="email-password-reset-link-button"
+                            />
                         </>
                     )}
                 </Form>
 
-                <div className="text-muted-foreground space-x-1 text-center text-sm">
-                    <span>Or, return to</span>
-                    <TextLink href={login()}>log in</TextLink>
-                </div>
-            </div>
+                <p className="text-muted mt-6 text-center text-sm">
+                    Ingat kata sandi Anda?{' '}
+                    <Link
+                        href={login()}
+                        className="text-primary font-medium hover:underline"
+                    >
+                        Kembali ke halaman masuk
+                    </Link>
+                </p>
+            </AndalasAuthShell>
         </>
     );
 }
-
-ForgotPassword.layout = {
-    title: 'Forgot password',
-    description: 'Enter your email to receive a password reset link',
-};

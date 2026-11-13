@@ -12,7 +12,7 @@ export type Testimoni = {
 export default function TestimonialSlider({
     items,
     title = 'Pengalaman penghuni',
-    description = '{description}',
+    description = 'Cerita singkat dari penghuni Andalas Residence.',
 }: {
     items: Testimoni[];
     title?: string;

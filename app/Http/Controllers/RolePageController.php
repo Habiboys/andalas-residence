@@ -166,7 +166,7 @@ class RolePageController extends Controller
                     ->when($request->user()->hasRole('mahasiswa'), fn ($query) => $query->where('mahasiswa_id', $request->user()->mahasiswaProfil?->id))
                     ->latest()->get(),
             ],
-            'detail-kamar' => ['penempatan' => PenempatanKamar::with('kamar.lantai.gedung')->whereHas('mahasiswa', fn ($q) => $q->where('user_id', $request->user()->id))->get()],
+            'detail-kamar' => ['penempatan' => PenempatanKamar::with('kamar.lantai.gedung')->whereHas('mahasiswa', fn ($q) => $q->where('user_id', $request->user()->id))->orderByRaw("CASE WHEN status = 'aktif' THEN 0 ELSE 1 END")->latest()->get()],
             'checkout' => ['checkout' => CheckoutRequest::with(['inspection', 'placement.kamar.lantai.gedung'])->where('mahasiswa_id', $request->user()->mahasiswaProfil?->id)->latest()->get()],
             'bebas-asrama' => [
                 'letterIdentity' => [
@@ -212,7 +212,7 @@ class RolePageController extends Controller
                 'stats' => $this->keuanganStats(),
             ],
             'laporan-aset' => [
-                'aset' => Aset::with(['kamar', 'fasilitasUmum'])->get(),
+                'aset' => Aset::with(['kamar.lantai.gedung', 'fasilitasUmum.gedung'])->get(),
                 'tiket' => $this->tickets($request),
             ],
             'riwayat-penilaian', 'penilaian-teknisi' => [
@@ -513,16 +513,19 @@ class RolePageController extends Controller
     private function gedungTree(?User $user = null): array
     {
         $detailed = $user === null || ! $user->hasRole('mahasiswa');
+        $scoped = $user !== null && $user->hasRole('fasilitator') && ! $user->hasRole('superadmin');
+        $ids = $scoped ? ResidenceBuildingAccess::ids($user) : [];
 
-        return Gedung::with([
-            'lantai.kamar.penempatanKamar.mahasiswa.user',
-            ...$detailed ? [
-                'lantai.kamar.aset',
-                'lantai.kamar.penempatanKamar.mahasiswa.prodi',
-                'lantai.kamar.penempatanKamar.registration.tagihan',
-                'lantai.kamar.penempatanKamar.mahasiswa.pembayaran' => fn ($query) => $query->latest('tanggal_bayar'),
-            ] : [],
-        ])->get()->toArray();
+        return Gedung::when($scoped, fn ($query) => $query->whereIn('id', $ids))
+            ->with([
+                'lantai.kamar.penempatanKamar.mahasiswa.user',
+                ...$detailed ? [
+                    'lantai.kamar.aset',
+                    'lantai.kamar.penempatanKamar.mahasiswa.prodi',
+                    'lantai.kamar.penempatanKamar.registration.tagihan',
+                    'lantai.kamar.penempatanKamar.mahasiswa.pembayaran' => fn ($query) => $query->latest('tanggal_bayar'),
+                ] : [],
+            ])->get()->toArray();
     }
 
     private function leavePayload(Request $request): array

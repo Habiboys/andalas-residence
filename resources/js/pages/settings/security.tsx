@@ -6,7 +6,6 @@ import SecurityController from '@/actions/App/Http/Controllers/Settings/Security
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
 import PasswordInput from '@/components/password-input';
-import { edit } from '@/routes/security';
 
 // oxfmt-ignore
 type Props = {
@@ -28,8 +27,8 @@ export default function Security(props: Props) {
             <Card className="space-y-6 p-5">
                 <Heading
                     variant="small"
-                    title="Update password"
-                    description="Ensure your account is using a long, random password to stay secure"
+                    title="Ubah kata sandi"
+                    description="Gunakan kata sandi yang kuat dan unik untuk menjaga keamanan akun Anda."
                 />
 
                 <Form
@@ -62,7 +61,7 @@ export default function Security(props: Props) {
                                     className="label"
                                     htmlFor="current_password"
                                 >
-                                    Current password
+                                    Kata sandi saat ini
                                 </label>
 
                                 <PasswordInput
@@ -71,7 +70,7 @@ export default function Security(props: Props) {
                                     name="current_password"
                                     className="mt-1 block w-full"
                                     autoComplete="current-password"
-                                    placeholder="Current password"
+                                    placeholder="Masukkan kata sandi saat ini"
                                 />
 
                                 <InputError message={errors.current_password} />
@@ -79,7 +78,7 @@ export default function Security(props: Props) {
 
                             <div className="grid gap-2">
                                 <label className="label" htmlFor="password">
-                                    New password
+                                    Kata sandi baru
                                 </label>
 
                                 <PasswordInput
@@ -88,7 +87,7 @@ export default function Security(props: Props) {
                                     name="password"
                                     className="mt-1 block w-full"
                                     autoComplete="new-password"
-                                    placeholder="New password"
+                                    placeholder="Masukkan kata sandi baru"
                                     passwordrules={props.passwordRules}
                                 />
 
@@ -100,7 +99,7 @@ export default function Security(props: Props) {
                                     className="label"
                                     htmlFor="password_confirmation"
                                 >
-                                    Confirm password
+                                    Konfirmasi kata sandi baru
                                 </label>
 
                                 <PasswordInput
@@ -108,7 +107,7 @@ export default function Security(props: Props) {
                                     name="password_confirmation"
                                     className="mt-1 block w-full"
                                     autoComplete="new-password"
-                                    placeholder="Confirm password"
+                                    placeholder="Ulangi kata sandi baru"
                                     passwordrules={props.passwordRules}
                                 />
 
@@ -119,11 +118,12 @@ export default function Security(props: Props) {
 
                             <div className="flex items-center gap-4">
                                 <button
+                                    type="submit"
                                     className="btn btn-primary"
                                     disabled={processing}
                                     data-test="update-password-button"
                                 >
-                                    Save
+                                    Simpan kata sandi
                                 </button>
                             </div>
                         </>
@@ -133,12 +133,3 @@ export default function Security(props: Props) {
         </div>
     );
 }
-
-Security.layout = {
-    breadcrumbs: [
-        {
-            title: 'Security settings',
-            href: edit(),
-        },
-    ],
-};

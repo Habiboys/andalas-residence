@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Search, X } from 'lucide-react';
-import { NAV_MAP, type NavItem, type UserRole } from './Sidebar';
+import { canAccessNavItem, NAV_MAP, type NavItem, type UserRole } from './Sidebar';
 
 type SearchEntry = { label: string; page: string; group: string | null };
 
