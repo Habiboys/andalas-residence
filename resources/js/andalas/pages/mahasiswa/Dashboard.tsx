@@ -6,8 +6,15 @@ import {
     absensi,
     tagihan,
     detailKamar,
-    laporKerusakan,
 } from '@/routes/mahasiswa';
+import { index as damageReportIndex } from '@/actions/App/Http/Controllers/DamageReportController';
+
+const RESIDENCE_STATUS_LABELS: Record<string, string> = {
+    calon: 'Calon Penghuni',
+    terdaftar: 'Terdaftar',
+    aktif: 'Penghuni Aktif',
+    keluar: 'Sudah Keluar',
+};
 import { PageHeader, StatCard, Card, Modal } from '../../components/ui';
 import { formatRupiah } from '../../lib/format';
 import type { DashboardStats } from '../../lib/types';
@@ -91,7 +98,13 @@ export default function MahasiswaDashboard({
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <StatCard
                     label="Status Huni"
-                    value={currentUser?.status_huni ?? 'calon'}
+                    value={
+                        RESIDENCE_STATUS_LABELS[
+                            currentUser?.status_huni ?? 'calon'
+                        ] ??
+                        currentUser?.status_huni ??
+                        'Calon Penghuni'
+                    }
                     color="green"
                 />
                 <StatCard
@@ -154,7 +167,7 @@ export default function MahasiswaDashboard({
                     {
                         title: 'Laporkan kerusakan',
                         description: 'Pilih barang dan lokasi fasilitas',
-                        href: laporKerusakan.url(),
+                        href: damageReportIndex.url(),
                         icon: Wrench,
                         visible: currentUser?.status_huni === 'aktif',
                     },

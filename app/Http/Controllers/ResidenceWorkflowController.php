@@ -140,7 +140,7 @@ class ResidenceWorkflowController extends Controller
 
         return Inertia::render($studentView ? 'mahasiswa/registration-status' : 'admin/residence-workflow', [
             'role' => $user->getRoleNames()->first(),
-            'page' => 'residence-workflow',
+            'page' => $studentView ? 'registration' : 'residence-workflow',
             'initialUser' => app(RolePageController::class)->userPayload($request),
             'section' => 'registrations',
             'detailMode' => true,

@@ -1,7 +1,11 @@
 import { useRoomTypeCatalog, roomTypeName } from '@/andalas/lib/room-types';
 import { PhotoCarousel, photoPaths } from '../../components/PhotoGallery';
-import { PageHeader, Card } from '../../components/ui';
+import { PageHeader, Card, StatusBadge } from '../../components/ui';
 type Penempatan = {
+    id?: string;
+    status?: string;
+    tanggal_mulai?: string;
+    tanggal_selesai?: string | null;
     kamar?: {
         nomor_kamar?: string;
         foto?: string | null;
@@ -62,9 +66,19 @@ export default function DetailKamar({
                                     : '-'}
                             </p>
                             <p>
-                                <strong>Status:</strong>{' '}
-                                {mine.kamar?.status ?? '-'}
+                                <strong>Status Kamar:</strong>{' '}
+                                {mine.kamar?.status ? (
+                                    <StatusBadge status={mine.kamar.status} />
+                                ) : (
+                                    '-'
+                                )}
                             </p>
+                            {mine.status && (
+                                <p>
+                                    <strong>Status Hunian:</strong>{' '}
+                                    <StatusBadge status={mine.status} />
+                                </p>
+                            )}
                             <p>
                                 <strong>Kapasitas:</strong>{' '}
                                 {mine.kamar?.kapasitas ?? '-'}

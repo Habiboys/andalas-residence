@@ -72,14 +72,11 @@ export function NavSearchModal({
 
     const index = useMemo(
         () =>
-            buildIndex(role).filter(
-                (item) =>
-                    role !== 'mahasiswa' ||
-                    ((item.page !== 'absensi' ||
-                        attendanceEligible ||
-                        activeResident) &&
-                        (!['lapor-kerusakan', 'checkout'].includes(item.page) ||
-                            activeResident)),
+            buildIndex(role).filter((item) =>
+                canAccessNavItem(role, item.page, {
+                    attendanceEligible,
+                    activeResident,
+                }),
             ),
         [role, attendanceEligible, activeResident],
     );

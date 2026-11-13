@@ -126,17 +126,26 @@ class RolePageController extends Controller
                 ] : []),
             ],
             'registration' => $this->registrationPayload($request),
-            'data-hunian' => [
-                'profile' => $request->user()->mahasiswaProfil?->only(['prodi_id', 'city_id', 'angkatan', 'nik', 'alamat']),
-                'identity' => [
-                    ...$request->user()->only(['nim_nip', 'email', 'gender', 'no_hp', 'status']),
-                    'category' => $request->user()->getRawOriginal('client_profile_category'),
-                ],
-                'programs' => Prodi::with('departemen.faculty')->orderBy('name')->get(),
-                'cities' => City::with('province')->orderBy('name')->get(),
-                'saveUrl' => route('residence.housing-profile'),
-                'registrationUrl' => route('mahasiswa.registration'),
-            ],
+            'data-hunian' => (function () use ($request): array {
+                $profile = $request->user()->mahasiswaProfil;
+                $locked = $profile
+                    ? ($profile->residenceRegistrations()->whereNull('completed_at')->whereNotIn('status', ['draft', 'rejected'])->exists()
+                        || $profile->penempatanKamar()->where('status', 'aktif')->exists())
+                    : false;
+
+                return [
+                    'profile' => $profile?->only(['prodi_id', 'city_id', 'angkatan', 'nik', 'alamat']),
+                    'identity' => [
+                        ...$request->user()->only(['nim_nip', 'email', 'gender', 'no_hp', 'status']),
+                        'category' => $request->user()->getRawOriginal('client_profile_category'),
+                    ],
+                    'programs' => Prodi::with('departemen.faculty')->orderBy('name')->get(),
+                    'cities' => City::with('province')->orderBy('name')->get(),
+                    'saveUrl' => route('residence.housing-profile'),
+                    'registrationUrl' => route('mahasiswa.registration'),
+                    'locked' => $locked,
+                ];
+            })(),
             'registration-review' => $this->registrationReviewPayload($request),
             'checkout-approval', 'checkout-inspection' => [
                 'checkout' => CheckoutRequest::with(['inspection.findings.aset', 'placement.kamar.lantai.gedung', 'placement.kamar.aset', 'mahasiswa.user'])

@@ -15,6 +15,7 @@ export default function DataHunian({
     cities,
     saveUrl,
     registrationUrl,
+    locked = false,
 }: {
     profile?: {
         prodi_id?: string;
@@ -35,6 +36,7 @@ export default function DataHunian({
     cities: City[];
     saveUrl: string;
     registrationUrl: string;
+    locked?: boolean;
 }) {
     const [step, setStep] = useState(0);
     const [confirmOpen, setConfirmOpen] = useState(false);
@@ -150,11 +152,25 @@ export default function DataHunian({
                 )}
             </ol>
 
+            {locked && (
+                <div
+                    role="status"
+                    className="alert alert-warning border-warning/40 text-sm shadow-xs"
+                >
+                    <span>
+                        Data hunian dikunci sementara karena Anda memiliki
+                        pendaftaran asrama yang sedang diproses atau sedang
+                        menghuni kamar aktif. Perubahan hanya dapat diajukan
+                        melalui pengelola asrama.
+                    </span>
+                </div>
+            )}
+
             <form
                 className="card bg-base-100 border-base-300 space-y-5 rounded-xl border p-5 shadow-xs md:p-6"
                 onSubmit={(event) => {
                     event.preventDefault();
-                    if (step === 2 && identityReady && addressReady) {
+                    if (!locked && step === 2 && identityReady && addressReady) {
                         setConfirmOpen(true);
                     }
                 }}
@@ -607,9 +623,11 @@ export default function DataHunian({
                             key="step-submit"
                             type="submit"
                             className="btn btn-primary"
-                            disabled={form.processing}
+                            disabled={locked || form.processing}
                         >
-                            Simpan dan lanjutkan
+                            {locked
+                                ? 'Data Dikunci'
+                                : 'Simpan dan lanjutkan'}
                         </button>
                     )}
                 </div>

@@ -521,15 +521,6 @@ interface SidebarProps {
     collapsed?: boolean;
 }
 
-export default function Sidebar({
-    role,
-    currentPage,
-    setPage,
-    onClose,
-    collapsed = false,
-    attendanceEligible = false,
-    activeResident = false,
-}: SidebarProps) {
 export function canAccessNavItem(
     role: UserRole,
     page: string,
@@ -561,6 +552,15 @@ export function canAccessNavItem(
     return true;
 }
 
+export default function Sidebar({
+    role,
+    currentPage,
+    setPage,
+    onClose,
+    collapsed = false,
+    attendanceEligible = false,
+    activeResident = false,
+}: SidebarProps) {
     const groups = (NAV_MAP[role] ?? [])
         .map((group) => ({
             ...group,
