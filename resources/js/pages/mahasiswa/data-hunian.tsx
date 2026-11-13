@@ -37,6 +37,7 @@ export default function DataHunian({
     registrationUrl: string;
 }) {
     const [step, setStep] = useState(0);
+    const [confirmOpen, setConfirmOpen] = useState(false);
     const form = useForm({
         nama: '',
         no_hp: identity.no_hp ?? '',
@@ -154,7 +155,7 @@ export default function DataHunian({
                 onSubmit={(event) => {
                     event.preventDefault();
                     if (step === 2 && identityReady && addressReady) {
-                        form.post(saveUrl);
+                        setConfirmOpen(true);
                     }
                 }}
             >
@@ -608,6 +609,82 @@ export default function DataHunian({
                     )}
                 </div>
             </form>
+
+            {confirmOpen && (
+                <div
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="confirm-data-hunian-title"
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+                >
+                    <div className="bg-base-100 border-base-300 w-full max-w-md space-y-4 rounded-2xl border p-5 shadow-xl">
+                        <div className="space-y-1">
+                            <h2
+                                id="confirm-data-hunian-title"
+                                className="text-lg font-bold"
+                            >
+                                Konfirmasi Simpan Data Hunian
+                            </h2>
+                            <p className="text-base-content/70 text-sm">
+                                Pastikan seluruh data sudah benar karena akan
+                                digunakan untuk kontrak dan dokumen resmi
+                                asrama.
+                            </p>
+                        </div>
+                        <dl className="bg-base-200/60 border-base-300 space-y-2 rounded-xl border p-3 text-sm">
+                            <div>
+                                <dt className="text-base-content/60 text-xs">
+                                    Nama lengkap resmi
+                                </dt>
+                                <dd className="font-semibold">
+                                    {form.data.nama}
+                                </dd>
+                            </div>
+                            <div>
+                                <dt className="text-base-content/60 text-xs">
+                                    NIK &amp; Telepon
+                                </dt>
+                                <dd>
+                                    {form.data.nik} · {form.data.no_hp}
+                                </dd>
+                            </div>
+                            <div>
+                                <dt className="text-base-content/60 text-xs">
+                                    Program studi &amp; Kota/Kabupaten asal
+                                </dt>
+                                <dd>
+                                    {program?.name} · {city?.name}
+                                </dd>
+                            </div>
+                        </dl>
+                        <div className="flex justify-end gap-2 pt-1">
+                            <button
+                                type="button"
+                                className="btn btn-outline"
+                                disabled={form.processing}
+                                onClick={() => setConfirmOpen(false)}
+                            >
+                                Periksa kembali
+                            </button>
+                            <button
+                                type="button"
+                                className="btn btn-primary"
+                                disabled={form.processing}
+                                onClick={() =>
+                                    form.post(saveUrl, {
+                                        onError: () => setConfirmOpen(false),
+                                        onFinish: () => setConfirmOpen(false),
+                                    })
+                                }
+                            >
+                                {form.processing
+                                    ? 'Menyimpan...'
+                                    : 'Ya, simpan data'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

@@ -276,7 +276,7 @@ export default function Registration({
                                 }}
                             >
                                 <ol
-                                    className="border-base-300 bg-base-100 grid grid-cols-3 gap-2 rounded-xl border p-3 text-sm"
+                                    className="border-base-300 bg-base-100 grid grid-cols-1 gap-2 rounded-2xl border p-3 text-sm sm:grid-cols-3"
                                     aria-label="Tahapan pendaftaran"
                                 >
                                     {[
@@ -291,21 +291,41 @@ export default function Registration({
                                                     ? 'step'
                                                     : undefined
                                             }
-                                            className={
+                                            className={`flex items-center gap-2.5 rounded-xl px-3 py-2 transition-colors ${
                                                 step === index
-                                                    ? 'text-primary font-semibold'
-                                                    : 'text-base-content/70'
-                                            }
+                                                    ? 'bg-primary/10 text-primary font-semibold'
+                                                    : step > index
+                                                      ? 'bg-emerald-50 text-emerald-700 font-medium dark:bg-emerald-950/30 dark:text-emerald-300'
+                                                      : 'text-base-content/60'
+                                            }`}
                                         >
-                                            {index + 1}. {label}
+                                            <span
+                                                className={`flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                                                    step === index
+                                                        ? 'bg-primary text-primary-content'
+                                                        : step > index
+                                                          ? 'bg-emerald-600 text-white'
+                                                          : 'bg-base-200 text-base-content/70'
+                                                }`}
+                                            >
+                                                {index + 1}
+                                            </span>
+                                            <span>{label}</span>
                                         </li>
                                     ))}
                                 </ol>
                                 {step === 0 && periods[0] && (
-                                    <p className="text-sm">
-                                        Periode hunian ·{' '}
-                                        {periods[0].nama_periode}
-                                    </p>
+                                    <div className="bg-primary/5 border-primary/20 flex flex-wrap items-center justify-between gap-2 rounded-xl border px-4 py-2.5 text-sm">
+                                        <span className="font-medium">
+                                            Periode hunian ·{' '}
+                                            <strong>
+                                                {periods[0].nama_periode}
+                                            </strong>
+                                        </span>
+                                        <span className="badge badge-primary badge-outline text-xs">
+                                            Aktif
+                                        </span>
+                                    </div>
                                 )}
                                 {!kipk && (
                                     <>
@@ -531,68 +551,171 @@ export default function Registration({
                                                 </>
                                             )}
                                         {step === 2 && (
-                                            <div className="border-base-300 bg-base-100 space-y-2 rounded-xl border p-4 shadow-sm">
-                                                <h2 className="font-semibold">
-                                                    {
-                                                        room?.lantai?.gedung
-                                                            ?.nama_gedung
-                                                    }{' '}
-                                                    · Kamar {room?.nomor_kamar}
-                                                </h2>
-                                                {form.data.starts_at &&
-                                                    form.data.ends_at && (
-                                                        <p className="text-sm">
-                                                            {
-                                                                form.data
-                                                                    .starts_at
-                                                            }{' '}
-                                                            sampai{' '}
-                                                            {form.data.ends_at}
-                                                        </p>
-                                                    )}
-                                                <p>
-                                                    Perkiraan biaya hunian{' '}
-                                                    <strong>
-                                                        {formatRupiah(
-                                                            price *
-                                                                (form.data
+                                            <div className="grid gap-4 lg:grid-cols-3">
+                                                <div className="border-base-300 bg-base-100 space-y-4 rounded-2xl border p-5 shadow-sm lg:col-span-2">
+                                                    <div className="flex flex-wrap items-start justify-between gap-3">
+                                                        <div>
+                                                            <span className="badge badge-primary badge-outline mb-2 text-xs font-semibold capitalize">
+                                                                {room?.tipe_kamar ??
+                                                                    'Kamar'}
+                                                            </span>
+                                                            <h2 className="text-xl font-bold">
+                                                                {
+                                                                    room?.lantai
+                                                                        ?.gedung
+                                                                        ?.nama_gedung
+                                                                }{' '}
+                                                                · Kamar{' '}
+                                                                {
+                                                                    room?.nomor_kamar
+                                                                }
+                                                            </h2>
+                                                            <p className="text-base-content/70 text-sm">
+                                                                {room?.lantai
+                                                                    ?.nama_lantai ??
+                                                                    `Lantai ${room?.lantai?.nomor_lantai ?? '—'}`}{' '}
+                                                                · Kapasitas{' '}
+                                                                {room?.kapasitas ??
+                                                                    '—'}{' '}
+                                                                orang
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="bg-base-200/50 grid gap-3 rounded-xl p-3.5 text-sm sm:grid-cols-2">
+                                                        <div>
+                                                            <span className="text-base-content/60 block text-xs">
+                                                                Skema &amp; dasar tarif
+                                                            </span>
+                                                            <strong>
+                                                                {form.data
                                                                     .rate_unit ===
                                                                 'day'
-                                                                    ? days +
-                                                                      (policy_day_basis ===
-                                                                      'inclusive_days'
-                                                                          ? 1
-                                                                          : 0)
+                                                                    ? 'Per hari'
                                                                     : form.data
                                                                             .rate_unit ===
                                                                         'month'
-                                                                      ? Math.max(
-                                                                            1,
-                                                                            Math.ceil(
-                                                                                days /
-                                                                                    policy_month_days,
-                                                                            ),
-                                                                        )
-                                                                      : 1),
-                                                        )}
-                                                    </strong>
-                                                    {form.data.rate_unit ===
-                                                    'day'
-                                                        ? ` untuk ${days} hari`
-                                                        : form.data
+                                                                      ? 'Per bulan'
+                                                                      : 'Per tahun'}{' '}
+                                                                ·{' '}
+                                                                {form.data
+                                                                    .billing_basis ===
+                                                                'room'
+                                                                    ? 'Per kamar'
+                                                                    : 'Per orang'}
+                                                            </strong>
+                                                        </div>
+                                                        <div>
+                                                            <span className="text-base-content/60 block text-xs">
+                                                                Periode / tanggal
+                                                            </span>
+                                                            <strong>
+                                                                {form.data
+                                                                    .starts_at &&
+                                                                form.data
+                                                                    .ends_at
+                                                                    ? `${form.data.starts_at} s/d ${form.data.ends_at}`
+                                                                    : periods[0]
+                                                                          ?.nama_periode ??
+                                                                      'Periode aktif'}
+                                                            </strong>
+                                                        </div>
+                                                    </div>
+                                                    {room?.facilities && (
+                                                        <p className="text-base-content/75 text-sm">
+                                                            <strong className="font-medium">
+                                                                Fasilitas:
+                                                            </strong>{' '}
+                                                            {room.facilities}
+                                                        </p>
+                                                    )}
+                                                    <p className="text-base-content/70 text-xs">
+                                                        Alokasi dipertahankan
+                                                        selama proses
+                                                        administrasi berjalan.
+                                                        Hunian belum aktif
+                                                        sampai check-in fisik
+                                                        dan serah kunci.
+                                                    </p>
+                                                </div>
+
+                                                <div className="border-base-300 bg-base-200/40 flex flex-col justify-between space-y-4 rounded-2xl border p-5 shadow-sm">
+                                                    <div className="space-y-3">
+                                                        <h3 className="text-sm font-bold tracking-wide uppercase">
+                                                            Rincian Biaya
+                                                        </h3>
+                                                        <div className="space-y-2 text-sm">
+                                                            <div className="flex justify-between gap-2">
+                                                                <span className="text-base-content/70">
+                                                                    Tarif satuan
+                                                                </span>
+                                                                <span className="font-medium">
+                                                                    {formatRupiah(
+                                                                        price,
+                                                                    )}
+                                                                </span>
+                                                            </div>
+                                                            <div className="flex justify-between gap-2">
+                                                                <span className="text-base-content/70">
+                                                                    Durasi
+                                                                </span>
+                                                                <span className="font-medium">
+                                                                    {form.data
+                                                                        .rate_unit ===
+                                                                    'day'
+                                                                        ? `${days + (policy_day_basis === 'inclusive_days' ? 1 : 0)} hari`
+                                                                        : form
+                                                                                .data
+                                                                                .rate_unit ===
+                                                                            'month'
+                                                                          ? `${Math.max(1, Math.ceil(days / policy_month_days))} bulan`
+                                                                          : '1 tahun'}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="border-base-300 border-t pt-3">
+                                                        <span className="text-base-content/70 block text-xs">
+                                                            Perkiraan biaya
+                                                            hunian
+                                                        </span>
+                                                        <p className="text-primary mt-0.5 text-2xl font-bold">
+                                                            {formatRupiah(
+                                                                price *
+                                                                    (form.data
+                                                                        .rate_unit ===
+                                                                    'day'
+                                                                        ? days +
+                                                                          (policy_day_basis ===
+                                                                          'inclusive_days'
+                                                                              ? 1
+                                                                              : 0)
+                                                                        : form
+                                                                                .data
+                                                                                .rate_unit ===
+                                                                            'month'
+                                                                          ? Math.max(
+                                                                                1,
+                                                                                Math.ceil(
+                                                                                    days /
+                                                                                        policy_month_days,
+                                                                                ),
+                                                                            )
+                                                                          : 1),
+                                                            )}
+                                                        </p>
+                                                        <span className="text-base-content/60 text-xs">
+                                                            {form.data
                                                                 .rate_unit ===
-                                                            'month'
-                                                          ? ` untuk ${Math.max(1, Math.ceil(days / policy_month_days))} bulan`
-                                                          : ' per tahun'}
-                                                    .
-                                                </p>
-                                                <p className="text-sm">
-                                                    Alokasi dipertahankan selama
-                                                    proses administrasi
-                                                    berjalan. Hunian belum aktif
-                                                    sampai check-in fisik dan
-                                                    serah kunci.
-                                                </p>
+                                                            'day'
+                                                                ? `untuk ${days} hari`
+                                                                : form.data
+                                                                        .rate_unit ===
+                                                                    'month'
+                                                                  ? `untuk ${Math.max(1, Math.ceil(days / policy_month_days))} bulan`
+                                                                  : 'per tahun'}
+                                                        </span>
+                                                    </div>
+                                                </div>
                                             </div>
                                         )}
                                     </>
