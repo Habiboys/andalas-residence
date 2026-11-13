@@ -179,15 +179,32 @@ export default function StokAset({ stok = [] }: { stok?: Stock[] }) {
             </Drawer>
             <ConfirmDialog
                 open={!!deleting}
-                onClose={() => setDeleting(null)}
+                onClose={() => {
+                    deletion.clearErrors();
+                    setDeleting(null);
+                }}
                 title="Hapus stok aset"
-                message={`Hapus jenis stok ${deleting?.nama ?? ''}? Jenis yang masih ditempatkan tidak dapat dihapus.`}
+                message={
+                    <div className="space-y-2">
+                        <p>
+                            {`Hapus jenis stok ${deleting?.nama ?? ''}? Jenis yang masih ditempatkan tidak dapat dihapus.`}
+                        </p>
+                        {Object.values(deletion.errors).map((error, index) => (
+                            <p
+                                key={index}
+                                role="alert"
+                                className="text-error text-sm"
+                            >
+                                {String(error)}
+                            </p>
+                        ))}
+                    </div>
+                }
                 loading={deletion.processing}
                 onConfirm={() => {
                     if (deleting)
                         deletion.delete(destroy.url(deleting.id), {
                             onSuccess: () => setDeleting(null),
-                            onError: () => setDeleting(null),
                         });
                 }}
             />

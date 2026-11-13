@@ -6,6 +6,7 @@ import {
     DataTable,
     Button,
     Drawer,
+    StatusBadge,
 } from '../../components/ui';
 import {
     TechnicianAssessment,
@@ -18,7 +19,19 @@ import { mapTicketStatus } from '../../lib/format';
 type TiketRow = {
     id: string;
     nomor_tiket?: string;
+    deskripsi?: string;
+    catatan_penyelesaian?: string;
+    tanggal_lapor?: string;
     status?: string;
+    aset?: {
+        nama_aset?: string;
+        kode_inventaris?: string;
+        fasilitas_umum?: { nama_fasilitas?: string; gedung?: { nama_gedung?: string } };
+    } | null;
+    kamar?: {
+        nomor_kamar?: string;
+        lantai?: { gedung?: { nama_gedung?: string } };
+    } | null;
     teknisi?: { nama?: string };
     penilaian?: unknown[];
 };
@@ -53,6 +66,7 @@ export default function PenilaianTeknisi({
     }>({ answers: {} });
     const [tab, setTab] = useState(0);
     const [selected, setSelected] = useState<string | null>(null);
+    const selectedTicket = tiket.find((item) => item.id === selected);
 
     const activeKuesioner = kuesioner[0];
     const belumDinilai = tiket.filter(
@@ -79,7 +93,9 @@ export default function PenilaianTeknisi({
         {
             key: 'status',
             label: 'Status',
-            render: (r: TiketRow) => mapTicketStatus(r.status ?? ''),
+            render: (r: TiketRow) => (
+                <StatusBadge status={mapTicketStatus(r.status ?? '')} />
+            ),
         },
         {
             key: 'aksi',
@@ -132,6 +148,48 @@ export default function PenilaianTeknisi({
                     </div>
                 }
             >
+                {selectedTicket && (
+                    <div className="border-base-200 bg-base-200/50 mb-4 space-y-1.5 rounded-lg border p-3 text-sm">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                            <span className="font-semibold">
+                                {selectedTicket.nomor_tiket}
+                            </span>
+                            <span className="text-muted text-xs">
+                                Teknisi: {selectedTicket.teknisi?.nama ?? '-'}
+                            </span>
+                        </div>
+                        <p className="text-xs">
+                            <span className="font-medium">Lokasi / Aset:</span>{' '}
+                            {[
+                                selectedTicket.kamar?.lantai?.gedung
+                                    ?.nama_gedung ??
+                                    selectedTicket.aset?.fasilitas_umum?.gedung
+                                        ?.nama_gedung,
+                                selectedTicket.kamar?.nomor_kamar
+                                    ? `Kamar ${selectedTicket.kamar.nomor_kamar}`
+                                    : selectedTicket.aset?.fasilitas_umum
+                                          ?.nama_fasilitas,
+                                selectedTicket.aset?.nama_aset,
+                            ]
+                                .filter(Boolean)
+                                .join(' · ') || '-'}
+                        </p>
+                        {selectedTicket.deskripsi && (
+                            <p className="text-xs">
+                                <span className="font-medium">Keluhan:</span>{' '}
+                                {selectedTicket.deskripsi}
+                            </p>
+                        )}
+                        {selectedTicket.catatan_penyelesaian && (
+                            <p className="text-xs">
+                                <span className="font-medium">
+                                    Hasil penyelesaian:
+                                </span>{' '}
+                                {selectedTicket.catatan_penyelesaian}
+                            </p>
+                        )}
+                    </div>
+                )}
                 {activeKuesioner?.pertanyaan && (
                     <TechnicianAssessment
                         pertanyaan={activeKuesioner.pertanyaan}

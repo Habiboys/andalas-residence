@@ -1,4 +1,4 @@
-import { PageHeader, Card } from '../../components/ui';
+import { PageHeader, Card, DataTable } from '../../components/ui';
 import { useAuth } from '../../context/AppContext';
 
 type TeknisiStat = {
@@ -10,14 +10,35 @@ type TeknisiStat = {
     total_penilaian: number;
 };
 
-type Props = {
-    performance: TeknisiStat[];
+type RatingRow = {
+    id: string;
+    total_skor?: number | string | null;
+    skor_persentase?: number | string | null;
+    catatan_umum?: string | null;
+    tanggal_penilaian?: string | null;
+    laporan_kerusakan?: {
+        id: string;
+        nomor_tiket?: string;
+        deskripsi?: string;
+        tanggal_selesai?: string | null;
+    } | null;
 };
 
-export default function RiwayatPenilaian({ performance = [] }: Props) {
+type Props = {
+    performance?: TeknisiStat[];
+    ratings?: RatingRow[];
+};
+
+export default function RiwayatPenilaian({
+    performance = [],
+    ratings = [],
+}: Props) {
     const { currentUser } = useAuth();
     const mine = performance.find(
-        (t) => t.nim_nip === currentUser?.nim || t.nama === currentUser?.nama,
+        (t) =>
+            (currentUser?.id && t.teknisi_id === currentUser.id) ||
+            t.nim_nip === currentUser?.nim ||
+            t.nama === currentUser?.nama,
     );
 
     return (
@@ -34,7 +55,10 @@ export default function RiwayatPenilaian({ performance = [] }: Props) {
                             {/* A missing score says so instead of showing a dash, which reads
                   like a value that was measured. */}
                             <dd className="text-accent text-3xl">
-                                {mine.rata_skor?.toFixed(1) ?? 'Belum dinilai'}
+                                {mine.rata_skor !== null &&
+                                mine.rata_skor !== undefined
+                                    ? Number(mine.rata_skor).toFixed(1)
+                                    : 'Belum dinilai'}
                             </dd>
                         </div>
                         <div>
@@ -55,6 +79,48 @@ export default function RiwayatPenilaian({ performance = [] }: Props) {
                     </p>
                 )}
             </Card>
+            {ratings.length > 0 && (
+                <DataTable
+                    columns={[
+                        {
+                            key: 'tanggal',
+                            label: 'Tanggal Penilaian',
+                            render: (r: RatingRow) =>
+                                String(r.tanggal_penilaian ?? '').slice(
+                                    0,
+                                    10,
+                                ) || '-',
+                        },
+                        {
+                            key: 'tiket',
+                            label: 'No. Tiket',
+                            render: (r: RatingRow) =>
+                                r.laporan_kerusakan?.nomor_tiket ?? '-',
+                        },
+                        {
+                            key: 'deskripsi',
+                            label: 'Pekerjaan',
+                            render: (r: RatingRow) =>
+                                r.laporan_kerusakan?.deskripsi ?? '-',
+                        },
+                        {
+                            key: 'skor',
+                            label: 'Skor',
+                            render: (r: RatingRow) =>
+                                r.total_skor != null
+                                    ? Number(r.total_skor).toFixed(1)
+                                    : '-',
+                        },
+                        {
+                            key: 'catatan',
+                            label: 'Catatan Evaluator',
+                            render: (r: RatingRow) => r.catatan_umum || '-',
+                        },
+                    ]}
+                    data={ratings}
+                    emptyMessage="Belum ada riwayat penilaian per tiket."
+                />
+            )}
         </div>
     );
 }

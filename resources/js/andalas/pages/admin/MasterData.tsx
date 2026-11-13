@@ -121,11 +121,13 @@ function MasterCrudSection({
         put,
         processing,
         errors,
+        clearErrors,
     } = useForm<Record<string, string>>({});
     const deleteForm = useForm<Record<string, string>>({});
     const syncForm = useForm<Record<string, string>>({});
 
     function openCreate() {
+        clearErrors();
         setEditing(null);
         const d: Record<string, string> = {};
         fields.forEach((f) => {
@@ -136,6 +138,7 @@ function MasterCrudSection({
     }
 
     function openEdit(row: Row) {
+        clearErrors();
         setEditing(row);
         const d: Record<string, string> = {};
         fields.forEach((f) => {
