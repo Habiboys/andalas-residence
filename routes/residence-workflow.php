@@ -14,6 +14,7 @@ Route::prefix('residence-process')->name('residence.')->group(function (): void 
     Route::post('/registrations/{registration}/move', [ResidenceAmendmentController::class, 'move'])->name('move');
     Route::post('/contracts/{contract}/revise', [ResidenceAmendmentController::class, 'contract'])->name('contracts.revise');
     Route::get('/', [Workflow::class, 'index'])->name('workflow');
+    Route::get('/registrations/{registration}', [Workflow::class, 'show'])->name('registrations.show');
     Route::post('/profile', [Workflow::class, 'profile'])->name('profile');
     Route::post('/housing-profile', [Workflow::class, 'profile'])->name('housing-profile');
     Route::post('/policies', [Workflow::class, 'policy'])->name('policies');
@@ -30,6 +31,7 @@ Route::prefix('residence-process')->name('residence.')->group(function (): void 
     Route::post('/invoices/{group}/send', [Applications::class, 'sendInvoice'])->name('invoices.send');
     Route::post('/registrations/{registration}/transfer-proof', [Workflow::class, 'transferProof'])->name('transfer-proof');
     Route::post('/registrations/{registration}/documents', [Workflow::class, 'upload'])->name('documents.upload');
+    Route::post('/registrations/{registration}/submit-package', [Workflow::class, 'submitPackage'])->name('package.submit');
     Route::get('/documents/{document}', [Workflow::class, 'document'])->name('documents.download');
     Route::post('/documents/{document}/review', [Workflow::class, 'reviewDocument'])->name('documents.review');
     Route::post('/registrations/{registration}/decisions', [Workflow::class, 'requestDecision'])->name('decisions.request');

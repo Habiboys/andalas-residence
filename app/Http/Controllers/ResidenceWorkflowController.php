@@ -85,29 +85,12 @@ class ResidenceWorkflowController extends Controller
         $summary['receivables'] = (float) Tagihan::whereIn('id', (clone $registrations)->select('tagihan_id'))->where('status', '!=', 'batal')->sum(DB::raw('CASE WHEN total > total_dibayar THEN total - total_dibayar ELSE 0 END + CASE WHEN sponsor_total > sponsor_paid THEN sponsor_total - sponsor_paid ELSE 0 END'));
         $summary['credits'] = (float) Tagihan::whereIn('id', (clone $registrations)->select('tagihan_id'))->where('status', '!=', 'batal')->whereColumn('total_dibayar', '>', 'total')->sum(DB::raw('total_dibayar - total'));
         $page = $registrations->latest()->paginate(30)->withQueryString();
-        $page->getCollection()->transform(function ($r) use ($user) {
-            $r->setAttribute('blockers', $r->completed_at ? [] : app(ResidenceWorkflow::class)->blockers($r));
-            $r->setAttribute('can_submit', ResidenceWorkflowAccess::manager($user) || $r->studentProfile->user_id === $user->id);
-            $r->setAttribute('checkout_request', $r->penempatan_kamar_id ? CheckoutRequest::with('inspection')->where('penempatan_kamar_id', $r->penempatan_kamar_id)->where('status', '!=', 'ditolak')->latest()->first() : null);
-            if (ResidenceWorkflowAccess::manager($user) && $r->room_contract_id) {
-                $r->setAttribute('contract_candidates', ResidenceRegistration::with('studentProfile.user')->where(function ($q) use ($r): void {
-                    $q->where('room_contract_id', $r->room_contract_id)->orWhere(fn ($q) => $q->whereNull('room_contract_id')->whereNull('tagihan_id')->whereNull('completed_at')->whereNotIn('status', ['draft', 'rejected'])->where('reserved_room_id', $r->reserved_room_id)->where('billing_basis', 'room')->where('residence_policy_id', $r->residence_policy_id)->whereDate('starts_at', $r->starts_at)->whereDate('ends_at', $r->ends_at));
-                })->get()->map(fn ($candidate) => ['id' => $candidate->id, 'name' => $candidate->studentProfile->user->nama]));
-            }
-            $r->setAttribute('amendments', DB::table('residence_amendments')->where(function ($q) use ($r): void {
-                $q->where('subject_id', $r->id)->orWhereJsonContains('after->registration_ids', $r->id);
-                if ($r->room_contract_id) {
-                    $q->orWhere('subject_id', $r->room_contract_id);
-                }
-            })->orderByDesc('created_at')->get()->map(fn ($a) => ['id' => $a->id, 'kind' => $a->kind, 'reason' => $a->reason, 'created_at' => $a->created_at]));
-            $r->setAttribute('can_operate', ResidenceWorkflowAccess::officer($user, $r));
-
-            return $r;
-        });
+        $page->getCollection()->transform(fn (ResidenceRegistration $r): ResidenceRegistration => $this->decorateRegistration($r, $user));
 
         return Inertia::render('admin/residence-workflow', [
             'role' => $user->getRoleNames()->first(), 'page' => $studentView ? 'registration' : ($section === 'registrations' ? 'residence-workflow' : 'residence-workflow/'.$section), 'initialUser' => app(RolePageController::class)->userPayload($request),
             'section' => $section,
+            'detailMode' => false,
             'pendingRoomContracts' => $manager && in_array($section, ['registrations', 'contracts'], true) ? (clone $registrations)
                 ->with(['studentProfile.user', 'reservedRoom.lantai.gedung'])
                 ->where('billing_basis', 'room')->whereNull('room_contract_id')->whereNull('completed_at')
@@ -140,6 +123,68 @@ class ResidenceWorkflowController extends Controller
             'reconciliations' => $finance ? ResidencePaymentReference::latest()->limit(100)->get() : [],
             'invoices' => $finance ? Tagihan::with('mahasiswa.user')->where('status', '!=', 'batal')->where(fn ($q) => $q->whereColumn('total', '>', 'total_dibayar')->orWhereColumn('sponsor_total', '>', 'sponsor_paid'))->latest()->limit(200)->get() : [],
         ]);
+    }
+
+    public function show(Request $request, ResidenceRegistration $registration): Response
+    {
+        $user = $request->user();
+        $manager = ResidenceWorkflowAccess::manager($user);
+        $finance = $user->can('pembayaran.verify');
+        abort_unless($manager || $finance || $user->hasAnyRole(['fasilitator', 'pimpinan']), 403);
+        if (! $manager && ! $finance && ! $user->hasRole('pimpinan') && $user->hasRole('fasilitator')) {
+            abort_unless(ResidenceWorkflowAccess::officer($user, $registration), 403);
+        }
+
+        $registration->load(['studentProfile.user', 'reservedRoom.lantai.gedung', 'placement.kamar.lantai.gedung', 'policy', 'documents.reviewer:id,nama', 'decisions', 'tagihan', 'application', 'roomContract']);
+        $registration = $this->decorateRegistration($registration, $user);
+
+        return Inertia::render('admin/residence-workflow', [
+            'role' => $user->getRoleNames()->first(),
+            'page' => 'residence-workflow',
+            'initialUser' => app(RolePageController::class)->userPayload($request),
+            'section' => 'registrations',
+            'detailMode' => true,
+            'pendingRoomContracts' => [],
+            'registrations' => ['data' => [$registration], 'last_page' => 1, 'links' => []],
+            'summary' => [],
+            'studentView' => false,
+            'manager' => $manager,
+            'finance' => $finance,
+            'leader' => $user->hasRole('pimpinan'),
+            'programs' => Prodi::orderBy('name')->get(['id', 'name', 'jenjang', 'departemen_id']),
+            'policies' => [],
+            'templates' => ResidenceDocumentTemplate::orderBy('category')->orderBy('kind')->get(['id', 'category', 'kind', 'original_name', 'updated_at']),
+            'buildings' => [],
+            'policyCatalog' => [],
+            'masterHousingUrl' => null,
+            'rooms' => ($manager || $user->hasRole('fasilitator')) ? Kamar::with('lantai.gedung')->where('status', '!=', 'maintenance')->when(! $manager, fn ($q) => $q->whereHas('lantai', fn ($q) => $q->whereIn('gedung_id', ResidenceBuildingAccess::ids($user))))->get() : [],
+            'applications' => [],
+            'paymentProofs' => [],
+            'invoiceGroups' => [],
+            'reconciliations' => [],
+            'invoices' => [],
+        ]);
+    }
+
+    private function decorateRegistration(ResidenceRegistration $r, User $user): ResidenceRegistration
+    {
+        $r->setAttribute('blockers', $r->completed_at ? [] : app(ResidenceWorkflow::class)->blockers($r));
+        $r->setAttribute('can_submit', ResidenceWorkflowAccess::manager($user) || $r->studentProfile->user_id === $user->id);
+        $r->setAttribute('checkout_request', $r->penempatan_kamar_id ? CheckoutRequest::with('inspection')->where('penempatan_kamar_id', $r->penempatan_kamar_id)->where('status', '!=', 'ditolak')->latest()->first() : null);
+        if (ResidenceWorkflowAccess::manager($user) && $r->room_contract_id) {
+            $r->setAttribute('contract_candidates', ResidenceRegistration::with('studentProfile.user')->where(function ($q) use ($r): void {
+                $q->where('room_contract_id', $r->room_contract_id)->orWhere(fn ($q) => $q->whereNull('room_contract_id')->whereNull('tagihan_id')->whereNull('completed_at')->whereNotIn('status', ['draft', 'rejected'])->where('reserved_room_id', $r->reserved_room_id)->where('billing_basis', 'room')->where('residence_policy_id', $r->residence_policy_id)->whereDate('starts_at', $r->starts_at)->whereDate('ends_at', $r->ends_at));
+            })->get()->map(fn ($candidate) => ['id' => $candidate->id, 'name' => $candidate->studentProfile->user->nama]));
+        }
+        $r->setAttribute('amendments', DB::table('residence_amendments')->where(function ($q) use ($r): void {
+            $q->where('subject_id', $r->id)->orWhereJsonContains('after->registration_ids', $r->id);
+            if ($r->room_contract_id) {
+                $q->orWhere('subject_id', $r->room_contract_id);
+            }
+        })->orderByDesc('created_at')->get()->map(fn ($a) => ['id' => $a->id, 'kind' => $a->kind, 'reason' => $a->reason, 'created_at' => $a->created_at]));
+        $r->setAttribute('can_operate', ResidenceWorkflowAccess::officer($user, $r));
+
+        return $r;
     }
 
     public function profile(Request $request): RedirectResponse
@@ -319,6 +364,104 @@ class ResidenceWorkflowController extends Controller
                 'path' => $request->file('file')->store('documents/registration', 'local'), 'checksum' => hash_file('sha256', $request->file('file')->getRealPath()), 'uploaded_by' => $request->user()->id, 'status' => 'uploaded']);
             app(ResidenceWorkflow::class)->evaluate($r->fresh());
             AuditLogService::log($request->user(), 'registration_document_uploaded', $document, null, ['kind' => $document->kind, 'version' => $document->version]);
+        });
+
+        return back();
+    }
+
+    public function submitPackage(Request $request, ResidenceRegistration $registration): RedirectResponse
+    {
+        abort_unless(ResidenceWorkflowAccess::manager($request->user()) || $registration->studentProfile->user_id === $request->user()->id, 403);
+
+        $data = $request->validate([
+            'files' => ['nullable', 'array'],
+            'files.*' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
+            'decision_kind' => ['nullable', 'in:full,installment,defer,monthly,transfer_permission'],
+            'decision_reason' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        $uploadedFiles = $request->file('files', []);
+        if ($uploadedFiles === [] && empty($data['decision_kind'])) {
+            throw ValidationException::withMessages([
+                'package' => 'Pilih minimal satu dokumen atau pilihan pembiayaan untuk disimpan.',
+            ]);
+        }
+
+        DB::transaction(function () use ($request, $registration, $data, $uploadedFiles): void {
+            $r = ResidenceRegistration::whereKey($registration->id)->lockForUpdate()->firstOrFail();
+            $approvedDecisions = $r->decisions()->where('status', 'approved')->get();
+            $allowedKinds = array_unique([
+                ...($r->policy?->settings['documents'] ?? []),
+                ...$approvedDecisions->filter(fn ($decision) => ! ($decision->terms['requires_configuration'] ?? false))->pluck('terms.agreement_kind')->filter()->all(),
+                'perjanjian',
+            ]);
+
+            foreach ($uploadedFiles as $kind => $file) {
+                $kind = (string) $kind;
+                $amendmentAllowed = $approvedDecisions->contains(
+                    fn ($d) => ! empty($d->terms['amendment_id']) && ($d->terms['agreement_kind'] ?? null) === $kind
+                );
+                if (($r->completed_at && ! $amendmentAllowed) || $r->keys_returned_at || $r->status->value === 'rejected' || ! in_array($kind, $allowedKinds, true)) {
+                    throw ValidationException::withMessages(["files.{$kind}" => 'Jenis dokumen tidak berlaku atau pendaftaran sudah selesai.']);
+                }
+
+                $latest = $r->documents()->where('kind', $kind)->orderByDesc('version')->first();
+                if ($latest && $latest->status !== 'revision') {
+                    throw ValidationException::withMessages(["files.{$kind}" => "Dokumen {$kind} sudah tersimpan dan tidak dapat diubah."]);
+                }
+
+                $document = $r->documents()->create([
+                    'kind' => $kind,
+                    'version' => 1 + (int) ($latest?->version ?? 0),
+                    'path' => $file->store('documents/registration', 'local'),
+                    'checksum' => hash_file('sha256', $file->getRealPath()),
+                    'uploaded_by' => $request->user()->id,
+                    'status' => 'uploaded',
+                ]);
+                AuditLogService::log($request->user(), 'registration_document_uploaded', $document, null, ['kind' => $document->kind, 'version' => $document->version]);
+            }
+
+            if (! empty($data['decision_kind'])) {
+                if ($r->completed_at || ! $r->tagihan_id || $r->status->value === 'rejected') {
+                    throw ValidationException::withMessages(['decision_kind' => 'Keputusan membutuhkan pendaftaran berjalan dan tagihan.']);
+                }
+                if ($r->decisions()->whereIn('status', ['pending', 'approved'])->exists()) {
+                    throw ValidationException::withMessages(['decision_kind' => 'Pilihan pembiayaan sudah tersimpan dan tidak dapat diubah.']);
+                }
+
+                $kind = $data['decision_kind'];
+                if ($kind === 'full') {
+                    $decision = $r->decisions()->create([
+                        'kind' => 'full',
+                        'reason' => 'Pembayaran penuh sesuai tagihan.',
+                        'requested_by' => $request->user()->id,
+                        'decided_by' => $request->user()->id,
+                        'decided_at' => now(),
+                        'status' => 'approved',
+                    ]);
+                    AuditLogService::log($request->user(), 'residence_decision_requested', $decision, null, ['kind' => 'full']);
+                } else {
+                    $reason = trim((string) ($data['decision_reason'] ?? ''));
+                    if ($reason === '') {
+                        throw ValidationException::withMessages(['decision_reason' => 'Alasan permohonan wajib diisi.']);
+                    }
+                    if ($kind === 'monthly' && $r->rate_unit !== 'month') {
+                        throw ValidationException::withMessages(['decision_kind' => 'Pendaftaran ini bukan skema bulanan.']);
+                    }
+                    if ($kind === 'transfer_permission' && $r->stay_kind !== 'non_student') {
+                        throw ValidationException::withMessages(['decision_kind' => 'Izin berbasis bukti transfer hanya untuk umum.']);
+                    }
+                    $decision = $r->decisions()->create([
+                        'kind' => $kind,
+                        'reason' => $reason,
+                        'requested_by' => $request->user()->id,
+                        'status' => 'pending',
+                    ]);
+                    AuditLogService::log($request->user(), 'residence_decision_requested', $decision, null, ['kind' => $kind, 'reason' => $reason]);
+                }
+            }
+
+            app(ResidenceWorkflow::class)->evaluate($r->fresh());
         });
 
         return back();

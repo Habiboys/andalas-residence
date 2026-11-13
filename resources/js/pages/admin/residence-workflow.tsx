@@ -239,6 +239,7 @@ type Reference = {
 
 type Props = {
     studentView?: boolean;
+    detailMode?: boolean;
     section?: string;
     pendingRoomContracts?: Registration[];
     registrations: {
@@ -390,6 +391,8 @@ const statuses: Record<string, string> = {
 };
 
 const decisionNames: Record<string, string> = {
+    full: 'Bayar penuh',
+
     installment: 'Cicilan',
 
     defer: 'Penundaan pembayaran',
@@ -440,7 +443,11 @@ function Field({
 
             {children ?? (
                 <input
-                    className={input}
+                    className={
+                        type === 'file'
+                            ? 'file-input file-input-bordered w-full'
+                            : input
+                    }
 
                     name={name}
 
@@ -865,6 +872,8 @@ function RegistrationCard({
     rooms,
 
     templates = [],
+
+    studentView = false,
 }: {
     r: Registration;
 
@@ -875,6 +884,8 @@ function RegistrationCard({
     rooms: Room[];
 
     templates?: NonNullable<Props['templates']>;
+
+    studentView?: boolean;
 }) {
     const latestDocuments = r.documents.filter(
         (d) =>
@@ -882,6 +893,124 @@ function RegistrationCard({
                 (other) => other.kind === d.kind && other.version > d.version,
             ),
     );
+
+    const [packageFiles, setPackageFiles] = useState<
+        Record<string, File | null>
+    >({});
+    const [decisionKind, setDecisionKind] = useState<string>('full');
+    const [decisionReason, setDecisionReason] = useState<string>('');
+    const [packageError, setPackageError] = useState<string | null>(null);
+    const [confirmPackageOpen, setConfirmPackageOpen] = useState(false);
+    const [packageSubmitting, setPackageSubmitting] = useState(false);
+
+    const canChooseDecision =
+        studentView &&
+        r.can_submit &&
+        !r.completed_at &&
+        Boolean(r.tagihan) &&
+        !r.decisions.some(
+            (d) =>
+                d.status === 'pending' ||
+                (d.status === 'approved' && !d.terms?.requires_configuration),
+        );
+
+    const requiredDocumentKinds: string[] = [
+        ...new Set([
+            ...(r.policy?.settings.documents ?? []),
+            ...r.decisions
+                .filter(
+                    (d) =>
+                        d.status === 'approved' &&
+                        !d.terms?.requires_configuration,
+                )
+                .map((d) => d.terms?.agreement_kind)
+                .filter((kind): kind is string => Boolean(kind)),
+        ]),
+    ];
+
+    const editableDocKinds = studentView
+        ? requiredDocumentKinds.filter((kind) => {
+              const doc = latestDocuments.find((d) => d.kind === kind);
+
+              return (
+                  doc?.status !== 'valid' &&
+                  doc?.status !== 'uploaded' &&
+                  (!r.completed_at || kind.startsWith('pembiayaan_')) &&
+                  !r.keys_returned_at &&
+                  r.can_submit
+              );
+          })
+        : [];
+
+    const selectedFileCount = editableDocKinds.filter(
+        (kind) => packageFiles[kind],
+    ).length;
+    const hasPackageChanges = selectedFileCount > 0 || canChooseDecision;
+
+    const openPackageConfirm = () => {
+        setPackageError(null);
+        if (selectedFileCount === 0 && !canChooseDecision) {
+            setPackageError('Pilih minimal satu dokumen untuk disimpan.');
+
+            return;
+        }
+        if (
+            canChooseDecision &&
+            decisionKind !== 'full' &&
+            decisionReason.trim() === ''
+        ) {
+            setPackageError(
+                'Alasan permohonan wajib diisi untuk cicilan atau penundaan.',
+            );
+
+            return;
+        }
+        setConfirmPackageOpen(true);
+    };
+
+    const submitPackage = () => {
+        const formData = new FormData();
+        editableDocKinds.forEach((kind) => {
+            const file = packageFiles[kind];
+            if (file) {
+                formData.append(`files[${kind}]`, file);
+            }
+        });
+        if (canChooseDecision) {
+            formData.append('decision_kind', decisionKind);
+            if (decisionKind !== 'full') {
+                formData.append('decision_reason', decisionReason.trim());
+            }
+        }
+
+        setPackageSubmitting(true);
+        setPackageError(null);
+        router.post(
+            `/residence-process/registrations/${r.id}/submit-package`,
+            formData,
+            {
+                forceFormData: true,
+                preserveScroll: true,
+                onSuccess: () => {
+                    setConfirmPackageOpen(false);
+                    setPackageFiles({});
+                    setDecisionReason('');
+                },
+                onError: (errors) => {
+                    setConfirmPackageOpen(false);
+                    const firstError = Object.values(errors)[0];
+                    setPackageError(
+                        typeof firstError === 'string'
+                            ? firstError
+                            : 'Gagal menyimpan kelengkapan.',
+                    );
+                },
+                onFinish: () => {
+                    setPackageSubmitting(false);
+                },
+            },
+        );
+    };
 
     return (
         <Panel
@@ -981,27 +1110,16 @@ function RegistrationCard({
             )}
 
             {r.workflow_version === 2 && (
-                <details className="border-base-300 rounded border p-3">
+                <details
+                    open={studentView}
+                    className="border-base-300 rounded border p-3"
+                >
                     <summary className="cursor-pointer font-medium">
                         Dokumen pendaftaran
                     </summary>
 
                     <div className="mt-3 space-y-4">
-                        {[
-                            ...new Set([
-                                ...(r.policy?.settings.documents ?? []),
-                                ...r.decisions
-                                    .filter(
-                                        (d) =>
-                                            d.status === 'approved' &&
-                                            !d.terms?.requires_configuration,
-                                    )
-                                    .map((d) => d.terms?.agreement_kind)
-                                    .filter((kind): kind is string =>
-                                        Boolean(kind),
-                                    ),
-                            ]),
-                        ].map((kind) => {
+                        {requiredDocumentKinds.map((kind) => {
                             const doc = latestDocuments.find(
                                 (d) => d.kind === kind,
                             );
@@ -1025,43 +1143,53 @@ function RegistrationCard({
                                             : 'Belum diunggah'}
                                     </p>
 
-                                    {template ? (
-                                        <div className="bg-info/10 border-info/30 flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2 text-xs">
-                                            <span>
-                                                Unduh template resmi, isi di
-                                                Word/Docs, lalu unggah kembali.
-                                            </span>
-                                            <a
-                                                className="btn btn-xs btn-outline"
-                                                href={`/residence-process/templates/${docCategory}/${kind}`}
-                                            >
-                                                Unduh Template (
-                                                {template.original_name})
-                                            </a>
-                                        </div>
-                                    ) : (
-                                        kind !== 'ktp' && (
-                                            <p
-                                                role="alert"
-                                                className="alert alert-warning py-2 text-xs"
-                                            >
-                                                Template belum tersedia, hubungi
-                                                pengelola.
-                                            </p>
-                                        )
-                                    )}
+                                    {studentView &&
+                                        (template ? (
+                                            <div className="bg-info/10 border-info/30 flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2 text-xs">
+                                                <span>
+                                                    Unduh template resmi, isi di
+                                                    Word/Docs, lalu unggah
+                                                    kembali.
+                                                </span>
+                                                <a
+                                                    className="btn btn-xs btn-outline"
+                                                    href={`/residence-process/templates/${docCategory}/${kind}`}
+                                                >
+                                                    Unduh Template (
+                                                    {template.original_name})
+                                                </a>
+                                            </div>
+                                        ) : (
+                                            kind !== 'ktp' && (
+                                                <p
+                                                    role="alert"
+                                                    className="alert alert-warning py-2 text-xs"
+                                                >
+                                                    Template belum tersedia,
+                                                    hubungi pengelola.
+                                                </p>
+                                            )
+                                        ))}
 
                                     {doc && (
                                         <>
-                                            <a
-                                                className="link"
-
-                                                href={workflow.document.url(
-                                                    doc.id,
-                                                )}
-                                            >
-                                                Unduh versi {doc.version}
-                                            </a>
+                                            <div className="flex flex-wrap items-center gap-3">
+                                                <a
+                                                    className="link"
+                                                    href={workflow.document.url(
+                                                        doc.id,
+                                                    )}
+                                                >
+                                                    Unduh versi {doc.version}
+                                                </a>
+                                                {studentView &&
+                                                    doc.status !==
+                                                        'revision' && (
+                                                        <span className="badge badge-success badge-sm">
+                                                            Tersimpan
+                                                        </span>
+                                                    )}
+                                            </div>
 
                                             {doc.reviewer && (
                                                 <p className="text-sm">
@@ -1083,35 +1211,40 @@ function RegistrationCard({
                                         </>
                                     )}
 
-                                    {(!r.completed_at ||
-                                        kind.startsWith('pembiayaan_')) &&
+                                    {studentView &&
+                                        (!doc || doc.status === 'revision') &&
+                                        (!r.completed_at ||
+                                            kind.startsWith('pembiayaan_')) &&
                                         !r.keys_returned_at &&
                                         r.can_submit && (
-                                            <ActionForm
-                                                url={workflow.upload.url(r.id)}
-
-                                                label="Unggah versi baru"
-                                            >
+                                            <label className="form-control w-full gap-1.5">
+                                                <span className="label-text text-sm font-medium">
+                                                    Dokumen PDF atau gambar,
+                                                    maksimal 5 MB
+                                                </span>
                                                 <input
-                                                    type="hidden"
-
-                                                    name="kind"
-
-                                                    value={kind}
-                                                />
-
-                                                <Field
-                                                    name="file"
-
-                                                    label="Dokumen PDF atau gambar, maksimal 5 MB"
-
                                                     type="file"
+                                                    accept=".pdf,image/jpeg,image/png"
+                                                    className="file-input file-input-bordered w-full"
+                                                    onChange={(event) => {
+                                                        const file =
+                                                            event.target
+                                                                .files?.[0] ??
+                                                            null;
+                                                        setPackageFiles(
+                                                            (prev) => ({
+                                                                ...prev,
+                                                                [kind]: file,
+                                                            }),
+                                                        );
+                                                    }}
                                                 />
-                                            </ActionForm>
+                                            </label>
                                         )}
 
-                                    {(!r.completed_at ||
-                                        kind.startsWith('pembiayaan_')) &&
+                                    {!studentView &&
+                                        (!r.completed_at ||
+                                            kind.startsWith('pembiayaan_')) &&
                                         !r.keys_returned_at &&
                                         doc &&
                                         r.can_operate && (
@@ -1179,15 +1312,36 @@ function RegistrationCard({
                 </details>
             )}
 
-            {(!r.completed_at ||
-                r.decisions.some((d) => d.terms?.amendment_id)) &&
+            {(studentView || r.decisions.length > 0) &&
+                (!r.completed_at ||
+                    r.decisions.some((d) => d.terms?.amendment_id)) &&
                 r.tagihan && (
-                    <details className="border-base-300 rounded border p-3">
+                    <details
+                        open={studentView}
+                        className="border-base-300 rounded border p-3"
+                    >
                         <summary className="cursor-pointer font-medium">
-                            Keputusan pembiayaan
+                            Pembayaran &amp; Keputusan pembiayaan
                         </summary>
 
                         <div className="mt-3 space-y-4">
+                            {studentView && (
+                                <div className="bg-base-200/60 border-base-300 flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3 text-xs">
+                                    <span>
+                                        Pembayaran default adalah{' '}
+                                        <strong>lunas penuh</strong> melalui
+                                        menu Tagihan. Jika memerlukan
+                                        keringanan (Cicilan / Penundaan), ajukan
+                                        permohonan di bawah ini.
+                                    </span>
+                                    <Link
+                                        href="/mahasiswa/tagihan"
+                                        className="btn btn-xs btn-outline"
+                                    >
+                                        Buka Tagihan &amp; Pembayaran
+                                    </Link>
+                                </div>
+                            )}
                             {r.decisions.map((d) => (
                                 <div className="border-b pb-3" key={d.id}>
                                     <p className="font-medium">
@@ -1233,28 +1387,36 @@ function RegistrationCard({
                                 </div>
                             ))}
 
-                            {r.can_submit && !r.completed_at && (
-                                <ActionForm
-                                    url={workflow.requestDecision.url(r.id)}
-
-                                    label="Ajukan keputusan"
-                                >
-                                    <Field name="kind" label="Jenis permohonan">
-                                        <select className={input} name="kind">
+                            {canChooseDecision && (
+                                <div className="space-y-3 pt-1">
+                                    <label className="form-control w-full gap-1.5">
+                                        <span className="label-text text-sm font-medium">
+                                            Pilihan pembiayaan
+                                        </span>
+                                        <select
+                                            className={input}
+                                            value={decisionKind}
+                                            onChange={(event) => {
+                                                setDecisionKind(
+                                                    event.target.value,
+                                                );
+                                                setPackageError(null);
+                                            }}
+                                        >
+                                            <option value="full">
+                                                Bayar penuh (sesuai tagihan)
+                                            </option>
                                             <option value="installment">
                                                 Cicilan
                                             </option>
-
                                             <option value="defer">
                                                 Penundaan pembayaran
                                             </option>
-
                                             {r.rate_unit === 'month' && (
                                                 <option value="monthly">
                                                     Skema bulanan
                                                 </option>
                                             )}
-
                                             {r.stay_kind === 'non_student' && (
                                                 <option value="transfer_permission">
                                                     Izin berdasarkan bukti
@@ -1262,18 +1424,134 @@ function RegistrationCard({
                                                 </option>
                                             )}
                                         </select>
-                                    </Field>
+                                    </label>
 
-                                    <Field
-                                        name="reason"
-
-                                        label="Alasan permohonan"
-                                    />
-                                </ActionForm>
+                                    {decisionKind !== 'full' && (
+                                        <label className="form-control w-full gap-1.5">
+                                            <span className="label-text text-sm font-medium">
+                                                Alasan permohonan
+                                            </span>
+                                            <input
+                                                type="text"
+                                                className={input}
+                                                placeholder="Tuliskan alasan pengajuan cicilan atau penundaan"
+                                                value={decisionReason}
+                                                onChange={(event) =>
+                                                    setDecisionReason(
+                                                        event.target.value,
+                                                    )
+                                                }
+                                            />
+                                        </label>
+                                    )}
+                                </div>
                             )}
                         </div>
                     </details>
                 )}
+
+            {studentView && (editableDocKinds.length > 0 || canChooseDecision) && (
+                <div className="border-base-300 bg-base-200/50 space-y-3 rounded-lg border p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div className="space-y-0.5 text-sm">
+                            <p className="font-semibold">
+                                Simpan Kelengkapan Sekaligus
+                            </p>
+                            <p className="text-base-content/70 text-xs">
+                                Dokumen yang diunggah dan pilihan pembiayaan
+                                akan dikunci setelah disimpan.
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            className="btn btn-primary"
+                            disabled={!hasPackageChanges || packageSubmitting}
+                            onClick={openPackageConfirm}
+                        >
+                            {packageSubmitting
+                                ? 'Menyimpan...'
+                                : 'Simpan & Kirim Kelengkapan'}
+                        </button>
+                    </div>
+                    {packageError && (
+                        <p className="text-error text-sm">{packageError}</p>
+                    )}
+                </div>
+            )}
+
+            {confirmPackageOpen && (
+                <div className="modal modal-open">
+                    <div className="modal-box max-w-lg space-y-4">
+                        <h3 className="text-lg font-semibold">
+                            Konfirmasi Simpan Permanen
+                        </h3>
+                        <p className="text-base-content/80 text-sm">
+                            Periksa kembali kelengkapan berikut sebelum
+                            disimpan:
+                        </p>
+                        <div className="border-base-300 bg-base-200/40 space-y-2 rounded-lg border p-3 text-sm">
+                            {editableDocKinds.map((kind) => {
+                                const file = packageFiles[kind];
+
+                                return (
+                                    <div
+                                        key={kind}
+                                        className="flex items-center justify-between gap-2"
+                                    >
+                                        <span className="font-medium capitalize">
+                                            {kind.replaceAll('_', ' ')}
+                                        </span>
+                                        <span className="text-base-content/70 truncate">
+                                            {file
+                                                ? file.name
+                                                : 'Tidak diunggah saat ini'}
+                                        </span>
+                                    </div>
+                                );
+                            })}
+                            {canChooseDecision && (
+                                <div className="border-base-300 flex items-center justify-between gap-2 border-t pt-2">
+                                    <span className="font-medium">
+                                        Pilihan pembiayaan
+                                    </span>
+                                    <span>
+                                        {decisionNames[decisionKind] ??
+                                            decisionKind}
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+                        <div className="alert alert-warning text-sm">
+                            <span>
+                                Data dokumen dan pilihan pembiayaan yang sudah
+                                disimpan <strong>tidak dapat diubah</strong>{' '}
+                                kembali, kecuali jika pengelola meminta revisi
+                                dokumen.
+                            </span>
+                        </div>
+                        <div className="modal-action">
+                            <button
+                                type="button"
+                                className="btn btn-ghost"
+                                disabled={packageSubmitting}
+                                onClick={() => setConfirmPackageOpen(false)}
+                            >
+                                Batal
+                            </button>
+                            <button
+                                type="button"
+                                className="btn btn-primary"
+                                disabled={packageSubmitting}
+                                onClick={submitPackage}
+                            >
+                                {packageSubmitting
+                                    ? 'Menyimpan...'
+                                    : 'Ya, Simpan Permanen'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {manager && r.stay_kind === 'non_student' && r.tagihan && (
                 <details className="rounded border p-3">
@@ -1299,7 +1577,10 @@ function RegistrationCard({
                 </details>
             )}
 
-            {r.can_operate && !r.completed_at && (
+            {!studentView &&
+                r.can_operate &&
+                !r.completed_at &&
+                r.blockers.length === 0 && (
                 <ActionForm
                     url={workflow.checkIn.url(r.id)}
 
@@ -2566,15 +2847,11 @@ export default function ResidenceWorkflowPage(props: Props) {
 
     const isOfficerView = !props.studentView;
 
-    const [selectedRegistrationId, setSelectedRegistrationId] = useState<
-        string | null
-    >(null);
     const [searchQuery, setSearchQuery] = useState('');
 
-    const selectedRegistration =
-        props.registrations.data.find(
-            (item) => item.id === selectedRegistrationId,
-        ) ?? null;
+    const detailRegistration = props.detailMode
+        ? (props.registrations.data[0] ?? null)
+        : null;
 
     const filteredRegistrations = props.registrations.data.filter((item) => {
         if (!searchQuery.trim()) return true;
@@ -2643,15 +2920,19 @@ export default function ResidenceWorkflowPage(props: Props) {
             <header className="space-y-3">
                 <div>
                     <h1 className="text-2xl font-bold">
-                        {isOfficerView
-                            ? currentHeader.title
-                            : 'Pendaftaran & Status Hunian Saya'}
+                        {props.detailMode
+                            ? `Detail Pengajuan — ${detailRegistration?.student_profile.user.nama ?? ''}`
+                            : isOfficerView
+                              ? currentHeader.title
+                              : 'Pendaftaran & Status Hunian Saya'}
                     </h1>
 
                     <p className="text-base-content/70 text-sm">
-                        {isOfficerView
-                            ? currentHeader.subtitle
-                            : 'Pantau status pengajuan kamar, kelengkapan berkas, pembayaran, dan check-in Anda.'}
+                        {props.detailMode
+                            ? `NIM ${detailRegistration?.student_profile.user.nim_nip ?? '—'} · Pemeriksaan berkas, pembiayaan, dan check-in penghuni.`
+                            : isOfficerView
+                              ? currentHeader.subtitle
+                              : 'Pantau status pengajuan kamar, kelengkapan berkas, pembayaran, dan check-in Anda.'}
                     </p>
                 </div>
             </header>
@@ -2662,7 +2943,7 @@ export default function ResidenceWorkflowPage(props: Props) {
                 </p>
             ))}
 
-            {isOfficerView && tab === 'registrations' && (
+            {isOfficerView && tab === 'registrations' && !props.detailMode && (
                 <>
                     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                         {Object.entries(props.summary).map(([key, count]) => (
@@ -2760,31 +3041,22 @@ export default function ResidenceWorkflowPage(props: Props) {
                     )}
 
                     {isOfficerView ? (
-                        selectedRegistration ? (
+                        props.detailMode && detailRegistration ? (
                             <div className="space-y-4">
                                 <div className="flex flex-wrap items-center justify-between gap-2">
-                                    <button
-                                        type="button"
+                                    <Link
+                                        href="/residence-process"
                                         className="btn btn-outline btn-sm"
-                                        onClick={() =>
-                                            setSelectedRegistrationId(null)
-                                        }
                                     >
                                         ← Kembali ke daftar pengajuan
-                                    </button>
-                                    <span className="text-base-content/70 text-xs">
-                                        Detail pengajuan{' '}
-                                        {
-                                            selectedRegistration.student_profile
-                                                .user.nama
-                                        }
-                                    </span>
+                                    </Link>
                                 </div>
                                 <RegistrationCard
                                     rooms={props.rooms}
                                     templates={props.templates ?? []}
-                                    key={selectedRegistration.id}
-                                    r={selectedRegistration}
+                                    studentView={false}
+                                    key={detailRegistration.id}
+                                    r={detailRegistration}
                                     manager={props.manager}
                                     leader={props.leader}
                                 />
@@ -2922,17 +3194,12 @@ export default function ResidenceWorkflowPage(props: Props) {
                                                                 )}
                                                             </td>
                                                             <td className="text-right">
-                                                                <button
-                                                                    type="button"
+                                                                <Link
+                                                                    href={`/residence-process/registrations/${r.id}`}
                                                                     className="btn btn-primary btn-xs"
-                                                                    onClick={() =>
-                                                                        setSelectedRegistrationId(
-                                                                            r.id,
-                                                                        )
-                                                                    }
                                                                 >
                                                                     Detail
-                                                                </button>
+                                                                </Link>
                                                             </td>
                                                         </tr>
                                                     ),
@@ -2948,6 +3215,7 @@ export default function ResidenceWorkflowPage(props: Props) {
                             <RegistrationCard
                                 rooms={props.rooms}
                                 templates={props.templates ?? []}
+                                studentView={true}
                                 key={r.id}
                                 r={r}
                                 manager={props.manager}

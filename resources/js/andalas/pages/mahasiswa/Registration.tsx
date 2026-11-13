@@ -156,7 +156,7 @@ export default function Registration({
                 title="Pendaftaran Asrama"
                 subtitle="Pilih hunian, lengkapi administrasi, lalu lakukan check-in fisik dan serah kunci bersama petugas."
             />
-            {registration.length > 0 && housingStatusUrl && (
+            {!pending && registration.length > 0 && housingStatusUrl && (
                 <Link
                     href={housingStatusUrl}
                     className="btn btn-outline btn-sm"
@@ -201,12 +201,14 @@ export default function Registration({
             ) : (
                 <>
                     <Card className="space-y-4 p-5">
-                        <p>
-                            {initialUser?.student_stage}.{' '}
-                            {kipk
-                                ? 'Terdaftar sebagai penerima KIP-K. Sistem mengalokasikan kamar sesuai prioritas dan kapasitas.'
-                                : 'Pilih kamar yang tersedia sesuai kategori Anda.'}
-                        </p>
+                        {!pending && (
+                            <p>
+                                {initialUser?.student_stage}.{' '}
+                                {kipk
+                                    ? 'Terdaftar sebagai penerima KIP-K. Sistem mengalokasikan kamar sesuai prioritas dan kapasitas.'
+                                    : 'Pilih kamar yang tersedia sesuai kategori Anda.'}
+                            </p>
+                        )}
                         {kipk && initialUser?.kipk_personal_payment && (
                             <p className="text-sm">
                                 Kewajiban pribadi dibayar setelah pencairan
@@ -227,40 +229,101 @@ export default function Registration({
                                 sebelum mendaftar lagi.
                             </p>
                         ) : pending ? (
-                            <div className="space-y-3">
-                                <p>
-                                    Pendaftaran sedang diproses.{' '}
-                                    {registration.some(
-                                        (r) =>
-                                            !r.completed_at &&
-                                            !['draft', 'rejected'].includes(
-                                                r.status,
-                                            ) &&
-                                            r.is_kipk &&
-                                            r.funding === 'personal' &&
-                                            !r.tagihan_id,
-                                    ) ? (
-                                        'Menunggu alokasi kamar sesuai prioritas dan kapasitas. Tagihan diterbitkan setelah kamar dialokasikan.'
-                                    ) : (
-                                        <Link
-                                            className="link"
-                                            href={tagihan.url()}
-                                        >
-                                            Lihat tagihan dan bayar
-                                        </Link>
-                                    )}
-                                    .
-                                </p>
-                                {housingStatusUrl && (
-                                    <Link
-                                        href={housingStatusUrl}
-                                        className="btn btn-primary btn-sm"
-                                    >
-                                        Unduh Template, Unggah Dokumen &amp;
-                                        Ajukan Pembiayaan
-                                    </Link>
-                                )}
-                            </div>
+                            (() => {
+                                const currentReg = registration.find(
+                                    (r) =>
+                                        !r.completed_at &&
+                                        !['draft', 'rejected'].includes(
+                                            r.status,
+                                        ),
+                                );
+                                const waitingKipkAllocation = registration.some(
+                                    (r) =>
+                                        !r.completed_at &&
+                                        !['draft', 'rejected'].includes(
+                                            r.status,
+                                        ) &&
+                                        r.is_kipk &&
+                                        r.funding === 'personal' &&
+                                        !r.tagihan_id,
+                                );
+
+                                return (
+                                    <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 p-5">
+                                        <div className="space-y-1.5">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <span className="badge badge-success font-medium">
+                                                    Anda Sudah Terdaftar
+                                                </span>
+                                                <span className="text-base-content/70 text-xs font-medium">
+                                                    {initialUser?.student_stage}
+                                                </span>
+                                            </div>
+                                            <h2 className="text-lg font-semibold text-emerald-950">
+                                                Pengajuan Pendaftaran Asrama
+                                                Aktif
+                                            </h2>
+                                            {currentReg && (
+                                                <p className="text-sm text-emerald-900/90">
+                                                    Periode{' '}
+                                                    <strong>
+                                                        {
+                                                            currentReg.periode
+                                                                ?.nama_periode
+                                                        }
+                                                    </strong>
+                                                    {currentReg.reserved_room && (
+                                                        <>
+                                                            {' '}
+                                                            ·{' '}
+                                                            <strong>
+                                                                {
+                                                                    currentReg
+                                                                        .reserved_room
+                                                                        .lantai
+                                                                        ?.gedung
+                                                                        ?.nama_gedung
+                                                                }{' '}
+                                                                / Kamar{' '}
+                                                                {
+                                                                    currentReg
+                                                                        .reserved_room
+                                                                        .nomor_kamar
+                                                                }
+                                                            </strong>
+                                                        </>
+                                                    )}
+                                                </p>
+                                            )}
+                                            <p className="text-sm text-emerald-900/80">
+                                                Pendaftaran sedang diproses.{' '}
+                                                {waitingKipkAllocation
+                                                    ? 'Menunggu alokasi kamar sesuai prioritas dan kapasitas. Tagihan diterbitkan setelah kamar dialokasikan.'
+                                                    : 'Silakan lengkapi dokumen persyaratan dan pilihan pembiayaan atau selesaikan pembayaran tagihan Anda.'}
+                                            </p>
+                                        </div>
+                                        <div className="mt-4 flex flex-wrap gap-2.5">
+                                            {housingStatusUrl && (
+                                                <Link
+                                                    href={housingStatusUrl}
+                                                    className="btn btn-primary btn-sm"
+                                                >
+                                                    Lengkapi Dokumen &amp;
+                                                    Pembiayaan
+                                                </Link>
+                                            )}
+                                            {!waitingKipkAllocation && (
+                                                <Link
+                                                    className="btn btn-outline btn-sm bg-base-100"
+                                                    href={tagihan.url()}
+                                                >
+                                                    Lihat tagihan dan bayar
+                                                </Link>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })()
                         ) : !housingProfileReady && housingProfileUrl ? (
                             <div className="space-y-3">
                                 <p>
@@ -822,64 +885,78 @@ export default function Registration({
                             </form>
                         )}
                     </Card>
-                    <Card className="p-5">
+                    <Card className="space-y-3 p-5">
                         <h2 className="font-semibold">Riwayat pendaftaran</h2>
                         {registration.length === 0 ? (
-                            <p>Belum ada pendaftaran.</p>
+                            <p className="text-base-content/70 text-sm">
+                                Belum ada pendaftaran.
+                            </p>
                         ) : (
-                            registration.map((r) => (
-                                <div
-                                    className="border-base-300 flex justify-between border-b py-3"
-                                    key={r.id}
-                                >
-                                    <span>
-                                        {r.periode?.nama_periode}
-                                        {r.reserved_room && (
-                                            <small className="text-muted block">
-                                                {
-                                                    r.reserved_room.lantai
-                                                        ?.gedung?.nama_gedung
-                                                }{' '}
-                                                / Kamar{' '}
-                                                {r.reserved_room.nomor_kamar}
-                                            </small>
-                                        )}
-                                        {r.can_invite && (
-                                            <span className="mt-2 block">
-                                                <InviteRoommateButton
-                                                    registrationId={r.id}
-                                                />
-                                            </span>
-                                        )}
-                                        {r.reservation_expires_at &&
-                                            !r.completed_at && (
-                                                <small className="block">
-                                                    Batas reservasi:{' '}
-                                                    {new Date(
-                                                        r.reservation_expires_at,
-                                                    ).toLocaleString('id-ID')}
-                                                </small>
+                            <div className="space-y-3">
+                                {registration.map((r) => (
+                                    <div
+                                        className="border-base-300 bg-base-100 flex flex-wrap items-start justify-between gap-3 rounded-lg border p-4"
+                                        key={r.id}
+                                    >
+                                        <div className="space-y-1">
+                                            <p className="font-medium">
+                                                {r.periode?.nama_periode}
+                                            </p>
+                                            {r.reserved_room && (
+                                                <p className="text-base-content/70 text-sm">
+                                                    {
+                                                        r.reserved_room.lantai
+                                                            ?.gedung
+                                                            ?.nama_gedung
+                                                    }{' '}
+                                                    / Kamar{' '}
+                                                    {
+                                                        r.reserved_room
+                                                            .nomor_kamar
+                                                    }
+                                                </p>
                                             )}
-                                    </span>
-                                    <div className="flex flex-col items-end gap-2">
-                                        <StatusBadge
-                                            status={
-                                                r.completed_at
-                                                    ? 'aktif'
-                                                    : r.status
-                                            }
-                                        />
-                                        {housingStatusUrl && !r.completed_at && (
-                                            <Link
-                                                href={housingStatusUrl}
-                                                className="link text-primary text-xs font-medium"
-                                            >
-                                                Dokumen &amp; Pembiayaan →
-                                            </Link>
-                                        )}
+                                            {r.can_invite && (
+                                                <div className="pt-1.5">
+                                                    <InviteRoommateButton
+                                                        registrationId={r.id}
+                                                    />
+                                                </div>
+                                            )}
+                                            {r.reservation_expires_at &&
+                                                !r.completed_at && (
+                                                    <p className="text-base-content/60 text-xs">
+                                                        Batas reservasi:{' '}
+                                                        {new Date(
+                                                            r.reservation_expires_at,
+                                                        ).toLocaleString(
+                                                            'id-ID',
+                                                        )}
+                                                    </p>
+                                                )}
+                                        </div>
+                                        <div className="flex flex-col items-end gap-2">
+                                            <StatusBadge
+                                                status={
+                                                    r.completed_at
+                                                        ? 'aktif'
+                                                        : r.status
+                                                }
+                                            />
+                                            {housingStatusUrl &&
+                                                !r.completed_at && (
+                                                    <Link
+                                                        href={housingStatusUrl}
+                                                        className="link text-primary text-xs font-medium"
+                                                    >
+                                                        Dokumen &amp; Pembiayaan
+                                                        →
+                                                    </Link>
+                                                )}
+                                        </div>
                                     </div>
-                                </div>
-                            ))
+                                ))}
+                            </div>
                         )}
                     </Card>
                 </>

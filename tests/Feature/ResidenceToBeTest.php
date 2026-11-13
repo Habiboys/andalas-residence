@@ -466,3 +466,59 @@ it('allows managers to upload and delete document templates and students to down
 
     expect(ResidenceDocumentTemplate::count())->toBe(0);
 });
+
+it('renders a dedicated registration detail page without summary totals', function () {
+    $f = toBeFixture();
+    $r = toBeSubmit($f);
+
+    $this->actingAs($f['manager'])
+        ->get(route('residence.registrations.show', $r))
+        ->assertOk()
+        ->assertInertia(
+            fn (Assert $page) => $page
+                ->component('admin/residence-workflow')
+                ->where('detailMode', true)
+                ->where('summary', [])
+                ->where('registrations.data.0.id', $r->id)
+        );
+});
+
+it('submits documents and installment decision in one package and locks saved documents until revision', function () {
+    Storage::fake('local');
+    $f = toBeFixture();
+    $r = toBeSubmit($f);
+
+    $this->actingAs($f['user'])
+        ->post(route('residence.package.submit', $r), [
+            'files' => [
+                'perjanjian' => UploadedFile::fake()->create('perjanjian.pdf', 100, 'application/pdf'),
+            ],
+            'decision_kind' => 'installment',
+            'decision_reason' => 'Mengajukan cicilan 2 termin',
+        ])
+        ->assertRedirect();
+
+    expect($r->documents()->where('kind', 'perjanjian')->count())->toBe(1)
+        ->and($r->decisions()->where('kind', 'installment')->where('status', 'pending')->count())->toBe(1);
+
+    $this->actingAs($f['user'])
+        ->post(route('residence.package.submit', $r), [
+            'files' => [
+                'perjanjian' => UploadedFile::fake()->create('perjanjian-v2.pdf', 100, 'application/pdf'),
+            ],
+        ])
+        ->assertSessionHasErrors(['files.perjanjian']);
+});
+
+it('records full payment choice in package submission as approved without pending approval', function () {
+    $f = toBeFixture();
+    $r = toBeSubmit($f);
+
+    $this->actingAs($f['user'])
+        ->post(route('residence.package.submit', $r), [
+            'decision_kind' => 'full',
+        ])
+        ->assertRedirect();
+
+    expect($r->decisions()->where('kind', 'full')->where('status', 'approved')->count())->toBe(1);
+});
