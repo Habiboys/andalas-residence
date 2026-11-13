@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { router, useForm } from '@inertiajs/react';
 import {
+    ConfirmDialog,
     PageHeader,
     Table,
     Button,
@@ -93,6 +94,7 @@ export default function AdminJadwalKegiatan({
     const [previewError, setPreviewError] = useState('');
     const [tab, setTab] = useState(0);
     const [editing, setEditing] = useState<Participant | null>(null);
+    const [confirmClose, setConfirmClose] = useState(false);
     const form = useForm({
         jenis_kegiatan_id: '',
         judul: '',
@@ -351,7 +353,11 @@ export default function AdminJadwalKegiatan({
 
             <Modal
                 open={creating}
-                onClose={() => setCreating(false)}
+                onClose={() => {
+                    setCreating(false);
+                    setGpsError('');
+                    form.clearErrors();
+                }}
                 title="Buat kegiatan & QR"
                 width="max-w-2xl"
             >
@@ -586,21 +592,10 @@ export default function AdminJadwalKegiatan({
                                 </p>
                                 {preview.active && (
                                     <Button
+                                        type="button"
                                         className="mt-3"
                                         variant="secondary"
-                                        onClick={() =>
-                                            router.post(
-                                                close.url(preview.id),
-                                                {},
-                                                {
-                                                    preserveScroll: true,
-                                                    onSuccess: () =>
-                                                        void refresh(
-                                                            preview.id,
-                                                        ),
-                                                },
-                                            )
-                                        }
+                                        onClick={() => setConfirmClose(true)}
                                     >
                                         Akhiri absensi
                                     </Button>
@@ -807,6 +802,29 @@ export default function AdminJadwalKegiatan({
                     </form>
                 )}
             </Modal>
+            {confirmClose && preview && (
+                <ConfirmDialog
+                    open={confirmClose}
+                    title="Akhiri Sesi Absensi"
+                    message={`Akhiri sesi absensi "${preview.activity}" sekarang? Mahasiswa tidak dapat melakukan scan QR setelah sesi dihentikan.`}
+                    confirmLabel="Ya, Akhiri Sesi"
+                    onConfirm={() => {
+                        router.post(
+                            close.url(preview.id),
+                            {},
+                            {
+                                preserveScroll: true,
+                                onSuccess: () => {
+                                    setConfirmClose(false);
+                                    void refresh(preview.id);
+                                },
+                                onError: () => setConfirmClose(false),
+                            },
+                        );
+                    }}
+                    onClose={() => setConfirmClose(false)}
+                />
+            )}
         </div>
     );
 }

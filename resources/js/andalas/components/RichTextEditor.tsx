@@ -1,4 +1,5 @@
 import MediaPicker from './MediaLibrary';
+import { Button, FormField, inputClass, Modal } from './ui';
 import { useRef, useState } from 'react';
 import { useEditor, EditorContent, type Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -92,9 +93,11 @@ function Divider() {
 function Toolbar({
     editor,
     onPickImages,
+    onOpenLink,
 }: {
     editor: Editor;
     onPickImages: () => void;
+    onOpenLink: () => void;
 }) {
     const [currentFontSize, setCurrentFontSize] = useState('16px');
     const [showColors, setShowColors] = useState(false);
@@ -280,30 +283,7 @@ function Toolbar({
                     type="button"
                     title="Tautan"
                     onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => {
-                        const href = editor.getAttributes('link').href as
-                            | string
-                            | undefined;
-                        const url = href
-                            ? window.prompt('URL tautan:', href)
-                            : window.prompt('URL tautan:');
-                        if (url === null) return;
-                        if (url.trim() === '') {
-                            editor
-                                .chain()
-                                .focus()
-                                .extendMarkRange('link')
-                                .unsetLink()
-                                .run();
-                        } else {
-                            editor
-                                .chain()
-                                .focus()
-                                .extendMarkRange('link')
-                                .setLink({ href: url.trim() })
-                                .run();
-                        }
-                    }}
+                    onClick={onOpenLink}
                     className={`text-base-content hover:bg-base-content/10 flex h-8 min-w-8 items-center justify-center rounded px-2 ${editor.isActive('link') ? 'bg-primary/20 text-primary' : ''}`}
                 >
                     <Icon path="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" />
@@ -352,6 +332,8 @@ export default function RichTextEditor({
     const fileRef = useRef<HTMLInputElement>(null);
     const [imageError, setImageError] = useState('');
     const [libraryOpen, setLibraryOpen] = useState(false);
+    const [linkOpen, setLinkOpen] = useState(false);
+    const [linkUrl, setLinkUrl] = useState('');
     const [uploading, setUploading] = useState(false);
 
     const editor = useEditor({
@@ -429,6 +411,13 @@ export default function RichTextEditor({
                         if (mediaPicker) setLibraryOpen(true);
                         else if (!uploading) fileRef.current?.click();
                     }}
+                    onOpenLink={() => {
+                        const href = editor.getAttributes('link').href as
+                            | string
+                            | undefined;
+                        setLinkUrl(href ?? '');
+                        setLinkOpen(true);
+                    }}
                 />
             )}
             <input
@@ -452,6 +441,77 @@ export default function RichTextEditor({
                 </p>
             )}
             <EditorContent editor={editor} />
+            {linkOpen && editor && (
+                <Modal
+                    open={linkOpen}
+                    onClose={() => setLinkOpen(false)}
+                    title="Atur Tautan"
+                    width="max-w-md"
+                >
+                    <div className="space-y-4">
+                        <FormField label="URL tautan">
+                            <input
+                                type="url"
+                                className={inputClass}
+                                placeholder="https://contoh.ac.id"
+                                value={linkUrl}
+                                onChange={(e) => setLinkUrl(e.target.value)}
+                                autoFocus
+                            />
+                        </FormField>
+                        <div className="flex justify-end gap-2">
+                            {editor.isActive('link') && (
+                                <Button
+                                    type="button"
+                                    variant="secondary"
+                                    onClick={() => {
+                                        editor
+                                            .chain()
+                                            .focus()
+                                            .extendMarkRange('link')
+                                            .unsetLink()
+                                            .run();
+                                        setLinkOpen(false);
+                                    }}
+                                >
+                                    Hapus tautan
+                                </Button>
+                            )}
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                onClick={() => setLinkOpen(false)}
+                            >
+                                Batal
+                            </Button>
+                            <Button
+                                type="button"
+                                onClick={() => {
+                                    const trimmed = linkUrl.trim();
+                                    if (trimmed === '') {
+                                        editor
+                                            .chain()
+                                            .focus()
+                                            .extendMarkRange('link')
+                                            .unsetLink()
+                                            .run();
+                                    } else {
+                                        editor
+                                            .chain()
+                                            .focus()
+                                            .extendMarkRange('link')
+                                            .setLink({ href: trimmed })
+                                            .run();
+                                    }
+                                    setLinkOpen(false);
+                                }}
+                            >
+                                Terapkan
+                            </Button>
+                        </div>
+                    </div>
+                </Modal>
+            )}
             {mediaPicker && (
                 <MediaPicker
                     open={libraryOpen}

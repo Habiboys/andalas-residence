@@ -111,6 +111,53 @@ export default function PemetaanKamar({ gedung = [] }: { gedung?: Gedung[] }) {
                         </Link>
                     )}
                 </div>
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3 text-xs">
+                    <div className="flex flex-wrap items-center gap-3">
+                        <span className="inline-flex items-center gap-1.5">
+                            <span className="border-success bg-success/15 inline-block size-3 rounded border" />
+                            Kosong (
+                            {
+                                filteredKamar.filter(
+                                    (k) => k.status === 'kosong',
+                                ).length
+                            }
+                            )
+                        </span>
+                        <span className="inline-flex items-center gap-1.5">
+                            <span className="border-warning bg-warning/15 inline-block size-3 rounded border" />
+                            Terisi sebagian (
+                            {
+                                filteredKamar.filter(
+                                    (k) => k.status === 'terisi_sebagian',
+                                ).length
+                            }
+                            )
+                        </span>
+                        <span className="inline-flex items-center gap-1.5">
+                            <span className="border-error bg-error/15 inline-block size-3 rounded border" />
+                            Penuh (
+                            {
+                                filteredKamar.filter(
+                                    (k) => k.status === 'penuh',
+                                ).length
+                            }
+                            )
+                        </span>
+                        <span className="inline-flex items-center gap-1.5">
+                            <span className="border-base-300 bg-base-200 inline-block size-3 rounded border" />
+                            Maintenance (
+                            {
+                                filteredKamar.filter(
+                                    (k) => k.status === 'maintenance',
+                                ).length
+                            }
+                            )
+                        </span>
+                    </div>
+                    <span className="text-muted">
+                        Total: {filteredKamar.length} kamar
+                    </span>
+                </div>
                 <RoomGridMap
                     rooms={filteredKamar}
                     onSelect={(room) => router.visit(roomShow.url(room.id))}

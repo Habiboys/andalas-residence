@@ -165,7 +165,10 @@ export default function OrganizationManager({
                                 <IconButton
                                     label={`Hapus ${node.title}`}
                                     icon={Trash2}
-                                    onClick={() => setDeleting(node)}
+                                    onClick={() => {
+                                        deletion.clearErrors();
+                                        setDeleting(node);
+                                    }}
                                 />
                             </div>
                         ),
@@ -335,24 +338,51 @@ export default function OrganizationManager({
                     setPhotoName(asset.name);
                 }}
             />
-            <ConfirmDialog
-                open={deleting !== null}
-                onClose={() => setDeleting(null)}
-                title="Hapus jabatan?"
-                message={deleting?.title ?? ''}
-                onConfirm={() => {
-                    if (deleting)
-                        deletion.delete(destroy.url(deleting.id), {
-                            preserveScroll: true,
-                            onSuccess: () => setDeleting(null),
-                            onError: () => setDeleting(null),
-                        });
-                }}
-            />
-            {deletion.errors.position && (
-                <p role="alert" className="text-error text-sm">
-                    {deletion.errors.position}
-                </p>
+            {deleting !== null && (
+                <ConfirmDialog
+                    open={deleting !== null}
+                    onClose={() => {
+                        if (!deletion.processing) {
+                            deletion.clearErrors();
+                            setDeleting(null);
+                        }
+                    }}
+                    loading={deletion.processing}
+                    title="Hapus jabatan?"
+                    confirmLabel={
+                        deletion.processing ? 'Menghapus...' : 'Hapus'
+                    }
+                    message={
+                        <div className="space-y-2">
+                            <p>
+                                Hapus jabatan{' '}
+                                <span className="font-medium">
+                                    {deleting?.title ?? ''}
+                                </span>
+                                ?
+                            </p>
+                            {deletion.errors.position && (
+                                <p
+                                    role="alert"
+                                    className="text-error text-sm font-medium"
+                                >
+                                    {deletion.errors.position}
+                                </p>
+                            )}
+                        </div>
+                    }
+                    onConfirm={() => {
+                        if (deleting) {
+                            deletion.delete(destroy.url(deleting.id), {
+                                preserveScroll: true,
+                                onSuccess: () => {
+                                    deletion.clearErrors();
+                                    setDeleting(null);
+                                },
+                            });
+                        }
+                    }}
+                />
             )}
         </div>
     );

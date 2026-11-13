@@ -116,6 +116,22 @@ class RolePageController extends Controller
                 'inspection_pending' => $request->user()->hasRole('go')
                     ? CheckoutRequest::whereNotIn('status', ['selesai', 'ditolak'])->whereHas('inspection', fn ($query) => $query->where('status', '!=', 'selesai'))->count()
                     : 0,
+                ...($request->user()->hasRole('go') ? [
+                    'go_summary' => [
+                        'menunggu' => CheckoutRequest::whereNotIn('status', ['selesai', 'ditolak'])->whereHas('inspection', fn ($query) => $query->where('status', 'menunggu'))->count(),
+                        'berlangsung' => CheckoutRequest::whereNotIn('status', ['selesai', 'ditolak'])->whereHas('inspection', fn ($query) => $query->where('status', 'berlangsung'))->count(),
+                        'selesai' => CheckoutRequest::whereHas('inspection', fn ($query) => $query->where('status', 'selesai'))->count(),
+                    ],
+                ] : []),
+                ...($request->user()->hasRole('admin_aset') ? [
+                    'aset_summary' => [
+                        'total_unit_aset' => (int) Aset::sum('jumlah'),
+                        'aset_perlu_perbaikan' => (int) Aset::whereIn('kondisi', ['rusak_ringan', 'rusak_berat', 'hilang'])->sum('jumlah'),
+                        'total_stok_gudang' => (int) StokAset::sum('jumlah_total'),
+                        'kamar_kosong' => Kamar::where('status', 'kosong')->count(),
+                        'total_kamar' => Kamar::count(),
+                    ],
+                ] : []),
                 'children' => $request->user()->hasRole('orang_tua')
                     ? $request->user()->parentStudentLinks()->with(['studentProfile.user', 'studentProfile.penempatanKamar.kamar.lantai.gedung'])->get()
                     : [],
@@ -228,6 +244,13 @@ class RolePageController extends Controller
             ],
             'riwayat-penilaian', 'penilaian-teknisi' => [
                 'performance' => $this->teknisiPerformance(),
+                ...($page === 'riwayat-penilaian' ? [
+                    'ratings' => PenilaianTeknisi::with('laporanKerusakan:id,nomor_tiket,deskripsi')
+                        ->where('teknisi_id', $request->user()->id)
+                        ->where('status', 'final')
+                        ->latest('tanggal_penilaian')
+                        ->get(),
+                ] : []),
                 ...($page === 'penilaian-teknisi' ? [
                     'tiket' => $this->tickets($request),
                     'kuesioner' => Kuesioner::with('pertanyaan.opsi')->get(),
@@ -546,17 +569,19 @@ class RolePageController extends Controller
         if ($reviewer) {
             $this->authorizePermission($request, 'perizinan.review');
         }
+        $monitor = $request->user()->hasRole('staff_admin');
         $query = PengajuanIzinPulang::with(['mahasiswa.user', 'gedung', 'penyetuju']);
         if ($reviewer && ! $request->user()->hasRole('superadmin')) {
             $query->whereIn('gedung_id', ResidenceBuildingAccess::ids($request->user()));
-        } elseif (! $reviewer) {
+        } elseif (! $reviewer && ! $monitor) {
             $query->where('mahasiswa_id', $student?->id);
         }
 
         return [
             'perizinan' => $query->latest()->get(),
             'reviewer' => $reviewer,
-            'canSubmit' => ! $reviewer && $student && app(ResidenceLifecycle::class)->isBinaan($student) && $student->status_huni === 'aktif' && $student->penempatanKamar()->where('status', 'aktif')->exists(),
+            'monitor' => $monitor,
+            'canSubmit' => ! $reviewer && ! $monitor && $student && app(ResidenceLifecycle::class)->isBinaan($student) && $student->status_huni === 'aktif' && $student->penempatanKamar()->where('status', 'aktif')->exists(),
         ];
     }
 

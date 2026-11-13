@@ -53,10 +53,12 @@ const date = (value?: string) =>
 export default function PerizinanPanel({
     perizinan = [],
     reviewer = false,
+    monitor = false,
     canSubmit = false,
 }: {
     perizinan?: Leave[];
     reviewer?: boolean;
+    monitor?: boolean;
     canSubmit?: boolean;
 }) {
     const [selected, setSelected] = useState<Leave | null>(null);
@@ -72,6 +74,7 @@ export default function PerizinanPanel({
         dokumen: null as File | null,
     });
     const approval = useForm({ status: 'disetujui', catatan_verifikasi: '' });
+    const [approveConfirm, setApproveConfirm] = useState(false);
     const [rejectConfirm, setRejectConfirm] = useState(false);
     const todayIso = new Date().toISOString().slice(0, 10);
     const currentMonthKey = todayIso.slice(0, 7);
@@ -116,11 +119,16 @@ export default function PerizinanPanel({
         setSelected(leave);
         evidenceForm.resetAndClearErrors();
         approval.resetAndClearErrors();
+        setApproveConfirm(false);
+        setRejectConfirm(false);
         setLocationError('');
     };
     const close = () => {
-        if (!locating && !evidenceForm.processing && !approval.processing)
+        if (!locating && !evidenceForm.processing && !approval.processing) {
+            setApproveConfirm(false);
+            setRejectConfirm(false);
             setSelected(null);
+        }
     };
     function submit(event: FormEvent) {
         event.preventDefault();
@@ -134,7 +142,11 @@ export default function PerizinanPanel({
         if (!selected) return;
         approval.transform((values) => ({ ...values, status }));
         approval.post(review.url(selected.id), {
-            onSuccess: () => setSelected(null),
+            onSuccess: () => {
+                setApproveConfirm(false);
+                setRejectConfirm(false);
+                setSelected(null);
+            },
             preserveScroll: true,
         });
     }
@@ -178,15 +190,19 @@ export default function PerizinanPanel({
         <div className="space-y-5">
             <PageHeader
                 title={
-                    reviewer ? 'Monitoring Perizinan' : 'Perizinan Mahasiswa'
+                    reviewer || monitor
+                        ? 'Monitoring Perizinan'
+                        : 'Perizinan Mahasiswa'
                 }
                 subtitle={
                     reviewer
                         ? 'Verifikasi dan pantau izin mahasiswa pada gedung penugasan Anda.'
-                        : 'Ajukan izin pulang kampung, kegiatan, atau sakit. Sakit wajib disertai bukti dan persetujuan fasilitator.'
+                        : monitor
+                          ? 'Pantau seluruh pengajuan izin mahasiswa (mode baca; persetujuan dilakukan oleh fasilitator wilayah atau superadmin).'
+                          : 'Ajukan izin pulang kampung, kegiatan, atau sakit. Sakit wajib disertai bukti dan persetujuan fasilitator.'
                 }
             />
-            {!reviewer && (
+            {!reviewer && !monitor && (
                 <Card className="p-5">
                     {!canSubmit ? (
                         <p className="text-muted text-sm">
@@ -473,8 +489,11 @@ export default function PerizinanPanel({
                         <dl className="space-y-3 text-sm">
                             <div>
                                 <dt className="text-muted">Status</dt>
-                                <dd className="font-medium">
-                                    {statuses[selected.status]}
+                                <dd className="mt-1">
+                                    <StatusBadge
+                                        status={selected.status}
+                                        label={statuses[selected.status]}
+                                    />
                                 </dd>
                             </div>
                             <div>
@@ -592,12 +611,14 @@ export default function PerizinanPanel({
                                 ))}
                                 <div className="flex gap-2">
                                     <Button
+                                        type="button"
                                         disabled={approval.processing}
-                                        onClick={() => decide('disetujui')}
+                                        onClick={() => setApproveConfirm(true)}
                                     >
                                         Setujui
                                     </Button>
                                     <Button
+                                        type="button"
                                         variant="secondary"
                                         disabled={approval.processing}
                                         onClick={() => setRejectConfirm(true)}
@@ -678,21 +699,36 @@ export default function PerizinanPanel({
                     </div>
                 )}
             </Drawer>
-            <ConfirmDialog
-                open={rejectConfirm}
-                title="Tolak Pengajuan Izin"
-                message={`Yakin ingin menolak pengajuan izin ${selected?.mahasiswa?.user?.nama ?? 'mahasiswa ini'}?`}
-                confirmLabel={
-                    approval.processing ? 'Memproses...' : 'Ya, Tolak'
-                }
-                onConfirm={() => {
-                    decide('ditolak');
-                    setRejectConfirm(false);
-                }}
-                onClose={() =>
-                    !approval.processing && setRejectConfirm(false)
-                }
-            />
+            {approveConfirm && (
+                <ConfirmDialog
+                    open={approveConfirm}
+                    title="Setujui Pengajuan Izin"
+                    message={`Setujui pengajuan izin ${selected?.mahasiswa?.user?.nama ?? 'mahasiswa ini'}? Kuota izin atau status sakit akan langsung diperbarui.`}
+                    confirmLabel={
+                        approval.processing ? 'Memproses...' : 'Ya, Setujui'
+                    }
+                    loading={approval.processing}
+                    onConfirm={() => decide('disetujui')}
+                    onClose={() =>
+                        !approval.processing && setApproveConfirm(false)
+                    }
+                />
+            )}
+            {rejectConfirm && (
+                <ConfirmDialog
+                    open={rejectConfirm}
+                    title="Tolak Pengajuan Izin"
+                    message={`Yakin ingin menolak pengajuan izin ${selected?.mahasiswa?.user?.nama ?? 'mahasiswa ini'}?`}
+                    confirmLabel={
+                        approval.processing ? 'Memproses...' : 'Ya, Tolak'
+                    }
+                    loading={approval.processing}
+                    onConfirm={() => decide('ditolak')}
+                    onClose={() =>
+                        !approval.processing && setRejectConfirm(false)
+                    }
+                />
+            )}
         </div>
     );
 }

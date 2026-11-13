@@ -109,6 +109,7 @@ export default function KelolaAset({
     const [editing, setEditing] = useState<AsetRow | null>(null);
     const [deleting, setDeleting] = useState<AsetRow | null>(null);
     const [deletingBusy, setDeletingBusy] = useState(false);
+    const [deleteError, setDeleteError] = useState<string | null>(null);
     const {
         data,
         setData,
@@ -179,8 +180,17 @@ export default function KelolaAset({
     function confirmDelete() {
         if (!deleting) return;
         setDeletingBusy(true);
+        setDeleteError(null);
         router.delete(asetDestroy.url({ id: deleting.id }), {
-            onSuccess: () => setDeleting(null),
+            onSuccess: () => {
+                setDeleting(null);
+                setDeleteError(null);
+            },
+            onError: (errs) =>
+                setDeleteError(
+                    Object.values(errs).find(Boolean) ??
+                        'Aset tidak dapat dihapus karena masih memiliki riwayat.',
+                ),
             onFinish: () => setDeletingBusy(false),
         });
     }
@@ -197,6 +207,28 @@ export default function KelolaAset({
             ),
         },
         { key: 'kategori', label: 'Kategori' },
+        {
+            key: 'gedung',
+            label: 'Gedung',
+            value: (r: AsetRow) =>
+                r.kamar?.lantai?.gedung?.nama_gedung ??
+                r.fasilitas_umum?.gedung?.nama_gedung ??
+                '',
+            filter: {
+                type: 'select' as const,
+                options: Array.from(
+                    new Set(
+                        (gedung ?? [])
+                            .map((g) => g.nama_gedung)
+                            .filter(Boolean),
+                    ),
+                ),
+            },
+            render: (r: AsetRow) =>
+                r.kamar?.lantai?.gedung?.nama_gedung ??
+                r.fasilitas_umum?.gedung?.nama_gedung ??
+                '-',
+        },
         {
             key: 'kamar',
             label: 'Lokasi',
@@ -243,7 +275,10 @@ export default function KelolaAset({
             render: (r: AsetRow) => (
                 <RowActions
                     onEdit={() => openEdit(r)}
-                    onDelete={() => setDeleting(r)}
+                    onDelete={() => {
+                        setDeleteError(null);
+                        setDeleting(r);
+                    }}
                 />
             ),
         },
@@ -356,7 +391,10 @@ export default function KelolaAset({
 
             <Drawer
                 open={open}
-                onClose={() => setOpen(false)}
+                onClose={() => {
+                    clearErrors();
+                    setOpen(false);
+                }}
                 title={editing ? 'Edit Aset' : 'Tambah Aset'}
                 width="w-full max-w-xl"
                 footer={
@@ -364,7 +402,10 @@ export default function KelolaAset({
                         <Button
                             type="button"
                             variant="secondary"
-                            onClick={() => setOpen(false)}
+                            onClick={() => {
+                                clearErrors();
+                                setOpen(false);
+                            }}
                         >
                             Batal
                         </Button>
@@ -561,14 +602,36 @@ export default function KelolaAset({
                 </form>
             </Drawer>
 
-            <ConfirmDialog
-                open={!!deleting}
-                onClose={() => setDeleting(null)}
-                onConfirm={confirmDelete}
-                loading={deletingBusy}
-                title="Hapus Aset"
-                message={`Hapus aset ${deleting?.nama_aset ?? ''}? Tindakan ini tidak dapat dibatalkan.`}
-            />
+            {deleting && (
+                <ConfirmDialog
+                    open={!!deleting}
+                    onClose={() => {
+                        if (!deletingBusy) {
+                            setDeleteError(null);
+                            setDeleting(null);
+                        }
+                    }}
+                    onConfirm={confirmDelete}
+                    loading={deletingBusy}
+                    title="Hapus Aset"
+                    message={
+                        <div className="space-y-2">
+                            <p>
+                                Hapus aset {deleting?.nama_aset ?? ''}? Tindakan
+                                ini tidak dapat dibatalkan.
+                            </p>
+                            {deleteError && (
+                                <p
+                                    role="alert"
+                                    className="text-error text-sm font-medium"
+                                >
+                                    {deleteError}
+                                </p>
+                            )}
+                        </div>
+                    }
+                />
+            )}
         </div>
     );
 }

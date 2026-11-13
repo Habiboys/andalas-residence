@@ -58,7 +58,15 @@ class GedungController extends Controller
         $gedung = new Gedung;
         app(ResidencePhotoGallery::class)->save($gedung, $request, $validated);
 
-        return ($request->boolean('continue_setup') ? redirect()->route('andalas.gedung.show', $gedung) : redirect()->back())->with('toast', [
+        $redirect = match (true) {
+            $request->boolean('continue_setup') => redirect()->route('andalas.gedung.show', $gedung),
+            url()->previous() === route('andalas.gedung.create') => redirect()->route(
+                $request->user()->hasRole('admin_aset') ? 'admin_aset.kelola-bangunan' : 'admin.kelola-bangunan'
+            ),
+            default => redirect()->back(),
+        };
+
+        return $redirect->with('toast', [
             'type' => 'success',
             'message' => "Gedung {$gedung->nama_gedung} berhasil ditambahkan.",
         ]);

@@ -7,6 +7,7 @@ import {
     type RoomTypeOption,
 } from '@/andalas/lib/room-types';
 import {
+    ConfirmDialog,
     PageHeader,
     Button,
     IconButton,
@@ -19,6 +20,7 @@ import {
 export default function RoomTypeMaster() {
     const catalog = useRoomTypeCatalog();
     const [target, setTarget] = useState<RoomTypeOption | 'new' | null>(null);
+    const [confirmDeactivate, setConfirmDeactivate] = useState(false);
     const form = useForm({ code: '', name: '', active: true });
     function open(type: RoomTypeOption | 'new') {
         form.clearErrors();
@@ -73,7 +75,11 @@ export default function RoomTypeMaster() {
             />
             <Modal
                 open={target !== null}
-                onClose={() => setTarget(null)}
+                onClose={() => {
+                    form.clearErrors();
+                    setConfirmDeactivate(false);
+                    setTarget(null);
+                }}
                 title={
                     target === 'new' ? 'Tambah tipe kamar' : 'Edit tipe kamar'
                 }
@@ -82,6 +88,14 @@ export default function RoomTypeMaster() {
                     className="space-y-4"
                     onSubmit={(event) => {
                         event.preventDefault();
+                        if (
+                            target !== 'new' &&
+                            target?.active &&
+                            !form.data.active
+                        ) {
+                            setConfirmDeactivate(true);
+                            return;
+                        }
                         const options = {
                             preserveScroll: true,
                             onSuccess: () => setTarget(null),
@@ -163,16 +177,48 @@ export default function RoomTypeMaster() {
                         <Button
                             variant="secondary"
                             type="button"
-                            onClick={() => setTarget(null)}
+                            onClick={() => {
+                                form.clearErrors();
+                                setConfirmDeactivate(false);
+                                setTarget(null);
+                            }}
                         >
                             Batal
                         </Button>
                         <Button type="submit" disabled={form.processing}>
-                            Simpan
+                            {form.processing ? 'Menyimpan...' : 'Simpan'}
                         </Button>
                     </div>
                 </form>
             </Modal>
+            {confirmDeactivate && target && target !== 'new' && (
+                <ConfirmDialog
+                    open={confirmDeactivate}
+                    title="Nonaktifkan Tipe Kamar"
+                    message={`Tipe "${target.name}" tidak lagi tersedia pada pemilihan gedung baru setelah dinonaktifkan. Lanjutkan?`}
+                    confirmLabel={
+                        form.processing ? 'Menyimpan...' : 'Ya, Nonaktifkan'
+                    }
+                    loading={form.processing}
+                    onConfirm={() => {
+                        form.transform(({ name, active }) => ({
+                            name,
+                            active,
+                        }));
+                        form.put(update.url(target.id), {
+                            preserveScroll: true,
+                            onSuccess: () => {
+                                setConfirmDeactivate(false);
+                                setTarget(null);
+                            },
+                            onError: () => setConfirmDeactivate(false),
+                        });
+                    }}
+                    onClose={() =>
+                        !form.processing && setConfirmDeactivate(false)
+                    }
+                />
+            )}
         </div>
     );
 }

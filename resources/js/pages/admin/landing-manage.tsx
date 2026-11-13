@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useForm } from '@inertiajs/react';
+import { useEffect, useState } from 'react';
+import { router, useForm } from '@inertiajs/react';
 import { Trash2 } from 'lucide-react';
 import LandingEditor from './landing-editor';
 import OrganizationManager from '@/andalas/pages/admin/OrganizationManager';
@@ -12,6 +12,7 @@ import { type LandingSettings, mediaUrl } from '@/andalas/lib/landing-settings';
 import { settings as saveSettings, manage } from '@/routes/andalas/landing';
 import {
     Button,
+    ConfirmDialog,
     FormField,
     inputClass,
     PageHeader,
@@ -120,6 +121,31 @@ const labels: Record<string, string> = {
     program_intro: 'Pengantar program',
 };
 
+const MULTILINE_FIELDS = new Set([
+    'description',
+    'image_alt',
+    'registration_intro',
+    'gallery_intro',
+    'announcements_intro',
+    'services_intro',
+    'faq_intro',
+    'location_note',
+    'address',
+    'contact_intro',
+    'footer',
+    'testimonials_intro',
+    'unit_intro',
+    'program_intro',
+]);
+
+type DeleteItemTarget =
+    | { kind: 'gallery'; index: number; label: string }
+    | {
+          kind: 'categories' | 'steps' | 'services' | 'faqs';
+          index: number;
+          label: string;
+      };
+
 function SettingsForm({
     settings,
     section,
@@ -129,28 +155,79 @@ function SettingsForm({
 }) {
     const form = useForm({ settings, section });
     const [picker, setPicker] = useState<'hero' | 'logo' | number | null>(null);
+    const [deleteTarget, setDeleteTarget] = useState<DeleteItemTarget | null>(
+        null,
+    );
+
+    useEffect(() => {
+        if (!form.isDirty) return;
+        const warn = (event: BeforeUnloadEvent) => {
+            event.preventDefault();
+        };
+        const stopNav =
+            typeof router?.on === 'function'
+                ? router.on('before', (event) => {
+                      if (
+                          !form.processing &&
+                          event.detail.visit.method === 'get' &&
+                          !window.confirm(
+                              'Perubahan pengaturan belum disimpan. Yakin ingin meninggalkan halaman ini?',
+                          )
+                      ) {
+                          return false;
+                      }
+                  })
+                : undefined;
+        window.addEventListener('beforeunload', warn);
+        return () => {
+            window.removeEventListener('beforeunload', warn);
+            stopNav?.();
+        };
+    }, [form.isDirty, form.processing]);
+
     const text = (
         group: 'hero' | 'headings' | 'site',
         field: string,
         value: string,
-    ) => (
-        <FormField key={field} label={labels[field] ?? field}>
-            <textarea
-                className="textarea w-full"
-                rows={2}
-                value={value ?? ''}
-                onChange={(event) =>
-                    form.setData('settings', {
-                        ...form.data.settings,
-                        [group]: {
-                            ...form.data.settings[group],
-                            [field]: event.target.value,
-                        },
-                    })
-                }
-            />
-        </FormField>
-    );
+    ) => {
+        const updateValue = (next: string) =>
+            form.setData('settings', {
+                ...form.data.settings,
+                [group]: {
+                    ...form.data.settings[group],
+                    [field]: next,
+                },
+            });
+
+        const inputType =
+            field === 'email'
+                ? 'email'
+                : field === 'phone'
+                  ? 'tel'
+                  : ['maps_url', 'map_embed'].includes(field)
+                    ? 'url'
+                    : 'text';
+
+        return (
+            <FormField key={field} label={labels[field] ?? field}>
+                {MULTILINE_FIELDS.has(field) ? (
+                    <textarea
+                        className="textarea w-full"
+                        rows={2}
+                        value={value ?? ''}
+                        onChange={(event) => updateValue(event.target.value)}
+                    />
+                ) : (
+                    <input
+                        type={inputType}
+                        className={inputClass}
+                        value={value ?? ''}
+                        onChange={(event) => updateValue(event.target.value)}
+                    />
+                )}
+            </FormField>
+        );
+    };
     return (
         <div className="space-y-5">
             <PageHeader
@@ -271,13 +348,12 @@ function SettingsForm({
                                             label="Hapus foto galeri"
                                             icon={Trash2}
                                             onClick={() =>
-                                                form.setData('settings', {
-                                                    ...form.data.settings,
-                                                    gallery:
-                                                        form.data.settings.gallery.filter(
-                                                            (_, i) =>
-                                                                i !== index,
-                                                        ),
+                                                setDeleteTarget({
+                                                    kind: 'gallery',
+                                                    index,
+                                                    label:
+                                                        photo.title ||
+                                                        `Foto galeri #${index + 1}`,
                                                 })
                                             }
                                         />
@@ -389,59 +465,106 @@ function SettingsForm({
                                                                     : 'Uraian'
                                                         }
                                                     >
-                                                        <textarea
-                                                            className="textarea w-full"
-                                                            value={value}
-                                                            required
-                                                            onChange={(event) =>
-                                                                form.setData(
-                                                                    'settings',
-                                                                    {
-                                                                        ...form
-                                                                            .data
-                                                                            .settings,
-                                                                        [group]:
-                                                                            form.data.settings[
-                                                                                group
-                                                                            ].map(
-                                                                                (
-                                                                                    row,
-                                                                                    rowIndex,
-                                                                                ) =>
-                                                                                    rowIndex ===
-                                                                                    index
-                                                                                        ? {
-                                                                                              ...row,
-                                                                                              [field]:
-                                                                                                  event
-                                                                                                      .target
-                                                                                                      .value,
-                                                                                          }
-                                                                                        : row,
-                                                                            ),
-                                                                    },
-                                                                )
-                                                            }
-                                                        />
+                                                        {field === 'title' ||
+                                                        field === 'q' ? (
+                                                            <input
+                                                                className={
+                                                                    inputClass
+                                                                }
+                                                                value={value}
+                                                                required
+                                                                onChange={(
+                                                                    event,
+                                                                ) =>
+                                                                    form.setData(
+                                                                        'settings',
+                                                                        {
+                                                                            ...form
+                                                                                .data
+                                                                                .settings,
+                                                                            [group]:
+                                                                                form.data.settings[
+                                                                                    group
+                                                                                ].map(
+                                                                                    (
+                                                                                        row,
+                                                                                        rowIndex,
+                                                                                    ) =>
+                                                                                        rowIndex ===
+                                                                                        index
+                                                                                            ? {
+                                                                                                  ...row,
+                                                                                                  [field]:
+                                                                                                      event
+                                                                                                          .target
+                                                                                                          .value,
+                                                                                              }
+                                                                                            : row,
+                                                                                ),
+                                                                        },
+                                                                    )
+                                                                }
+                                                            />
+                                                        ) : (
+                                                            <textarea
+                                                                className="textarea w-full"
+                                                                rows={2}
+                                                                value={value}
+                                                                required
+                                                                onChange={(
+                                                                    event,
+                                                                ) =>
+                                                                    form.setData(
+                                                                        'settings',
+                                                                        {
+                                                                            ...form
+                                                                                .data
+                                                                                .settings,
+                                                                            [group]:
+                                                                                form.data.settings[
+                                                                                    group
+                                                                                ].map(
+                                                                                    (
+                                                                                        row,
+                                                                                        rowIndex,
+                                                                                    ) =>
+                                                                                        rowIndex ===
+                                                                                        index
+                                                                                            ? {
+                                                                                                  ...row,
+                                                                                                  [field]:
+                                                                                                      event
+                                                                                                          .target
+                                                                                                          .value,
+                                                                                              }
+                                                                                            : row,
+                                                                                ),
+                                                                        },
+                                                                    )
+                                                                }
+                                                            />
+                                                        )}
                                                     </FormField>
                                                 ),
                                             )}
                                             <IconButton
                                                 label={`Hapus item ${index + 1}`}
                                                 icon={Trash2}
-                                                onClick={() =>
-                                                    form.setData('settings', {
-                                                        ...form.data.settings,
-                                                        [group]:
-                                                            form.data.settings[
-                                                                group
-                                                            ].filter(
-                                                                (_, rowIndex) =>
-                                                                    index !==
-                                                                    rowIndex,
-                                                            ),
-                                                    })
-                                                }
+                                                onClick={() => {
+                                                    const rowRecord =
+                                                        item as Record<
+                                                            string,
+                                                            string
+                                                        >;
+                                                    setDeleteTarget({
+                                                        kind: group,
+                                                        index,
+                                                        label:
+                                                            rowRecord.title ||
+                                                            rowRecord.q ||
+                                                            `Item #${index + 1}`,
+                                                    });
+                                                }}
                                             />
                                         </div>
                                     ),
@@ -524,6 +647,34 @@ function SettingsForm({
                     )
                 }
             />
+            {deleteTarget && (
+                <ConfirmDialog
+                    open={deleteTarget !== null}
+                    onClose={() => setDeleteTarget(null)}
+                    title="Hapus Item"
+                    message={`Yakin ingin menghapus "${deleteTarget.label}"? Perubahan akan berlaku permanen setelah Anda menekan Simpan perubahan.`}
+                    confirmLabel="Ya, Hapus"
+                    onConfirm={() => {
+                        if (deleteTarget.kind === 'gallery') {
+                            form.setData('settings', {
+                                ...form.data.settings,
+                                gallery: form.data.settings.gallery.filter(
+                                    (_, i) => i !== deleteTarget.index,
+                                ),
+                            });
+                        } else {
+                            const kind = deleteTarget.kind;
+                            form.setData('settings', {
+                                ...form.data.settings,
+                                [kind]: form.data.settings[kind].filter(
+                                    (_, i) => i !== deleteTarget.index,
+                                ),
+                            });
+                        }
+                        setDeleteTarget(null);
+                    }}
+                />
+            )}
         </div>
     );
 }

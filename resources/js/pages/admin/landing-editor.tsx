@@ -1,6 +1,6 @@
 import MediaPicker from '@/andalas/components/MediaLibrary';
 import { mediaUrl } from '@/andalas/lib/landing-settings';
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
 import { useEffect, useState, type FormEvent } from 'react';
 import { ArrowLeft, Save } from 'lucide-react';
 import RichTextEditor from '@/andalas/components/RichTextEditor';
@@ -118,12 +118,30 @@ function EditorForm({
         });
 
     useEffect(() => {
+        if (!isDirty) return;
         const warn = (event: BeforeUnloadEvent) => {
-            if (isDirty) event.preventDefault();
+            event.preventDefault();
         };
+        const stopNav =
+            typeof router?.on === 'function'
+                ? router.on('before', (event) => {
+                      if (
+                          !processing &&
+                          event.detail.visit.method === 'get' &&
+                          !window.confirm(
+                              'Perubahan belum disimpan. Yakin ingin meninggalkan halaman ini?',
+                          )
+                      ) {
+                          return false;
+                      }
+                  })
+                : undefined;
         window.addEventListener('beforeunload', warn);
-        return () => window.removeEventListener('beforeunload', warn);
-    }, [isDirty]);
+        return () => {
+            window.removeEventListener('beforeunload', warn);
+            stopNav?.();
+        };
+    }, [isDirty, processing]);
 
     function save(event: FormEvent) {
         event.preventDefault();
