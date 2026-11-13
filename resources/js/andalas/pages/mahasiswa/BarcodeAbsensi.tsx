@@ -4,7 +4,7 @@ import { absensi as attendancePage } from '@/routes/mahasiswa';
 import { useState } from 'react';
 import { useForm } from '@inertiajs/react';
 import { recordActivity } from '@/actions/App/Http/Controllers/AbsensiController';
-import { Button, Card, PageHeader, Table } from '../../components/ui';
+import { Badge, Button, Card, PageHeader, Table } from '../../components/ui';
 
 type Attendance = {
     attended_at?: string | null;
@@ -200,15 +200,28 @@ export default function BarcodeAbsensi({
                     {
                         key: 'is_present',
                         label: 'Kehadiran',
-                        render: (row: Attendance) =>
-                            ({
-                                hadir: 'Hadir',
-                                izin: 'Izin',
-                                sakit: 'Sakit',
-                                alfa: 'Alfa',
-                                belum_absen: 'Belum absen',
-                            })[row.attendance_status ?? ''] ??
-                            (row.is_present ? 'Hadir' : 'Tidak hadir'),
+                        render: (row: Attendance) => {
+                            const status = row.attendance_status ?? '';
+                            const label =
+                                ({
+                                    hadir: 'Hadir',
+                                    izin: 'Izin',
+                                    sakit: 'Sakit',
+                                    alfa: 'Alfa',
+                                    belum_absen: 'Belum absen',
+                                })[status] ??
+                                (row.is_present ? 'Hadir' : 'Tidak hadir');
+                            const color =
+                                status === 'hadir' ||
+                                (!status && row.is_present)
+                                    ? 'green'
+                                    : status === 'izin' || status === 'sakit'
+                                      ? 'blue'
+                                      : status === 'alfa'
+                                        ? 'red'
+                                        : 'gray';
+                            return <Badge color={color}>{label}</Badge>;
+                        },
                     },
                     {
                         key: 'corrected_at',

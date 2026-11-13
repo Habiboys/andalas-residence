@@ -3,6 +3,7 @@ import { useForm } from '@inertiajs/react';
 import {
     PageHeader,
     Card,
+    StatCard,
     StatusBadge,
     DataTable,
     Button,
@@ -11,7 +12,7 @@ import {
     Modal,
     type DataColumn,
 } from '../../components/ui';
-import { CreditCard, Download } from 'lucide-react';
+import { Check, Copy, CreditCard, Download, Receipt, Wallet } from 'lucide-react';
 import { store as pembayaranStore } from '@/routes/andalas/pembayaran';
 import { document as billingDocument } from '@/routes/andalas/tagihan';
 import { formatRupiah, mapPaymentStatus } from '../../lib/format';
@@ -35,6 +36,7 @@ type Payment = {
     nominal?: number;
     status?: string;
     jenis_pembayaran?: string;
+    catatan_verifikasi?: string | null;
     created_at?: string;
 };
 
@@ -83,6 +85,7 @@ export default function Tagihan({
     }>;
 }) {
     const [selected, setSelected] = useState<Invoice | null>(null);
+    const [copiedVa, setCopiedVa] = useState<string | null>(null);
     const form = useForm({
         tagihan_id: '',
         jenis_pembayaran: 'sewa_asrama',
@@ -133,7 +136,11 @@ export default function Tagihan({
             label: 'Status',
             filter: {
                 type: 'select',
-                options: ['belum_lunas', 'lunas', 'batal'],
+                options: [
+                    { value: 'belum_lunas', label: 'Belum lunas' },
+                    { value: 'lunas', label: 'Lunas' },
+                    { value: 'batal', label: 'Batal' },
+                ],
             },
             render: (row) => <StatusBadge status={row.status} />,
         },
@@ -207,24 +214,66 @@ export default function Tagihan({
                 subtitle="Invoice dan sisa kewajiban Anda, termasuk jadwal cicilan yang disetujui admin."
             />
             {virtual_accounts.map((a) => (
-                <Card key={a.nomor} className="p-5">
-                    Bayar ke VA {a.bank}: <strong>{a.nomor}</strong> /{' '}
-                    {a.atas_nama}
+                <Card
+                    key={a.nomor}
+                    className="flex flex-wrap items-center justify-between gap-3 p-4 md:p-5"
+                >
+                    <div className="text-sm">
+                        Bayar ke Virtual Account {a.bank}:{' '}
+                        <strong className="text-identifier">{a.nomor}</strong> ·{' '}
+                        {a.atas_nama}
+                    </div>
+                    <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => {
+                            void navigator.clipboard?.writeText(a.nomor);
+                            setCopiedVa(a.nomor);
+                            setTimeout(
+                                () =>
+                                    setCopiedVa((curr) =>
+                                        curr === a.nomor ? null : curr,
+                                    ),
+                                2000,
+                            );
+                        }}
+                    >
+                        {copiedVa === a.nomor ? (
+                            <>
+                                <Check
+                                    className="text-success size-3.5"
+                                    aria-hidden="true"
+                                />
+                                Tersalin
+                            </>
+                        ) : (
+                            <>
+                                <Copy className="size-3.5" aria-hidden="true" />
+                                Salin No. VA
+                            </>
+                        )}
+                    </Button>
                 </Card>
             ))}
             <div className="grid gap-4 sm:grid-cols-3">
-                <Card className="p-5">
-                    <p>Total tagihan</p>
-                    <strong>{formatRupiah(total)}</strong>
-                </Card>
-                <Card className="p-5">
-                    <p>Sudah dibayar</p>
-                    <strong>{formatRupiah(paid)}</strong>
-                </Card>
-                <Card className="p-5">
-                    <p>Sisa tagihan</p>
-                    <strong>{formatRupiah(Math.max(0, total - paid))}</strong>
-                </Card>
+                <StatCard
+                    label="Total Tagihan"
+                    value={formatRupiah(total)}
+                    icon={<Receipt className="size-5" aria-hidden="true" />}
+                />
+                <StatCard
+                    label="Sudah Dibayar"
+                    value={formatRupiah(paid)}
+                    color="green"
+                    icon={<Wallet className="size-5" aria-hidden="true" />}
+                />
+                <StatCard
+                    label="Sisa Tagihan"
+                    value={formatRupiah(Math.max(0, total - paid))}
+                    color={total - paid > 0 ? 'gold' : 'green'}
+                    icon={<CreditCard className="size-5" aria-hidden="true" />}
+                />
             </div>
             <section className="space-y-3" aria-labelledby="invoice-saya">
                 <div>
@@ -255,9 +304,49 @@ export default function Tagihan({
                     <div className="space-y-4">
                         <p className="text-sm">
                             Lampirkan bukti pembayaran sesuai petunjuk admin
-                            layanan. Untuk cicilan, minta admin menetapkan
-                            jadwal sebelum pembayaran pertama.
+                            layanan. Untuk cicilan, pastikan jadwal termin telah
+                            disetujui sebelum pembayaran pertama.
                         </p>
+                        {virtual_accounts.length > 0 && (
+                            <div className="bg-base-200/60 border-base-300 space-y-1.5 rounded-lg border p-3 text-xs">
+                                <p className="font-semibold">
+                                    Tujuan Pembayaran (Virtual Account):
+                                </p>
+                                {virtual_accounts.map((a) => (
+                                    <p key={a.nomor}>
+                                        {a.bank}:{' '}
+                                        <strong className="text-identifier">
+                                            {a.nomor}
+                                        </strong>{' '}
+                                        ({a.atas_nama})
+                                    </p>
+                                ))}
+                            </div>
+                        )}
+                        {selected.jadwal_cicilan.length > 0 && (
+                            <div className="border-base-300 space-y-1 rounded-lg border p-3 text-xs">
+                                <p className="font-semibold">
+                                    Jadwal Termin Aktif:
+                                </p>
+                                {selected.jadwal_cicilan
+                                    .slice()
+                                    .sort((a, b) => a.termin_ke - b.termin_ke)
+                                    .map((t) => (
+                                        <div
+                                            key={t.termin_ke}
+                                            className="flex justify-between"
+                                        >
+                                            <span>
+                                                Termin {t.termin_ke} (jth.{' '}
+                                                {t.jatuh_tempo.slice(0, 10)})
+                                            </span>
+                                            <span className="font-medium">
+                                                {formatRupiah(Number(t.jumlah))}
+                                            </span>
+                                        </div>
+                                    ))}
+                            </div>
+                        )}
                         <form
                             className="space-y-4"
                             onSubmit={(event) => {
@@ -345,13 +434,20 @@ export default function Tagihan({
                         },
                         {
                             key: 'status',
-                            label: 'Status',
+                            label: 'Status & Catatan',
                             render: (payment: Payment) => (
-                                <StatusBadge
-                                    status={mapPaymentStatus(
-                                        payment.status ?? '',
+                                <div className="space-y-1">
+                                    <StatusBadge
+                                        status={mapPaymentStatus(
+                                            payment.status ?? '',
+                                        )}
+                                    />
+                                    {payment.catatan_verifikasi && (
+                                        <p className="text-muted text-xs">
+                                            {payment.catatan_verifikasi}
+                                        </p>
                                     )}
-                                />
+                                </div>
                             ),
                         },
                         {

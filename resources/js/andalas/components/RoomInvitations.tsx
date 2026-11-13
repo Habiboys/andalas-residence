@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useForm } from '@inertiajs/react';
 import { store, update, destroy } from '@/routes/andalas/room-invitations';
 import { tagihan } from '@/routes/mahasiswa';
-import { Button, Modal, inputClass } from './ui';
+import { Button, ConfirmDialog, Modal, inputClass } from './ui';
 import { formatRupiah } from '../lib/format';
 
 export type RoomInvitation = {
@@ -102,11 +102,16 @@ export function InviteRoommateButton({
 function InvitationCard({ invitation }: { invitation: RoomInvitation }) {
     const form = useForm({ accept: true });
     const [confirm, setConfirm] = useState(false);
+    const [rejectConfirm, setRejectConfirm] = useState(false);
+    const [cancelConfirm, setCancelConfirm] = useState(false);
     function respond(accept: boolean) {
         form.transform(() => ({ accept }));
         form.put(update.url(invitation.id), {
             preserveScroll: true,
-            onSuccess: () => setConfirm(false),
+            onSuccess: () => {
+                setConfirm(false);
+                setRejectConfirm(false);
+            },
         });
     }
     return (
@@ -169,7 +174,7 @@ function InvitationCard({ invitation }: { invitation: RoomInvitation }) {
                         <Button
                             size="sm"
                             variant="secondary"
-                            onClick={() => respond(false)}
+                            onClick={() => setRejectConfirm(true)}
                             disabled={form.processing}
                         >
                             Tolak
@@ -180,11 +185,7 @@ function InvitationCard({ invitation }: { invitation: RoomInvitation }) {
                         size="sm"
                         variant="secondary"
                         disabled={form.processing}
-                        onClick={() =>
-                            form.delete(destroy.url(invitation.id), {
-                                preserveScroll: true,
-                            })
-                        }
+                        onClick={() => setCancelConfirm(true)}
                     >
                         Batalkan undangan
                     </Button>
@@ -250,6 +251,27 @@ function InvitationCard({ invitation }: { invitation: RoomInvitation }) {
                     </div>
                 </Modal>
             )}
+            <ConfirmDialog
+                open={rejectConfirm}
+                title="Tolak Undangan Teman Sekamar"
+                message={`Yakin ingin menolak undangan kamar ${invitation.room_number} dari ${invitation.sender_name}?`}
+                confirmLabel="Ya, Tolak"
+                onConfirm={() => respond(false)}
+                onClose={() => !form.processing && setRejectConfirm(false)}
+            />
+            <ConfirmDialog
+                open={cancelConfirm}
+                title="Batalkan Undangan"
+                message={`Batalkan undangan kamar ${invitation.room_number} untuk ${invitation.invitee_name}?`}
+                confirmLabel="Ya, Batalkan"
+                onConfirm={() =>
+                    form.delete(destroy.url(invitation.id), {
+                        preserveScroll: true,
+                        onSuccess: () => setCancelConfirm(false),
+                    })
+                }
+                onClose={() => !form.processing && setCancelConfirm(false)}
+            />
         </article>
     );
 }

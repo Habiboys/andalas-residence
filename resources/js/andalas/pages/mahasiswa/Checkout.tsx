@@ -25,9 +25,17 @@ export default function Checkout({ checkout = [] }: Props) {
         alasan: '',
     });
 
+    const [confirmOpen, setConfirmOpen] = useState(false);
+    const hasActiveCheckout = checkout.some((item) =>
+        ['menunggu', 'disetujui'].includes(item.status),
+    );
+
     function submit(event: React.FormEvent) {
         event.preventDefault();
-        post(checkoutStore.url(), { onSuccess: () => reset() });
+        if (hasActiveCheckout) {
+            return;
+        }
+        setConfirmOpen(true);
     }
 
     return (
@@ -79,8 +87,15 @@ export default function Checkout({ checkout = [] }: Props) {
                             {error}
                         </p>
                     ))}
-                    <Button type="submit" disabled={processing}>
-                        {processing ? 'Mengirim...' : 'Ajukan Check-out'}
+                    <Button
+                        type="submit"
+                        disabled={processing || hasActiveCheckout}
+                    >
+                        {processing
+                            ? 'Mengirim...'
+                            : hasActiveCheckout
+                              ? 'Pengajuan Aktif Sedang Diproses'
+                              : 'Ajukan Check-out'}
                     </Button>
                 </form>
             </Card>
@@ -97,7 +112,7 @@ export default function Checkout({ checkout = [] }: Props) {
                         {checkout.map((item) => (
                             <div
                                 key={item.id}
-                                className="rounded-box border-base-300 border p-4"
+                                className="rounded-box border-base-300 space-y-2 border p-4"
                             >
                                 <div className="flex items-center justify-between">
                                     <span className="font-medium">
@@ -105,15 +120,51 @@ export default function Checkout({ checkout = [] }: Props) {
                                     </span>
                                     <StatusBadge status={item.status} />
                                 </div>
-                                <p className="mt-2 text-sm opacity-70">
-                                    Inspeksi GO:{' '}
-                                    {item.inspection?.status ?? 'menunggu'}
-                                </p>
+                                {item.alasan && (
+                                    <p className="text-muted text-xs">
+                                        Alasan: {item.alasan}
+                                    </p>
+                                )}
+                                <div className="flex flex-wrap items-center gap-2 text-sm">
+                                    <span className="opacity-70">
+                                        Inspeksi GO:
+                                    </span>
+                                    <StatusBadge
+                                        status={
+                                            item.inspection?.status ??
+                                            'menunggu'
+                                        }
+                                    />
+                                </div>
+                                {item.inspection?.catatan && (
+                                    <p className="bg-base-200/60 rounded p-2 text-xs">
+                                        Catatan inspeksi:{' '}
+                                        {item.inspection.catatan}
+                                    </p>
+                                )}
                             </div>
                         ))}
                     </div>
                 )}
             </Card>
+            <ConfirmDialog
+                open={confirmOpen}
+                title="Konfirmasi Pengajuan Check-out"
+                message="Yakin ingin mengajukan check-out asrama? Pengelola gedung akan menjadwalkan inspeksi kamar Anda."
+                confirmLabel={
+                    processing ? 'Mengirim...' : 'Ya, Ajukan Check-out'
+                }
+                onConfirm={() =>
+                    post(checkoutStore.url(), {
+                        onSuccess: () => {
+                            reset();
+                            setConfirmOpen(false);
+                        },
+                        onError: () => setConfirmOpen(false),
+                    })
+                }
+                onClose={() => !processing && setConfirmOpen(false)}
+            />
         </div>
     );
 }

@@ -106,14 +106,17 @@ export function AuthField({
 export function AuthSubmitButton({
     processing,
     children,
+    'data-test': dataTest,
 }: {
     processing?: boolean;
     children: ReactNode;
+    'data-test'?: string;
 }) {
     return (
         <button
             type="submit"
             disabled={processing}
+            data-test={dataTest}
             className="btn btn-primary w-full"
         >
             {processing && (
@@ -132,25 +135,32 @@ export function PasswordInput({
     onChange,
     error,
     name = 'password',
+    label = 'Password',
+    id,
+    autoComplete = 'current-password',
 }: {
     value: string;
     onChange: (value: string) => void;
     error?: string;
     name?: string;
+    label?: string;
+    id?: string;
+    autoComplete?: string;
 }) {
     const [visible, setVisible] = useState(false);
 
     return (
-        <AuthField label="Password" error={error}>
+        <AuthField label={label} error={error}>
             <div className="relative">
                 <input
+                    id={id}
                     type={visible ? 'text' : 'password'}
                     name={name}
                     value={value}
                     onChange={(e) => onChange(e.target.value)}
                     placeholder="Masukkan password"
                     className={`${authInputClass} pr-11`}
-                    autoComplete="current-password"
+                    autoComplete={autoComplete}
                     required
                 />
                 <button

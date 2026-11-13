@@ -1,6 +1,12 @@
 import { Link, useForm } from '@inertiajs/react';
 import { useState } from 'react';
-import { PageHeader, Card, inputClass, StatusBadge } from '../../components/ui';
+import {
+    Card,
+    ConfirmDialog,
+    PageHeader,
+    inputClass,
+    StatusBadge,
+} from '../../components/ui';
 import { bebas } from '@/routes/andalas/pengajuan';
 import { surat } from '@/routes/andalas/pengajuan/bebas';
 import { tagihan } from '@/routes/mahasiswa';
@@ -26,6 +32,7 @@ export default function PengajuanBebasAsrama({
     letterIdentity?: { nim?: string; faculty?: string; program?: string };
 }) {
     const [review, setReview] = useState(false);
+    const [confirmOpen, setConfirmOpen] = useState(false);
     const active = ['binaan', 'hunian'].includes(
         initialUser?.residence_state ?? '',
     );
@@ -49,7 +56,7 @@ export default function PengajuanBebasAsrama({
                         onSubmit={(e) => {
                             e.preventDefault();
                             if (review) {
-                                form.post(bebas.url());
+                                setConfirmOpen(true);
                             } else {
                                 setReview(true);
                             }
@@ -138,6 +145,18 @@ export default function PengajuanBebasAsrama({
                                         Unggahan belum dianggap sebagai
                                         pelunasan.
                                     </p>
+                                    {(Boolean(form.data.payment_evidence) !==
+                                        Boolean(form.data.bank_statement)) && (
+                                        <p
+                                            role="status"
+                                            className="alert alert-warning py-2 text-xs"
+                                        >
+                                            Jika mengunggah bukti historis,
+                                            keduanya (Surat checkout asrama dan
+                                            Rekening Koran/Bukti Pembayaran)
+                                            wajib dilengkapi bersamaan.
+                                        </p>
+                                    )}
                                 </fieldset>
                             )}
                         </div>
@@ -223,6 +242,20 @@ export default function PengajuanBebasAsrama({
                     </div>
                 ))}
             </Card>
+            <ConfirmDialog
+                open={confirmOpen}
+                title="Konfirmasi Pengajuan Surat"
+                message="Pastikan nama resmi dan dokumen pendukung sudah benar sebelum mengirim pengajuan surat bebas asrama."
+                confirmLabel={
+                    form.processing ? 'Mengirim...' : 'Ya, Ajukan Surat'
+                }
+                onConfirm={() =>
+                    form.post(bebas.url(), {
+                        onFinish: () => setConfirmOpen(false),
+                    })
+                }
+                onClose={() => !form.processing && setConfirmOpen(false)}
+            />
         </div>
     );
 }

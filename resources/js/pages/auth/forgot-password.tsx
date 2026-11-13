@@ -53,10 +53,10 @@ export default function ForgotPassword({ status }: { status?: string }) {
 
                             <AuthSubmitButton
                                 processing={processing}
-                                idle="Kirim Tautan Reset"
-                                busy="Mengirim..."
                                 data-test="email-password-reset-link-button"
-                            />
+                            >
+                                Kirim Tautan Reset
+                            </AuthSubmitButton>
                         </>
                     )}
                 </Form>

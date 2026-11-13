@@ -90,7 +90,7 @@ Route::middleware(['auth', 'verified', EnsureResidenceAccountAccess::class])->gr
         return redirect()->route($prefix.'.dashboard');
     })->name('dashboard.redirect');
 
-    Route::middleware('role:staff_admin|admin_layanan')->group(function () {
+    Route::middleware('role:staff_admin|admin_layanan|superadmin')->group(function () {
         Route::get('/admin/kelola-penandatangan', [DocumentSignerController::class, 'index'])->name('admin.kelola-penandatangan');
         Route::post('/admin/penandatangan', [DocumentSignerController::class, 'store'])->name('admin.penandatangan.store');
         Route::put('/admin/penandatangan/{signer}', [DocumentSignerController::class, 'update'])->name('admin.penandatangan.update');

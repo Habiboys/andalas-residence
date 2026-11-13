@@ -12,6 +12,7 @@ use App\Models\AuditLog;
 use App\Models\CheckoutRequest;
 use App\Models\City;
 use App\Models\Departemen;
+use App\Models\DocumentSigner;
 use App\Models\Faculty;
 use App\Models\FasilitasUmum;
 use App\Models\Gedung;
@@ -98,9 +99,10 @@ class RolePageController extends Controller
                 'kipk_recipients' => KipkRecipient::orderByDesc('angkatan')->get(),
             ],
             'invoices' => [
-                'billing' => Tagihan::with(['mahasiswa.user', 'mahasiswa.prodi', 'jadwalCicilan', 'dokumen'])->latest()->get(),
+                'billing' => Tagihan::with(['mahasiswa.user', 'mahasiswa.prodi', 'jadwalCicilan', 'dokumen', 'registration:id,tagihan_id,workflow_version'])->latest()->get(),
                 'groups' => InvoiceGroup::latest()->get(),
                 'virtual_accounts' => VirtualAccount::where('aktif', true)->get(),
+                'signers' => DocumentSigner::orderByDesc('aktif')->orderBy('nama')->get(['id', 'nama', 'jabatan', 'aktif']),
             ],
             'dashboard' => [
                 'stats' => $this->dashboardStats($request),
@@ -234,7 +236,7 @@ class RolePageController extends Controller
             'approval-bebas-asrama' => $this->freeResidenceApprovalPayload($request),
             'perizinan' => $this->leavePayload($request),
             'akun-internal' => ['users' => $this->internalUsers(), 'roles' => $this->internalRoles()],
-            'audit-log' => ['audit_logs' => AuditLog::with('user')->latest()->limit(200)->get()],
+            'audit-log' => ['audit_logs' => AuditLog::with('user')->latest()->limit(500)->get()],
             default => [],
         };
     }
@@ -311,7 +313,7 @@ class RolePageController extends Controller
 
         return [
             'pembayaran' => Pembayaran::query()
-                ->with(['mahasiswa.user', 'mahasiswa.prodi', 'tagihan', 'verifikator'])
+                ->with(['mahasiswa.user', 'mahasiswa.prodi', 'tagihan.registration:id,tagihan_id,workflow_version', 'verifikator'])
                 ->when($search !== '', function (EloquentBuilder $query) use ($search): void {
                     $query->where(function (EloquentBuilder $query) use ($search): void {
                         $query->where('kode_transaksi', 'like', "%{$search}%")
@@ -663,7 +665,7 @@ class RolePageController extends Controller
             return null;
         }
 
-        return User::role(['superadmin', 'pimpinan', 'staff_admin', 'fasilitator', 'teknisi'])
+        return User::role(['superadmin', 'pimpinan', 'admin_layanan', 'admin_aset', 'staff_admin', 'fasilitator', 'teknisi', 'go'])
             ->with('roles')
             ->orderBy('nama')
             ->get()

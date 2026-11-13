@@ -21,8 +21,18 @@ test('authenticated users are redirected to their role dashboard', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
-    $response = $this->get('/dashboard/redirect');
-    $response->assertRedirect(route('mahasiswa.dashboard'));
+    $this->get('/dashboard/redirect')
+        ->assertRedirect(route('mahasiswa.layanan'));
+
+    MahasiswaProfil::create([
+        'user_id' => $user->id,
+        'angkatan' => 2026,
+        'barcode_code' => 'MHS-'.fake()->unique()->numerify('######'),
+        'status_huni' => 'aktif',
+    ]);
+
+    $this->get('/dashboard/redirect')
+        ->assertRedirect(route('mahasiswa.dashboard'));
 });
 
 function executiveRoom(): Kamar

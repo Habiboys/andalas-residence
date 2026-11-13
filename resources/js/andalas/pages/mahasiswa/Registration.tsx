@@ -5,7 +5,14 @@ import RoomInvitations, {
     type RoomInvitation,
 } from '../../components/RoomInvitations';
 import { Link, useForm } from '@inertiajs/react';
-import { Card, PageHeader, inputClass, StatusBadge } from '../../components/ui';
+import {
+    Button,
+    Card,
+    Modal,
+    PageHeader,
+    inputClass,
+    StatusBadge,
+} from '../../components/ui';
 import { store } from '@/routes/andalas/registrations';
 import { tagihan } from '@/routes/mahasiswa';
 import { formatRupiah } from '../../lib/format';
@@ -77,6 +84,7 @@ export default function Registration({
     room_invitations = [],
 }: Props) {
     const [step, setStep] = useState(0);
+    const [confirmOpen, setConfirmOpen] = useState(false);
     const [tab, setTab] = useState<'registration' | 'invitations'>(
         'registration',
     );
@@ -343,13 +351,7 @@ export default function Registration({
                                 onSubmit={(e) => {
                                     e.preventDefault();
                                     if (step !== 2) return;
-                                    form.transform((d) => ({
-                                        ...d,
-                                        starts_at: d.starts_at || null,
-                                        ends_at: d.ends_at || null,
-                                        preferences: kipk ? [] : d.preferences,
-                                    }));
-                                    form.post(store.url());
+                                    setConfirmOpen(true);
                                 }}
                             >
                                 <ol
@@ -885,6 +887,66 @@ export default function Registration({
                             </form>
                         )}
                     </Card>
+                    {confirmOpen && (
+                        <Modal
+                            open
+                            onClose={() =>
+                                !form.processing && setConfirmOpen(false)
+                            }
+                            title="Konfirmasi Pengajuan Pendaftaran"
+                        >
+                            <div className="space-y-4">
+                                <p className="text-sm">
+                                    Anda akan mengajukan pendaftaran asrama
+                                    untuk periode{' '}
+                                    <strong>
+                                        {periods.find(
+                                            (p) =>
+                                                p.id === form.data.periode_id,
+                                        )?.nama_periode ?? '-'}
+                                    </strong>
+                                    {!kipk && room
+                                        ? ` · Kamar ${room.nomor_kamar}`
+                                        : ''}
+                                    . Setelah dikirim, alokasi kamar akan segera
+                                    diproses dan Anda dapat melengkapi dokumen
+                                    resmi.
+                                </p>
+                                <div className="flex justify-end gap-2">
+                                    <Button
+                                        type="button"
+                                        variant="secondary"
+                                        disabled={form.processing}
+                                        onClick={() => setConfirmOpen(false)}
+                                    >
+                                        Periksa Kembali
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        disabled={form.processing}
+                                        onClick={() => {
+                                            form.transform((d) => ({
+                                                ...d,
+                                                starts_at: d.starts_at || null,
+                                                ends_at: d.ends_at || null,
+                                                preferences: kipk
+                                                    ? []
+                                                    : d.preferences,
+                                            }));
+                                            form.post(store.url(), {
+                                                onFinish: () =>
+                                                    setConfirmOpen(false),
+                                            });
+                                        }}
+                                    >
+                                        {form.processing
+                                            ? 'Mengirim...'
+                                            : 'Ya, Ajukan Pendaftaran'}
+                                    </Button>
+                                </div>
+                            </div>
+                        </Modal>
+                    )}
                     <Card className="space-y-3 p-5">
                         <h2 className="font-semibold">Riwayat pendaftaran</h2>
                         {registration.length === 0 ? (

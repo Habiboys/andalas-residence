@@ -80,10 +80,10 @@ export default function ResetPassword({ token, email }: Props) {
 
                             <AuthSubmitButton
                                 processing={processing}
-                                idle="Simpan Kata Sandi Baru"
-                                busy="Menyimpan..."
                                 data-test="reset-password-button"
-                            />
+                            >
+                                Simpan Kata Sandi Baru
+                            </AuthSubmitButton>
                         </>
                     )}
                 </Form>

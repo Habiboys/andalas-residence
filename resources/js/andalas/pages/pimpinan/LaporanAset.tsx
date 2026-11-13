@@ -98,7 +98,7 @@ export default function LaporanAset({ aset = [], tiket = [] }: Props) {
                 <StatCard
                     label="Total Unit Aset"
                     value={aset.length}
-                    color="blue"
+                    color="gray"
                 />
                 <StatCard
                     label="Aset Perlu Perhatian"

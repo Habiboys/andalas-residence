@@ -1,7 +1,9 @@
 import { useState, type FormEvent } from 'react';
 import { useForm } from '@inertiajs/react';
 import {
+    Badge,
     Card,
+    ConfirmDialog,
     PageHeader,
     Button,
     FormField,
@@ -9,6 +11,7 @@ import {
     DataTable,
     Drawer,
     RowActions,
+    StatusBadge,
 } from './ui';
 import { store, review, proof, evidence } from '@/routes/andalas/perizinan';
 
@@ -69,6 +72,34 @@ export default function PerizinanPanel({
         dokumen: null as File | null,
     });
     const approval = useForm({ status: 'disetujui', catatan_verifikasi: '' });
+    const [rejectConfirm, setRejectConfirm] = useState(false);
+    const todayIso = new Date().toISOString().slice(0, 10);
+    const currentMonthKey = todayIso.slice(0, 7);
+    const usedMonthDays = perizinan.reduce((total, leave) => {
+        if (leave.jenis === 'sakit' || leave.status === 'ditolak') {
+            return total;
+        }
+        const monthStart = new Date(`${currentMonthKey}-01T00:00:00`);
+        const monthEnd = new Date(
+            monthStart.getFullYear(),
+            monthStart.getMonth() + 1,
+            0,
+        );
+        const start = new Date(`${leave.tanggal_mulai.slice(0, 10)}T00:00:00`);
+        const end = new Date(`${leave.tanggal_kembali.slice(0, 10)}T00:00:00`);
+        const overlapStart = start > monthStart ? start : monthStart;
+        const overlapEnd = end < monthEnd ? end : monthEnd;
+        if (overlapEnd < overlapStart) {
+            return total;
+        }
+        return (
+            total +
+            Math.floor(
+                (overlapEnd.getTime() - overlapStart.getTime()) / 86400000,
+            ) +
+            1
+        );
+    }, 0);
     const evidenceForm = useForm({ foto: null as File | null });
     const pending = perizinan.some(
         (leave) =>
@@ -179,6 +210,16 @@ export default function PerizinanPanel({
                                 masing-masing bulan. Sakit tidak mengurangi
                                 kuota dan wajib diverifikasi fasilitator.
                             </p>
+                            <div className="mb-4 flex flex-wrap items-center gap-2 text-xs">
+                                <Badge
+                                    color={
+                                        usedMonthDays >= 6 ? 'red' : 'blue'
+                                    }
+                                >
+                                    Kuota bulan ini terpakai: {usedMonthDays} /
+                                    6 hari
+                                </Badge>
+                            </div>
                             <form
                                 onSubmit={submit}
                                 className="grid gap-4 md:grid-cols-2"
@@ -227,6 +268,7 @@ export default function PerizinanPanel({
                                     <input
                                         required
                                         type="date"
+                                        min={todayIso}
                                         className={inputClass}
                                         value={form.data.tanggal_mulai}
                                         onChange={(event) =>
@@ -247,6 +289,9 @@ export default function PerizinanPanel({
                                     <input
                                         required
                                         type="date"
+                                        min={
+                                            form.data.tanggal_mulai || todayIso
+                                        }
                                         className={inputClass}
                                         value={form.data.tanggal_kembali}
                                         onChange={(event) =>
@@ -404,7 +449,7 @@ export default function PerizinanPanel({
                                     ([value, label]) => ({ value, label }),
                                 ),
                             },
-                            render: (row) => statuses[row.status] ?? row.status,
+                            render: (row) => <StatusBadge status={row.status} />,
                         },
                         {
                             key: 'actions',
@@ -555,7 +600,7 @@ export default function PerizinanPanel({
                                     <Button
                                         variant="secondary"
                                         disabled={approval.processing}
-                                        onClick={() => decide('ditolak')}
+                                        onClick={() => setRejectConfirm(true)}
                                     >
                                         Tolak
                                     </Button>
@@ -633,6 +678,21 @@ export default function PerizinanPanel({
                     </div>
                 )}
             </Drawer>
+            <ConfirmDialog
+                open={rejectConfirm}
+                title="Tolak Pengajuan Izin"
+                message={`Yakin ingin menolak pengajuan izin ${selected?.mahasiswa?.user?.nama ?? 'mahasiswa ini'}?`}
+                confirmLabel={
+                    approval.processing ? 'Memproses...' : 'Ya, Tolak'
+                }
+                onConfirm={() => {
+                    decide('ditolak');
+                    setRejectConfirm(false);
+                }}
+                onClose={() =>
+                    !approval.processing && setRejectConfirm(false)
+                }
+            />
         </div>
     );
 }

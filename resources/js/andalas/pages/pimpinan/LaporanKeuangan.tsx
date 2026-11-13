@@ -84,7 +84,7 @@ export default function LaporanKeuangan({
                 <StatCard
                     label="Saldo Kas"
                     value={formatRupiah(saldo)}
-                    color="blue"
+                    color="gray"
                 />
             </div>
             <div className="flex flex-wrap items-center gap-2">

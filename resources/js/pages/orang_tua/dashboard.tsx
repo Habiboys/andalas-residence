@@ -1,4 +1,4 @@
-import { Card, PageHeader } from '@/andalas/components/ui';
+import { Card, PageHeader, StatusBadge } from '@/andalas/components/ui';
 type Child = {
     id: string;
     student_profile?: {

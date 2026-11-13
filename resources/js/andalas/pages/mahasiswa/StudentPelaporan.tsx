@@ -101,9 +101,18 @@ type Props = {
     can_report: boolean;
     can_complain: boolean;
     resident_name: string;
-    room: string;
-    assets: { id: string; label: string; location: string }[];
-    facilities: { id: string; nama: string }[];
+    room?: {
+        id?: string;
+        nomor_kamar: string;
+        lantai?: { gedung?: { nama_gedung: string } };
+    } | null;
+    assets: {
+        id: string;
+        nama_aset: string;
+        kamar_id?: string | null;
+        fasilitas_umum_id?: string | null;
+    }[];
+    facilities: { id: string; nama_fasilitas: string }[];
     notifications: {
         id: string;
         data: { subject: string; message: string };
@@ -221,7 +230,7 @@ export default function StudentPelaporan({
                             <Button
                                 type="button"
                                 size="sm"
-                                variant="outline"
+                                variant="secondary"
                                 disabled={busyId === n.id}
                                 onClick={() => handleMarkRead(n.id)}
                             >
@@ -331,7 +340,7 @@ export default function StudentPelaporan({
                                     <Button
                                         type="button"
                                         size="sm"
-                                        variant="outline"
+                                        variant="secondary"
                                         onClick={() => {
                                             setSearch('');
                                             setStatusFilter('');
@@ -391,7 +400,7 @@ export default function StudentPelaporan({
                                             <Button
                                                 type="button"
                                                 size="sm"
-                                                variant="outline"
+                                                variant="secondary"
                                                 onClick={() =>
                                                     setConfirmTarget(r)
                                                 }
@@ -404,7 +413,7 @@ export default function StudentPelaporan({
                                                 <Button
                                                     type="button"
                                                     size="sm"
-                                                    variant="outline"
+                                                    variant="secondary"
                                                     onClick={() =>
                                                         setOpenComplaintId(
                                                             openComplaintId ===

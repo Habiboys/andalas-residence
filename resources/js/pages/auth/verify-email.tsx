@@ -37,11 +37,9 @@ export default function VerifyEmail({ status }: { status?: string }) {
                     className="flex flex-col gap-4"
                 >
                     {({ processing }) => (
-                        <AuthSubmitButton
-                            processing={processing}
-                            idle="Kirim Ulang Email Verifikasi"
-                            busy="Mengirim..."
-                        />
+                        <AuthSubmitButton processing={processing}>
+                            Kirim Ulang Email Verifikasi
+                        </AuthSubmitButton>
                     )}
                 </Form>
 

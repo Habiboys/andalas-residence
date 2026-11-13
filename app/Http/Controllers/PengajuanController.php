@@ -111,7 +111,8 @@ class PengajuanController extends Controller
             'catatan_penolakan' => ['nullable', 'string', 'max:2000'],
             'nomor_surat_resmi' => ['nullable', 'string', 'max:100'],
         ]);
-        DB::transaction(function () use ($request, $pengajuan, $data, $approval): void {
+        $message = 'Keputusan pengajuan tersimpan.';
+        DB::transaction(function () use ($request, $pengajuan, $data, $approval, &$message): void {
             $application = PengajuanBebasAsrama::query()->lockForUpdate()->findOrFail($pengajuan->id);
             if ($application->status === FreeResidenceLetterStatus::Disetujui) {
                 return;
@@ -139,10 +140,13 @@ class PengajuanController extends Controller
             $application->update(['status' => 'diverifikasi', 'verified_at' => now(), 'nomor_surat_resmi' => $data['nomor_surat_resmi'] ?? null]);
             if (! app(ResidenceLifecycle::class)->hasDebt($application->mahasiswa)) {
                 $approval->handle($application->fresh(), $request->user());
+                $message = 'Pengajuan disetujui dan surat bebas asrama resmi diterbitkan.';
+            } else {
+                $message = 'Verifikasi tersimpan, namun surat belum terbit karena mahasiswa masih memiliki tunggakan tagihan.';
             }
         });
 
-        return back()->with('toast', ['type' => 'success', 'message' => 'Keputusan pengajuan tersimpan.']);
+        return back()->with('toast', ['type' => 'success', 'message' => $message]);
     }
 
     public function evidence(Request $request, PengajuanBebasAsrama $pengajuan, string $kind): StreamedResponse

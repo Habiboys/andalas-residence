@@ -101,6 +101,10 @@ it('manages signers only for staff with document permissions', function () {
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page->component('admin/kelola-penandatangan')->has('signers', 0));
 
+    $this->actingAs(User::factory()->create()->assignRole('superadmin'))
+        ->get(route('admin.kelola-penandatangan'))
+        ->assertOk();
+
     $this->actingAs(User::factory()->create()->assignRole('mahasiswa'))
         ->get(route('admin.kelola-penandatangan'))
         ->assertForbidden();

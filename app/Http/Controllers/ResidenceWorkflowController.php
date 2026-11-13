@@ -138,9 +138,9 @@ class ResidenceWorkflowController extends Controller
         $registration->load(['studentProfile.user', 'reservedRoom.lantai.gedung', 'placement.kamar.lantai.gedung', 'policy', 'documents.reviewer:id,nama', 'decisions', 'tagihan', 'application', 'roomContract']);
         $registration = $this->decorateRegistration($registration, $user);
 
-        return Inertia::render($studentView ? 'mahasiswa/registration-status' : 'admin/residence-workflow', [
+        return Inertia::render('admin/residence-workflow', [
             'role' => $user->getRoleNames()->first(),
-            'page' => $studentView ? 'registration' : 'residence-workflow',
+            'page' => 'residence-workflow',
             'initialUser' => app(RolePageController::class)->userPayload($request),
             'section' => 'registrations',
             'detailMode' => true,
