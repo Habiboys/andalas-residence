@@ -589,17 +589,22 @@ export default function DataHunian({
                     )}
                     {step < 2 ? (
                         <button
+                            key="step-next"
                             type="button"
                             className="btn btn-primary"
                             disabled={
                                 step === 0 ? !identityReady : !addressReady
                             }
-                            onClick={() => setStep(step + 1)}
+                            onClick={(e) => {
+                                e.preventDefault();
+                                setStep(step + 1);
+                            }}
                         >
                             Lanjut
                         </button>
                     ) : (
                         <button
+                            key="step-submit"
                             type="submit"
                             className="btn btn-primary"
                             disabled={form.processing}

@@ -750,6 +750,7 @@ export default function Registration({
                                     )}
                                     {step < 2 ? (
                                         <button
+                                            key="step-next"
                                             type="button"
                                             className="btn btn-primary ml-auto"
                                             disabled={
@@ -777,7 +778,10 @@ export default function Registration({
                                                                   form.data
                                                                       .starts_at)))
                                             }
-                                            onClick={() => setStep(step + 1)}
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                setStep(step + 1);
+                                            }}
                                         >
                                             {step === 0
                                                 ? kipk
@@ -787,6 +791,7 @@ export default function Registration({
                                         </button>
                                     ) : (
                                         <button
+                                            key="step-submit"
                                             type="submit"
                                             className="btn btn-primary"
                                             disabled={
