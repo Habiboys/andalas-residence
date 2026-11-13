@@ -162,3 +162,24 @@ it('records an idempotent complaint referencing a completed report without reope
     expect(fn () => $revision->complain($r, $other['user'], 'Tidak berhak', null, (string) Str::uuid()))->toThrow(AuthorizationException::class);
 });
 
+it('includes status history actor, item photos, and notifications in pelaporan and lapor-kerusakan payloads', function () {
+    $f = finalDamageResident();
+    $revision = app(DamageReportRevision::class);
+    $w = app(DamageReportWorkflow::class);
+    $t = finalDamageTechnician();
+    $r = $revision->submit($f['user'], [['description' => 'Keran bocor']]);
+    $w->claim($r, $t);
+
+    $this->actingAs($f['user'])->get('/pelaporan')->assertOk()->assertInertia(
+        fn ($page) => $page
+            ->where('reports.data.0.status_histories.0.actor.nama', fn ($name) => is_string($name) && $name !== '')
+            ->has('assets')
+    );
+
+    $this->actingAs($f['user'])->get('/mahasiswa/lapor-kerusakan')->assertOk()->assertInertia(
+        fn ($page) => $page
+            ->where('reports.0.status_histories.0.actor.nama', fn ($name) => is_string($name) && $name !== '')
+            ->has('reports.0.items.0.photos')
+            ->has('notifications')
+    );
+});

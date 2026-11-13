@@ -391,3 +391,43 @@ it('renders the student service selection page with shell user payload and auto-
 
     expect(Periode::where('status', 'aktif')->exists())->toBeTrue();
 });
+
+it('allows approving monthly scheme with zero upfront after leader approves deferral first', function () {
+    $f = toBeFixture();
+    $r = toBeSubmit($f, ['rate_unit' => 'month', 'starts_at' => '2026-11-05', 'ends_at' => '2027-01-04']);
+    toBeDocument($r, $f['manager']);
+    $leader = toBeOfficer('pimpinan');
+    $defer = ResidenceDecision::factory()->create(['residence_registration_id' => $r->id, 'kind' => 'defer']);
+    $monthly = ResidenceDecision::factory()->create(['residence_registration_id' => $r->id, 'kind' => 'monthly']);
+    $schedule = [['jumlah' => 100000, 'jatuh_tempo' => '2026-12-05'], ['jumlah' => 100000, 'jatuh_tempo' => '2027-01-05']];
+
+    $this->actingAs($leader)->post(route('residence.decisions.review', $defer), [
+        'status' => 'approved',
+        'notes' => 'Penundaan disetujui pimpinan',
+    ])->assertRedirect()->assertSessionHasNoErrors();
+
+    $this->actingAs($f['manager'])->post(route('residence.decisions.review', $defer), [
+        'status' => 'approved',
+        'notes' => 'Jadwal penundaan dikonfigurasi pengelola',
+        'initial_amount' => 0,
+        'schedule' => $schedule,
+    ])->assertRedirect()->assertSessionHasNoErrors();
+
+    $this->actingAs($f['manager'])->post(route('residence.decisions.review', $monthly), [
+        'status' => 'approved',
+        'notes' => 'Skema bulanan mengikuti penundaan pimpinan',
+        'initial_amount' => 0,
+        'schedule' => $schedule,
+    ])->assertRedirect()->assertSessionHasNoErrors();
+
+    RegistrationDocument::factory()->create([
+        'residence_registration_id' => $r->id,
+        'kind' => $defer->fresh()->terms['agreement_kind'],
+        'status' => 'valid',
+        'reviewed_by' => $f['manager']->id,
+        'reviewed_at' => now(),
+    ]);
+    app(ResidenceWorkflow::class)->evaluate($r->fresh());
+
+    expect($r->fresh()->ready_at)->not->toBeNull();
+});

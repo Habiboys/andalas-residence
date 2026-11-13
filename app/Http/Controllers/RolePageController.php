@@ -5,10 +5,12 @@ namespace App\Http\Controllers;
 use App\Actions\Registration\CreateTemporaryStay;
 use App\Enums\FreeResidenceLetterStatus;
 use App\Enums\ResidenceRegistrationStatus;
+use App\Jobs\SendDamageReportNotification;
 use App\Models\ActivityAttendance;
 use App\Models\Aset;
 use App\Models\AuditLog;
 use App\Models\CheckoutRequest;
+use App\Models\City;
 use App\Models\Departemen;
 use App\Models\Faculty;
 use App\Models\FasilitasUmum;
@@ -130,8 +132,8 @@ class RolePageController extends Controller
                     ...$request->user()->only(['nim_nip', 'email', 'gender', 'no_hp', 'status']),
                     'category' => $request->user()->getRawOriginal('client_profile_category'),
                 ],
-                'programs' => \App\Models\Prodi::with('departemen.faculty')->orderBy('name')->get(),
-                'cities' => \App\Models\City::with('province')->orderBy('name')->get(),
+                'programs' => Prodi::with('departemen.faculty')->orderBy('name')->get(),
+                'cities' => City::with('province')->orderBy('name')->get(),
                 'saveUrl' => route('residence.housing-profile'),
                 'registrationUrl' => route('mahasiswa.registration'),
             ],
@@ -591,7 +593,7 @@ class RolePageController extends Controller
             ->with(['sender:id,nama', 'invitee:id,nama', 'room.lantai.gedung', 'registration'])->latest()->get()->map(fn (RoomInvitation $invitation): array => $this->invitationPayload($invitation, $request->user(), $rates));
 
         return [
-            'policy_open' => $policy !== null, 'policy_month_days' => $policy?->settings['month_days'] ?? 30, 'policy_day_basis' => $policy?->settings['day_basis'] ?? 'nights',
+            'policy_open' => $policy !== null, 'policy_monthly_allowed' => (bool) ($policy?->settings['monthly_allowed'] ?? false), 'policy_month_days' => $policy?->settings['month_days'] ?? 30, 'policy_day_basis' => $policy?->settings['day_basis'] ?? 'nights',
             'rates' => $rates, 'periode' => Periode::where('status', 'aktif')->get(),
             'billing' => Tagihan::with(['items', 'jadwalCicilan', 'dokumen'])->where('mahasiswa_id', $student?->id)->latest()->get(),
             'rooms' => $rooms,
@@ -719,7 +721,8 @@ class RolePageController extends Controller
                 ? Aset::query()->reportableFor($placement->kamar)->with(['kamar.lantai.gedung', 'fasilitasUmum.gedung'])->orderBy('nama_aset')->get()
                 : [],
             'reports' => DamageReportAccess::query($request->user())
-                ->with(['aset.fasilitasUmum', 'kamar', 'photos', 'statusHistories', 'progress.user', 'assignments.technician'])->latest('tanggal_lapor')->limit(100)->get(),
+                ->with(['aset.fasilitasUmum', 'kamar', 'photos', 'items.photos', 'statusHistories.actor', 'progress.user', 'assignments.technician'])->latest('tanggal_lapor')->limit(100)->get(),
+            'notifications' => $request->user()->unreadNotifications()->where('type', SendDamageReportNotification::class)->latest()->limit(10)->get(['id', 'data']),
         ];
     }
 

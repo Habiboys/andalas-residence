@@ -15,9 +15,11 @@ type Props = {
     housingProfileUrl?: string;
     housingStatusUrl?: string;
     policy_open?: boolean;
+    policy_monthly_allowed?: boolean;
     policy_month_days?: number;
     policy_day_basis?: string;
     initialUser?: {
+        angkatan?: number | string | null;
         is_kipk?: boolean;
         kipk_personal_payment?: boolean;
         can_use_sponsor?: boolean;
@@ -30,6 +32,7 @@ type Props = {
         id: string;
         nama_periode: string;
         status: string;
+        angkatan_maba?: number | string | null;
         reservation_hours?: number;
     }>;
     rooms?: Room[];
@@ -63,6 +66,7 @@ export default function Registration({
     housingProfileUrl,
     housingStatusUrl,
     policy_open = false,
+    policy_monthly_allowed = true,
     policy_month_days = 30,
     policy_day_basis = 'nights',
     initialUser,
@@ -93,6 +97,13 @@ export default function Registration({
         sponsor_name: '',
         notes: '',
     });
+    const selectedPeriod =
+        periods.find((p) => p.id === form.data.periode_id) ?? periods[0];
+    const isMaba =
+        initialUser?.angkatan != null &&
+        selectedPeriod?.angkatan_maba != null &&
+        Number(initialUser.angkatan) === Number(selectedPeriod.angkatan_maba);
+    const canSelectMonthly = policy_monthly_allowed && !isMaba;
     const room = rooms.find((r) => r.id === form.data.preferences[0].kamar_id);
     const rateUnit =
         form.data.rate_unit === 'period' ? 'year' : form.data.rate_unit;
@@ -328,9 +339,11 @@ export default function Registration({
                                                         <option value="period">
                                                             Per tahun
                                                         </option>
-                                                        <option value="month">
-                                                            Per bulan
-                                                        </option>
+                                                        {canSelectMonthly && (
+                                                            <option value="month">
+                                                                Per bulan
+                                                            </option>
+                                                        )}
                                                         <option value="day">
                                                             Per hari
                                                         </option>

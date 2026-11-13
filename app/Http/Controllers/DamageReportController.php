@@ -41,7 +41,7 @@ class DamageReportController extends Controller
         $query = (clone $base)->when($filters['status'] ?? null, fn ($q, $value) => $q->where('status', $value))
             ->when($filters['gedung_id'] ?? null, fn ($q, $value) => $q->where('gedung_id', $value))
             ->when($filters['technician_id'] ?? null, fn ($q, $value) => $q->where(fn ($assigned) => $assigned->where('teknisi_id', $value)->orWhereHas('assignments', fn ($a) => $a->where('technician_id', $value)->whereNull('ended_at'))));
-        $reports = (clone $query)->with(['aset', 'kamar.lantai.gedung', 'gedung', 'fasilitasUmum', 'teknisi', 'photos', 'statusHistories', 'assignments.technician', 'progress.user', 'items.photos', 'complaints'])->latest('tanggal_lapor')->paginate(15)->withQueryString();
+        $reports = (clone $query)->with(['aset', 'kamar.lantai.gedung', 'gedung', 'fasilitasUmum', 'teknisi', 'photos', 'statusHistories.actor', 'assignments.technician', 'progress.user', 'items.photos', 'complaints'])->latest('tanggal_lapor')->paginate(15)->withQueryString();
         $reports->through(fn (LaporanKerusakan $report): array => [
             ...$report->toArray(),
             'abilities' => collect(['claim', 'complete', 'progress', 'team', 'cancel', 'confirm', 'linkAsset'])->mapWithKeys(fn ($ability) => [$ability => $user->can($ability, $report) && (! in_array($ability, ['claim', 'complete', 'progress', 'team', 'cancel'], true) || $user->can('tiket.update'))])->all(),
@@ -67,7 +67,7 @@ class DamageReportController extends Controller
             'can_complain' => $user->hasRole('mahasiswa'),
             'logbooks' => TechnicianLogbook::with(['photos', 'user:id,nama'])->whereDate('work_date', $date)->when(! $user->hasAnyRole(['pimpinan', 'superadmin']), fn ($q) => $q->where('user_id', $user->id))
                 ->when($filters['technician_id'] ?? null, fn ($q, $id) => $q->where('user_id', $id))->latest()->paginate(15, ['*'], 'logbook_page')->withQueryString(),
-            'assets' => $placement ? Aset::reportableFor($placement->kamar)->get(['id', 'nama_aset', 'fasilitas_umum_id']) : [],
+            'assets' => $placement ? Aset::reportableFor($placement->kamar)->get(['id', 'nama_aset', 'kamar_id', 'fasilitas_umum_id']) : [],
             'facilities' => $placement ? FasilitasUmum::where('gedung_id', $placement->kamar->lantai->gedung_id)->get(['id', 'nama_fasilitas']) : [],
         ]);
     }

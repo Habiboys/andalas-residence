@@ -24,19 +24,41 @@ type Asset = {
     fasilitas_umum_id: string | null;
     fasilitas_umum?: { nama_fasilitas: string };
 };
+type ReportPhoto = { id: string; type: string };
+type ReportItem = {
+    id: string;
+    description: string;
+    completed_at: string | null;
+    completion_note?: string | null;
+    photos?: ReportPhoto[];
+};
 type Report = {
     id: string;
     nomor_tiket: string;
     status: string;
     deskripsi: string;
+    catatan_penyelesaian?: string | null;
     aset?: Asset;
     kamar?: Room;
+    photos?: ReportPhoto[];
+    items?: ReportItem[];
+    status_histories?: {
+        id: string;
+        description: string;
+        created_at: string;
+        actor?: { nama: string } | null;
+    }[];
+};
+type NotificationRow = {
+    id: string;
+    data: { subject: string; message: string };
 };
 type Props = {
     can_report?: boolean;
     room?: Room;
     assets?: Asset[];
     reports?: Report[];
+    notifications?: NotificationRow[];
 };
 
 export default function LaporKerusakan({
@@ -44,6 +66,7 @@ export default function LaporKerusakan({
     room,
     assets = [],
     reports = [],
+    notifications = [],
 }: Props) {
     const [location, setLocation] = useState('room');
     const photos = useRef<HTMLInputElement>(null);
@@ -92,6 +115,16 @@ export default function LaporKerusakan({
             <Link href="/pelaporan" className="btn btn-outline">
                 Form banyak item, laporan sekamar, hasil dan komplain ulang
             </Link>
+            {notifications.length > 0 && (
+                <Card className="space-y-2 p-4">
+                    <h2 className="font-semibold">Notifikasi terbaru</h2>
+                    {notifications.map((n) => (
+                        <p key={n.id} className="text-sm">
+                            <strong>{n.data.subject}</strong> — {n.data.message}
+                        </p>
+                    ))}
+                </Card>
+            )}
             {!can_report ? (
                 <Card className="p-6">
                     Pelaporan tersedia setelah pendaftaran selesai dan Anda
@@ -255,6 +288,50 @@ export default function LaporKerusakan({
                                 : report.aset?.fasilitas_umum?.nama_fasilitas}
                         </p>
                         <p className="text-muted text-sm">{report.deskripsi}</p>
+                        {report.catatan_penyelesaian && (
+                            <p className="bg-success/10 rounded p-2 text-sm">
+                                Hasil: {report.catatan_penyelesaian}
+                            </p>
+                        )}
+                        {report.photos && report.photos.length > 0 && (
+                            <div className="flex flex-wrap gap-3 text-sm">
+                                {report.photos.map((photo, index) => (
+                                    <a
+                                        key={photo.id}
+                                        href={`/andalas/tiket/foto/${photo.id}`}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="link link-primary"
+                                    >
+                                        {photo.type === 'after'
+                                            ? 'Bukti hasil'
+                                            : 'Foto awal'}{' '}
+                                        {index + 1}
+                                    </a>
+                                ))}
+                            </div>
+                        )}
+                        {report.items && report.items.length > 0 && (
+                            <div className="space-y-1 pt-1 text-sm">
+                                {report.items.map((item) => (
+                                    <div key={item.id} className="text-muted">
+                                        <span>
+                                            • {item.description} (
+                                            {item.completed_at
+                                                ? 'Selesai'
+                                                : 'Menunggu'}
+                                            )
+                                        </span>
+                                        {item.completion_note && (
+                                            <span>
+                                                {' '}
+                                                — {item.completion_note}
+                                            </span>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 ))}
             </Card>

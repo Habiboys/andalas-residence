@@ -361,13 +361,19 @@ class ResidenceWorkflowController extends Controller
                 if ($schedule === [] || $sum !== (int) round(max(0, (float) $invoice->total - (! empty($decision->terms['amendment_id']) ? (float) $invoice->total_dibayar : 0)) * 100) || (float) $data['initial_amount'] > max(0, (float) $invoice->total - (! empty($decision->terms['amendment_id']) ? (float) $invoice->total_dibayar : 0))) {
                     throw ValidationException::withMessages(['schedule' => 'Jumlah seluruh termin harus sama dengan tagihan dan uang awal tidak boleh melebihi total.']);
                 }
-                if ($decision->kind !== 'defer' && (float) $data['initial_amount'] !== (float) $schedule[0]['jumlah']) {
+                $hasApprovedDefer = $r->decisions()->where('kind', 'defer')->where('status', 'approved')->where('id', '!=', $decision->id)->exists();
+                if ($decision->kind !== 'defer' && ! ($decision->kind === 'monthly' && $hasApprovedDefer) && (float) $data['initial_amount'] !== (float) $schedule[0]['jumlah']) {
                     throw ValidationException::withMessages(['initial_amount' => 'Pembayaran awal harus sama dengan termin pertama.']);
                 }
-                if ($decision->kind === 'monthly' && (float) $data['initial_amount'] <= 0) {
+                if ($decision->kind === 'monthly' && ! $hasApprovedDefer && (float) $data['initial_amount'] <= 0) {
                     throw ValidationException::withMessages(['initial_amount' => 'Bulanan wajib membayar bulan awal. Ajukan penundaan kepada pimpinan bila tanpa uang awal.']);
                 }
-                if ($r->decisions()->whereIn('kind', ['monthly', 'installment', 'defer'])->where('status', 'approved')->where('kind', '!=', 'monthly')->where('id', '!=', $decision->id)->exists()) {
+                $conflictingKinds = match ($decision->kind) {
+                    'monthly' => ['monthly', 'installment'],
+                    'defer' => ['installment', 'defer'],
+                    default => ['monthly', 'installment', 'defer'],
+                };
+                if ($r->decisions()->whereIn('kind', $conflictingKinds)->where('status', 'approved')->where('id', '!=', $decision->id)->exists()) {
                     throw ValidationException::withMessages(['decision' => 'Skema pembiayaan sudah disetujui.']);
                 }
                 if (empty($decision->terms['amendment_id']) && (float) $invoice->total_dibayar > 0 && $invoice->jadwalCicilan()->exists()) {

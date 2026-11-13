@@ -42,7 +42,12 @@ type Report = {
         ended_at: string | null;
         technician?: Option;
     }[];
-    status_histories: { id: string; description: string; created_at: string }[];
+    status_histories: {
+        id: string;
+        description: string;
+        created_at: string;
+        actor?: { nama: string } | null;
+    }[];
     progress: Progress[];
     items: DamageItem[];
     complaints: { id: string; reason: string; status: string }[];
@@ -69,12 +74,18 @@ type Props = {
     can_complain: boolean;
     resident_name: string;
     room?: {
+        id?: string;
         nomor_kamar: string;
         lantai?: { gedung?: { nama_gedung: string } };
     } | null;
     logbooks: Pagination<LogbookRow>;
     can_report: boolean;
-    assets: { id: string; nama_aset: string }[];
+    assets: {
+        id: string;
+        nama_aset: string;
+        kamar_id?: string | null;
+        fasilitas_umum_id?: string | null;
+    }[];
     facilities: { id: string; nama_fasilitas: string }[];
     notifications: { id: string; data: { subject: string; message: string } }[];
 };
@@ -268,6 +279,7 @@ function Ticket({
                     {r.status_histories.map((h) => (
                         <p key={h.id}>
                             {h.created_at.slice(0, 16).replace('T', ' ')} /{' '}
+                            {h.actor?.nama ? `${h.actor.nama}: ` : ''}
                             {h.description}
                         </p>
                     ))}
@@ -457,7 +469,18 @@ function Ticket({
                         />
                     </label>
                     <Errors errors={complete.errors} />
-                    <Button disabled={complete.processing}>
+                    {r.items.some((item) => !item.completed_at) && (
+                        <p className="text-warning text-sm">
+                            Selesaikan seluruh item kerusakan di atas terlebih
+                            dahulu sebelum menyelesaikan laporan.
+                        </p>
+                    )}
+                    <Button
+                        disabled={
+                            complete.processing ||
+                            r.items.some((item) => !item.completed_at)
+                        }
+                    >
                         Unggah bukti dan selesaikan
                     </Button>
                 </form>

@@ -52,10 +52,16 @@ export function MultiItemForm({
 }: {
     name: string;
     room?: {
+        id?: string;
         nomor_kamar: string;
         lantai?: { gedung?: { nama_gedung: string } };
     } | null;
-    assets: { id: string; nama_aset: string }[];
+    assets: {
+        id: string;
+        nama_aset: string;
+        kamar_id?: string | null;
+        fasilitas_umum_id?: string | null;
+    }[];
     facilities: { id: string; nama_fasilitas: string }[];
 }) {
     const form = useForm<{
@@ -67,6 +73,13 @@ export function MultiItemForm({
         fasilitas_umum_id: '',
         items: [emptyItem()],
     });
+    const filteredAssets = assets.filter((a) =>
+        form.data.fasilitas_umum_id
+            ? a.fasilitas_umum_id === form.data.fasilitas_umum_id
+            : room?.id
+              ? a.kamar_id === room.id
+              : !a.fasilitas_umum_id,
+    );
     function edit(index: number, values: Partial<ItemInput>) {
         form.setData(
             'items',
@@ -134,7 +147,7 @@ export function MultiItemForm({
                             }
                         >
                             <option value="">Tanpa inventaris</option>
-                            {assets.map((a) => (
+                            {filteredAssets.map((a) => (
                                 <option key={a.id} value={a.id}>
                                     {a.nama_aset}
                                 </option>
