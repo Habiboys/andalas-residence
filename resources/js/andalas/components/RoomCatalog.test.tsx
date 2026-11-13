@@ -35,11 +35,12 @@ it('shows hotel style room cards with photos facilities capacity price and selec
     );
     for (const text of [
         'Kamar 101',
-        'Dipan, Lemari',
+        'Dipan',
+        'Lemari',
         '/storage/kamar/101.jpg',
         'Gedung A',
-        '1 tempat tersedia',
-        'Kamar dipilih',
+        'Sisa 1 tempat',
+        'Terpilih',
         'Filter gedung',
         'Filter tipe kamar',
         'Harga terendah',

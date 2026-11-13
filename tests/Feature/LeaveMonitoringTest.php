@@ -180,3 +180,26 @@ test('counts overlapping historical days once and releases days after an evidenc
     $this->actingAs($placement->mahasiswa->user)->post(route('andalas.perizinan.store'), [...leavePayload(), 'tanggal_mulai' => '2026-10-20', 'tanggal_kembali' => '2026-10-22'])->assertRedirect()->assertSessionHasNoErrors();
     $this->assertDatabaseCount('pengajuan_izin_pulang', 3);
 });
+
+test('staff_admin can monitor all leave records read-only without submission or review privileges', function () {
+    $placement = leaveResident();
+    $leave = PengajuanIzinPulang::create([
+        ...leavePayload(),
+        'mahasiswa_id' => $placement->mahasiswa_id,
+        'gedung_id' => $placement->kamar->lantai->gedung_id,
+        'status' => 'diajukan',
+    ]);
+    $staffAdmin = User::factory()->create()->assignRole('staff_admin');
+
+    $this->actingAs($staffAdmin)
+        ->get('/admin/perizinan')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('perizinan', 1)
+            ->where('perizinan.0.id', $leave->id)
+            ->where('reviewer', false)
+            ->where('monitor', true)
+            ->where('canSubmit', false));
+
+    $this->post(route('andalas.perizinan.review', $leave), ['status' => 'disetujui'])->assertForbidden();
+});

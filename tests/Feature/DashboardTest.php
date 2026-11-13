@@ -119,3 +119,45 @@ test('pimpinan dashboard includes technician performance and per-building report
             )
         );
 });
+
+test('admin_aset and go dashboards receive summary counts', function () {
+    $this->withoutVite();
+    $this->seed(RolePermissionSeeder::class);
+    $kamar = executiveRoom();
+    $stock = StokAset::create([
+        'kode' => 'STK-AS-1',
+        'nama' => 'Meja',
+        'kategori' => 'Furniture',
+        'satuan' => 'unit',
+        'jumlah_total' => 4,
+    ]);
+    Aset::create([
+        'stok_aset_id' => $stock->id,
+        'jumlah' => 2,
+        'kamar_id' => $kamar->id,
+        'kode_inventaris' => 'INV-AS-1',
+        'nama_aset' => 'Meja',
+        'kategori' => 'Furniture',
+        'kondisi' => 'rusak_berat',
+    ]);
+
+    $this->actingAs(User::factory()->create()->assignRole('admin_aset'))
+        ->get('/admin_aset/dashboard')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('aset_summary.total_unit_aset', 2)
+            ->where('aset_summary.aset_perlu_perbaikan', 2)
+            ->where('aset_summary.total_stok_gudang', 4)
+            ->where('aset_summary.kamar_kosong', 1)
+            ->where('aset_summary.total_kamar', 1)
+        );
+
+    $this->actingAs(User::factory()->create()->assignRole('go'))
+        ->get('/go/dashboard')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('go_summary.menunggu', 0)
+            ->where('go_summary.berlangsung', 0)
+            ->where('go_summary.selesai', 0)
+        );
+});

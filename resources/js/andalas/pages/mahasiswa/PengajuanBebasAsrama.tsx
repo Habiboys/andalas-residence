@@ -242,20 +242,22 @@ export default function PengajuanBebasAsrama({
                     </div>
                 ))}
             </Card>
-            <ConfirmDialog
-                open={confirmOpen}
-                title="Konfirmasi Pengajuan Surat"
-                message="Pastikan nama resmi dan dokumen pendukung sudah benar sebelum mengirim pengajuan surat bebas asrama."
-                confirmLabel={
-                    form.processing ? 'Mengirim...' : 'Ya, Ajukan Surat'
-                }
-                onConfirm={() =>
-                    form.post(bebas.url(), {
-                        onFinish: () => setConfirmOpen(false),
-                    })
-                }
-                onClose={() => !form.processing && setConfirmOpen(false)}
-            />
+            {confirmOpen && (
+                <ConfirmDialog
+                    open={confirmOpen}
+                    title="Konfirmasi Pengajuan Surat"
+                    message="Pastikan nama resmi dan dokumen pendukung sudah benar sebelum mengirim pengajuan surat bebas asrama."
+                    confirmLabel={
+                        form.processing ? 'Mengirim...' : 'Ya, Ajukan Surat'
+                    }
+                    onConfirm={() =>
+                        form.post(bebas.url(), {
+                            onFinish: () => setConfirmOpen(false),
+                        })
+                    }
+                    onClose={() => !form.processing && setConfirmOpen(false)}
+                />
+            )}
         </div>
     );
 }

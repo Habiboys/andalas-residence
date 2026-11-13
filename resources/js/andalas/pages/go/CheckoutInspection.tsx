@@ -4,6 +4,7 @@ import { ClipboardCheck, Eye } from 'lucide-react';
 import { update } from '@/routes/andalas/checkout/inspection';
 import {
     Button,
+    ConfirmDialog,
     DataTable,
     Drawer,
     FormField,
@@ -60,6 +61,7 @@ export default function CheckoutInspection({
     checkout?: Row[];
 }) {
     const [selected, setSelected] = useState<TableRow | null>(null);
+    const [confirmComplete, setConfirmComplete] = useState(false);
     const form = useForm({
         status: 'selesai',
         catatan: '',
@@ -89,21 +91,33 @@ export default function CheckoutInspection({
 
     function openInspection(row: TableRow) {
         const selectedRoom = row.placement?.kamar;
+        const savedChecks = new Map(
+            (row.inspection?.asset_checks ?? []).map((item) => [
+                item.aset_id,
+                item,
+            ]),
+        );
         form.clearErrors();
+        setConfirmComplete(false);
         form.setData({
             status: 'selesai',
             catatan: row.inspection?.catatan ?? '',
-            asset_checks: (selectedRoom?.aset ?? []).map((asset) => ({
-                aset_id: asset.id,
-                actual_quantity: asset.jumlah ?? 1,
-                condition: 'baik',
-                note: '',
-            })),
+            asset_checks: (selectedRoom?.aset ?? []).map((asset) => {
+                const existing = savedChecks.get(asset.id);
+                return {
+                    aset_id: asset.id,
+                    actual_quantity:
+                        existing?.actual_quantity ?? asset.jumlah ?? 1,
+                    condition: existing?.condition ?? 'baik',
+                    note: existing?.note ?? '',
+                };
+            }),
         });
         setSelected(row);
     }
 
     function closeInspection() {
+        setConfirmComplete(false);
         setSelected(null);
         form.clearErrors();
     }
@@ -121,6 +135,18 @@ export default function CheckoutInspection({
         );
     }
 
+    function saveDraft() {
+        if (!selected) {
+            return;
+        }
+
+        form.transform((values) => ({ ...values, status: 'berlangsung' }));
+        form.put(update.url({ checkoutRequest: selected.id }), {
+            preserveScroll: true,
+            onSuccess: closeInspection,
+        });
+    }
+
     function submitInspection(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
 
@@ -128,8 +154,18 @@ export default function CheckoutInspection({
             return;
         }
 
+        setConfirmComplete(true);
+    }
+
+    function confirmFinalize() {
+        if (!selected) {
+            return;
+        }
+
+        form.transform((values) => ({ ...values, status: 'selesai' }));
         form.put(update.url({ checkoutRequest: selected.id }), {
             onSuccess: closeInspection,
+            onError: () => setConfirmComplete(false),
         });
     }
 
@@ -203,12 +239,22 @@ export default function CheckoutInspection({
                 title={done ? 'Hasil inspeksi kamar' : 'Inspeksi kamar'}
                 footer={
                     !done ? (
-                        <div className="flex justify-end gap-2">
+                        <div className="flex flex-wrap justify-end gap-2">
                             <Button
+                                type="button"
                                 variant="secondary"
                                 onClick={closeInspection}
+                                disabled={form.processing}
                             >
                                 Batal
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                onClick={saveDraft}
+                                disabled={form.processing}
+                            >
+                                Simpan sementara
                             </Button>
                             <Button
                                 type="submit"
@@ -337,6 +383,11 @@ export default function CheckoutInspection({
                                                                 )
                                                             }
                                                         />
+                                                        <p className="text-muted mt-1 text-xs">
+                                                            Maksimal{' '}
+                                                            {asset.jumlah ?? 1}{' '}
+                                                            unit sesuai catatan.
+                                                        </p>
                                                     </FormField>
                                                     <FormField label="Kondisi">
                                                         <select
@@ -413,6 +464,21 @@ export default function CheckoutInspection({
                     </div>
                 )}
             </Drawer>
+            {confirmComplete && selected && (
+                <ConfirmDialog
+                    open={confirmComplete}
+                    onClose={() => !form.processing && setConfirmComplete(false)}
+                    onConfirm={confirmFinalize}
+                    loading={form.processing}
+                    title="Selesaikan Inspeksi Checkout"
+                    confirmLabel={
+                        form.processing
+                            ? 'Menyimpan...'
+                            : 'Ya, Selesaikan Inspeksi'
+                    }
+                    message={`Tandai inspeksi ${selected.mahasiswa_nama} (${selected.lokasi}) sebagai selesai? Status tidak dapat diubah setelah diselesaikan dan akan diteruskan ke fasilitator.`}
+                />
+            )}
         </div>
     );
 }

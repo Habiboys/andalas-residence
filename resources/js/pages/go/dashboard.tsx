@@ -29,12 +29,11 @@ export default function Dashboard({
                 <StatCard
                     label="Menunggu Inspeksi"
                     value={menunggu}
-                    color={menunggu > 0 ? 'amber' : 'gray'}
+                    color={menunggu > 0 ? 'gold' : 'gray'}
                 />
                 <StatCard
                     label="Sedang Diinspeksi"
                     value={berlangsung}
-                    color="blue"
                 />
                 <StatCard
                     label="Inspeksi Selesai"

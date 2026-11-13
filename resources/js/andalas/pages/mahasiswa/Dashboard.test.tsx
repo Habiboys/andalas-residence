@@ -45,6 +45,6 @@ it('lets legacy candidates choose the letter service without declaring them chec
     );
     expect(html).toContain('Layanan bebas asrama');
     expect(html).toContain('Daftar hunian kembali');
-    expect(html).toContain('calon');
+    expect(html).toContain('Calon Penghuni');
     expect(html).not.toContain('Tahapan pendaftaran');
 });

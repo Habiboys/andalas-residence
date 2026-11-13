@@ -3,10 +3,12 @@
 use App\Enums\LaporanKerusakanStatus as Status;
 use App\Models\Gedung;
 use App\Models\Kamar;
+use App\Models\Kuesioner;
 use App\Models\Lantai;
 use App\Models\LaporanKerusakan;
 use App\Models\MahasiswaProfil;
 use App\Models\PenempatanKamar;
+use App\Models\PenilaianTeknisi;
 use App\Models\TechnicianLogbook;
 use App\Models\User;
 use App\Services\DamageReportRevision;
@@ -182,4 +184,79 @@ it('includes status history actor, item photos, and notifications in pelaporan a
             ->has('reports.0.items.0.photos')
             ->has('notifications')
     );
+});
+
+it('shares finalized technician ratings with ticket details on riwayat-penilaian while excluding drafts and other technicians', function () {
+    Storage::fake('local');
+    $resident = finalDamageResident();
+    $technician = finalDamageTechnician();
+    $otherTechnician = finalDamageTechnician();
+
+    $createReport = function (string $description) use ($resident): LaporanKerusakan {
+        $this->actingAs($resident['user'])->post(route('andalas.laporan.store'), [
+            'request_key' => (string) Str::uuid(),
+            'items' => [[
+                'description' => $description,
+                'photos' => [UploadedFile::fake()->image('bukti.jpg')],
+            ]],
+        ])->assertSessionHasNoErrors();
+
+        return LaporanKerusakan::latest('created_at')->firstOrFail();
+    };
+
+    $finalReport = $createReport('Keran bocor');
+    $draftReport = $createReport('Lampu redup');
+    $otherReport = $createReport('Kunci macet');
+
+    $questionnaire = Kuesioner::create([
+        'kode' => 'K-'.Str::random(6),
+        'nama' => 'Evaluasi Teknisi',
+        'jenis' => 'penilaian_teknisi',
+        'versi' => 1,
+        'status' => 'aktif',
+        'dibuat_oleh' => $resident['user']->id,
+    ]);
+
+    PenilaianTeknisi::create([
+        'laporan_kerusakan_id' => $finalReport->id,
+        'kuesioner_id' => $questionnaire->id,
+        'teknisi_id' => $technician->id,
+        'dinilai_oleh' => $resident['user']->id,
+        'status' => 'final',
+        'total_skor' => 4.5,
+        'skor_persentase' => 90,
+        'catatan_umum' => 'Rapi dan cepat',
+        'tanggal_penilaian' => now(),
+    ]);
+
+    PenilaianTeknisi::create([
+        'laporan_kerusakan_id' => $draftReport->id,
+        'kuesioner_id' => $questionnaire->id,
+        'teknisi_id' => $technician->id,
+        'dinilai_oleh' => $resident['user']->id,
+        'status' => 'draft',
+        'total_skor' => 2.0,
+        'catatan_umum' => 'Belum final',
+        'tanggal_penilaian' => now()->subMinute(),
+    ]);
+
+    PenilaianTeknisi::create([
+        'laporan_kerusakan_id' => $otherReport->id,
+        'kuesioner_id' => $questionnaire->id,
+        'teknisi_id' => $otherTechnician->id,
+        'dinilai_oleh' => $resident['user']->id,
+        'status' => 'final',
+        'total_skor' => 5.0,
+        'catatan_umum' => 'Teknisi lain',
+        'tanggal_penilaian' => now(),
+    ]);
+
+    $this->actingAs($technician)
+        ->get('/teknisi/riwayat-penilaian')
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->has('ratings', 1)
+            ->where('ratings.0.laporan_kerusakan.nomor_tiket', $finalReport->nomor_tiket)
+            ->where('ratings.0.catatan_umum', 'Rapi dan cepat')
+        );
 });

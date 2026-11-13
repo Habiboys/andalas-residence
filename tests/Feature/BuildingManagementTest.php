@@ -365,3 +365,26 @@ test('edit gedung memakai halaman lengkap dan menolak pengguna tanpa permission'
         '_method' => 'put', 'manage_gallery' => true, 'photos' => [UploadedFile::fake()->image('tanpa-izin.jpg')],
     ])->assertForbidden();
 });
+
+test('membuat gedung dari halaman create tanpa continue_setup mengarah ke daftar bangunan sesuai role', function () {
+    $this->actingAs($this->admin)
+        ->from(route('andalas.gedung.create'))
+        ->post(route('andalas.gedung.store'), [
+            'kode_gedung' => 'DIR-1',
+            'nama_gedung' => 'Gedung Redirect Admin',
+            'gender_peruntukan' => 'campur',
+            'continue_setup' => false,
+        ])
+        ->assertRedirect(route('admin.kelola-bangunan'));
+
+    $adminAset = User::factory()->create()->assignRole('admin_aset');
+    $this->actingAs($adminAset)
+        ->from(route('andalas.gedung.create'))
+        ->post(route('andalas.gedung.store'), [
+            'kode_gedung' => 'DIR-2',
+            'nama_gedung' => 'Gedung Redirect Aset',
+            'gender_peruntukan' => 'campur',
+            'continue_setup' => false,
+        ])
+        ->assertRedirect(route('admin_aset.kelola-bangunan'));
+});

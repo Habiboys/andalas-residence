@@ -36,12 +36,11 @@ export default function Dashboard({
                 <StatCard
                     label="Perlu Perbaikan / Hilang"
                     value={perluPerbaikan}
-                    color={perluPerbaikan > 0 ? 'amber' : 'green'}
+                    color={perluPerbaikan > 0 ? 'gold' : 'green'}
                 />
                 <StatCard
                     label="Total Stok Gudang"
                     value={aset_summary?.total_stok_gudang ?? 0}
-                    color="blue"
                 />
                 <StatCard
                     label="Kamar Kosong"
