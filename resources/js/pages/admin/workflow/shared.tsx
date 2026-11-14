@@ -14,11 +14,13 @@ export function WorkflowPanel({
     children: ReactNode;
 }) {
     return (
-        <section className="card border-base-300 bg-base-100 space-y-4 border p-5 shadow-xs">
-            <div className="space-y-0.5">
-                <h2 className="text-lg font-semibold">{title}</h2>
+        <section className="card border-base-300 bg-base-100 min-w-0 max-w-full space-y-4 overflow-hidden border p-5 shadow-xs">
+            <div className="min-w-0 space-y-0.5">
+                <h2 className="text-lg font-semibold break-words">{title}</h2>
                 {subtitle && (
-                    <p className="text-base-content/70 text-xs">{subtitle}</p>
+                    <p className="text-base-content/70 text-xs break-words">
+                        {subtitle}
+                    </p>
                 )}
             </div>
             {children}

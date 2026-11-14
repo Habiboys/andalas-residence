@@ -60,7 +60,9 @@ const badgeTone: Record<BadgeColor, string> = {
 
 export function Badge({ color = 'gray', children }: BadgeProps) {
     return (
-        <span className={`badge badge-sm font-medium ${badgeTone[color]}`}>
+        <span
+            className={`badge badge-sm h-auto shrink-0 px-2.5 py-0.5 font-medium leading-snug whitespace-nowrap ${badgeTone[color]}`}
+        >
             {children}
         </span>
     );
@@ -156,7 +158,9 @@ export function Card({
     className?: string;
 }) {
     return (
-        <div className={`card rounded-box bg-base-100 shadow-xs ${className}`}>
+        <div
+            className={`card rounded-box bg-base-100 min-w-0 max-w-full shadow-xs ${className}`}
+        >
             {children}
         </div>
     );
@@ -185,7 +189,7 @@ export function PageHeader({ title, subtitle, actions }: PageHeaderProps) {
                 )}
             </div>
             {actions && (
-                <div className="flex shrink-0 items-center gap-2">
+                <div className="flex max-w-full flex-wrap items-center gap-2">
                     {actions}
                 </div>
             )}
@@ -233,7 +237,7 @@ export function StatCard({
                         {label}
                     </p>
                     <p
-                        className={`text-base-content mt-0.5 text-2xl font-semibold tracking-tight md:text-3xl ${tone}`}
+                        className={`text-base-content mt-0.5 text-2xl font-semibold tracking-tight break-words md:text-3xl ${tone}`}
                     >
                         {value}
                     </p>
@@ -617,8 +621,8 @@ export function DataTable<T extends Record<string, unknown>>({
 
     return (
         <div className="rounded-box border-base-200 bg-base-100 min-w-0 overflow-hidden border">
-            <div className="flex items-center justify-between gap-4 overflow-x-auto px-4 pt-4 pb-3">
-                <div className="w-56 shrink-0 sm:w-64">
+            <div className="flex flex-wrap items-center justify-between gap-3 px-4 pt-4 pb-3">
+                <div className="w-full sm:w-64">
                     <label className="input input-sm w-full">
                         <Search
                             className="size-3.5 opacity-50"
@@ -644,7 +648,7 @@ export function DataTable<T extends Record<string, unknown>>({
                     </label>
                 </div>
 
-                <div className="ml-auto flex shrink-0 items-center gap-2">
+                <div className="flex max-w-full flex-wrap items-center gap-2 sm:ml-auto">
                     {filterable.map((col) => (
                         <ToolbarFilter
                             key={col.key}
@@ -655,7 +659,7 @@ export function DataTable<T extends Record<string, unknown>>({
                     ))}
                     {filters}
                     {actions && (
-                        <div className="ml-auto flex items-center gap-2">
+                        <div className="flex max-w-full flex-wrap items-center gap-2 sm:ml-auto">
                             {actions}
                         </div>
                     )}
@@ -827,7 +831,7 @@ export function DataTable<T extends Record<string, unknown>>({
                         : `Menampilkan ${from}-${to} dari ${totalRows} data`}
                 </span>
 
-                <div className="flex items-center gap-4">
+                <div className="flex max-w-full flex-wrap items-center gap-3">
                     <label className="text-base-content/60 flex items-center gap-1.5 text-xs">
                         Tampil
                         <select
@@ -858,7 +862,10 @@ export function DataTable<T extends Record<string, unknown>>({
                     </label>
 
                     {totalPages > 1 && (
-                        <div className="join" aria-label="Navigasi halaman">
+                        <div
+                            className="join max-w-full overflow-x-auto"
+                            aria-label="Navigasi halaman"
+                        >
                             <PageButton
                                 onClick={() => changePage(1)}
                                 disabled={safePage === 1 || server?.loading}
@@ -1369,7 +1376,10 @@ interface TabsProps {
 
 export function Tabs({ tabs, active, onChange }: TabsProps) {
     return (
-        <div role="tablist" className="tabs tabs-box mb-4 w-fit">
+        <div
+            role="tablist"
+            className="tabs tabs-box mb-4 w-fit max-w-full flex-nowrap overflow-x-auto"
+        >
             {tabs.map((t, i) => (
                 <button
                     key={t}
@@ -1377,7 +1387,7 @@ export function Tabs({ tabs, active, onChange }: TabsProps) {
                     role="tab"
                     aria-selected={active === i}
                     onClick={() => onChange(i)}
-                    className={`tab ${active === i ? 'tab-active' : ''}`}
+                    className={`tab shrink-0 whitespace-nowrap ${active === i ? 'tab-active' : ''}`}
                 >
                     {t}
                 </button>

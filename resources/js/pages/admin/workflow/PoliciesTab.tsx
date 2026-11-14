@@ -411,19 +411,19 @@ export default function PoliciesTab({
                                     return (
                                         <div
                                             key={kind}
-                                            className="bg-base-200/40 flex flex-wrap items-center justify-between gap-2 rounded-lg p-2.5 text-xs"
+                                            className="bg-base-200/40 flex min-w-0 flex-wrap items-center justify-between gap-2 overflow-hidden rounded-lg p-2.5 text-xs"
                                         >
-                                            <div>
+                                            <div className="min-w-0">
                                                 <strong className="text-sm">
                                                     {formatDocumentLabel(kind)}
                                                 </strong>
-                                                <span className="text-base-content/70 block">
+                                                <span className="text-base-content/70 block break-all">
                                                     {tpl
                                                         ? `Tersedia: ${tpl.original_name}`
                                                         : 'Belum ada template'}
                                                 </span>
                                             </div>
-                                            <div className="flex flex-wrap items-center gap-2">
+                                            <div className="flex max-w-full flex-wrap items-center gap-2">
                                                 {tpl && (
                                                     <>
                                                         <a

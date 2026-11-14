@@ -170,7 +170,7 @@ export default function ResidenceWorkflowPage(props: WorkflowProps) {
 
             {tab === 'registrations' && !props.detailMode && (
                 <>
-                    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                         {summaryCards
                             .filter((item) => item.key in props.summary)
                             .map((item) => (
@@ -208,7 +208,7 @@ export default function ResidenceWorkflowPage(props: WorkflowProps) {
                             leader={props.leader}
                         />
                     ) : (
-                        <div className="bg-base-100 border-base-300 space-y-4 rounded-xl border p-4 shadow-xs">
+                        <div className="bg-base-100 border-base-300 min-w-0 max-w-full space-y-4 overflow-hidden rounded-xl border p-4 shadow-xs">
                             <form
                                 onSubmit={applyRegistrationFilters}
                                 className="flex flex-wrap items-center gap-2"

@@ -113,6 +113,11 @@ export default function PublicTab({
                         <Field name="nama" label="Nama sesuai identitas" />
                         <Field name="nim_nip" label="NIK / nomor paspor" />
                         <Field
+                            name="no_hp"
+                            label="Nomor HP / WhatsApp"
+                            required={false}
+                        />
+                        <Field
                             name="email"
                             label="Email (opsional)"
                             type="email"
@@ -124,6 +129,13 @@ export default function PublicTab({
                                 <option value="laki_laki">Laki-laki</option>
                             </select>
                         </Field>
+                        <Field
+                            name="guest_count"
+                            label="Jumlah orang menginap"
+                            type="number"
+                            value="1"
+                            required={false}
+                        />
                         <Field
                             name="starts_at"
                             label="Tanggal masuk"

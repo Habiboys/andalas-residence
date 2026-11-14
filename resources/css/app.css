@@ -246,9 +246,30 @@
         padding-block: 0.5rem;
     }
 
-    /* Status badges stay capsule-shaped, matching MyUNAND. */
+    /* Prevent grid items and cards from blowing out their column tracks. */
+    .grid > * {
+        min-width: 0;
+    }
+
+    .card {
+        min-width: 0;
+        max-width: 100%;
+    }
+
+    .btn:not(.btn-square):not(.btn-circle) {
+        max-width: 100%;
+    }
+
+    /* Status badges stay capsule-shaped, matching MyUNAND, and never spill text vertically. */
     .badge {
         border-radius: 9999px;
+        height: auto;
+        min-height: var(--size, 1.25rem);
+        padding-block: 0.125rem;
+        line-height: 1.25;
+        white-space: nowrap;
+        flex-shrink: 0;
+        max-width: 100%;
     }
 
     [data-sonner-toaster] {
@@ -270,11 +291,11 @@ select:is(.select, .input):not([multiple]) {
     background-size: 1rem;
 }
 
-/* Single-row filters grow with their text and reserved arrow space. */
+/* Single-row filters grow with their text and reserved arrow space without overflowing narrow viewports. */
 select.select.w-auto {
     width: max-content;
-    min-width: max-content;
-    max-width: none;
+    min-width: 0;
+    max-width: 100%;
     field-sizing: content;
 }
 

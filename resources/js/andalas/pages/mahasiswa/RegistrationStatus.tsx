@@ -212,12 +212,12 @@ function StatusChip({
     tone?: ChipTone;
 }) {
     return (
-        <span className="border-base-300 bg-base-100 text-base-content inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium">
+        <span className="border-base-300 bg-base-100 text-base-content inline-flex max-w-full shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium whitespace-nowrap">
             <span
                 className={`size-1.5 shrink-0 rounded-full ${CHIP_DOT_CLASS[tone]}`}
                 aria-hidden="true"
             />
-            {label}
+            <span className="truncate">{label}</span>
         </span>
     );
 }
@@ -578,7 +578,7 @@ function StudentRegistrationCard({
             {/* Prominent Status Banner */}
             <div className={`rounded-xl border p-4 md:p-5 ${banner.tone}`}>
                 <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="space-y-1.5">
+                    <div className="min-w-0 flex-1 space-y-1.5">
                         <div className="flex flex-wrap items-center gap-2">
                             {banner.badge}
                             <span className="text-muted text-xs font-medium">
@@ -591,9 +591,9 @@ function StudentRegistrationCard({
                         </h2>
                         <p className="text-muted text-sm">{banner.subtitle}</p>
                     </div>
-                    <div className="bg-base-200/40 border-base-300 shrink-0 rounded-lg border px-3.5 py-2.5 text-sm">
+                    <div className="bg-base-200/40 border-base-300 w-full min-w-0 rounded-lg border px-3.5 py-2.5 text-sm break-words sm:w-auto sm:max-w-xs">
                         <div className="text-muted flex items-center gap-1.5 text-xs font-medium">
-                            <Home className="size-3.5" aria-hidden="true" />
+                            <Home className="size-3.5 shrink-0" aria-hidden="true" />
                             Kamar Ditempatkan
                         </div>
                         <div className="text-base-content mt-0.5 font-semibold">
@@ -602,7 +602,7 @@ function StudentRegistrationCard({
                                 : 'Menunggu alokasi kamar'}
                         </div>
                         {profile?.user?.nim_nip && (
-                            <div className="text-muted text-identifier mt-0.5 text-xs">
+                            <div className="text-muted text-identifier mt-0.5 text-xs break-words">
                                 {profile.user.nama} · {profile.user.nim_nip}
                             </div>
                         )}
@@ -708,12 +708,12 @@ function StudentRegistrationCard({
                 {/* Section A: Berkas Pendaftaran */}
                 <div
                     id={`berkas-${r.id}`}
-                    className="border-base-300 bg-base-100 space-y-4 rounded-xl border p-4 md:p-5"
+                    className="border-base-300 bg-base-100 min-w-0 space-y-4 overflow-hidden rounded-xl border p-4 md:p-5"
                 >
-                    <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex min-w-0 items-center gap-2">
                             <FileText
-                                className="text-muted size-5"
+                                className="text-muted size-5 shrink-0"
                                 aria-hidden="true"
                             />
                             <h3 className="text-base font-semibold">
@@ -742,10 +742,10 @@ function StudentRegistrationCard({
                             return (
                                 <div
                                     key={kind}
-                                    className="border-base-300 bg-base-200/30 space-y-2.5 rounded-lg border p-3.5"
+                                    className="border-base-300 bg-base-200/30 min-w-0 space-y-2.5 overflow-hidden rounded-lg border p-3.5"
                                 >
                                     <div className="flex flex-wrap items-start justify-between gap-2">
-                                        <div>
+                                        <div className="min-w-0">
                                             <p className="text-base-content text-sm font-semibold">
                                                 {friendlyDocumentLabel(kind)}
                                             </p>
@@ -769,26 +769,29 @@ function StudentRegistrationCard({
                                     </div>
 
                                     {doc?.status === 'revision' && doc.notes && (
-                                        <div className="border-base-300 border-l-error bg-base-100 text-base-content rounded-md border border-l-4 px-3 py-2 text-xs">
+                                        <div className="border-base-300 border-l-error bg-base-100 text-base-content rounded-md border border-l-4 px-3 py-2 text-xs break-words">
                                             <strong>Catatan revisi:</strong>{' '}
                                             {doc.notes}
                                         </div>
                                     )}
 
-                                    <div className="flex flex-wrap gap-2">
+                                    <div className="flex min-w-0 flex-wrap gap-2">
                                         {template && (
                                             <a
                                                 href={workflow.downloadTemplate.url(
                                                     [category, kind],
                                                 )}
-                                                className="btn btn-xs btn-outline gap-1.5"
+                                                title={`Unduh Template (${template.original_name})`}
+                                                className="btn btn-xs btn-outline max-w-full min-w-0 gap-1.5 overflow-hidden"
                                             >
                                                 <Download
-                                                    className="size-3.5"
+                                                    className="size-3.5 shrink-0"
                                                     aria-hidden="true"
                                                 />
-                                                Unduh Template (
-                                                {template.original_name})
+                                                <span className="truncate">
+                                                    Unduh Template (
+                                                    {template.original_name})
+                                                </span>
                                             </a>
                                         )}
                                         {doc && (
@@ -796,13 +799,15 @@ function StudentRegistrationCard({
                                                 href={workflow.document.url(
                                                     doc.id,
                                                 )}
-                                                className="btn btn-xs btn-ghost border-base-300 gap-1.5 border"
+                                                className="btn btn-xs btn-ghost border-base-300 max-w-full min-w-0 gap-1.5 overflow-hidden border"
                                             >
                                                 <FileCheck2
-                                                    className="size-3.5"
+                                                    className="size-3.5 shrink-0"
                                                     aria-hidden="true"
                                                 />
-                                                Unduh Berkas v{doc.version}
+                                                <span className="truncate">
+                                                    Unduh Berkas v{doc.version}
+                                                </span>
                                             </a>
                                         )}
                                     </div>
@@ -818,7 +823,7 @@ function StudentRegistrationCard({
                                                 <input
                                                     type="file"
                                                     accept=".pdf,.jpg,.jpeg,.png"
-                                                    className="file-input file-input-bordered file-input-sm w-full"
+                                                    className="file-input file-input-bordered file-input-sm w-full max-w-full"
                                                     onChange={(e) => {
                                                         const file =
                                                             e.target.files?.[0];
@@ -842,7 +847,7 @@ function StudentRegistrationCard({
                                                 />
                                             </label>
                                             {selectedFiles[kind] && (
-                                                <p className="text-primary text-xs font-medium">
+                                                <p className="text-primary text-xs font-medium break-all">
                                                     Siap disimpan:{' '}
                                                     {selectedFiles[kind].name}
                                                 </p>
@@ -855,15 +860,17 @@ function StudentRegistrationCard({
                                         </div>
                                     ) : (
                                         doc && (
-                                            <p className="text-muted flex items-center gap-1.5 text-xs">
+                                            <p className="text-muted flex items-start gap-1.5 text-xs">
                                                 <Lock
-                                                    className="size-3.5"
+                                                    className="mt-0.5 size-3.5 shrink-0"
                                                     aria-hidden="true"
                                                 />
-                                                Berkas sudah tersimpan
-                                                permanen. Pengunggahan ulang
-                                                hanya dibuka bila petugas
-                                                meminta revisi.
+                                                <span>
+                                                    Berkas sudah tersimpan
+                                                    permanen. Pengunggahan ulang
+                                                    hanya dibuka bila petugas
+                                                    meminta revisi.
+                                                </span>
                                             </p>
                                         )
                                     )}
@@ -890,7 +897,7 @@ function StudentRegistrationCard({
                                             {friendlyDocumentLabel(d.kind)} v
                                             {d.version}
                                         </a>
-                                        <span className="text-muted">
+                                        <span className="text-muted break-words">
                                             {documentStatusText(d.status)}
                                             {d.notes ? ` — ${d.notes}` : ''}
                                         </span>
@@ -902,11 +909,11 @@ function StudentRegistrationCard({
                 </div>
 
                 {/* Section B: Pembiayaan & Tagihan */}
-                <div className="border-base-300 bg-base-100 space-y-4 rounded-xl border p-4 md:p-5">
-                    <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
+                <div className="border-base-300 bg-base-100 min-w-0 space-y-4 overflow-hidden rounded-xl border p-4 md:p-5">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex min-w-0 items-center gap-2">
                             <Wallet
-                                className="text-muted size-5"
+                                className="text-muted size-5 shrink-0"
                                 aria-hidden="true"
                             />
                             <h3 className="text-base font-semibold">
@@ -925,32 +932,32 @@ function StudentRegistrationCard({
                     </div>
 
                     {r.tagihan ? (
-                        <div className="border-base-300 bg-base-200/40 grid grid-cols-3 gap-2 rounded-lg border p-3 text-sm">
-                            <div>
+                        <div className="border-base-300 bg-base-200/40 grid grid-cols-1 gap-2 rounded-lg border p-3 text-sm sm:grid-cols-3">
+                            <div className="min-w-0">
                                 <p className="text-muted text-xs">Total</p>
-                                <p className="text-base-content font-semibold">
+                                <p className="text-base-content font-semibold break-words">
                                     {formatRupiah(totalTagihan)}
                                 </p>
                             </div>
-                            <div>
+                            <div className="min-w-0">
                                 <p className="text-muted text-xs">Dibayar</p>
-                                <p className="text-base-content font-semibold">
+                                <p className="text-base-content font-semibold break-words">
                                     {formatRupiah(totalDibayar)}
                                 </p>
                             </div>
-                            <div>
+                            <div className="min-w-0">
                                 <p className="text-muted text-xs">Sisa</p>
-                                <p className="text-base-content font-semibold">
+                                <p className="text-base-content font-semibold break-words">
                                     {formatRupiah(remaining)}
                                 </p>
                             </div>
-                            <div className="col-span-3 flex flex-wrap items-center justify-between gap-2 border-t pt-2 text-xs">
-                                <span className="text-muted text-identifier">
+                            <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 border-t pt-2 text-xs sm:col-span-3">
+                                <span className="text-muted text-identifier min-w-0 break-all">
                                     Tagihan: {r.tagihan.nomor}
                                 </span>
                                 <Link
                                     href="/mahasiswa/tagihan"
-                                    className="link link-primary font-medium"
+                                    className="link link-primary shrink-0 font-medium"
                                 >
                                     Buka Halaman Tagihan →
                                 </Link>
