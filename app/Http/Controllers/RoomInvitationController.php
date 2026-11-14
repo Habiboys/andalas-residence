@@ -2,11 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\Registration\CreateResidenceBilling;
 use App\Actions\Registration\SubmitResidenceRegistration;
 use App\Enums\ResidenceRegistrationStatus;
 use App\Models\Kamar;
 use App\Models\ResidenceRegistration;
+use App\Models\RoomContract;
 use App\Models\RoomInvitation;
+use App\Models\Tagihan;
 use App\Models\User;
 use App\Services\ResidenceLifecycle;
 use App\Services\ResidencePolicyService;
@@ -137,10 +140,55 @@ class RoomInvitationController extends Controller
         if ($held >= $room->kapasitas || $room->status === 'maintenance') {
             throw ValidationException::withMessages(['invitation' => 'Kamar sudah penuh atau tidak siap.']);
         }
-        $r = ResidenceRegistration::create([...$host->only(['workflow_version', 'residence_policy_id', 'periode_id', 'reserved_room_id', 'starts_at', 'ends_at', 'rate_unit', 'billing_basis', 'funding']),
-            'student_profile_id' => $student->id, 'status' => 'submitted', 'is_kipk' => false, 'submitted_at' => now(), 'allocation_status' => 'allocated']);
+        $r = ResidenceRegistration::create([
+            ...$host->only(['workflow_version', 'residence_policy_id', 'periode_id', 'reserved_room_id', 'starts_at', 'ends_at', 'rate_unit', 'billing_basis', 'funding']),
+            'student_profile_id' => $student->id,
+            'status' => 'submitted',
+            'is_kipk' => false,
+            'submitted_at' => now(),
+            'allocation_status' => 'held',
+            'reservation_expires_at' => $host->reservation_expires_at ?? now()->addHours(max(1, (int) ($host->policy->settings['reservation_hours'] ?? $host->periode?->reservation_hours ?? 168))),
+        ]);
         $r->roomPreferences()->create(['kamar_id' => $room->id, 'priority' => 1]);
         $r->statusHistories()->create(['from_status' => 'draft', 'to_status' => 'submitted', 'changed_by' => $user->id]);
+
+        if ($host->room_contract_id) {
+            $contract = RoomContract::whereKey($host->room_contract_id)->lockForUpdate()->first();
+            $invoiceIds = ResidenceRegistration::where('room_contract_id', $host->room_contract_id)
+                ->whereNotNull('tagihan_id')
+                ->pluck('tagihan_id');
+            $hasPaidMember = $invoiceIds->isNotEmpty()
+                && Tagihan::whereIn('id', $invoiceIds)->where('total_dibayar', '>', 0)->exists();
+
+            if ($contract && ! $hasPaidMember) {
+                $members = array_values(array_unique([...($contract->members ?? []), $r->id]));
+                $contract->update([
+                    'occupants' => count($members),
+                    'members' => $members,
+                ]);
+                $r->update(['room_contract_id' => $contract->id]);
+                app(CreateResidenceBilling::class)->handle($r->fresh());
+
+                $totalRupiah = (int) round((float) $contract->total);
+                $count = count($members);
+                foreach ($members as $index => $memberId) {
+                    $memberReg = ResidenceRegistration::with('tagihan.items')->find($memberId);
+                    if (! $memberReg?->tagihan) {
+                        continue;
+                    }
+                    $shareRupiah = intdiv($totalRupiah, $count) + ($index < $totalRupiah % $count ? 1 : 0);
+                    $memberReg->tagihan->items()->update([
+                        'kuantitas' => 1,
+                        'harga_satuan' => $shareRupiah,
+                        'jumlah' => $shareRupiah,
+                    ]);
+                    $memberReg->tagihan->update([
+                        'subtotal' => $shareRupiah,
+                        'total' => max(0, $shareRupiah - (float) $memberReg->tagihan->sponsor_total),
+                    ]);
+                }
+            }
+        }
 
         return $r;
     }

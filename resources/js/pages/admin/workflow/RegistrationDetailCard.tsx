@@ -150,7 +150,7 @@ function AmendmentsSection({
     return (
         <div className="space-y-3">
             {r.can_operate &&
-                r.checked_in_at &&
+                (r.reserved_room || r.checked_in_at) &&
                 !r.keys_returned_at &&
                 (r.billing_basis !== 'room' || manager) && (
                     <details className="border-base-300 rounded-lg border p-3">
@@ -297,13 +297,33 @@ function AmendmentsSection({
                             ))}
 
                             <Field
+                                name="scheme"
+                                label="Skema kamar anggota tersisa"
+                            >
+                                <select
+                                    name="scheme"
+                                    className={fieldInputClass}
+                                    defaultValue="exclusive"
+                                >
+                                    <option value="exclusive">
+                                        Tetap Eksklusif (kamar terkunci penuh,
+                                        tagihan dibagi rata)
+                                    </option>
+                                    <option value="sharing">
+                                        Ubah ke Sharing (tarif per slot, buka
+                                        slot kosong &amp; catat refund tunai)
+                                    </option>
+                                </select>
+                            </Field>
+
+                            <Field
                                 name="reason"
                                 label="Alasan perubahan (berlaku hari ini)"
                             />
 
                             <Field
                                 name="consent"
-                                label="Persetujuan anggota dan pengelola (PDF/gambar)"
+                                label="Persetujuan anggota dan pengelola (PDF/gambar, opsional)"
                                 type="file"
                             />
                         </ActionForm>
@@ -359,13 +379,23 @@ function AmendmentsSection({
 function FinancingTermsForm({
     decision,
     tagihan,
+    manager,
+    leader,
 }: {
     decision: Decision;
     tagihan?: Invoice;
+    manager?: boolean;
+    leader?: boolean;
 }) {
     const conditional =
         decision.status === 'pending' &&
-        ['installment', 'defer'].includes(decision.kind);
+        ['installment', 'defer'].includes(decision.kind) &&
+        Boolean(leader) &&
+        !manager;
+    const offlineManagerApproval =
+        decision.status === 'pending' &&
+        ['installment', 'defer'].includes(decision.kind) &&
+        Boolean(manager);
     const configuring = Boolean(decision.terms?.requires_configuration);
     const remainingTotal = Math.max(
         0,
@@ -420,6 +450,13 @@ function FinancingTermsForm({
                         : undefined
                 }
             >
+                {offlineManagerApproval && (
+                    <input
+                        type="hidden"
+                        name="offline_approval"
+                        value="1"
+                    />
+                )}
                 <div className="grid gap-3 sm:grid-cols-2">
                     <Field label="Keputusan" name="status">
                         <select
@@ -439,7 +476,14 @@ function FinancingTermsForm({
                         </select>
                     </Field>
 
-                    <Field label="Dasar keputusan" name="notes" />
+                    <Field
+                        label={
+                            offlineManagerApproval
+                                ? 'Dasar persetujuan Pimpinan (offline)'
+                                : 'Dasar keputusan'
+                        }
+                        name="notes"
+                    />
                 </div>
 
                 {conditional && (
@@ -872,6 +916,8 @@ export default function RegistrationDetailCard({
                                             <FinancingTermsForm
                                                 decision={d}
                                                 tagihan={r.tagihan}
+                                                manager={manager}
+                                                leader={leader}
                                             />
                                         )}
 
@@ -895,18 +941,16 @@ export default function RegistrationDetailCard({
                                         )}
 
                                     {d.status === 'pending' &&
-                                        ((leader &&
-                                            ['installment', 'defer'].includes(
-                                                d.kind,
-                                            )) ||
-                                            (manager &&
-                                                ![
-                                                    'installment',
-                                                    'defer',
-                                                ].includes(d.kind))) && (
+                                        (manager ||
+                                            (leader &&
+                                                ['installment', 'defer'].includes(
+                                                    d.kind,
+                                                ))) && (
                                             <FinancingTermsForm
                                                 decision={d}
                                                 tagihan={r.tagihan}
+                                                manager={manager}
+                                                leader={leader}
                                             />
                                         )}
                                 </div>
@@ -915,7 +959,72 @@ export default function RegistrationDetailCard({
                     </details>
                 )}
 
-            {manager && r.stay_kind === 'non_student' && r.tagihan && (
+            {r.cash_refunds && r.cash_refunds.length > 0 && (
+                <details
+                    className="border-base-300 rounded-lg border p-3"
+                    open
+                >
+                    <summary className="cursor-pointer font-medium">
+                        Refund Tunai Kelebihan Bayar ({r.cash_refunds.length})
+                    </summary>
+                    <div className="mt-3 space-y-3">
+                        {r.cash_refunds.map((refund) => (
+                            <div
+                                key={refund.id}
+                                className="border-base-200 space-y-2 border-b pb-3 text-sm last:border-b-0"
+                            >
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <span className="font-semibold">
+                                        {formatRupiah(Number(refund.amount))}
+                                    </span>
+                                    <StatusBadge
+                                        status={
+                                            refund.status === 'returned'
+                                                ? 'valid'
+                                                : 'pending'
+                                        }
+                                        label={
+                                            refund.status === 'returned'
+                                                ? 'Sudah Dikembalikan Tunai'
+                                                : 'Perlu Dikembalikan (Tunai)'
+                                        }
+                                    />
+                                </div>
+                                {refund.notes && (
+                                    <p className="text-base-content/75 text-xs">
+                                        Catatan: {refund.notes}
+                                    </p>
+                                )}
+                                {refund.status === 'returned' && (
+                                    <p className="text-base-content/75 text-xs">
+                                        Diterima oleh {refund.recipient_name} ·{' '}
+                                        {refund.returned_at?.slice(0, 16)}
+                                    </p>
+                                )}
+                                {manager && refund.status === 'due' && (
+                                    <ActionForm
+                                        url={`/residence-process/refunds/${refund.id}/complete`}
+                                        label="Catat pengembalian dana tunai"
+                                        confirmTitle="Konfirmasi Refund Tunai?"
+                                        confirmMessage="Dana kelebihan bayar akan ditandai telah dikembalikan secara tunai kepada penghuni."
+                                    >
+                                        <Field
+                                            name="recipient_name"
+                                            label="Nama penerima refund"
+                                        />
+                                        <Field
+                                            name="notes"
+                                            label="Catatan penyerahan tunai (opsional)"
+                                        />
+                                    </ActionForm>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </details>
+            )}
+
+            {r.can_operate && r.stay_kind === 'non_student' && r.tagihan && (
                 <details className="border-base-300 rounded-lg border p-3">
                     <summary className="cursor-pointer font-medium">
                         Catat bukti transfer penyewa umum

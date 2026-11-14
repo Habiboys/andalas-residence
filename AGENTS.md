@@ -203,4 +203,28 @@ Use Wayfinder to generate TypeScript functions for Laravel routes. Import from `
 
 - IMPORTANT: Activate `inertia-react-development` when working with Inertia React client-side patterns.
 
+=== andalas-residence/pendaftaran-v0.2 rules ===
+
+# Andalas Residence — Modul Pendaftaran (Developer Handoff Pack V0.2)
+
+## Existing Implementation Policy
+1. Inspect existing repository files, database schema, backend logic, frontend forms, and tests before modifying any module.
+2. Do not rebuild modules from scratch if an implementation already exists.
+3. Compare existing implementation against Business Rules (`BR-*`), Functional Requirements (`FR-*`), and Acceptance Criteria (`AC-*`).
+4. Preserve working parts that already comply with business rules.
+5. Refactor or replace only the parts that conflict with current business rules.
+6. Before making breaking changes to database schema, status enums, payment calculations, or reservation flows, produce an impact analysis and implementation plan.
+
+## Critical Business Rules (Non-Negotiable)
+1. **Tidak Ada Check-In Digital (`BR-CORE-002`, `BR-CORE-004`):** Sistem tidak memiliki proses check-in digital sebagai syarat transisi status. Pisahkan tiga konsep:
+   - **Kamar Direservasi (`allocation_status = 'held'`):** Slot ditahan sementara menunggu pembayaran awal.
+   - **Kamar Terisi Secara Administratif (`allocation_status = 'admin_occupied'`):** Slot terisi secara administratif setelah bukti pembayaran wajib diterima atau untuk KIP-K / Sponsor / Summer Course.
+   - **Penghuni Aktif (`status_huni = 'aktif'`):** Mahasiswa tercatat sebagai Penghuni Aktif otomatis setelah kamar Terisi Administratif dan berkas wajib lengkap (tanpa check-in digital).
+2. **Pemisahan Bukti Pembayaran dan Verifikasi Bank (`BR-CORE-007`, `BR-FIN-002`, `BR-FIN-009`):** Unggah bukti pembayaran memenuhi syarat administratif penempatan kamar, tetapi status verifikasi pembayaran bank (`DPUB`) tetap terpisah (`menunggu_verifikasi` vs `lunas`) hingga dana benar-benar terkonfirmasi masuk.
+3. **Reservasi Kamar Sharing vs Eksklusif (`BR-RSV-006`..`012`):**
+   - **Sharing (`billing_basis = 'person'`):** Bayar per slot (`Rp2.500.000/orang` pada kamar 4 slot); slot kosong terbuka untuk pendaftar lain.
+   - **Eksklusif (`billing_basis = 'room'`):** Kunci 1 kamar penuh (`Rp10.000.000/kamar`) dibagi rata dalam Rupiah penuh (`10.000.000 / 3 = 3.333.334, 3.333.333, 3.333.333`). Jika anggota lewat batas waktu bayar, hanya anggota tersebut yang gugur; anggota yang bertahan dapat memilih **Tetap Eksklusif** atau **Ubah ke Sharing** (dengan pencatatan **Refund Tunai** atas kelebihan bayar yang sudah terverifikasi bank).
+4. **Persetujuan Offline Pimpinan (`BR-LOC-012`..`016`, `BR-ROLE-001`):** Persetujuan Pimpinan untuk cicilan atau penundaan pembayaran (`0 DP`) dilakukan di luar sistem dan dicatat/dikonfigurasi langsung oleh Pengelola di dalam sistem beserta dasar persetujuannya.
+5. **Kewenangan Fasilitator (`BR-UMM-001`..`008`, `BR-ROLE-002`):** Fasilitator gedung berwenang menginput pendaftaran penyewaan umum, menetapkan kamar & durasi sewa, mengunggah bukti pembayaran sewa umum, serta memindahkan kamar penghuni pada gedung kewenangannya.
+
 </laravel-boost-guidelines>

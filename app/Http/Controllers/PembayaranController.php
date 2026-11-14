@@ -48,7 +48,7 @@ class PembayaranController extends Controller
                 || (float) $validated['nominal'] > $remaining || (float) $validated['nominal'] <= 0) {
                 throw ValidationException::withMessages(['nominal' => 'Nominal harus sesuai sisa tagihan yang belum lunas.']);
             }
-            $scheduled = $invoice->jadwalCicilan()->orderBy('termin_ke')->get();
+            $scheduled = $invoice->jadwalCicilan()->where('status', '!=', 'diganti')->orderBy('termin_ke')->get();
             $nextDue = $remaining;
             $cumulative = 0.0;
             foreach ($scheduled as $term) {
@@ -58,7 +58,9 @@ class PembayaranController extends Controller
                     break;
                 }
             }
-            $nextDue = $invoice->amount_due_now !== null ? min($remaining, (float) $invoice->amount_due_now) : $nextDue;
+            $nextDue = $invoice->amount_due_now !== null && (float) $invoice->amount_due_now > 0
+                ? min($remaining, max(0.0, (float) $invoice->amount_due_now - (float) $invoice->total_dibayar))
+                : $nextDue;
             if (abs((float) $validated['nominal'] - $nextDue) > 0.005) {
                 throw ValidationException::withMessages(['nominal' => 'Bayar sesuai tagihan atau ajukan jadwal cicilan kepada admin layanan.']);
             }
@@ -72,7 +74,7 @@ class PembayaranController extends Controller
                 $path = $request->file('bukti_transfer')->store('bukti-pembayaran', 'local');
             }
 
-            $pembayaran = Pembayaran::create([
+            Pembayaran::create([
                 'kode_transaksi' => 'PAY-'.now()->format('YmdHis').'-'.strtoupper(Str::random(4)),
                 'mahasiswa_id' => $mhs->id,
                 'tagihan_id' => $invoice->id,
@@ -87,6 +89,9 @@ class PembayaranController extends Controller
                 'status' => 'menunggu_verifikasi',
             ]);
 
+            if ($registration) {
+                app(ResidenceWorkflow::class)->evaluate($registration->fresh());
+            }
         });
 
         return redirect()->back()->with('toast', [

@@ -27,7 +27,10 @@ class TemporaryStayController extends Controller
             'rooms' => RoomEligibility::available()->when($facilitator, fn ($query) => $query->whereHas('lantai', fn ($floors) => $floors->whereIn('gedung_id', $buildings)))->get()->filter(fn (Kamar $room): bool => RoomEligibility::allowsType($room->lantai->gedung, $room->tipe_kamar, $room->kapasitas) && $room->penempatanKamar()->where('status', 'aktif')->count() + app(RoomReservations::class)->count($room) < $room->kapasitas)->values(),
             'stays' => ResidenceRegistration::with(['studentProfile.user', 'placement.kamar.lantai.gedung', 'reservedRoom.lantai.gedung', 'tagihan'])
                 ->whereIn('stay_kind', ['summer_course', 'non_student'])
-                ->when($facilitator, fn ($query) => $query->whereHas('placement.kamar.lantai', fn ($floors) => $floors->whereIn('gedung_id', $buildings)))
+                ->when($facilitator, fn ($query) => $query->where(function ($q) use ($buildings): void {
+                    $q->whereHas('placement.kamar.lantai', fn ($floors) => $floors->whereIn('gedung_id', $buildings))
+                        ->orWhereHas('reservedRoom.lantai', fn ($floors) => $floors->whereIn('gedung_id', $buildings));
+                }))
                 ->latest()->get(),
             'notifications' => $request->user()->notifications()->whereIn('type', [TemporaryStayEnded::class, ResidenceWorkflowNotification::class])->latest()->limit(20)->get(['id', 'data']),
         ];
@@ -35,17 +38,21 @@ class TemporaryStayController extends Controller
 
     public function store(Request $request, CreateTemporaryStay $create): RedirectResponse
     {
-        abort_unless(ResidenceWorkflowAccess::manager($request->user()), 403);
+        $isManager = ResidenceWorkflowAccess::manager($request->user());
+        $isAssignedFacilitator = $request->user()->hasRole('fasilitator') && ResidenceBuildingAccess::ids($request->user()) !== [];
+        abort_unless($isManager || $isAssignedFacilitator, 403);
         $data = $request->validate([
             'nama' => ['required', 'string', 'max:150'], 'nim_nip' => ['required', 'string', 'max:50'],
-            'email' => ['nullable', 'email', 'max:255'], 'gender' => ['required', 'in:laki_laki,perempuan'],
+            'email' => ['nullable', 'email', 'max:255'], 'no_hp' => ['nullable', 'string', 'max:20'],
+            'gender' => ['required', 'in:laki_laki,perempuan'],
+            'guest_count' => ['nullable', 'integer', 'min:1', 'max:50'],
             'stay_kind' => ['required', 'in:non_student'],
             'client_profile_category' => ['nullable', 'in:local_non_kipk,international_student,non_student'],
             'kamar_id' => ['required', 'uuid', 'exists:kamar,id'],
             'starts_at' => ['required', 'date', 'after_or_equal:today'],
             'ends_at' => ['required', 'date', 'after:starts_at'],
         ]);
-        if ($request->user()->hasRole('fasilitator')) {
+        if (! $isManager && $request->user()->hasRole('fasilitator')) {
             abort_unless($data['stay_kind'] === 'non_student', 403);
             $room = Kamar::with('lantai')->whereKey($data['kamar_id'])->firstOrFail();
             abort_unless(ResidenceBuildingAccess::allows($request->user(), $room->lantai->gedung_id), 403);

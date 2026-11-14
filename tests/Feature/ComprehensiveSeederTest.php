@@ -27,8 +27,8 @@ test('seeder supplies every domain model with linked and financially consistent 
 
     foreach (File::files(app_path('Models')) as $file) {
         $class = 'App\\Models\\'.$file->getFilenameWithoutExtension();
-        if (in_array($class, [Models\ResidencePolicy::class, Models\ResidenceApplication::class, Models\ResidenceDecision::class, Models\ResidencePaymentReference::class, Models\RegistrationDocument::class, Models\RoomContract::class], true)) {
-            // Historical demo fixtures must not invent policy approvals or official DPUB receipts.
+        if (in_array($class, [Models\ResidencePolicy::class, Models\ResidenceDocumentTemplate::class, Models\ResidenceApplication::class, Models\ResidenceDecision::class, Models\ResidencePaymentReference::class, Models\RegistrationDocument::class, Models\RoomContract::class, Models\ResidenceCashRefund::class], true)) {
+            // Historical demo fixtures must not invent policy configurations, templates, approvals, or official DPUB receipts.
             expect($class::count(), $class)->toBe(0);
         } elseif ($class !== Models\BaseModel::class) {
             expect($class::count(), $class)->toBeGreaterThan(0);

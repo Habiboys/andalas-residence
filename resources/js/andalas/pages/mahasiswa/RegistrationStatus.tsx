@@ -16,13 +16,11 @@ import {
 } from 'lucide-react';
 import * as workflow from '@/actions/App/Http/Controllers/ResidenceWorkflowController';
 import {
-    Badge,
     Button,
     Card,
     EmptyState,
     Modal,
     PageHeader,
-    StatusBadge,
 } from '@/andalas/components/ui';
 import { formatDate, formatRupiah } from '@/andalas/lib/format';
 
@@ -196,19 +194,98 @@ function friendlyDocumentLabel(kind: string): string {
     );
 }
 
-function documentBadgeColor(
-    status: string,
-): 'green' | 'yellow' | 'red' | 'gray' | 'blue' {
+type ChipTone = 'neutral' | 'info' | 'success' | 'warning' | 'error';
+
+const CHIP_DOT_CLASS: Record<ChipTone, string> = {
+    neutral: 'bg-base-content/40',
+    info: 'bg-secondary',
+    success: 'bg-success',
+    warning: 'bg-warning',
+    error: 'bg-error',
+};
+
+function StatusChip({
+    label,
+    tone = 'neutral',
+}: {
+    label: string;
+    tone?: ChipTone;
+}) {
+    return (
+        <span className="border-base-300 bg-base-100 text-base-content inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium">
+            <span
+                className={`size-1.5 shrink-0 rounded-full ${CHIP_DOT_CLASS[tone]}`}
+                aria-hidden="true"
+            />
+            {label}
+        </span>
+    );
+}
+
+function documentChipTone(status: string): ChipTone {
     if (status === 'valid') {
-        return 'green';
+        return 'success';
     }
     if (status === 'uploaded') {
-        return 'yellow';
+        return 'warning';
     }
     if (status === 'revision') {
-        return 'red';
+        return 'error';
     }
-    return 'gray';
+    return 'neutral';
+}
+
+function tagihanStatusChip(status: string): { label: string; tone: ChipTone } {
+    const key = status.trim().toLowerCase();
+    if (key === 'lunas') {
+        return { label: 'Lunas', tone: 'success' };
+    }
+    if (key === 'sebagian') {
+        return { label: 'Dibayar sebagian', tone: 'warning' };
+    }
+    if (key === 'belum_lunas') {
+        return { label: 'Belum lunas', tone: 'warning' };
+    }
+    if (key === 'batal' || key === 'dibatalkan') {
+        return { label: 'Dibatalkan', tone: 'neutral' };
+    }
+    if (key === 'terbit') {
+        return { label: 'Menunggu pembayaran', tone: 'info' };
+    }
+    return {
+        label:
+            status
+                .trim()
+                .replace(/[_-]+/g, ' ')
+                .replace(/^./, (letter) => letter.toUpperCase()) ||
+            'Belum tersedia',
+        tone: 'neutral',
+    };
+}
+
+function decisionStatusChip(status: string): { label: string; tone: ChipTone } {
+    const key = status.trim().toLowerCase();
+    if (key === 'approved' || key === 'disetujui') {
+        return { label: 'Disetujui', tone: 'success' };
+    }
+    if (key === 'rejected' || key === 'ditolak') {
+        return { label: 'Ditolak', tone: 'error' };
+    }
+    if (key === 'cancelled' || key === 'dibatalkan') {
+        return { label: 'Dibatalkan', tone: 'neutral' };
+    }
+    if (key === 'pending') {
+        return { label: 'Menunggu persetujuan', tone: 'warning' };
+    }
+    return {
+        label:
+            status
+                .trim()
+                .replace(/[_-]+/g, ' ')
+                .replace(/^./, (letter) => letter.toUpperCase()) ||
+            'Belum tersedia',
+        tone: 'neutral',
+    };
 }
 
 function documentStatusText(status: string): string {
@@ -284,16 +361,16 @@ function buildStepState(r: Registration) {
         },
         {
             number: 4,
-            title: r.keys_returned_at ? 'Selesai / Checkout' : 'Check-in & Aktif',
+            title: r.keys_returned_at ? 'Selesai / Checkout' : 'Penghuni Aktif',
             description: r.keys_returned_at
                 ? 'Kunci telah dikembalikan'
                 : isCheckedIn
-                  ? 'Sudah check-in & menghuni aktif'
+                  ? 'Sudah serah kunci & menghuni aktif'
                   : isReady
-                    ? 'Datang ke pengelola untuk ambil kunci'
+                    ? 'Penghuni Aktif tercatat · Ambil kunci di gedung'
                     : 'Menunggu langkah sebelumnya',
-            done: !isRejected && isCheckedIn,
-            active: !isRejected && isReady && !isCheckedIn,
+            done: !isRejected && (isReady || isCheckedIn),
+            active: false,
         },
     ];
 }
@@ -301,8 +378,8 @@ function buildStepState(r: Registration) {
 function heroBanner(r: Registration) {
     if (r.status === 'rejected') {
         return {
-            tone: 'border-error/40 bg-error/10 text-error-content',
-            badge: <Badge color="red">Pendaftaran Ditolak</Badge>,
+            tone: 'border-base-300 border-l-4 border-l-error bg-base-100',
+            badge: <StatusChip label="Pendaftaran Ditolak" tone="error" />,
             title: 'Pendaftaran Anda tidak dapat dilanjutkan',
             subtitle:
                 'Silakan hubungi pengelola asrama atau ajukan pendaftaran ulang pada periode yang masih dibuka.',
@@ -310,32 +387,39 @@ function heroBanner(r: Registration) {
     }
     if (r.keys_returned_at) {
         return {
-            tone: 'border-base-300 bg-base-200/70',
-            badge: <Badge color="gray">Hunian Selesai</Badge>,
+            tone: 'border-base-300 bg-base-100',
+            badge: <StatusChip label="Hunian Selesai" tone="neutral" />,
             title: 'Masa hunian & pengembalian kunci telah tercatat selesai',
             subtitle: `Kunci kamar dikembalikan pada ${formatDate(r.keys_returned_at)}. Arsip dokumen pendaftaran tetap tersimpan untuk Anda.`,
         };
     }
     if (r.completed_at) {
         return {
-            tone: 'border-success/40 bg-success/10',
-            badge: <Badge color="green">Penghuni Aktif</Badge>,
+            tone: 'border-base-300 border-l-4 border-l-primary bg-base-100',
+            badge: <StatusChip label="Penghuni Aktif" tone="success" />,
             title: 'Selamat! Anda telah terdaftar resmi & check-in asrama',
             subtitle: `Check-in dan serah kunci telah dikonfirmasi pada ${formatDate(r.checked_in_at ?? r.completed_at)}.`,
         };
     }
     if (r.ready_at || r.blockers.length === 0) {
         return {
-            tone: 'border-success/50 bg-success/10',
-            badge: <Badge color="green">Siap Check-in & Ambil Kunci</Badge>,
+            tone: 'border-base-300 border-l-4 border-l-primary bg-base-100',
+            badge: (
+                <StatusChip label="Siap Check-in & Ambil Kunci" tone="success" />
+            ),
             title: 'Seluruh syarat administrasi Anda sudah lengkap dan valid!',
             subtitle:
                 'Datang ke pengelola gedung dengan membawa kartu identitas & berkas asli untuk verifikasi fisik serta serah terima kunci kamar.',
         };
     }
     return {
-        tone: 'border-primary/30 bg-primary/5',
-        badge: <Badge color="blue">Terdaftar · Dalam Proses Administrasi</Badge>,
+        tone: 'border-base-300 bg-base-100',
+        badge: (
+            <StatusChip
+                label="Terdaftar · Dalam Proses Administrasi"
+                tone="info"
+            />
+        ),
         title: 'Pendaftaran asrama Anda sudah tercatat di sistem',
         subtitle:
             'Selesaikan seluruh butir pada daftar perhatian di bawah agar akun Anda siap untuk proses check-in.',
@@ -430,9 +514,6 @@ function StudentRegistrationCard({
         r.rate_unit === 'month' && Boolean(r.policy?.settings?.monthly_allowed);
     const hasTransferOption = r.stay_kind === 'non_student';
 
-    const hasPendingSelection =
-        Object.keys(selectedFiles).length > 0 || canChooseFinancing;
-
     const submitPackage = () => {
         const formData = new FormData();
         for (const [kind, file] of Object.entries(selectedFiles)) {
@@ -500,20 +581,17 @@ function StudentRegistrationCard({
                     <div className="space-y-1.5">
                         <div className="flex flex-wrap items-center gap-2">
                             {banner.badge}
-                            <Badge color="gray">
+                            <span className="text-muted text-xs font-medium">
                                 {CATEGORY_LABELS[category] ?? category}
-                            </Badge>
-                            {periodName && (
-                                <Badge color="gray">Periode {periodName}</Badge>
-                            )}
-                            <StatusBadge status={r.status} />
+                                {periodName ? ` · Periode ${periodName}` : ''}
+                            </span>
                         </div>
                         <h2 className="text-base-content text-lg font-semibold">
                             {banner.title}
                         </h2>
                         <p className="text-muted text-sm">{banner.subtitle}</p>
                     </div>
-                    <div className="bg-base-100/90 border-base-300 shrink-0 rounded-lg border px-3.5 py-2.5 text-sm">
+                    <div className="bg-base-200/40 border-base-300 shrink-0 rounded-lg border px-3.5 py-2.5 text-sm">
                         <div className="text-muted flex items-center gap-1.5 text-xs font-medium">
                             <Home className="size-3.5" aria-hidden="true" />
                             Kamar Ditempatkan
@@ -542,16 +620,16 @@ function StudentRegistrationCard({
                         key={step.number}
                         className={`flex items-start gap-2.5 rounded-lg border p-3 ${
                             step.done
-                                ? 'border-success/40 bg-success/10'
+                                ? 'border-base-300 bg-base-100'
                                 : step.active
-                                  ? 'border-primary/40 bg-primary/5'
-                                  : 'border-base-300 bg-base-200/40'
+                                  ? 'border-primary/60 bg-base-100'
+                                  : 'border-base-300/80 bg-base-200/40'
                         }`}
                     >
                         <div className="mt-0.5 shrink-0">
                             {step.done ? (
                                 <CheckCircle2
-                                    className="text-success size-5"
+                                    className="text-primary size-5"
                                     aria-hidden="true"
                                 />
                             ) : step.active ? (
@@ -579,7 +657,7 @@ function StudentRegistrationCard({
 
             {/* Actionable Blockers Box */}
             {!r.completed_at && r.blockers.length > 0 && (
-                <div className="border-warning/40 bg-warning/10 space-y-3 rounded-xl border p-4">
+                <div className="border-base-300 border-l-warning bg-base-200/40 space-y-3 rounded-xl border border-l-4 p-4">
                     <div className="flex items-start gap-2.5">
                         <AlertTriangle
                             className="text-warning mt-0.5 size-5 shrink-0"
@@ -598,7 +676,7 @@ function StudentRegistrationCard({
                                 {hasPaymentBlocker && r.tagihan && remaining > 0 && (
                                     <Link
                                         href="/mahasiswa/tagihan"
-                                        className="btn btn-sm btn-warning"
+                                        className="btn btn-sm btn-primary"
                                     >
                                         <Wallet
                                             className="size-4"
@@ -635,20 +713,21 @@ function StudentRegistrationCard({
                     <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
                             <FileText
-                                className="text-primary size-5"
+                                className="text-muted size-5"
                                 aria-hidden="true"
                             />
                             <h3 className="text-base font-semibold">
                                 Berkas Pendaftaran
                             </h3>
                         </div>
-                        <Badge
-                            color={editableKinds.length === 0 ? 'green' : 'yellow'}
-                        >
-                            {editableKinds.length === 0
-                                ? 'Semua Berkas Terunggah'
-                                : `${editableKinds.length} Berkas Perlu Diunggah`}
-                        </Badge>
+                        <StatusChip
+                            label={
+                                editableKinds.length === 0
+                                    ? 'Semua berkas terunggah'
+                                    : `${editableKinds.length} berkas perlu diunggah`
+                            }
+                            tone={editableKinds.length === 0 ? 'success' : 'warning'}
+                        />
                     </div>
 
                     <div className="space-y-3">
@@ -679,19 +758,18 @@ function StudentRegistrationCard({
                                                 </p>
                                             )}
                                         </div>
-                                        <Badge
-                                            color={documentBadgeColor(
+                                        <StatusChip
+                                            label={documentStatusText(
                                                 doc?.status ?? 'missing',
                                             )}
-                                        >
-                                            {documentStatusText(
+                                            tone={documentChipTone(
                                                 doc?.status ?? 'missing',
                                             )}
-                                        </Badge>
+                                        />
                                     </div>
 
                                     {doc?.status === 'revision' && doc.notes && (
-                                        <div className="border-error/40 bg-error/10 text-error-content rounded-md border px-3 py-2 text-xs">
+                                        <div className="border-base-300 border-l-error bg-base-100 text-base-content rounded-md border border-l-4 px-3 py-2 text-xs">
                                             <strong>Catatan revisi:</strong>{' '}
                                             {doc.notes}
                                         </div>
@@ -828,33 +906,41 @@ function StudentRegistrationCard({
                     <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
                             <Wallet
-                                className="text-primary size-5"
+                                className="text-muted size-5"
                                 aria-hidden="true"
                             />
                             <h3 className="text-base font-semibold">
                                 Pembiayaan & Tagihan
                             </h3>
                         </div>
-                        {r.tagihan && <StatusBadge status={r.tagihan.status} />}
+                        {r.tagihan && (() => {
+                            const chip = tagihanStatusChip(r.tagihan.status);
+                            return (
+                                <StatusChip
+                                    label={chip.label}
+                                    tone={chip.tone}
+                                />
+                            );
+                        })()}
                     </div>
 
                     {r.tagihan ? (
                         <div className="border-base-300 bg-base-200/40 grid grid-cols-3 gap-2 rounded-lg border p-3 text-sm">
                             <div>
                                 <p className="text-muted text-xs">Total</p>
-                                <p className="font-semibold">
+                                <p className="text-base-content font-semibold">
                                     {formatRupiah(totalTagihan)}
                                 </p>
                             </div>
                             <div>
                                 <p className="text-muted text-xs">Dibayar</p>
-                                <p className="text-success font-semibold">
+                                <p className="text-base-content font-semibold">
                                     {formatRupiah(totalDibayar)}
                                 </p>
                             </div>
                             <div>
                                 <p className="text-muted text-xs">Sisa</p>
-                                <p className="text-warning font-semibold">
+                                <p className="text-base-content font-semibold">
                                     {formatRupiah(remaining)}
                                 </p>
                             </div>
@@ -878,7 +964,7 @@ function StudentRegistrationCard({
                     )}
 
                     {isKipkExempt && (
-                        <div className="border-success/40 bg-success/10 rounded-lg border p-3.5 text-sm">
+                        <div className="border-base-300 bg-base-200/40 rounded-lg border p-3.5 text-sm">
                             <p className="font-semibold">
                                 Skema KIP-K Aktif
                             </p>
@@ -891,83 +977,100 @@ function StudentRegistrationCard({
                     )}
 
                     {/* Saved Decision Read-Only Card (inputs hidden once saved) */}
-                    {savedDecisions.map((d) => (
-                        <div
-                            key={d.id}
-                            className="border-base-300 bg-base-200/30 space-y-2 rounded-lg border p-3.5"
-                        >
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                                <p className="text-sm font-semibold">
-                                    {DECISION_LABELS[d.kind] ?? d.kind}
-                                </p>
-                                <StatusBadge status={d.status} />
-                            </div>
-                            <p className="text-muted flex items-center gap-1.5 text-xs">
-                                <ShieldCheck
-                                    className="size-3.5 shrink-0"
-                                    aria-hidden="true"
-                                />
-                                Pilihan pembiayaan telah tersimpan permanen.
-                            </p>
-                            {d.reason && (
-                                <p className="text-xs">
-                                    <strong>Alasan:</strong> {d.reason}
-                                </p>
-                            )}
-                            {d.terms?.notes && (
-                                <p className="text-xs">
-                                    <strong>Catatan pengelola:</strong>{' '}
-                                    {d.terms.notes}
-                                </p>
-                            )}
-                            {d.terms?.initial_amount !== undefined && (
-                                <p className="text-xs">
-                                    <strong>Pembayaran awal wajib:</strong>{' '}
-                                    {formatRupiah(
-                                        Number(d.terms.initial_amount),
-                                    )}
-                                </p>
-                            )}
-                            {(d.terms?.schedule?.length ?? 0) > 0 && (
-                                <div className="border-base-300 mt-1 space-y-1 border-t pt-2 text-xs">
-                                    <p className="font-medium">
-                                        Jadwal Termin Disetujui:
+                    {savedDecisions.map((d) => {
+                        const decisionChip = decisionStatusChip(d.status);
+                        return (
+                            <div
+                                key={d.id}
+                                className="border-base-300 bg-base-200/30 space-y-2 rounded-lg border p-3.5"
+                            >
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <p className="text-sm font-semibold">
+                                        {DECISION_LABELS[d.kind] ?? d.kind}
                                     </p>
-                                    {d.terms?.schedule?.map((term, idx) => (
-                                        <div
-                                            key={idx}
-                                            className="flex justify-between"
-                                        >
-                                            <span>
-                                                Termin {idx + 1} (
-                                                {formatDate(term.jatuh_tempo)})
-                                            </span>
-                                            <span className="font-medium">
-                                                {formatRupiah(
-                                                    Number(term.jumlah),
-                                                )}
-                                            </span>
-                                        </div>
-                                    ))}
+                                    <StatusChip
+                                        label={decisionChip.label}
+                                        tone={decisionChip.tone}
+                                    />
                                 </div>
-                            )}
-                        </div>
-                    ))}
-
-                    {rejectedDecisions.map((d) => (
-                        <div
-                            key={d.id}
-                            className="border-error/40 bg-error/10 space-y-1 rounded-lg border p-3 text-xs"
-                        >
-                            <div className="flex items-center justify-between">
-                                <span className="font-semibold">
-                                    {DECISION_LABELS[d.kind] ?? d.kind}
-                                </span>
-                                <StatusBadge status={d.status} />
+                                <p className="text-muted flex items-center gap-1.5 text-xs">
+                                    <ShieldCheck
+                                        className="size-3.5 shrink-0"
+                                        aria-hidden="true"
+                                    />
+                                    Pilihan pembiayaan telah tersimpan permanen.
+                                </p>
+                                {d.reason && (
+                                    <p className="text-xs">
+                                        <strong>Alasan:</strong> {d.reason}
+                                    </p>
+                                )}
+                                {d.terms?.notes && (
+                                    <p className="text-xs">
+                                        <strong>Catatan pengelola:</strong>{' '}
+                                        {d.terms.notes}
+                                    </p>
+                                )}
+                                {d.terms?.initial_amount !== undefined && (
+                                    <p className="text-xs">
+                                        <strong>Pembayaran awal wajib:</strong>{' '}
+                                        {formatRupiah(
+                                            Number(d.terms.initial_amount),
+                                        )}
+                                    </p>
+                                )}
+                                {(d.terms?.schedule?.length ?? 0) > 0 && (
+                                    <div className="border-base-300 mt-1 space-y-1 border-t pt-2 text-xs">
+                                        <p className="font-medium">
+                                            Jadwal Termin Disetujui:
+                                        </p>
+                                        {d.terms?.schedule?.map((term, idx) => (
+                                            <div
+                                                key={idx}
+                                                className="flex justify-between"
+                                            >
+                                                <span>
+                                                    Termin {idx + 1} (
+                                                    {formatDate(
+                                                        term.jatuh_tempo,
+                                                    )}
+                                                    )
+                                                </span>
+                                                <span className="font-medium">
+                                                    {formatRupiah(
+                                                        Number(term.jumlah),
+                                                    )}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
-                            {d.terms?.notes && <p>Catatan: {d.terms.notes}</p>}
-                        </div>
-                    ))}
+                        );
+                    })}
+
+                    {rejectedDecisions.map((d) => {
+                        const decisionChip = decisionStatusChip(d.status);
+                        return (
+                            <div
+                                key={d.id}
+                                className="border-base-300 border-l-error bg-base-100 space-y-1 rounded-lg border border-l-4 p-3 text-xs"
+                            >
+                                <div className="flex items-center justify-between">
+                                    <span className="font-semibold">
+                                        {DECISION_LABELS[d.kind] ?? d.kind}
+                                    </span>
+                                    <StatusChip
+                                        label={decisionChip.label}
+                                        tone={decisionChip.tone}
+                                    />
+                                </div>
+                                {d.terms?.notes && (
+                                    <p>Catatan: {d.terms.notes}</p>
+                                )}
+                            </div>
+                        );
+                    })}
 
                     {/* Decision selector ONLY when not yet chosen */}
                     {canChooseFinancing && (
@@ -1043,7 +1146,7 @@ function StudentRegistrationCard({
                     )}
 
                     {(r.amendments?.length ?? 0) > 0 && (
-                        <div className="border-info/40 bg-info/10 space-y-1.5 rounded-lg border p-3 text-xs">
+                        <div className="border-base-300 bg-base-200/40 space-y-1.5 rounded-lg border p-3 text-xs">
                             <p className="font-semibold">
                                 Riwayat Koreksi Pembiayaan
                             </p>
@@ -1061,7 +1164,7 @@ function StudentRegistrationCard({
             </div>
 
             {errors.package && (
-                <div className="alert alert-error text-sm">
+                <div className="border-base-300 border-l-error bg-base-200/40 text-base-content rounded-lg border border-l-4 p-3 text-sm">
                     <span>{errors.package}</span>
                 </div>
             )}
@@ -1100,9 +1203,9 @@ function StudentRegistrationCard({
                 title="Konfirmasi Penyimpanan Permanen"
             >
                 <div className="space-y-4">
-                    <div className="alert alert-warning text-sm">
+                    <div className="border-base-300 border-l-warning bg-base-200/40 flex items-start gap-2.5 rounded-lg border border-l-4 p-3 text-sm">
                         <AlertTriangle
-                            className="size-4 shrink-0"
+                            className="text-warning mt-0.5 size-4 shrink-0"
                             aria-hidden="true"
                         />
                         <span>

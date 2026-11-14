@@ -92,8 +92,9 @@ class CreateResidenceBilling
             if ($index === false) {
                 throw ValidationException::withMessages(['contract' => 'Pendaftar bukan anggota kontrak.']);
             }
-            $total = (int) round((float) $r->roomContract->total * 100);
-            $cents = intdiv($total, count($members)) + ($index < $total % count($members) ? 1 : 0);
+            $totalRupiah = (int) round((float) $r->roomContract->total);
+            $shareRupiah = intdiv($totalRupiah, count($members)) + ($index < $totalRupiah % count($members) ? 1 : 0);
+            $cents = $shareRupiah * 100;
             $quantity = 1;
         }
         $totalCents = $cents * $quantity;
@@ -103,11 +104,15 @@ class CreateResidenceBilling
         ], $sponsorCents > 0 ? [['sumber' => 'institution', 'deskripsi' => 'Tanggungan '.$r->sponsor_name, 'jumlah' => -$sponsorCents / 100]] : [], generateDocument: $r->stay_kind !== 'summer_course');
         $invoice->update([
             'status' => $totalCents === $sponsorCents ? TagihanStatus::Lunas : TagihanStatus::Terbit,
-            'tanggal_terbit' => today(), 'sponsor_total' => $sponsorCents / 100, 'sponsor_name' => $r->sponsor_name,
+            'tanggal_terbit' => today(),
+            'jatuh_tempo' => $r->reservation_expires_at?->toDateString(),
+            'amount_due_now' => $r->is_kipk ? 0 : null,
+            'sponsor_total' => $sponsorCents / 100, 'sponsor_name' => $r->sponsor_name,
             'residence_snapshot' => ['building' => $room->lantai->gedung->nama_gedung, 'room' => $room->nomor_kamar, 'type' => $room->tipe_kamar,
                 'starts_at' => $r->starts_at->toDateString(), 'ends_at' => $r->ends_at->toDateString(), 'unit' => $r->rate_unit,
                 'quantity' => $quantity, 'amount' => $cents / 100, 'billing_basis' => $r->billing_basis,
                 'policy_id' => $r->residence_policy_id, 'policy_version' => $r->policy->version, 'category' => $r->policy->category,
+                'receivable_type' => $r->is_kipk ? 'kipk_scholarship' : ($r->funding === 'sponsor' ? 'sponsor' : 'personal'),
                 'room_contract_id' => $r->room_contract_id],
         ]);
         $r->update(['tagihan_id' => $invoice->id]);

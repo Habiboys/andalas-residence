@@ -2,10 +2,12 @@
 
 namespace App\Actions\Registration;
 
+use App\Models\Kamar;
 use App\Models\MahasiswaProfil;
 use App\Models\Periode;
 use App\Models\ResidenceRegistration;
 use App\Models\User;
+use App\Services\ResidenceBuildingAccess;
 use App\Services\ResidenceLifecycle;
 use App\Services\ResidencePolicyService;
 use App\Services\ResidenceWorkflowAccess;
@@ -27,7 +29,12 @@ class CreateTemporaryStay
     public function handle(array $data, User $officer): ResidenceRegistration
     {
         return DB::transaction(function () use ($data, $officer): ResidenceRegistration {
-            abort_unless(ResidenceWorkflowAccess::manager($officer), 403);
+            $canCreate = ResidenceWorkflowAccess::manager($officer)
+                || ($officer->hasRole('fasilitator')
+                    && ($data['stay_kind'] ?? '') === 'non_student'
+                    && ! empty($data['kamar_id'])
+                    && ResidenceBuildingAccess::allows($officer, Kamar::with('lantai')->find($data['kamar_id'])?->lantai?->gedung_id));
+            abort_unless($canCreate, 403);
             $period = Periode::where('status', 'aktif')->lockForUpdate()->first();
             if (! $period) {
                 throw ValidationException::withMessages(['periode' => 'Admin harus mengaktifkan periode penerimaan terlebih dahulu.']);
@@ -59,6 +66,7 @@ class CreateTemporaryStay
                 }
                 $user = User::create([
                     'nama' => $data['nama'], 'nim_nip' => $data['nim_nip'], 'email' => $data['email'] ?? ('guest-'.Str::uuid().'@guest.invalid'),
+                    'no_hp' => $data['no_hp'] ?? null,
                     'password' => Str::password(32), 'gender' => $data['gender'],
                     'status' => 'aktif', 'client_profile_category' => $data['client_profile_category'],
                 ]);
@@ -73,15 +81,20 @@ class CreateTemporaryStay
                 throw ValidationException::withMessages(['application' => 'Permohonan institusi atau kegiatan wajib dicatat terlebih dahulu.']);
             }
             $policy = app(ResidencePolicyService::class)->current($data['stay_kind'] === 'regular' ? 'international' : $data['stay_kind']);
+            $funding = ($data['stay_kind'] ?? '') === 'summer_course' ? 'sponsor' : ($data['funding'] ?? 'personal');
             $registration = ResidenceRegistration::create([
                 'workflow_version' => 2, 'residence_policy_id' => $policy->id, 'allocation_status' => 'waiting',
                 'residence_application_id' => $data['residence_application_id'] ?? null,
                 'student_profile_id' => $student->id, 'periode_id' => $period->id,
                 'stay_kind' => $data['stay_kind'], 'status' => 'accepted', 'is_kipk' => false,
+                'guest_count' => max(1, (int) ($data['guest_count'] ?? 1)),
                 'submitted_at' => now(), 'reviewed_at' => now(), 'reviewed_by' => $officer->id,
                 'starts_at' => $data['starts_at'], 'ends_at' => $data['ends_at'],
                 'sponsor_limit' => $data['sponsor_limit'] ?? null,
-                'rate_unit' => $data['rate_unit'] ?? 'day', 'funding' => $data['funding'] ?? 'personal', 'sponsor_name' => $data['sponsor_name'] ?? null,
+                'rate_unit' => $data['rate_unit'] ?? 'day',
+                'funding' => $funding,
+                'sponsor_name' => $data['sponsor_name'] ?? null,
+                'sponsor_approved_at' => $funding === 'sponsor' ? now() : null,
             ]);
             $registration->roomPreferences()->create(['kamar_id' => $data['kamar_id'], 'priority' => 1]);
             app(AllocateResidenceRoom::class)->handle($registration, $data['kamar_id']);

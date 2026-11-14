@@ -13,6 +13,16 @@ class StoreResidenceApplicationRequest extends FormRequest
         return ResidenceWorkflowAccess::manager($this->user());
     }
 
+    protected function prepareForValidation(): void
+    {
+        if ($this->input('kind') === 'summer_course') {
+            $this->merge([
+                'funding' => 'sponsor',
+                'rate_unit' => $this->input('rate_unit', 'day'),
+            ]);
+        }
+    }
+
     /** @return array<string, mixed> */
     public function rules(): array
     {
@@ -21,7 +31,13 @@ class StoreResidenceApplicationRequest extends FormRequest
             'kind' => ['required', 'in:international,postgraduate,summer_course'], 'institution' => ['required_unless:kind,postgraduate', 'nullable', 'string', 'max:255'],
             'recipient_email' => ['required', 'email', 'max:255'], 'letter' => ['required_unless:kind,postgraduate', 'nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
             'starts_at' => ['required', 'date', 'after_or_equal:today'], 'ends_at' => ['required', 'date', 'after:starts_at'],
-            'funding' => ['required', 'in:personal,sponsor', Rule::when($this->input('kind') === 'postgraduate', ['in:personal'])], 'rate_unit' => ['required', 'in:year,semester,month,day'],
+            'funding' => [
+                'required',
+                'in:personal,sponsor',
+                Rule::when($this->input('kind') === 'postgraduate', ['in:personal']),
+                Rule::when($this->input('kind') === 'summer_course', ['in:sponsor']),
+            ],
+            'rate_unit' => ['required', 'in:year,semester,month,day'],
             'participants' => ['required', 'array', 'min:1', 'max:200'],
             'participants.*.nama' => ['required', 'string', 'max:150'], 'participants.*.nim_nip' => ['required', 'string', 'max:50', 'distinct'],
             'participants.*.email' => ['required', 'email', 'max:255', 'distinct'], 'participants.*.gender' => ['required', 'in:laki_laki,perempuan'],

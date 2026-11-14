@@ -6,8 +6,8 @@ use App\Models\Gedung;
 use App\Models\Kamar;
 use App\Models\MahasiswaProfil;
 use App\Models\ResidencePolicy;
-use App\Models\ResidenceRegistration;
 use App\Models\ResidenceRate;
+use App\Models\ResidenceRegistration;
 use App\Models\RoomType;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
@@ -23,8 +23,9 @@ class ResidencePolicyService
         $rates = ResidenceRate::where('amount', '>', 0)->get()->groupBy('gedung_id');
 
         return Gedung::with('lantai.kamar')->orderBy('kode_gedung')->get()
-            ->filter(fn (Gedung $building): bool => $building->allowed_categories === null
+            ->filter(fn (Gedung $building): bool => ($building->allowed_categories === null
                 || in_array($masterCategory, $building->allowed_categories, true))
+                && RoomEligibility::allowsCanonicalBuilding($category, $building))
             ->map(function (Gedung $building) use ($types, $rates, $category): array {
                 $roomTypes = $building->lantai->flatMap->kamar->pluck('tipe_kamar')->unique()
                     ->filter(fn (string $type): bool => $types->has($type) && ($building->room_types === null
@@ -118,7 +119,8 @@ class ResidencePolicyService
     public function validateRoom(ResidencePolicy $policy, Kamar $room, MahasiswaProfil $student): void
     {
         if (! in_array($room->lantai->gedung_id, $policy->settings['building_ids'], true)
-            || ! in_array(RoomEligibility::buildingGender($room->lantai->gedung), ['campur', $student->user->gender], true)) {
+            || ! in_array(RoomEligibility::buildingGender($room->lantai->gedung), ['campur', $student->user->gender], true)
+            || ! RoomEligibility::allowsCanonicalBuilding($policy->category, $room->lantai->gedung, $student->user->gender)) {
             throw ValidationException::withMessages(['kamar_id' => 'Gedung tidak sesuai kebijakan kategori dan jenis kelamin.']);
         }
     }
@@ -131,6 +133,9 @@ class ResidencePolicyService
         if (! $rate) {
             throw ValidationException::withMessages(['kamar_id' => 'Tarif kamar belum tersedia pada versi kebijakan pendaftaran ini.']);
         }
+        if (((float) ($rate['amount'] ?? 0)) <= 0 && ((float) ($rate['room_amount'] ?? 0)) > 0) {
+            $rate['amount'] = (float) $rate['room_amount'] / max(1, (int) $room->kapasitas);
+        }
 
         return $rate;
     }
@@ -140,7 +145,9 @@ class ResidencePolicyService
     {
         $rooms = Kamar::with('lantai.gedung')->where('status', '!=', 'maintenance')->whereHas('lantai', fn ($q) => $q->whereIn('gedung_id', $policy->settings['building_ids'])->where('booking_open', true))->get()
             ->filter(function (Kamar $room) use ($student, $policy): bool {
-                if (! in_array(RoomEligibility::buildingGender($room->lantai->gedung), ['campur', $student->user->gender], true) || ! RoomEligibility::allowsType($room->lantai->gedung, $room->tipe_kamar, $room->kapasitas)) {
+                if (! in_array(RoomEligibility::buildingGender($room->lantai->gedung), ['campur', $student->user->gender], true)
+                    || ! RoomEligibility::allowsCanonicalBuilding($policy->category, $room->lantai->gedung, $student->user->gender)
+                    || ! RoomEligibility::allowsType($room->lantai->gedung, $room->tipe_kamar, $room->kapasitas)) {
                     return false;
                 }
                 $available = max(0, $room->kapasitas - $room->penempatanKamar()->where('status', 'aktif')->count() - app(RoomReservations::class)->count($room));

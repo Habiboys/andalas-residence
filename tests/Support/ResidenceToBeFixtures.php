@@ -24,6 +24,7 @@ function toBeOfficer(string $role = 'admin_layanan'): User
     foreach (['mahasiswa', 'admin_layanan', 'staff_admin', 'superadmin', 'fasilitator', 'pimpinan', 'tamu'] as $name) {
         Role::findOrCreate($name);
     }
+    Role::findByName('mahasiswa')->givePermissionTo(Permission::findOrCreate('pembayaran.create'));
     $user = User::factory()->create()->assignRole($role);
     if ($role === 'admin_layanan') {
         $user->givePermissionTo(Permission::findOrCreate('pembayaran.verify'));

@@ -27,6 +27,8 @@ class ResidenceApplicationController extends Controller
                 'number' => $data['number'], 'kind' => $data['kind'], 'institution' => $data['institution'] ?? null, 'recipient_email' => $data['recipient_email'],
                 'letter_path' => $request->file('letter')?->store('documents/institutions', 'local'), 'starts_at' => $data['starts_at'], 'ends_at' => $data['ends_at'],
                 'funding' => $data['funding'], 'created_by' => $request->user()->id,
+                'approved_at' => ($data['funding'] === 'sponsor' || $data['kind'] === 'summer_course') ? now() : null,
+                'approved_by' => ($data['funding'] === 'sponsor' || $data['kind'] === 'summer_course') ? $request->user()->id : null,
             ]);
             foreach ($data['participants'] as $participant) {
                 $create->handle([...$participant, 'residence_application_id' => $application->id,
@@ -40,7 +42,7 @@ class ResidenceApplicationController extends Controller
             AuditLogService::log($request->user(), 'residence_application_created', $application, null, ['participants' => count($data['participants'])]);
         });
 
-        return back()->with('toast', ['type' => 'success', 'message' => 'Permohonan dan alokasi peserta tercatat. Sahkan pembiayaan serta dokumen sebelum check-in.']);
+        return back()->with('toast', ['type' => 'success', 'message' => 'Permohonan dan alokasi peserta tercatat.']);
     }
 
     public function approve(Request $request, ResidenceApplication $application): RedirectResponse
@@ -49,12 +51,11 @@ class ResidenceApplicationController extends Controller
         $request->validate(['support_verified' => ['accepted']]);
         DB::transaction(function () use ($request, $application): void {
             $application = ResidenceApplication::whereKey($application->id)->lockForUpdate()->firstOrFail();
-            if ($application->approved_at) {
-                return;
+            if (! $application->approved_at) {
+                $application->update(['approved_at' => now(), 'approved_by' => $request->user()->id]);
             }
-            $application->update(['approved_at' => now(), 'approved_by' => $request->user()->id]);
             foreach ($application->registrations()->orderBy('id')->lockForUpdate()->get() as $r) {
-                if ($r->funding === 'sponsor') {
+                if ($r->funding === 'sponsor' && ! $r->sponsor_approved_at) {
                     $r->update(['sponsor_approved_at' => now()]);
                 }
                 app(ResidenceWorkflow::class)->evaluate($r->fresh());

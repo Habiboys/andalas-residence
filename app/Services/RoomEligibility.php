@@ -23,12 +23,38 @@ class RoomEligibility
         };
     }
 
+    public static function allowsCanonicalBuilding(string $category, Gedung $building, ?string $gender = null): bool
+    {
+        $code = strtoupper(trim($building->kode_gedung));
+        if (! in_array($code, ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'], true)) {
+            return true;
+        }
+
+        if ($category === 'local_kipk') {
+            return match ($gender) {
+                'perempuan' => in_array($code, ['A', 'D'], true),
+                'laki_laki' => $code === 'G',
+                default => in_array($code, ['A', 'D', 'G'], true),
+            };
+        }
+
+        if (in_array($category, ['international', 'international_student'], true)) {
+            return match ($gender) {
+                'perempuan' => $code === 'B',
+                'laki_laki' => in_array($code, ['F', 'H'], true),
+                default => in_array($code, ['B', 'F', 'H'], true),
+            };
+        }
+
+        return true;
+    }
+
     public static function allows(Gedung $building, User $user): bool
     {
         $category = $user->client_profile_category?->value;
         if ($user->mahasiswaProfil && app(ResidenceLifecycle::class)->isLocal($user->mahasiswaProfil)) {
             $category = app(ResidenceLifecycle::class)->isKipk($user->mahasiswaProfil) ? 'local_kipk' : 'local_non_kipk';
-            if (! app(ResidenceLifecycle::class)->isBinaan($user->mahasiswaProfil)) {
+            if (! app(ResidenceLifecycle::class)->isBinaan($user->mahasiswaProfil) && $category !== 'local_kipk') {
                 $category = 'student';
             }
         }
@@ -37,6 +63,7 @@ class RoomEligibility
         }
 
         return in_array(self::buildingGender($building), ['campur', $user->gender], true)
+            && self::allowsCanonicalBuilding((string) $category, $building, $user->gender)
             && ($building->allowed_categories === null || in_array($category, $building->allowed_categories, true));
     }
 

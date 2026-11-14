@@ -192,7 +192,10 @@ it('shares finalized technician ratings with ticket details on riwayat-penilaian
     $technician = finalDamageTechnician();
     $otherTechnician = finalDamageTechnician();
 
-    $createReport = function (string $description) use ($resident): LaporanKerusakan {
+    $createReport = function (string $description): LaporanKerusakan {
+        $resident = finalDamageResident();
+        $existingIds = LaporanKerusakan::pluck('id')->all();
+
         $this->actingAs($resident['user'])->post(route('andalas.laporan.store'), [
             'request_key' => (string) Str::uuid(),
             'items' => [[
@@ -201,7 +204,7 @@ it('shares finalized technician ratings with ticket details on riwayat-penilaian
             ]],
         ])->assertSessionHasNoErrors();
 
-        return LaporanKerusakan::latest('created_at')->firstOrFail();
+        return LaporanKerusakan::whereNotIn('id', $existingIds)->sole();
     };
 
     $finalReport = $createReport('Keran bocor');

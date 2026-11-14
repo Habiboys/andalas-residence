@@ -48,6 +48,7 @@ class SubmitResidenceRegistration
                 throw ValidationException::withMessages(['funding' => 'Mahasiswa lokal memiliki kewajiban pembayaran pribadi.']);
             }
             $student->user->update(['client_profile_category' => $kipk ? 'local_kipk' : 'local_non_kipk']);
+            $reservationHours = max(1, (int) ($policy->settings['reservation_hours'] ?? $period->reservation_hours ?? 168));
             $r = ResidenceRegistration::create([
                 'workflow_version' => 2, 'residence_policy_id' => $policy->id,
                 'student_profile_id' => $student->id, 'periode_id' => $period->id,
@@ -56,7 +57,7 @@ class SubmitResidenceRegistration
                 'starts_at' => $data['starts_at'] ?? $period->tanggal_mulai,
                 'ends_at' => $data['ends_at'] ?? $period->tanggal_selesai,
                 'rate_unit' => $unit, 'funding' => 'personal', 'allocation_status' => 'waiting',
-                'reservation_expires_at' => null,
+                'reservation_expires_at' => $kipk ? null : now()->addHours($reservationHours),
             ]);
             if (! $kipk) {
                 $roomId = $data['preferences'][0]['kamar_id'] ?? null;

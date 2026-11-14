@@ -5,6 +5,7 @@ namespace App\Actions\Registration;
 use App\Models\Gedung;
 use App\Models\Kamar;
 use App\Models\ResidenceRegistration;
+use App\Models\RoomContract;
 use App\Services\ResidencePolicyService;
 use App\Services\ResidenceWorkflow;
 use App\Services\RoomEligibility;
@@ -45,11 +46,28 @@ class AllocateResidenceRoom
                         if ($occupied + $held >= $room->kapasitas || ($r->billing_basis === 'room' && $occupied + $held > 0)) {
                             continue;
                         }
-                        $r->update(['reserved_room_id' => $room->id, 'allocation_status' => 'allocated']);
-                        if ($r->billing_basis !== 'room') {
+                        $initialAllocationStatus = ($r->is_kipk || $r->funding === 'sponsor' || $r->stay_kind === 'summer_course')
+                            ? 'admin_occupied'
+                            : 'held';
+                        $r->update(['reserved_room_id' => $room->id, 'allocation_status' => $initialAllocationStatus]);
+                        if ($r->billing_basis === 'room') {
+                            if (! $r->room_contract_id) {
+                                $contract = RoomContract::create([
+                                    'kamar_id' => $room->id,
+                                    'occupants' => 1,
+                                    'total' => $rate['room_amount'],
+                                    'members' => [$r->id],
+                                    'approved_by' => $r->studentProfile->user_id,
+                                    'approved_at' => now(),
+                                ]);
+                                $r->update(['room_contract_id' => $contract->id]);
+                            }
+                            app(CreateResidenceBilling::class)->handle($r->fresh());
+                        } else {
                             app(CreateResidenceBilling::class)->handle($r);
                         }
-                        app(ResidenceWorkflow::class)->notify($r, 'Alokasi kamar ditetapkan', 'Kamar '.$room->nomor_kamar.' di '.$room->lantai->gedung->nama_gedung.' telah dialokasikan. Lengkapi administrasi sebelum check-in.', true);
+                        app(ResidenceWorkflow::class)->evaluate($r->fresh());
+                        app(ResidenceWorkflow::class)->notify($r, 'Alokasi kamar ditetapkan', 'Kamar '.$room->nomor_kamar.' di '.$room->lantai->gedung->nama_gedung.' telah dialokasikan. Lengkapi administrasi pendaftaran.', true);
 
                         return;
                     } catch (ValidationException $e) {

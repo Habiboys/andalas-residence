@@ -36,6 +36,7 @@ Route::prefix('residence-process')->name('residence.')->group(function (): void 
     Route::post('/documents/{document}/review', [Workflow::class, 'reviewDocument'])->name('documents.review');
     Route::post('/registrations/{registration}/decisions', [Workflow::class, 'requestDecision'])->name('decisions.request');
     Route::post('/decisions/{decision}', [Workflow::class, 'decide'])->name('decisions.review');
+    Route::post('/refunds/{refund}/complete', [Workflow::class, 'completeRefund'])->name('refunds.complete');
     Route::post('/registrations/{registration}/checkin', [Workflow::class, 'checkIn'])->name('checkin');
     Route::post('/registrations/{registration}/inspection', [Workflow::class, 'requestInspection'])->name('inspection');
     Route::post('/registrations/{registration}/keys', [Workflow::class, 'returnKeys'])->name('keys');

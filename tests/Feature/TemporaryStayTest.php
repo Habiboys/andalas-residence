@@ -85,19 +85,18 @@ it('creates a daily invoice and releases the bed exactly once without erasing de
     $this->actingAs($f['facilitator'])->get(route('fasilitator.temporary-stays'))->assertOk()->assertInertia(fn (Assert $page) => $page->has('stays', 1));
 });
 
-it('requires managers to create public stays and scopes facilitator visibility', function () {
+it('allows managers and assigned facilitators to create public stays while scoping facilitator visibility', function () {
     $this->travelTo(now()->setDate(2026, 9, 26));
     $this->seed(RolePermissionSeeder::class);
     $f = temporaryStayFixture();
-    $this->actingAs($f['facilitator'])->post(route('andalas.temporary-stays.store'), $f['data'])->assertForbidden();
-    $this->post(route('andalas.temporary-stays.store'), [...$f['data'], 'stay_kind' => 'non_student'])->assertForbidden();
-    $this->actingAs($f['admin'])->post(route('andalas.temporary-stays.store'), $f['data'])->assertRedirect()->assertSessionHasNoErrors();
+    $this->actingAs($f['facilitator'])->post(route('andalas.temporary-stays.store'), $f['data'])->assertRedirect()->assertSessionHasNoErrors();
+    $this->actingAs($f['admin'])->post(route('andalas.temporary-stays.store'), [...$f['data'], 'nama' => 'Peserta Admin', 'nim_nip' => 'PASPOR-999', 'email' => 'admin-guest@example.test'])->assertRedirect()->assertSessionHasNoErrors();
     $outsider = User::factory()->create()->assignRole('fasilitator');
     $this->actingAs($outsider)->post(route('andalas.temporary-stays.store'), [...$f['data'], 'stay_kind' => 'non_student'])->assertForbidden();
     $this->get(route('fasilitator.temporary-stays'))->assertInertia(fn (Assert $page) => $page->has('stays', 0)->has('rooms', 0));
     $student = User::factory()->create()->assignRole('mahasiswa');
     $this->actingAs($student)->post(route('andalas.temporary-stays.store'), $f['data'])->assertForbidden();
-    $this->assertDatabaseCount('residence_registrations', 1);
+    $this->assertDatabaseCount('residence_registrations', 2);
 });
 
 it('rolls back account invoice and placement when the daily rate is missing or room unavailable', function (string $failure) {

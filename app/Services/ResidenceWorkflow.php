@@ -19,10 +19,13 @@ class ResidenceWorkflow
         if (! $r->reserved_room_id) {
             $issues[] = 'Belum mendapat alokasi kamar.';
         }
-        if ($r->workflow_version === 2) {
+        if ($r->workflow_version === 2 && ! in_array($r->stay_kind, ['summer_course', 'non_student'], true)) {
+            if (empty($r->studentProfile->nik) || empty($r->studentProfile->alamat)) {
+                $issues[] = 'Data diri penghuni belum lengkap.';
+            }
             $latest = $r->documents()->orderByDesc('version')->get()->unique('kind');
-            foreach ($r->policy->settings['documents'] as $kind) {
-                if ($latest->firstWhere('kind', $kind)?->status !== 'valid') {
+            foreach ($r->policy?->settings['documents'] ?? [] as $kind) {
+                if (! in_array($latest->firstWhere('kind', $kind)?->status, ['valid', 'uploaded'], true)) {
                     $issues[] = 'Dokumen '.$kind.' belum valid.';
                 }
             }
@@ -64,25 +67,42 @@ class ResidenceWorkflow
         if ($r->workflow_version !== 2) {
             return $invoice->status->value === 'lunas' && ($r->funding !== 'sponsor' || $r->sponsor_approved_at !== null);
         }
-        if ($r->is_kipk && ! $r->kipk_disbursed_at) {
+        if ($r->is_kipk) {
             return $r->policy?->category === 'local_kipk';
         }
-        if ($r->stay_kind === 'summer_course' && $r->application?->approved_at) {
-            return true;
+        if ($r->stay_kind === 'summer_course') {
+            return (bool) ($r->application?->approved_at || $r->sponsor_approved_at);
         }
-        if ($r->funding === 'sponsor' && ! $r->sponsor_approved_at) {
-            return false;
+        if ($r->funding === 'sponsor') {
+            if (! $r->sponsor_approved_at && ! $r->application?->approved_at) {
+                return false;
+            }
+            if ((float) $invoice->total === 0.0 || $invoice->status->value === 'lunas') {
+                return true;
+            }
         }
         if ($invoice->status->value === 'lunas') {
             return true;
         }
-        if ($r->stay_kind === 'non_student' && $r->decisions()->where('kind', 'transfer_permission')->where('status', 'approved')->exists()
-            && Pembayaran::where('tagihan_id', $invoice->id)->whereIn('status', ['menunggu_verifikasi', 'lunas'])->whereNotNull('bukti_transfer_path')->where('nominal', '>=', (float) $invoice->total - (float) $invoice->total_dibayar)->exists()) {
-            return true;
-        }
         $decision = $r->decisions()->whereIn('kind', ['installment', 'defer', 'monthly'])->where('status', 'approved')->latest('decided_at')->first();
+        if ($decision) {
+            if ($decision->terms['requires_configuration'] ?? false) {
+                return false;
+            }
+            $requiredAmount = (float) ($decision->terms['initial_amount'] ?? $invoice->amount_due_now ?? $invoice->total);
+            if ($decision->kind === 'defer' && $requiredAmount <= 0) {
+                return true;
+            }
+        } else {
+            $requiredAmount = (float) ($invoice->amount_due_now ?? $invoice->total);
+        }
 
-        return $decision && (float) $invoice->total_dibayar >= (float) ($decision->terms['initial_amount'] ?? $invoice->total);
+        $proofAmount = (float) Pembayaran::where('tagihan_id', $invoice->id)
+            ->whereIn('status', ['menunggu_verifikasi', 'lunas'])
+            ->whereNotNull('bukti_transfer_path')
+            ->sum('nominal');
+
+        return max((float) $invoice->total_dibayar, $proofAmount) >= $requiredAmount && $requiredAmount > 0;
     }
 
     public function evaluate(ResidenceRegistration $r): void
@@ -90,9 +110,32 @@ class ResidenceWorkflow
         if ($r->completed_at) {
             return;
         }
+        $financiallyReady = $this->financiallyReady($r);
+        $allocationStatus = $r->allocation_status;
+        if ($r->reserved_room_id && $r->status->value !== 'rejected') {
+            if ($financiallyReady && in_array($allocationStatus, ['waiting', 'held', 'allocated'], true)) {
+                $allocationStatus = 'admin_occupied';
+            } elseif (! $financiallyReady && $allocationStatus === 'allocated') {
+                $allocationStatus = 'held';
+            }
+        }
         $ready = $this->blockers($r) === [];
         $wasReady = $r->ready_at !== null;
-        $r->update(['ready_at' => $ready ? ($r->ready_at ?? now()) : null]);
+        $updates = [
+            'ready_at' => $ready ? ($r->ready_at ?? now()) : null,
+            'allocation_status' => $allocationStatus,
+        ];
+        if ($ready && $r->stay_kind === 'regular' && $r->residence_policy_id !== null) {
+            $updates['checkin_classification'] = $r->checkin_classification
+                ?? (app(ResidenceLifecycle::class)->isBinaan($r->studentProfile) ? 'binaan' : 'non_binaan');
+            if ($r->studentProfile->status_huni !== 'aktif') {
+                $r->studentProfile->update([
+                    'status_huni' => 'aktif',
+                    'tanggal_masuk' => $r->studentProfile->tanggal_masuk ?? today(),
+                ]);
+            }
+        }
+        $r->update($updates);
         if ($ready && ! $wasReady) {
             $this->notify($r, 'Siap check-in', 'Administrasi telah memenuhi syarat. Datang ke pengelola gedung dengan identitas dan berkas asli untuk pemeriksaan serta serah kunci.');
         }

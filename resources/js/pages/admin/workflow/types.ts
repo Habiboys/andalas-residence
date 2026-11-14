@@ -124,6 +124,15 @@ export type Registration = {
         reason: string;
         created_at: string;
     }>;
+    cash_refunds?: Array<{
+        id: string;
+        amount: string;
+        status: string;
+        recipient_name?: string | null;
+        returned_at?: string | null;
+        notes?: string | null;
+        officer?: { nama: string } | null;
+    }>;
 };
 
 export type Application = {
@@ -239,7 +248,9 @@ export const WORKFLOW_STATUS_LABELS: Record<string, string> = {
     accepted: 'Diterima',
     rejected: 'Ditolak',
     waiting: 'Menunggu kamar',
+    held: 'Direservasi',
     allocated: 'Kamar dialokasikan',
+    admin_occupied: 'Terisi Administratif',
     occupied: 'Menghuni',
     released: 'Selesai fisik',
     pending: 'Menunggu keputusan',

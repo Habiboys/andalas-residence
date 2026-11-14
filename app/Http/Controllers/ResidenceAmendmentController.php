@@ -7,6 +7,7 @@ use App\Models\CheckoutRequest;
 use App\Models\Gedung;
 use App\Models\Kamar;
 use App\Models\PenempatanKamar;
+use App\Models\ResidenceCashRefund;
 use App\Models\ResidenceRegistration;
 use App\Models\RoomContract;
 use App\Models\Tagihan;
@@ -26,7 +27,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ResidenceAmendmentController extends Controller
 {
-    private function adjust(Tagihan $invoice, float $target, string $reason, string $reference): void
+    private function adjust(Tagihan $invoice, float $target, string $reason, string $reference, bool $recordRefund = false): void
     {
         $delta = round($target - (float) $invoice->total, 2);
         if ($delta !== 0.0) {
@@ -45,12 +46,38 @@ class ResidenceAmendmentController extends Controller
             }
             $registration->update(['ready_at' => null]);
         }
-        $invoice->update(['total' => $target, 'total_penyesuaian' => (float) $invoice->penyesuaian()->sum('jumlah'), 'amount_due_now' => max(0, $target - (float) $invoice->total_dibayar), 'status' => (float) $invoice->total_dibayar >= $target ? 'lunas' : ((float) $invoice->total_dibayar > 0 ? 'sebagian' : 'terbit')]);
+        $invoice->update([
+            'total' => $target,
+            'total_penyesuaian' => (float) $invoice->penyesuaian()->sum('jumlah'),
+            'amount_due_now' => max(0, $target - (float) $invoice->total_dibayar),
+            'status' => (float) $invoice->total_dibayar >= $target ? 'lunas' : ((float) $invoice->total_dibayar > 0 ? 'sebagian' : 'terbit'),
+        ]);
+        if ($recordRefund && $target > 0 && (float) $invoice->total_dibayar > $target && $invoice->registration) {
+            $overpaid = round((float) $invoice->total_dibayar - $target, 2);
+            ResidenceCashRefund::updateOrCreate(
+                [
+                    'residence_registration_id' => $invoice->registration->id,
+                    'tagihan_id' => $invoice->id,
+                    'status' => 'due',
+                ],
+                [
+                    'amendment_id' => $reference,
+                    'amount' => $overpaid,
+                    'notes' => $reason,
+                ],
+            );
+        }
     }
 
     public function move(Request $request, ResidenceRegistration $registration): RedirectResponse
     {
-        $data = $request->validate(['reference' => ['required', 'uuid'], 'room_id' => ['required', 'uuid', 'exists:kamar,id'], 'reason' => ['required', 'string', 'max:2000'], 'keys_exchanged' => ['accepted'], 'room_condition' => ['required', 'in:ready,damaged']]);
+        $data = $request->validate([
+            'reference' => ['required', 'uuid'],
+            'room_id' => ['required', 'uuid', 'exists:kamar,id'],
+            'reason' => ['required', 'string', 'max:2000'],
+            'keys_exchanged' => ['nullable', 'boolean'],
+            'room_condition' => ['nullable', 'in:ready,damaged'],
+        ]);
         DB::transaction(function () use ($request, $registration, $data): void {
             $r = ResidenceRegistration::whereKey($registration->id)->lockForUpdate()->firstOrFail();
             abort_unless(ResidenceWorkflowAccess::officer($request->user(), $r), 403);
@@ -60,10 +87,11 @@ class ResidenceAmendmentController extends Controller
 
                 return;
             }
-            if ($r->workflow_version !== 2 || ! $r->checked_in_at || $r->keys_returned_at || $r->ends_at->isBefore(today())) {
+            $fromRoomId = $r->placement?->kamar_id ?? $r->reserved_room_id;
+            if ($r->workflow_version !== 2 || ! $fromRoomId || $r->keys_returned_at || $r->status->value === 'rejected' || $r->ends_at->isBefore(today())) {
                 throw ValidationException::withMessages(['move' => 'Mutasi memerlukan hunian workflow baru yang masih aktif dan kunci belum dikembalikan.']);
             }
-            $from = Kamar::with('lantai.gedung')->findOrFail($r->placement->kamar_id);
+            $from = Kamar::with('lantai.gedung')->findOrFail($fromRoomId);
             $to = Kamar::with('lantai.gedung')->whereKey($data['room_id'])->firstOrFail();
             abort_unless(ResidenceWorkflowAccess::manager($request->user()) || $from->lantai->gedung_id === $to->lantai->gedung_id, 403);
             Gedung::whereIn('id', [$from->lantai->gedung_id, $to->lantai->gedung_id])->orderBy('id')->lockForUpdate()->get();
@@ -82,12 +110,12 @@ class ResidenceAmendmentController extends Controller
                 $remainingIds = array_values(array_diff($contract->members, [$r->id]));
                 $contractBefore = $contract->toArray();
                 $members = ResidenceRegistration::whereIn('id', $remainingIds)->orderBy('id')->lockForUpdate()->get();
-                $cents = (int) round((float) $contract->total * 100);
+                $totalRupiah = (int) round((float) $contract->total);
                 foreach ($members as $i => $member) {
                     $bill = $member->tagihan()->lockForUpdate()->firstOrFail();
-                    $targetShare = (intdiv($cents, count($remainingIds)) + ($i < $cents % count($remainingIds) ? 1 : 0)) / 100;
+                    $targetShare = (float) (intdiv($totalRupiah, count($remainingIds)) + ($i < $totalRupiah % count($remainingIds) ? 1 : 0));
                     $contractChanges[] = ['registration_id' => $member->id, 'invoice' => $bill->nomor, 'before' => $bill->total, 'after' => $targetShare, 'paid' => $bill->total_dibayar];
-                    $this->adjust($bill, $targetShare, $data['reason'], $data['reference']);
+                    $this->adjust($bill, $targetShare, $data['reason'], $data['reference'], true);
                     app(ResidenceWorkflow::class)->evaluate($member->fresh());
                     app(ResidenceWorkflow::class)->notify($member->fresh(), 'Kontrak kamar direvisi', 'Anggota pindah kamar; periksa pembagian biaya dan persetujuan pembiayaan terbaru.');
                 }
@@ -96,7 +124,7 @@ class ResidenceAmendmentController extends Controller
                 $data['consent_path'] = $request->file('consent')->store('documents/contract-amendments', 'local');
             }
             $invoice = $r->tagihan()->lockForUpdate()->firstOrFail();
-            if (CheckoutRequest::where('penempatan_kamar_id', $r->penempatan_kamar_id)->where('status', '!=', 'ditolak')->exists()) {
+            if ($r->penempatan_kamar_id && CheckoutRequest::where('penempatan_kamar_id', $r->penempatan_kamar_id)->where('status', '!=', 'ditolak')->exists()) {
                 throw ValidationException::withMessages(['move' => 'Selesaikan atau batalkan pemeriksaan keluar sebelum mutasi kamar.']);
             }
             $newRate = app(ResidencePolicyService::class)->rate($r, $to);
@@ -107,15 +135,23 @@ class ResidenceAmendmentController extends Controller
             }
             $target = max(0, round($gross - (float) $invoice->sponsor_total, 2));
             $before = ['room_id' => $from->id, 'room_label' => $from->lantai->gedung->nama_gedung.' / '.$from->nomor_kamar, 'placement_id' => $r->penempatan_kamar_id, 'total' => $invoice->total, 'paid' => $invoice->total_dibayar, 'contract' => $contractBefore];
-            $this->adjust($invoice, $target, 'Mutasi kamar: '.$data['reason'], $data['reference']);
-            $r->placement->update(['status' => 'berakhir', 'relocated_at' => now(), 'tanggal_selesai' => today()]);
-            $placement = PenempatanKamar::create(['mahasiswa_id' => $r->student_profile_id, 'kamar_id' => $to->id, 'periode_id' => $r->periode_id, 'tanggal_mulai' => today(), 'tanggal_selesai' => $r->ends_at, 'status' => 'aktif', 'diproses_oleh' => $request->user()->id, 'catatan' => $data['reason']]);
-            $r->update(['reserved_room_id' => $to->id, 'penempatan_kamar_id' => $placement->id]);
+            $this->adjust($invoice, $target, 'Mutasi kamar: '.$data['reason'], $data['reference'], true);
+            $placementId = $r->penempatan_kamar_id;
+            if ($r->placement) {
+                $r->placement->update(['status' => 'berakhir', 'relocated_at' => now(), 'tanggal_selesai' => today()]);
+                $placement = PenempatanKamar::create(['mahasiswa_id' => $r->student_profile_id, 'kamar_id' => $to->id, 'periode_id' => $r->periode_id, 'tanggal_mulai' => today(), 'tanggal_selesai' => $r->ends_at, 'status' => 'aktif', 'diproses_oleh' => $request->user()->id, 'catatan' => $data['reason']]);
+                $placementId = $placement->id;
+                $r->update(['reserved_room_id' => $to->id, 'penempatan_kamar_id' => $placement->id]);
+            } else {
+                $r->update(['reserved_room_id' => $to->id]);
+            }
+            $roomCondition = $data['room_condition'] ?? 'ready';
             foreach ([$from, $to] as $room) {
                 $n = $room->penempatanKamar()->where('status', 'aktif')->count() + app(RoomReservations::class)->count($room);
-                $room->update(['status' => ($room->status === 'maintenance' || ($room->id === $from->id && $data['room_condition'] === 'damaged')) ? 'maintenance' : ($n >= $room->kapasitas ? 'penuh' : ($n ? 'terisi_sebagian' : 'kosong'))]);
+                $room->update(['status' => ($room->status === 'maintenance' || ($room->id === $from->id && $roomCondition === 'damaged')) ? 'maintenance' : ($n >= $room->kapasitas ? 'penuh' : ($n ? 'terisi_sebagian' : 'kosong'))]);
             }
-            DB::table('residence_amendments')->insert(['id' => $data['reference'], 'kind' => 'move', 'subject_id' => $r->id, 'before' => json_encode($before), 'after' => json_encode(['room_id' => $to->id, 'room_label' => $to->lantai->gedung->nama_gedung.' / '.$to->nomor_kamar, 'placement_id' => $placement->id, 'total' => $target, 'billing_basis' => 'full_contract_tariff', 'sponsor_total' => $invoice->sponsor_total, 'paid' => $invoice->total_dibayar, 'effective_at' => today()->toDateString(), 'contract_changes' => $contractChanges, 'registration_ids' => [$r->id, ...array_column($contractChanges, 'registration_id')], 'invoices' => [...$contractChanges, ['registration_id' => $r->id, 'invoice' => $invoice->nomor, 'before' => $before['total'], 'after' => $target, 'paid' => $invoice->total_dibayar]], 'consent_path' => $data['consent_path'] ?? null]), 'reason' => $data['reason'], 'officer_id' => $request->user()->id, 'created_at' => now(), 'updated_at' => now()]);
+            DB::table('residence_amendments')->insert(['id' => $data['reference'], 'kind' => 'move', 'subject_id' => $r->id, 'before' => json_encode($before), 'after' => json_encode(['room_id' => $to->id, 'room_label' => $to->lantai->gedung->nama_gedung.' / '.$to->nomor_kamar, 'placement_id' => $placementId, 'total' => $target, 'billing_basis' => 'full_contract_tariff', 'sponsor_total' => $invoice->sponsor_total, 'paid' => $invoice->total_dibayar, 'effective_at' => today()->toDateString(), 'contract_changes' => $contractChanges, 'registration_ids' => [$r->id, ...array_column($contractChanges, 'registration_id')], 'invoices' => [...$contractChanges, ['registration_id' => $r->id, 'invoice' => $invoice->nomor, 'before' => $before['total'], 'after' => $target, 'paid' => $invoice->total_dibayar]], 'consent_path' => $data['consent_path'] ?? null]), 'reason' => $data['reason'], 'officer_id' => $request->user()->id, 'created_at' => now(), 'updated_at' => now()]);
+            app(ResidenceWorkflow::class)->evaluate($r->fresh());
             app(ResidenceWorkflow::class)->notify($r->fresh(), 'Mutasi kamar selesai', 'Kamar dan penyesuaian kewajiban sudah diperbarui. Riwayat pembayaran tetap tersimpan.');
         }, 3);
 
@@ -125,12 +161,20 @@ class ResidenceAmendmentController extends Controller
     public function contract(Request $request, RoomContract $contract): RedirectResponse
     {
         abort_unless(ResidenceWorkflowAccess::manager($request->user()), 403);
-        $data = $request->validate(['reference' => ['required', 'uuid'], 'members' => ['required', 'array', 'min:1'], 'members.*' => ['required', 'uuid', 'distinct', 'exists:residence_registrations,id'], 'reason' => ['required', 'string', 'max:2000'], 'consent' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120']]);
+        $data = $request->validate([
+            'reference' => ['required', 'uuid'],
+            'members' => ['required', 'array', 'min:1'],
+            'members.*' => ['required', 'uuid', 'distinct', 'exists:residence_registrations,id'],
+            'reason' => ['required', 'string', 'max:2000'],
+            'scheme' => ['nullable', 'in:exclusive,sharing'],
+            'consent' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
+        ]);
         DB::transaction(function () use ($request, $contract, $data): void {
             $contract = RoomContract::whereKey($contract->id)->lockForUpdate()->firstOrFail();
             $previous = DB::table('residence_amendments')->where('id', $data['reference'])->first();
             $ids = $data['members'];
             sort($ids);
+            $scheme = $data['scheme'] ?? 'exclusive';
             if ($previous) {
                 abort_unless($previous->subject_id === $contract->id && $previous->kind === 'contract' && json_decode($previous->after, true)['members'] === $ids, 422);
 
@@ -165,31 +209,53 @@ class ResidenceAmendmentController extends Controller
                 }
             }
             $before = $contract->toArray();
-            $contract->update(['members' => $ids, 'occupants' => count($ids)]);
+            if ($scheme === 'sharing') {
+                $contract->update(['members' => [], 'occupants' => 0, 'total' => 0]);
+            } else {
+                $contract->update(['members' => $ids, 'occupants' => count($ids)]);
+            }
             $changes = [];
-            $cents = (int) round((float) $contract->total * 100);
+            $totalRupiah = (int) round((float) $before['total']);
             $index = 0;
             foreach ($all as $r) {
                 $retained = in_array($r->id, $ids, true);
-                $target = $retained ? (intdiv($cents, count($ids)) + ($index++ < $cents % count($ids) ? 1 : 0)) / 100 : 0;
+                if (! $retained && $r->status->value === 'rejected') {
+                    continue;
+                }
                 if ($retained && ! $r->room_contract_id) {
-                    $r->update(['room_contract_id' => $contract->id]);
+                    $r->update(['room_contract_id' => $scheme === 'sharing' ? null : $contract->id]);
                     app(CreateResidenceBilling::class)->handle($r->fresh());
                     $r->refresh();
                 }
+                if ($scheme === 'sharing') {
+                    if ($retained) {
+                        $rate = app(ResidencePolicyService::class)->rate($r, $room);
+                        $target = (float) $rate['amount'];
+                        $r->update(['billing_basis' => 'person', 'room_contract_id' => null]);
+                    } else {
+                        $target = 0.0;
+                    }
+                } else {
+                    $target = $retained
+                        ? (float) (intdiv($totalRupiah, count($ids)) + ($index++ < $totalRupiah % count($ids) ? 1 : 0))
+                        : 0.0;
+                }
                 $invoice = $r->tagihan()->lockForUpdate()->firstOrFail();
                 $changes[] = ['registration_id' => $r->id, 'invoice' => $invoice->nomor, 'before' => $invoice->total, 'after' => $target, 'paid' => $invoice->total_dibayar];
-                $this->adjust($invoice, $target, 'Revisi kontrak: '.$data['reason'], $data['reference']);
+                $this->adjust($invoice, $target, ($scheme === 'sharing' ? 'Perubahan ke Sharing: ' : 'Revisi kontrak: ').$data['reason'], $data['reference'], $retained);
                 if (! $retained) {
-                    $r->update(['status' => $r->completed_at ? $r->status : 'rejected', 'allocation_status' => 'released', 'reserved_room_id' => null, 'ready_at' => null]);
+                    $r->update(['status' => $r->completed_at ? $r->status : 'rejected', 'allocation_status' => 'released', 'reserved_room_id' => null, 'ready_at' => null, 'room_contract_id' => null]);
                 }
             }
             foreach ($all as $r) {
+                if ($r->status->value === 'rejected' && ! in_array($r->id, $ids, true)) {
+                    continue;
+                }
                 app(ResidenceWorkflow::class)->evaluate($r->fresh());
                 app(ResidenceWorkflow::class)->notify($r->fresh(), 'Kontrak kamar direvisi', 'Pembagian kewajiban telah diperbarui sesuai persetujuan. Pembayaran lama tetap tercatat; periksa saldo terbaru dan lampiran revisi.');
             }
-            $evidence = $request->file('consent')->store('documents/contract-amendments', 'local');
-            DB::table('residence_amendments')->insert(['id' => $data['reference'], 'kind' => 'contract', 'subject_id' => $contract->id, 'before' => json_encode($before), 'after' => json_encode(['members' => $ids, 'total' => $contract->total, 'consent_path' => $evidence, 'effective_at' => today()->toDateString(), 'invoices' => $changes]), 'reason' => $data['reason'], 'officer_id' => $request->user()->id, 'created_at' => now(), 'updated_at' => now()]);
+            $evidence = $request->hasFile('consent') ? $request->file('consent')->store('documents/contract-amendments', 'local') : null;
+            DB::table('residence_amendments')->insert(['id' => $data['reference'], 'kind' => 'contract', 'subject_id' => $contract->id, 'before' => json_encode($before), 'after' => json_encode(['members' => $ids, 'scheme' => $scheme, 'total' => $contract->total, 'consent_path' => $evidence, 'effective_at' => today()->toDateString(), 'registration_ids' => $ids, 'invoices' => $changes]), 'reason' => $data['reason'], 'officer_id' => $request->user()->id, 'created_at' => now(), 'updated_at' => now()]);
         }, 3);
 
         return back();
@@ -205,7 +271,14 @@ class ResidenceAmendmentController extends Controller
             $canViewAffected = ResidenceRegistration::whereIn('id', $affected)->get()->contains(fn ($r) => ResidenceWorkflowAccess::view($request->user(), $r));
             abort_unless($canViewAffected, 403);
         } else {
-            $registrations = ResidenceRegistration::where('room_contract_id', $record->subject_id)->get();
+            $after = json_decode($record->after, true);
+            $affectedIds = array_unique([
+                ...($after['registration_ids'] ?? []),
+                ...array_column($after['invoices'] ?? [], 'registration_id'),
+            ]);
+            $registrations = ResidenceRegistration::where('room_contract_id', $record->subject_id)
+                ->when($affectedIds !== [], fn ($q) => $q->orWhereIn('id', $affectedIds))
+                ->get();
             abort_unless($registrations->contains(fn ($r) => ResidenceWorkflowAccess::view($request->user(), $r)), 403);
         }
 
