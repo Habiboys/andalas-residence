@@ -11,7 +11,7 @@ class MahasiswaProfil extends BaseModel
 
     protected $fillable = [
         'user_id', 'prodi_id', 'periode_id', 'city_id', 'angkatan',
-        'barcode_code', 'nik', 'alamat', 'bpjs_path', 'riwayat_penyakit_path',
+        'barcode_code', 'nik', 'email_pribadi', 'alamat', 'bpjs_path', 'riwayat_penyakit_path',
         'bukti_lulus_path', 'status_huni', 'tanggal_masuk',
     ];
 
@@ -22,9 +22,13 @@ class MahasiswaProfil extends BaseModel
 
     public function hasCompleteHousingIdentity(): bool
     {
+        $hasPersonalEmail = filled($this->email_pribadi)
+            || (! filled($this->user->sso_id) && filled($this->user->email));
+
         return filled($this->user->nama)
             && filled($this->user->nim_nip)
             && filled($this->user->email)
+            && $hasPersonalEmail
             && filled($this->user->no_hp)
             && in_array($this->user->gender, ['laki_laki', 'perempuan'], true)
             && filled($this->prodi_id)

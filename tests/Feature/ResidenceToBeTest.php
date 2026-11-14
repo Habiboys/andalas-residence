@@ -177,6 +177,19 @@ it('requires and saves identity and address on the housing data page', function 
         ->assertSessionHasNoErrors()->assertRedirect(route('mahasiswa.registration'));
     expect($f['user']->fresh()->nama)->toBe('Nama Resmi Uji');
     expect($f['profile']->fresh()->alamat)->toBe('Jalan Uji 1');
+
+    // SSO account must also provide personal email (email_pribadi)
+    $f['user']->forceFill(['sso_id' => 'sso-sub-123', 'email' => '2211523012_syauqi@student.unand.ac.id'])->save();
+    $f['profile']->update(['email_pribadi' => null]);
+    expect($f['profile']->fresh()->hasCompleteHousingIdentity())->toBeFalse();
+    $this->post($url, [...$base, 'nama' => 'Nama Resmi Uji', 'nik' => '9999999999999999',
+        'city_id' => $city->id, 'alamat' => 'Jalan Uji 1'])->assertSessionHasErrors(['email_pribadi']);
+    $this->post($url, [...$base, 'nama' => 'Nama Resmi Uji', 'nik' => '9999999999999999',
+        'email_pribadi' => 'syauqi.pribadi@gmail.com', 'city_id' => $city->id, 'alamat' => 'Jalan Uji 1'])
+        ->assertSessionHasNoErrors()->assertRedirect(route('mahasiswa.registration'));
+    expect($f['profile']->fresh()->email_pribadi)->toBe('syauqi.pribadi@gmail.com');
+    expect($f['profile']->fresh()->hasCompleteHousingIdentity())->toBeTrue();
+
     $this->post(route('andalas.registrations.store'), [
         'periode_id' => $f['period']->id,
         'preferences' => [['kamar_id' => $f['room']->id]],

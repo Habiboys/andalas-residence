@@ -218,11 +218,13 @@ class ResidenceWorkflowController extends Controller
     {
         abort_unless($request->user()->hasRole('mahasiswa') && $request->user()->mahasiswaProfil, 403);
         $housing = $request->routeIs('residence.housing-profile');
+        $isSso = filled($request->user()->sso_id);
         $data = $request->validate([
             'gender' => ['required', 'in:laki_laki,perempuan'],
             'prodi_id' => ['required', 'uuid', 'exists:prodi,id'],
             'no_hp' => [$housing ? 'required' : 'nullable', 'string', 'max:20', ...($housing ? ['regex:/^\+?[0-9][0-9 ()-]{6,18}[0-9]$/D'] : [])],
             'client_profile_category' => ['nullable', 'in:local_student,local_kipk,local_non_kipk,international_student'],
+            'email_pribadi' => [$housing && $isSso ? 'required' : 'nullable', 'string', 'email', 'max:255'],
             ...($housing ? [
                 'nama' => ['required', 'string', 'max:255'],
                 'nik' => ['required', 'digits:16'],
@@ -230,7 +232,7 @@ class ResidenceWorkflowController extends Controller
                 'alamat' => ['required', 'string', 'max:500'],
             ] : []),
         ]);
-        DB::transaction(function () use ($request, $data): void {
+        DB::transaction(function () use ($request, $data, $isSso): void {
             $user = $request->user();
             $profile = $user->mahasiswaProfil()->lockForUpdate()->firstOrFail();
             if ($profile->residenceRegistrations()->whereNull('completed_at')->whereNotIn('status', ['draft', 'rejected'])->exists() || $profile->penempatanKamar()->where('status', 'aktif')->exists()) {
@@ -258,9 +260,10 @@ class ResidenceWorkflowController extends Controller
             $profile->update([
                 'prodi_id' => $data['prodi_id'],
                 'angkatan' => $year,
+                'email_pribadi' => $data['email_pribadi'] ?? $profile->email_pribadi ?? (! $isSso ? $user->email : null),
                 ...Arr::only($data, ['nik', 'city_id', 'alamat']),
             ]);
-            AuditLogService::log($user, 'residence_profile_completed', $profile, null, Arr::except($data, ['nik', 'alamat', 'no_hp']));
+            AuditLogService::log($user, 'residence_profile_completed', $profile, null, Arr::except($data, ['nik', 'alamat', 'no_hp', 'email_pribadi']));
         });
 
         if ($housing) {

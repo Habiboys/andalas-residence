@@ -12,6 +12,7 @@ export default function DataHunian({
     profile,
     identity,
     programs,
+    provinces,
     cities,
     saveUrl,
     registrationUrl,
@@ -22,17 +23,21 @@ export default function DataHunian({
         city_id?: string;
         angkatan?: number;
         nik?: string;
+        email_pribadi?: string;
         alamat?: string;
     };
     identity: {
+        nama?: string;
         nim_nip: string;
         email: string;
+        is_sso?: boolean;
         gender?: string;
         no_hp?: string;
         status: string;
         category?: string;
     };
     programs: Program[];
+    provinces?: Option[];
     cities: City[];
     saveUrl: string;
     registrationUrl: string;
@@ -40,8 +45,13 @@ export default function DataHunian({
 }) {
     const [step, setStep] = useState(0);
     const [confirmOpen, setConfirmOpen] = useState(false);
+    const isSso =
+        identity.is_sso ??
+        identity.email.toLowerCase().endsWith('unand.ac.id');
     const form = useForm({
-        nama: '',
+        nama: profile?.nik && identity.nama ? identity.nama : '',
+        email_pribadi:
+            profile?.email_pribadi ?? (isSso ? '' : identity.email),
         no_hp: identity.no_hp ?? '',
         gender: identity.gender ?? '',
         prodi_id: profile?.prodi_id ?? '',
@@ -85,29 +95,35 @@ export default function DataHunian({
     );
 
     const city = cities.find((item) => item.id === form.data.city_id);
-    const [cityQuery, setCityQuery] = useState(
-        city
-            ? `${city.name}${city.province ? ` · ${city.province.name}` : ''}`
-            : '',
-    );
-    const [cityMenuOpen, setCityMenuOpen] = useState(false);
-    const normalizedCityQuery = cityQuery.trim().toLowerCase();
-    const matchedCities = (
-        normalizedCityQuery && !city
-            ? cities.filter((item) => {
-                  const label =
-                      `${item.name} ${item.province?.name ?? ''}`.toLowerCase();
-                  return label.includes(normalizedCityQuery);
-              })
-            : cities
-    ).slice(0, 30);
+    const [provinceId, setProvinceId] = useState(city?.province?.id ?? '');
+    const derivedProvinces = Array.from(
+        new Map(
+            cities
+                .filter((item) => item.province)
+                .map((item) => [item.province!.id, item.province!]),
+        ).values(),
+    ).sort((a, b) => a.name.localeCompare(b.name));
+    const provinceList =
+        provinces && provinces.length > 0 ? provinces : derivedProvinces;
+    const provinceCities = cities
+        .filter((item) => item.province?.id === provinceId)
+        .sort((a, b) => a.name.localeCompare(b.name));
+    const selectedProvince =
+        provinceList.find((item) => item.id === provinceId) ?? city?.province;
+
     const identityReady = !!(
         form.data.nama.trim() &&
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.data.email_pribadi.trim()) &&
         form.data.no_hp.trim() &&
         form.data.gender &&
         /^\d{16}$/.test(form.data.nik)
     );
-    const addressReady = !!(program && city && form.data.alamat.trim());
+    const addressReady = !!(
+        program &&
+        provinceId &&
+        city &&
+        form.data.alamat.trim()
+    );
     const control = 'input input-bordered w-full';
     const categories: Record<string, string> = {
         local_kipk: 'Mahasiswa KIP-K',
@@ -231,7 +247,31 @@ export default function DataHunian({
                                 />
                             </label>
 
-                            <label className="block space-y-1.5 text-sm font-medium sm:col-span-2">
+                            <label className="block space-y-1.5 text-sm font-medium">
+                                <span>Email pribadi</span>
+                                <input
+                                    className={control}
+                                    type="email"
+                                    autoComplete="email"
+                                    maxLength={255}
+                                    placeholder="Contoh: nama@gmail.com"
+                                    value={form.data.email_pribadi}
+                                    onChange={(e) =>
+                                        form.setData(
+                                            'email_pribadi',
+                                            e.target.value,
+                                        )
+                                    }
+                                />
+                                {isSso && (
+                                    <span className="text-base-content/60 block text-xs font-normal">
+                                        Akun SSO menggunakan email institusi.
+                                        Masukkan email pribadi aktif Anda.
+                                    </span>
+                                )}
+                            </label>
+
+                            <label className="block space-y-1.5 text-sm font-medium">
                                 <span>Jenis kelamin</span>
                                 <select
                                     className="select select-bordered w-full"
@@ -255,13 +295,22 @@ export default function DataHunian({
                             </p>
                             <dl className="grid gap-x-4 gap-y-1.5 sm:grid-cols-[auto_1fr]">
                                 <dt className="text-base-content/60 text-xs">
-                                    Nomor identitas
+                                    NIM / Nomor identitas
                                 </dt>
                                 <dd className="font-medium break-all">
                                     {identity.nim_nip}
                                 </dd>
                                 <dt className="text-base-content/60 text-xs">
-                                    Email
+                                    Angkatan dari NIM
+                                </dt>
+                                <dd className="font-medium">
+                                    {profile?.angkatan ||
+                                        'Ditentukan otomatis dari NIM'}
+                                </dd>
+                                <dt className="text-base-content/60 text-xs">
+                                    {isSso
+                                        ? 'Email institusi (SSO)'
+                                        : 'Email akun'}
                                 </dt>
                                 <dd className="font-medium break-all">
                                     {identity.email}
@@ -333,7 +382,7 @@ export default function DataHunian({
                         </div>
 
                         <label className="block space-y-1.5 text-sm font-medium">
-                            <span>Program studi</span>
+                            <span>Program studi / jenjang</span>
                             <select
                                 className="select select-bordered w-full"
                                 value={form.data.prodi_id}
@@ -365,139 +414,62 @@ export default function DataHunian({
                                 role="alert"
                                 className="alert alert-warning py-2 text-sm"
                             >
-                                Data kota/kabupaten belum tersedia di sistem.
-                                Hubungi Admin Asrama agar menyinkronkan data
-                                wilayah terlebih dahulu.
+                                Data provinsi dan kota/kabupaten belum tersedia
+                                di sistem. Hubungi Admin Asrama agar
+                                menyinkronkan data wilayah terlebih dahulu.
                             </p>
                         ) : (
-                            <div className="relative space-y-1.5 text-sm">
-                                <label className="block space-y-1.5 font-medium">
-                                    <span>Kota atau kabupaten asal</span>
-                                    <div className="relative">
-                                        <input
-                                            type="text"
-                                            className={control}
-                                            role="combobox"
-                                            aria-expanded={cityMenuOpen}
-                                            aria-autocomplete="list"
-                                            placeholder="Ketik nama kota/kabupaten atau provinsi (misal: Padang, Tanah Datar)"
-                                            value={cityQuery}
-                                            onFocus={() =>
-                                                setCityMenuOpen(true)
-                                            }
-                                            onBlur={() =>
-                                                setTimeout(
-                                                    () =>
-                                                        setCityMenuOpen(false),
-                                                    150,
-                                                )
-                                            }
-                                            onChange={(e) => {
-                                                setCityQuery(e.target.value);
-                                                if (form.data.city_id) {
-                                                    form.setData('city_id', '');
-                                                }
-                                                setCityMenuOpen(true);
-                                            }}
-                                        />
-                                        {cityQuery && (
-                                            <button
-                                                type="button"
-                                                aria-label="Hapus pilihan kota atau kabupaten"
-                                                onClick={() => {
-                                                    setCityQuery('');
-                                                    form.setData('city_id', '');
-                                                    setCityMenuOpen(true);
-                                                }}
-                                                className="btn btn-ghost btn-xs absolute top-1/2 right-2 -translate-y-1/2"
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                <label className="block space-y-1.5 text-sm font-medium">
+                                    <span>Provinsi asal</span>
+                                    <select
+                                        className="select select-bordered w-full"
+                                        value={provinceId}
+                                        onChange={(e) => {
+                                            setProvinceId(e.target.value);
+                                            form.setData('city_id', '');
+                                        }}
+                                    >
+                                        <option value="">Pilih provinsi</option>
+                                        {provinceList.map((item) => (
+                                            <option
+                                                key={item.id}
+                                                value={item.id}
                                             >
-                                                ×
-                                            </button>
-                                        )}
-                                    </div>
+                                                {item.name}
+                                            </option>
+                                        ))}
+                                    </select>
                                 </label>
 
-                                {cityMenuOpen && (
-                                    <ul
-                                        role="listbox"
-                                        aria-label="Daftar kota atau kabupaten"
-                                        className="bg-base-100 border-base-300 absolute z-20 max-h-60 w-full overflow-y-auto rounded-lg border p-1 shadow-lg"
+                                <label className="block space-y-1.5 text-sm font-medium">
+                                    <span>Kota atau kabupaten asal</span>
+                                    <select
+                                        className="select select-bordered w-full"
+                                        value={form.data.city_id}
+                                        disabled={!provinceId}
+                                        onChange={(e) =>
+                                            form.setData(
+                                                'city_id',
+                                                e.target.value,
+                                            )
+                                        }
                                     >
-                                        {matchedCities.length === 0 ? (
-                                            <li className="text-base-content/60 px-3 py-2 text-xs">
-                                                Kota atau kabupaten tidak
-                                                ditemukan.
-                                            </li>
-                                        ) : (
-                                            matchedCities.map((item) => (
-                                                <li key={item.id}>
-                                                    <button
-                                                        type="button"
-                                                        role="option"
-                                                        aria-selected={
-                                                            form.data
-                                                                .city_id ===
-                                                            item.id
-                                                        }
-                                                        onMouseDown={(e) =>
-                                                            e.preventDefault()
-                                                        }
-                                                        onClick={() => {
-                                                            form.setData(
-                                                                'city_id',
-                                                                item.id,
-                                                            );
-                                                            setCityQuery(
-                                                                `${item.name}${item.province ? ` · ${item.province.name}` : ''}`,
-                                                            );
-                                                            setCityMenuOpen(
-                                                                false,
-                                                            );
-                                                        }}
-                                                        className={`flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm transition-colors ${
-                                                            form.data
-                                                                .city_id ===
-                                                            item.id
-                                                                ? 'bg-primary text-primary-content font-medium'
-                                                                : 'hover:bg-base-200'
-                                                        }`}
-                                                    >
-                                                        <span>{item.name}</span>
-                                                        {item.province && (
-                                                            <span
-                                                                className={`text-xs ${
-                                                                    form.data
-                                                                        .city_id ===
-                                                                    item.id
-                                                                        ? 'text-primary-content/80'
-                                                                        : 'text-base-content/60'
-                                                                }`}
-                                                            >
-                                                                {
-                                                                    item
-                                                                        .province
-                                                                        .name
-                                                                }
-                                                            </span>
-                                                        )}
-                                                    </button>
-                                                </li>
-                                            ))
-                                        )}
-                                    </ul>
-                                )}
-
-                                {city?.province ? (
-                                    <p className="text-success text-xs font-medium">
-                                        Terpilih: {city.name} · Provinsi{' '}
-                                        {city.province.name}
-                                    </p>
-                                ) : cityQuery.trim() ? (
-                                    <p className="text-warning text-xs">
-                                        Klik salah satu kota/kabupaten dari
-                                        daftar yang muncul.
-                                    </p>
-                                ) : null}
+                                        <option value="">
+                                            {provinceId
+                                                ? 'Pilih kota atau kabupaten'
+                                                : 'Pilih provinsi terlebih dahulu'}
+                                        </option>
+                                        {provinceCities.map((item) => (
+                                            <option
+                                                key={item.id}
+                                                value={item.id}
+                                            >
+                                                {item.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </label>
                             </div>
                         )}
 
@@ -533,10 +505,27 @@ export default function DataHunian({
                             </div>
                             <div>
                                 <span className="text-base-content/60 block text-xs">
-                                    NIM &amp; Email
+                                    NIM &amp; Angkatan
                                 </span>
                                 <p>
-                                    {identity.nim_nip} · {identity.email}
+                                    {identity.nim_nip} · Angkatan{' '}
+                                    {profile?.angkatan || '-'}
+                                </p>
+                            </div>
+                            <div>
+                                <span className="text-base-content/60 block text-xs">
+                                    {isSso
+                                        ? 'Email institusi (SSO)'
+                                        : 'Email akun'}
+                                </span>
+                                <p className="break-all">{identity.email}</p>
+                            </div>
+                            <div>
+                                <span className="text-base-content/60 block text-xs">
+                                    Email pribadi
+                                </span>
+                                <p className="break-all">
+                                    {form.data.email_pribadi}
                                 </p>
                             </div>
                             <div>
@@ -559,11 +548,12 @@ export default function DataHunian({
                             </div>
                             <div className="sm:col-span-2">
                                 <span className="text-base-content/60 block text-xs">
-                                    Program studi &amp; Fakultas
+                                    Fakultas, Departemen &amp; Program Studi
                                 </span>
                                 <p>
-                                    {program?.name} ·{' '}
-                                    {program?.departemen?.faculty?.name}
+                                    {program?.departemen?.faculty?.name} ·{' '}
+                                    {program?.departemen?.name} ·{' '}
+                                    {program?.name} ({program?.jenjang})
                                 </p>
                             </div>
                             <div className="sm:col-span-2">
@@ -572,7 +562,7 @@ export default function DataHunian({
                                 </span>
                                 <p>
                                     {form.data.alamat}, {city?.name},{' '}
-                                    {city?.province?.name}
+                                    {selectedProvince?.name}
                                 </p>
                             </div>
                         </div>
@@ -665,6 +655,14 @@ export default function DataHunian({
                             </div>
                             <div>
                                 <dt className="text-base-content/60 text-xs">
+                                    Email pribadi
+                                </dt>
+                                <dd className="break-all">
+                                    {form.data.email_pribadi}
+                                </dd>
+                            </div>
+                            <div>
+                                <dt className="text-base-content/60 text-xs">
                                     NIK &amp; Telepon
                                 </dt>
                                 <dd>
@@ -673,10 +671,11 @@ export default function DataHunian({
                             </div>
                             <div>
                                 <dt className="text-base-content/60 text-xs">
-                                    Program studi &amp; Kota/Kabupaten asal
+                                    Program studi &amp; Wilayah asal
                                 </dt>
                                 <dd>
-                                    {program?.name} · {city?.name}
+                                    {program?.name} · {city?.name},{' '}
+                                    {selectedProvince?.name}
                                 </dd>
                             </div>
                         </dl>

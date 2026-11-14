@@ -34,6 +34,7 @@ use App\Models\PengajuanIzinPulang;
 use App\Models\PenilaianTeknisi;
 use App\Models\Periode;
 use App\Models\Prodi;
+use App\Models\Province;
 use App\Models\ResidenceRate;
 use App\Models\ResidenceRegistration;
 use App\Models\RoomInvitation;
@@ -145,19 +146,23 @@ class RolePageController extends Controller
             ],
             'registration' => $this->registrationPayload($request),
             'data-hunian' => (function () use ($request): array {
-                $profile = $request->user()->mahasiswaProfil;
+                $user = $request->user();
+                $profile = $user->mahasiswaProfil;
                 $locked = $profile
                     ? ($profile->residenceRegistrations()->whereNull('completed_at')->whereNotIn('status', ['draft', 'rejected'])->exists()
                         || $profile->penempatanKamar()->where('status', 'aktif')->exists())
                     : false;
+                $isSso = filled($user->sso_id) || str_ends_with(strtolower((string) $user->email), 'unand.ac.id');
 
                 return [
-                    'profile' => $profile?->only(['prodi_id', 'city_id', 'angkatan', 'nik', 'alamat']),
+                    'profile' => $profile?->only(['prodi_id', 'city_id', 'angkatan', 'nik', 'alamat', 'email_pribadi']),
                     'identity' => [
-                        ...$request->user()->only(['nim_nip', 'email', 'gender', 'no_hp', 'status']),
-                        'category' => $request->user()->getRawOriginal('client_profile_category'),
+                        ...$user->only(['nama', 'nim_nip', 'email', 'gender', 'no_hp', 'status']),
+                        'is_sso' => $isSso,
+                        'category' => $user->getRawOriginal('client_profile_category'),
                     ],
                     'programs' => Prodi::with('departemen.faculty')->orderBy('name')->get(),
+                    'provinces' => Province::orderBy('name')->get(['id', 'name']),
                     'cities' => City::with('province')->orderBy('name')->get(),
                     'saveUrl' => route('residence.housing-profile'),
                     'registrationUrl' => route('mahasiswa.registration'),

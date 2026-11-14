@@ -40,6 +40,7 @@ class UserProfileSummary
                 'Nama lengkap' => $user->nama,
                 'NIM / NIP / Nomor identitas' => $user->nim_nip,
                 'Email' => $user->email,
+                ...($student ? ['Email pribadi' => $student->email_pribadi ?? ($user->sso_id ? null : $user->email)] : []),
                 'Nomor telepon' => $user->no_hp,
                 'Jenis kelamin' => $user->gender ? ucfirst(str_replace('_', ' ', $user->gender)) : null,
                 'Peran akses' => $user->roles->pluck('name')->map(fn (string $role): string => ucfirst(str_replace('_', ' ', $role)))->implode(', '),

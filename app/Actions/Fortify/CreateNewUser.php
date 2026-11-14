@@ -66,6 +66,7 @@ class CreateNewUser implements CreatesNewUsers
                 'user_id' => $user->id,
                 'prodi_id' => $validated['prodi_id'] ?? null,
                 'angkatan' => $validated['angkatan'] ?? null,
+                'email_pribadi' => $validated['email'],
                 'barcode_code' => 'BC-'.Str::uuid(),
                 'status_huni' => 'calon',
             ]);
