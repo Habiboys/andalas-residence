@@ -233,7 +233,7 @@ export function PaymentProofForm({
                 </FormField>
 
                 <FormField
-                    label="Tanggal dan Jam Pembayaran (Waktu Mengirim)"
+                    label="Tanggal dan Jam Pembayaran (Harus Sesuai dengan Bukti Bayar)"
                     hint="Contoh format: 01-01-2026 05:05"
                 >
                     <input

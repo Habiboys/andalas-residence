@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import {
     AlertTriangle,
+    ArrowLeft,
     ArrowRight,
     CheckCircle2,
     Clock,
@@ -33,8 +34,8 @@ import {
 } from '@/andalas/components/ui';
 import { formatDate, formatDateTime, formatRupiah } from '@/andalas/lib/format';
 import { bukti as pembayaranBukti } from '@/routes/andalas/pembayaran';
+import { document as billingDocument } from '@/routes/andalas/tagihan';
 import { detailKamar as detailKamarRoute } from '@/routes/mahasiswa';
-import { show as tagihanShow } from '@/routes/mahasiswa/tagihan';
 
 export type TemplateItem = {
     id: string;
@@ -113,13 +114,31 @@ type TagihanInstallmentSummary = {
     status: string;
 };
 
+type TagihanItemSummary = {
+    id: string;
+    deskripsi: string;
+    kuantitas: number;
+    harga_satuan: number | string;
+    jumlah: number | string;
+};
+
+type TagihanDocumentSummary = {
+    id: string;
+    jenis: string;
+    nomor: string;
+};
+
 type TagihanSummary = {
     id: string;
     nomor: string;
     total: number | string;
     total_dibayar: number | string;
+    sponsor_total?: number | string;
+    sponsor_name?: string | null;
     status: string;
     jatuh_tempo?: string | null;
+    items?: TagihanItemSummary[];
+    dokumen?: TagihanDocumentSummary[];
     jadwal_cicilan?: TagihanInstallmentSummary[];
     pembayaran?: TagihanPaymentSummary[];
 } | null;
@@ -485,23 +504,23 @@ function heroBanner(r: Registration) {
     if (r.completed_at) {
         return {
             tone: 'border-base-300 border-l-4 border-l-primary bg-base-100',
-            badge: <StatusChip label="Penghuni Aktif" tone="success" />,
-            title: 'Selamat! Status penghuni aktif asrama Anda telah resmi tercatat',
-            subtitle: `Check-in dan verifikasi berkas telah selesai pada ${formatDate(r.completed_at)}.`,
+            badge: (
+                <StatusChip
+                    label="Sudah Check-in · Penghuni Aktif"
+                    tone="success"
+                />
+            ),
+            title: 'Selamat! Verifikasi berkas dan check-in Anda telah dinyatakan selesai',
+            subtitle: `Diverifikasi dan dinyatakan check-in pada ${formatDate(r.completed_at)}. Anda resmi menjadi penghuni aktif asrama.`,
         };
     }
     if (r.ready_at || (r.blockers ?? []).length === 0) {
         return {
             tone: 'border-base-300 border-l-4 border-l-primary bg-base-100',
-            badge: (
-                <StatusChip
-                    label="Penghuni Aktif · Menunggu Check-in"
-                    tone="success"
-                />
-            ),
-            title: 'Pembayaran tercatat! Status penghuni Anda aktif — lanjut ke Check-in (Verifikasi)',
+            badge: <StatusChip label="Belum Check-in" tone="warning" />,
+            title: 'Pembayaran tercatat — tahap selanjutnya: Check-in (Verifikasi)',
             subtitle:
-                'Penempatan kamar Anda telah aktif. Bawa berkas asli saat kedatangan agar petugas melakukan verifikasi berkas dan serah kunci saat check-in.',
+                'Seluruh data dan berkas yang telah Anda unggah sudah tercatat. Bawa berkas asli ke petugas/fasilitator gedung saat kedatangan untuk verifikasi berkas dan konfirmasi check-in.',
         };
     }
     if (r.payment_unlocked) {
@@ -533,13 +552,16 @@ export function StudentRegistrationCard({
     paymentAccounts = [],
     virtualAccounts = [],
     embedded = false,
+    onStepPreviewChange,
 }: {
     registration: Registration;
     templates: TemplateItem[];
     paymentAccounts?: PaymentBankAccountItem[];
     virtualAccounts?: VirtualAccountItem[];
     embedded?: boolean;
+    onStepPreviewChange?: (step: number | null) => void;
 }) {
+    const [reviewingUploadStep, setReviewingUploadStep] = useState(false);
     const [selectedFiles, setSelectedFiles] = useState<Record<string, File>>(
         {},
     );
@@ -614,6 +636,9 @@ export function StudentRegistrationCard({
     const savedDecisions = (r.decisions ?? []).filter(
         (d) => d.status === 'pending' || d.status === 'approved',
     );
+    const visibleSavedDecisions = savedDecisions.filter(
+        (d) => d.kind !== 'full',
+    );
     const rejectedDecisions = (r.decisions ?? []).filter(
         (d) => d.status === 'rejected',
     );
@@ -629,9 +654,14 @@ export function StudentRegistrationCard({
     const totalTagihan = Number(r.tagihan?.total ?? 0);
     const totalDibayar = Number(r.tagihan?.total_dibayar ?? 0);
     const remaining = Math.max(0, totalTagihan - totalDibayar);
-    const hasPaymentBlocker = blockers.some((b) =>
-        /pembayaran|pembiayaan/i.test(b),
-    );
+    const hasPaymentSubmittedOrSettled =
+        Boolean(r.completed_at) ||
+        Boolean(r.ready_at) ||
+        Boolean(
+            (r.tagihan?.pembayaran ?? []).some(
+                (p) => p.status === 'menunggu_verifikasi' || p.status === 'lunas',
+            ),
+        );
 
     const hasMonthlyOption =
         r.rate_unit === 'month' && Boolean(r.policy?.settings?.monthly_allowed);
@@ -774,6 +804,14 @@ export function StudentRegistrationCard({
     };
 
     const paymentUnlocked = Boolean(r.payment_unlocked);
+    const isPaymentStage =
+        !reviewingUploadStep &&
+        paymentUnlocked &&
+        !isKipkExempt &&
+        !hasPaymentSubmittedOrSettled &&
+        !r.completed_at &&
+        r.status !== 'cancelled' &&
+        r.status !== 'rejected';
     const displayBlockers = blockers.filter(
         (blocker) => !(paymentUnlocked && /pembayaran awal/i.test(blocker)),
     );
@@ -797,19 +835,64 @@ export function StudentRegistrationCard({
                             {banner.title}
                         </h2>
                         <p className="text-muted text-sm">{banner.subtitle}</p>
-                        {r.can_cancel && (
-                            <div className="pt-2">
-                                <button
-                                    type="button"
-                                    className="btn btn-outline btn-error btn-xs sm:btn-sm gap-1.5"
-                                    onClick={() => setCancelModalOpen(true)}
-                                >
-                                    <RotateCcw
-                                        className="size-3.5"
-                                        aria-hidden="true"
-                                    />
-                                    Batalkan & Ganti Pilihan Kamar/Gedung
-                                </button>
+                        {(r.can_cancel ||
+                            isPaymentStage ||
+                            (reviewingUploadStep &&
+                                paymentUnlocked &&
+                                !isKipkExempt &&
+                                !hasPaymentSubmittedOrSettled)) && (
+                            <div className="flex flex-wrap items-center gap-2 pt-2">
+                                {r.can_cancel && (
+                                    <button
+                                        type="button"
+                                        className="btn btn-outline btn-error btn-xs sm:btn-sm gap-1.5"
+                                        onClick={() => setCancelModalOpen(true)}
+                                    >
+                                        <RotateCcw
+                                            className="size-3.5"
+                                            aria-hidden="true"
+                                        />
+                                        Batalkan &amp; Ganti Pilihan
+                                        Kamar/Gedung
+                                    </button>
+                                )}
+                                {isPaymentStage && (
+                                    <button
+                                        type="button"
+                                        className="btn btn-outline btn-xs sm:btn-sm gap-1.5"
+                                        onClick={() => {
+                                            setReviewingUploadStep(true);
+                                            onStepPreviewChange?.(2);
+                                        }}
+                                    >
+                                        <ArrowLeft
+                                            className="size-3.5"
+                                            aria-hidden="true"
+                                        />
+                                        Kembali ke Tahap Sebelumnya
+                                    </button>
+                                )}
+                                {reviewingUploadStep &&
+                                    paymentUnlocked &&
+                                    !isKipkExempt &&
+                                    !hasPaymentSubmittedOrSettled && (
+                                        <button
+                                            type="button"
+                                            className="btn btn-primary btn-xs sm:btn-sm gap-1.5"
+                                            onClick={() => {
+                                                setReviewingUploadStep(false);
+                                                onStepPreviewChange?.(null);
+                                            }}
+                                        >
+                                            <span>
+                                                Lanjut ke Tahap Pembayaran
+                                            </span>
+                                            <ArrowRight
+                                                className="size-3.5"
+                                                aria-hidden="true"
+                                            />
+                                        </button>
+                                    )}
                             </div>
                         )}
                     </div>
@@ -901,25 +984,8 @@ export function StudentRegistrationCard({
                                         <li key={idx}>{blocker}</li>
                                     ))}
                                 </ul>
-                                <div className="flex flex-wrap gap-2 pt-1">
-                                    {paymentUnlocked &&
-                                        hasPaymentBlocker &&
-                                        r.tagihan &&
-                                        remaining > 0 && (
-                                            <Link
-                                                href={tagihanShow.url(
-                                                    r.tagihan.id,
-                                                )}
-                                                className="btn btn-sm btn-primary"
-                                            >
-                                                <Wallet
-                                                    className="size-4"
-                                                    aria-hidden="true"
-                                                />
-                                                Buka Detail Tagihan & Pembayaran
-                                            </Link>
-                                        )}
-                                    {editableKinds.length > 0 && (
+                                {editableKinds.length > 0 && (
+                                    <div className="flex flex-wrap gap-2 pt-1">
                                         <a
                                             href={`#berkas-${r.id}`}
                                             className="btn btn-sm btn-primary"
@@ -930,20 +996,27 @@ export function StudentRegistrationCard({
                                             />
                                             Unggah Berkas Sekarang
                                         </a>
-                                    )}
-                                </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
                 )}
 
-            {/* Main Content Grid: Documents & Financing */}
-            <div className="grid gap-5 lg:grid-cols-2">
+            {/* Main Content Grid: Documents & Financing (documents hidden during Step 4 payment) */}
+            <div
+                className={
+                    isPaymentStage
+                        ? 'grid gap-5'
+                        : 'grid gap-5 lg:grid-cols-2'
+                }
+            >
                 {/* Section A: Berkas Pendaftaran */}
-                <div
-                    id={`berkas-${r.id}`}
-                    className="border-base-300 bg-base-100 min-w-0 space-y-4 overflow-hidden rounded-xl border p-4 md:p-5"
-                >
+                {!isPaymentStage && (
+                    <div
+                        id={`berkas-${r.id}`}
+                        className="border-base-300 bg-base-100 min-w-0 space-y-4 overflow-hidden rounded-xl border p-4 md:p-5"
+                    >
                     <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex min-w-0 items-center gap-2">
                             <FileText
@@ -1232,6 +1305,7 @@ export function StudentRegistrationCard({
                         </details>
                     )}
                 </div>
+                )}
 
                 {/* Section B: Pembiayaan & Tagihan */}
                 <div className="border-base-300 bg-base-100 min-w-0 space-y-4 overflow-hidden rounded-xl border p-4 md:p-5">
@@ -1283,27 +1357,89 @@ export function StudentRegistrationCard({
                                     </p>
                                 </div>
                                 <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 border-t pt-2 text-xs sm:col-span-3">
-                                    <span className="text-muted text-identifier min-w-0 break-all">
-                                        Tagihan: {r.tagihan.nomor}
+                                    <span className="text-base-content text-identifier min-w-0 font-semibold break-all">
+                                        ID Tagihan: {r.tagihan.nomor}
                                     </span>
-                                    {paymentUnlocked ? (
-                                        <Link
-                                            href={tagihanShow.url(r.tagihan.id)}
-                                            className="link link-primary shrink-0 font-medium"
-                                        >
-                                            Detail Tagihan & Pembayaran →
-                                        </Link>
-                                    ) : (
+                                    {(r.tagihan.dokumen?.length ?? 0) > 0 ? (
+                                        <div className="flex flex-wrap gap-2">
+                                            {r.tagihan.dokumen?.map((doc) => (
+                                                <a
+                                                    key={doc.id}
+                                                    href={billingDocument.url({
+                                                        document: doc.id,
+                                                    })}
+                                                    className="btn btn-ghost btn-xs gap-1"
+                                                >
+                                                    <Download className="size-3.5" />
+                                                    Unduh {doc.jenis}
+                                                </a>
+                                            ))}
+                                        </div>
+                                    ) : !paymentUnlocked ? (
                                         <span className="text-muted shrink-0">
                                             Lengkapi berkas wajib terlebih
                                             dahulu
                                         </span>
-                                    )}
+                                    ) : null}
                                 </div>
                             </div>
 
-                            {paymentUnlocked &&
-                                !r.completed_at &&
+                            {(r.tagihan.items?.length ?? 0) > 0 && (
+                                <div className="border-base-300 bg-base-100 rounded-lg border p-3 text-xs">
+                                    <p className="text-base-content mb-2 font-semibold">
+                                        Rincian Tagihan
+                                    </p>
+                                    <div className="divide-base-200 divide-y">
+                                        {r.tagihan.items?.map((item) => (
+                                            <div
+                                                key={item.id}
+                                                className="flex items-start justify-between gap-3 py-1.5"
+                                            >
+                                                <div className="min-w-0">
+                                                    <p className="text-base-content font-medium">
+                                                        {item.deskripsi}
+                                                    </p>
+                                                    <p className="text-muted">
+                                                        {item.kuantitas} ×{' '}
+                                                        {formatRupiah(
+                                                            Number(
+                                                                item.harga_satuan,
+                                                            ),
+                                                        )}
+                                                    </p>
+                                                </div>
+                                                <span className="text-base-content shrink-0 font-semibold">
+                                                    {formatRupiah(
+                                                        Number(item.jumlah),
+                                                    )}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    {Number(r.tagihan.sponsor_total ?? 0) >
+                                        0 && (
+                                        <div className="border-base-200 mt-1.5 flex justify-between border-t pt-1.5">
+                                            <span className="text-muted">
+                                                Tanggungan Institusi / Sponsor
+                                                {r.tagihan.sponsor_name
+                                                    ? ` (${r.tagihan.sponsor_name})`
+                                                    : ''}
+                                            </span>
+                                            <span className="font-medium">
+                                                {formatRupiah(
+                                                    Number(
+                                                        r.tagihan.sponsor_total,
+                                                    ),
+                                                )}
+                                            </span>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {(paymentUnlocked ||
+                                hasPaymentSubmittedOrSettled ||
+                                r.completed_at) &&
                                 r.status !== 'cancelled' &&
                                 (() => {
                                     const invoicePayments =
@@ -1312,11 +1448,16 @@ export function StudentRegistrationCard({
                                         (p) =>
                                             p.status === 'menunggu_verifikasi',
                                     );
+                                    const latestVerified = invoicePayments.find(
+                                        (p) => p.status === 'lunas',
+                                    );
                                     const latestRejected = !pendingPayment
                                         ? invoicePayments.find(
                                               (p) => p.status === 'ditolak',
                                           )
                                         : undefined;
+                                    const displayedProof =
+                                        pendingPayment ?? latestVerified;
                                     const installments = (
                                         r.tagihan?.jadwal_cicilan ?? []
                                     )
@@ -1346,24 +1487,84 @@ export function StudentRegistrationCard({
 
                                     return (
                                         <div className="border-base-300 bg-base-100 space-y-4 rounded-xl border p-4">
-                                            <ReservationCountdown
-                                                targetIso={
-                                                    r.reservation_expires_at ??
-                                                    r.tagihan?.jatuh_tempo
-                                                }
-                                                label="Batas waktu penyelesaian pembayaran"
-                                            />
+                                            {!displayedProof &&
+                                                !r.completed_at && (
+                                                    <ReservationCountdown
+                                                        targetIso={
+                                                            r.reservation_expires_at ??
+                                                            r.tagihan
+                                                                ?.jatuh_tempo
+                                                        }
+                                                        label="Batas waktu penyelesaian pembayaran"
+                                                    />
+                                                )}
 
-                                            {pendingPayment ? (
-                                                <div className="border-base-300 border-l-warning bg-base-200/40 space-y-2 rounded-lg border border-l-4 p-3.5 text-xs">
+                                            {installments.length > 0 && (
+                                                <div className="border-base-200 bg-base-200/30 space-y-1.5 rounded-lg border p-3 text-xs">
+                                                    <p className="font-semibold">
+                                                        Jadwal Pembayaran /
+                                                        Termin
+                                                    </p>
+                                                    {installments.map(
+                                                        (term) => (
+                                                            <div
+                                                                key={term.id}
+                                                                className="flex justify-between gap-2"
+                                                            >
+                                                                <span>
+                                                                    Termin{' '}
+                                                                    {
+                                                                        term.termin_ke
+                                                                    }{' '}
+                                                                    (Jatuh
+                                                                    tempo:{' '}
+                                                                    {formatDate(
+                                                                        term.jatuh_tempo,
+                                                                    )}
+                                                                    )
+                                                                </span>
+                                                                <span className="font-medium">
+                                                                    {formatRupiah(
+                                                                        Number(
+                                                                            term.jumlah,
+                                                                        ),
+                                                                    )}
+                                                                </span>
+                                                            </div>
+                                                        ),
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {displayedProof ? (
+                                                <div
+                                                    className={`border-base-300 bg-base-200/40 space-y-2 rounded-lg border border-l-4 p-3.5 text-xs ${
+                                                        displayedProof.status ===
+                                                        'lunas'
+                                                            ? 'border-l-primary'
+                                                            : 'border-l-warning'
+                                                    }`}
+                                                >
                                                     <div className="flex flex-wrap items-center justify-between gap-2">
                                                         <span className="text-sm font-semibold">
-                                                            Menunggu Verifikasi
-                                                            Pengelola
+                                                            {displayedProof.status ===
+                                                            'lunas'
+                                                                ? 'Pembayaran Terverifikasi (Lunas)'
+                                                                : 'Menunggu Verifikasi Pengelola'}
                                                         </span>
                                                         <StatusChip
-                                                            label="Menunggu Verifikasi"
-                                                            tone="warning"
+                                                            label={
+                                                                displayedProof.status ===
+                                                                'lunas'
+                                                                    ? 'Lunas'
+                                                                    : 'Menunggu Verifikasi'
+                                                            }
+                                                            tone={
+                                                                displayedProof.status ===
+                                                                'lunas'
+                                                                    ? 'success'
+                                                                    : 'warning'
+                                                            }
                                                         />
                                                     </div>
                                                     <p className="text-muted">
@@ -1371,70 +1572,61 @@ export function StudentRegistrationCard({
                                                         <strong>
                                                             {formatRupiah(
                                                                 Number(
-                                                                    pendingPayment.nominal,
+                                                                    displayedProof.nominal,
                                                                 ),
                                                             )}
                                                         </strong>{' '}
                                                         (
                                                         {
-                                                            pendingPayment.kode_transaksi
+                                                            displayedProof.kode_transaksi
                                                         }
                                                         ) telah diterima sistem.
                                                     </p>
-                                                    {pendingPayment.rekening_tujuan && (
+                                                    {displayedProof.rekening_tujuan && (
                                                         <p className="text-muted">
                                                             Tujuan:{' '}
                                                             {
-                                                                pendingPayment.rekening_tujuan
+                                                                displayedProof.rekening_tujuan
                                                             }
                                                         </p>
                                                     )}
-                                                    {(pendingPayment.nama_bank ||
-                                                        pendingPayment.atas_nama_pengirim) && (
+                                                    {(displayedProof.nama_bank ||
+                                                        displayedProof.atas_nama_pengirim) && (
                                                         <p className="text-muted">
                                                             Pengirim:{' '}
-                                                            {pendingPayment.nama_bank ||
+                                                            {displayedProof.nama_bank ||
                                                                 '-'}{' '}
-                                                            {pendingPayment.nomor_rekening_pengirim
-                                                                ? `· ${pendingPayment.nomor_rekening_pengirim}`
+                                                            {displayedProof.nomor_rekening_pengirim
+                                                                ? `· ${displayedProof.nomor_rekening_pengirim}`
                                                                 : ''}
-                                                            {pendingPayment.atas_nama_pengirim
-                                                                ? ` a.n. ${pendingPayment.atas_nama_pengirim}`
+                                                            {displayedProof.atas_nama_pengirim
+                                                                ? ` a.n. ${displayedProof.atas_nama_pengirim}`
                                                                 : ''}
                                                         </p>
                                                     )}
-                                                    {(pendingPayment.tanggal_bayar ||
-                                                        pendingPayment.created_at) && (
+                                                    {(displayedProof.tanggal_bayar ||
+                                                        displayedProof.created_at) && (
                                                         <p className="text-muted">
                                                             Waktu transfer:{' '}
                                                             {formatDateTime(
-                                                                pendingPayment.tanggal_bayar ??
-                                                                    pendingPayment.created_at,
+                                                                displayedProof.tanggal_bayar ??
+                                                                    displayedProof.created_at,
                                                             )}
                                                         </p>
                                                     )}
                                                     <div className="flex flex-wrap gap-2 pt-1">
                                                         <a
                                                             href={pembayaranBukti.url(
-                                                                pendingPayment.id,
+                                                                displayedProof.id,
                                                             )}
                                                             className="btn btn-outline btn-xs gap-1"
                                                         >
                                                             <Download className="size-3.5" />
-                                                            Unduh Bukti
+                                                            Unduh Bukti Transfer
                                                         </a>
-                                                        <Link
-                                                            href={tagihanShow.url(
-                                                                r.tagihan!.id,
-                                                            )}
-                                                            className="btn btn-primary btn-xs gap-1"
-                                                        >
-                                                            Lihat Detail Tagihan
-                                                            <ArrowRight className="size-3.5" />
-                                                        </Link>
                                                     </div>
                                                 </div>
-                                            ) : (
+                                            ) : !r.completed_at ? (
                                                 <>
                                                     {latestRejected && (
                                                         <div className="alert alert-error text-xs">
@@ -1463,24 +1655,10 @@ export function StudentRegistrationCard({
                                                     )}
                                                     {remaining > 0 && (
                                                         <div className="border-base-300 bg-base-200/30 space-y-3 rounded-xl border p-4">
-                                                            <div className="flex flex-wrap items-center justify-between gap-2">
-                                                                <h4 className="text-sm font-semibold">
-                                                                    Unggah Bukti
-                                                                    Pembayaran
-                                                                </h4>
-                                                                <Link
-                                                                    href={tagihanShow.url(
-                                                                        r
-                                                                            .tagihan!
-                                                                            .id,
-                                                                    )}
-                                                                    className="link link-primary text-xs font-medium"
-                                                                >
-                                                                    Buka Halaman
-                                                                    Detail
-                                                                    Tagihan →
-                                                                </Link>
-                                                            </div>
+                                                            <h4 className="text-sm font-semibold">
+                                                                Unggah Bukti
+                                                                Pembayaran
+                                                            </h4>
                                                             <PaymentProofForm
                                                                 key={
                                                                     r.tagihan!
@@ -1512,7 +1690,7 @@ export function StudentRegistrationCard({
                                                         </div>
                                                     )}
                                                 </>
-                                            )}
+                                            ) : null}
                                         </div>
                                     );
                                 })()}
@@ -1566,8 +1744,8 @@ export function StudentRegistrationCard({
                         </div>
                     )}
 
-                    {/* Saved Decision Read-Only Card (inputs hidden once saved) */}
-                    {savedDecisions.map((d) => {
+                    {/* Saved Decision Read-Only Card (hide automatic Bayar penuh card) */}
+                    {visibleSavedDecisions.map((d) => {
                         const decisionChip = decisionStatusChip(d.status);
                         return (
                             <div

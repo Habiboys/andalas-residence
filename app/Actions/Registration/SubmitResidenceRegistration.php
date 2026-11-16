@@ -41,6 +41,7 @@ class SubmitResidenceRegistration
             }
             $kipk = $life->isKipk($student);
             $policy = app(ResidencePolicyService::class)->current($kipk ? 'local_kipk' : 'local_non_kipk');
+            $deadline = app(ResidencePolicyService::class)->registrationDeadline($policy);
             $unit = $kipk ? 'year' : ($data['rate_unit'] ?? 'year');
             $unit = $unit === 'period' ? 'year' : $unit;
             if ($unit === 'month' && ((int) $student->angkatan === (int) $period->angkatan_maba || ! ($policy->settings['monthly_allowed'] ?? false))) {
@@ -59,7 +60,7 @@ class SubmitResidenceRegistration
                 'starts_at' => $data['starts_at'] ?? $period->tanggal_mulai,
                 'ends_at' => $data['ends_at'] ?? $period->tanggal_selesai,
                 'rate_unit' => $unit, 'funding' => 'personal', 'allocation_status' => 'waiting',
-                'reservation_expires_at' => $kipk ? null : now()->addHours($reservationHours),
+                'reservation_expires_at' => $kipk ? null : ($deadline ?? now()->addHours($reservationHours)),
             ]);
             if (! $kipk) {
                 $roomId = $data['preferences'][0]['kamar_id'] ?? null;

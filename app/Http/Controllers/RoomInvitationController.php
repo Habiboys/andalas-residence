@@ -97,6 +97,7 @@ class RoomInvitationController extends Controller
         if ($held >= $room->kapasitas || $room->status === 'maintenance') {
             throw ValidationException::withMessages(['invitation' => 'Kamar sudah penuh atau tidak siap.']);
         }
+        $policyDeadline = $host->policy ? app(ResidencePolicyService::class)->registrationDeadline($host->policy) : null;
         $r = ResidenceRegistration::create([
             ...$host->only(['workflow_version', 'residence_policy_id', 'periode_id', 'reserved_room_id', 'starts_at', 'ends_at', 'rate_unit', 'billing_basis', 'funding']),
             'student_profile_id' => $student->id,
@@ -104,7 +105,7 @@ class RoomInvitationController extends Controller
             'is_kipk' => false,
             'submitted_at' => now(),
             'allocation_status' => 'held',
-            'reservation_expires_at' => $host->reservation_expires_at ?? now()->addHours(max(1, (int) ($host->policy->settings['reservation_hours'] ?? $host->periode?->reservation_hours ?? 168))),
+            'reservation_expires_at' => $host->reservation_expires_at ?? $policyDeadline ?? now()->addHours(max(1, (int) ($host->policy->settings['reservation_hours'] ?? $host->periode?->reservation_hours ?? 168))),
         ]);
         $r->roomPreferences()->create(['kamar_id' => $room->id, 'priority' => 1]);
         $r->statusHistories()->create(['from_status' => 'draft', 'to_status' => 'submitted', 'changed_by' => $user->id]);

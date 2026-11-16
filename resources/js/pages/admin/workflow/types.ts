@@ -87,6 +87,7 @@ export type Settings = {
     month_days: number;
     day_basis: string;
     monthly_allowed: boolean;
+    registration_deadline?: string | null;
 };
 
 export type Policy = {

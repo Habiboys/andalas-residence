@@ -49,10 +49,10 @@ class ResidenceDemoSeeder extends Seeder
 
         KategoriTransaksi::firstOrCreate(['nama_kategori' => 'Pembayaran Sewa Asrama', 'tipe' => 'pemasukan']);
         KategoriTransaksi::firstOrCreate(['nama_kategori' => 'Operasional Gedung', 'tipe' => 'pengeluaran']);
-        PaymentBankAccount::firstOrCreate(['account_number' => '2100020100001'], [
-            'bank_name' => 'Bank Nagari',
-            'account_name' => 'RPL 014 UNAND Asrama Demo',
-            'instructions' => 'Cantumkan NIM pada berita transfer.',
+        PaymentBankAccount::firstOrCreate(['account_number' => '7004496277'], [
+            'bank_name' => 'Bank Syariah Indonesia (BSI)',
+            'account_name' => 'PN UNAND DPUB',
+            'instructions' => 'Sertakan NIM pada berita transfer.',
             'is_active' => true,
         ]);
 

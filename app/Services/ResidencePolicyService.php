@@ -9,6 +9,7 @@ use App\Models\ResidencePolicy;
 use App\Models\ResidenceRate;
 use App\Models\ResidenceRegistration;
 use App\Models\RoomType;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 
@@ -99,11 +100,25 @@ class ResidencePolicyService
         return app(ResidenceLifecycle::class)->isKipk($student) ? 'local_kipk' : 'local_non_kipk';
     }
 
+    public function registrationDeadline(ResidencePolicy $policy): ?Carbon
+    {
+        $raw = $policy->settings['registration_deadline'] ?? null;
+        if (! is_string($raw) || trim($raw) === '') {
+            return null;
+        }
+
+        return Carbon::parse($raw);
+    }
+
     public function current(string $category): ResidencePolicy
     {
         $policy = ResidencePolicy::where('category', $category)->whereNotNull('published_at')->latest('version')->first();
         if (! $policy || ! ($policy->settings['open'] ?? false)) {
             throw ValidationException::withMessages(['policy' => 'Pendaftaran kategori ini belum dibuka. Pengelola perlu menerbitkan konfigurasi tarif, dokumen, dan gedung yang lengkap.']);
+        }
+        $deadline = $this->registrationDeadline($policy);
+        if ($deadline?->isPast()) {
+            throw ValidationException::withMessages(['policy' => 'Batas waktu pendaftaran jalur ini telah berakhir.']);
         }
 
         return $policy;

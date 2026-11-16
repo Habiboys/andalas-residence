@@ -125,6 +125,20 @@ it('embeds the 5-step registration flow advancing directly to Pembayaran and Che
                     funding: 'personal',
                     payment_unlocked: true,
                     tagihan_id: 'inv-1',
+                    tagihan: {
+                        id: 'inv-1',
+                        nomor: 'REG-2211523012',
+                        total: 2500000,
+                        total_dibayar: 0,
+                        status: 'terbit',
+                        items: [
+                            {
+                                id: 'it-1',
+                                keterangan: 'Biaya Asrama 1 Tahun',
+                                jumlah: 2500000,
+                            },
+                        ],
+                    },
                     periode: { nama_periode: '2026/2027' },
                 },
             ]}
@@ -135,12 +149,114 @@ it('embeds the 5-step registration flow advancing directly to Pembayaran and Che
     expect(html).toContain('Upload berkas');
     expect(html).toContain('Pembayaran');
     expect(html).toContain('Check-in (Verifikasi)');
-    expect(html).toContain('Berkas Pendaftaran');
+    expect(html).not.toContain('Berkas Pendaftaran');
+    expect(html).toContain('Kembali ke Tahap Sebelumnya');
+    expect(html).toContain('REG-2211523012');
+    expect(html).toContain('Rincian Tagihan');
     expect(html).toContain('Pembiayaan &amp; Tagihan');
+    expect(html).not.toContain('/mahasiswa/tagihan/');
     expect(html).not.toContain('Verifikasi &amp; Pembayaran');
     expect(html).not.toContain('Lihat status dan dokumen pengajuan');
     expect(html).not.toContain('Lihat tagihan dan bayar');
     expect(html).not.toContain('Dokumen &amp; Pembiayaan →');
+});
+
+it('keeps the 5-step view visible with Belum Check-in and uploaded files once payment proof is submitted', () => {
+    const html = renderToStaticMarkup(
+        <Registration
+            initialUser={{ status_huni: 'aktif' }}
+            housingStatusUrl="/mahasiswa/registration/status"
+            registration={[
+                {
+                    id: 'step5-pending-1',
+                    status: 'submitted',
+                    workflow_version: 2,
+                    is_kipk: false,
+                    funding: 'personal',
+                    payment_unlocked: true,
+                    completed_at: null,
+                    documents: [
+                        {
+                            id: 'doc-1',
+                            kind: 'perjanjian',
+                            version: 1,
+                            status: 'uploaded',
+                        },
+                    ],
+                    tagihan_id: 'inv-1',
+                    tagihan: {
+                        id: 'inv-1',
+                        nomor: 'REG-2211523012',
+                        total: 2500000,
+                        total_dibayar: 0,
+                        status: 'terbit',
+                        pembayaran: [
+                            {
+                                id: 'pay-1',
+                                status: 'menunggu_verifikasi',
+                                jumlah: 2500000,
+                            },
+                        ],
+                    },
+                    periode: { nama_periode: '2026/2027' },
+                },
+            ]}
+        />,
+    );
+
+    expect(html).toContain('Belum Check-in');
+    expect(html).toContain('Berkas Pendaftaran');
+    expect(html).toContain('Pembiayaan &amp; Tagihan');
+    expect(html).not.toContain('Anda masih menghuni asrama');
+});
+
+it('keeps the 5-step view visible with Sudah Check-in Penghuni Aktif after facilitator verification', () => {
+    const html = renderToStaticMarkup(
+        <Registration
+            initialUser={{ status_huni: 'aktif' }}
+            housingStatusUrl="/mahasiswa/registration/status"
+            registration={[
+                {
+                    id: 'step5-done-1',
+                    status: 'submitted',
+                    workflow_version: 2,
+                    is_kipk: false,
+                    funding: 'personal',
+                    payment_unlocked: true,
+                    completed_at: '2026-11-17T08:00:00Z',
+                    documents: [
+                        {
+                            id: 'doc-1',
+                            kind: 'perjanjian',
+                            version: 1,
+                            status: 'approved',
+                        },
+                    ],
+                    tagihan_id: 'inv-1',
+                    tagihan: {
+                        id: 'inv-1',
+                        nomor: 'REG-2211523012',
+                        total: 2500000,
+                        total_dibayar: 2500000,
+                        status: 'lunas',
+                        pembayaran: [
+                            {
+                                id: 'pay-1',
+                                status: 'verified',
+                                jumlah: 2500000,
+                            },
+                        ],
+                    },
+                    periode: { nama_periode: '2026/2027' },
+                },
+            ]}
+        />,
+    );
+
+    expect(html).toContain('Sudah Check-in · Penghuni Aktif');
+    expect(html).toContain('Berkas Pendaftaran');
+    expect(html).toContain('Pembiayaan &amp; Tagihan');
+    expect(html).not.toContain('Anda masih menghuni asrama');
 });
 
 it('hides standalone status button and avoids promoting installment scheme information', () => {

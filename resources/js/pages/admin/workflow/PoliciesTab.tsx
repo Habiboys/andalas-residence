@@ -39,6 +39,7 @@ export default function PoliciesTab({
         month_days: 30,
         day_basis: 'nights',
         monthly_allowed: false,
+        registration_deadline: '',
     };
     const firstCategory = 'local_non_kipk';
     const form = useForm({
@@ -103,6 +104,8 @@ export default function PoliciesTab({
                 month_days: settings.month_days,
                 day_basis: settings.day_basis,
                 monthly_allowed: settings.monthly_allowed,
+                registration_deadline:
+                    settings.registration_deadline?.trim() || null,
             },
         }));
         form.post(workflow.policy.url(), {
@@ -208,8 +211,39 @@ export default function PoliciesTab({
                         >
                             {isOpen ? 'Dibuka' : 'Ditutup'}
                         </strong>
+                        {isOpen && active?.settings.registration_deadline && (
+                            <span className="text-base-content/70 block text-xs">
+                                Batas akhir:{' '}
+                                {active.settings.registration_deadline
+                                    .replace('T', ' ')
+                                    .slice(0, 16)}
+                            </span>
+                        )}
                     </div>
                 </div>
+
+                <label className="block max-w-sm space-y-1 text-sm font-medium">
+                    <span>
+                        Batas Waktu Pendaftaran &amp; Penyelesaian Pembayaran
+                    </span>
+                    <input
+                        type="datetime-local"
+                        className={fieldInputClass}
+                        value={(
+                            form.data.settings.registration_deadline ?? ''
+                        ).slice(0, 16)}
+                        onChange={(event) =>
+                            form.setData('settings', {
+                                ...form.data.settings,
+                                registration_deadline: event.target.value,
+                            })
+                        }
+                    />
+                    <span className="text-base-content/65 block text-xs font-normal">
+                        Batas waktu penyelesaian pembayaran pendaftar pada jalur
+                        ini otomatis mengikuti batas waktu pendaftaran ini.
+                    </span>
+                </label>
 
                 <div className="border-base-300 space-y-3 rounded-xl border p-4">
                     <div>

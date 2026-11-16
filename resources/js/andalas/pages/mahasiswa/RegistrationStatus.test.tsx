@@ -168,6 +168,17 @@ it('shows payment upload immediately after document upload without blocker banne
     const readyToPay = {
         ...sampleRegistration,
         payment_unlocked: true,
+        tagihan: {
+            ...sampleRegistration.tagihan,
+            nomor: 'REG-2211521020',
+            items: [
+                {
+                    id: 'item-1',
+                    keterangan: 'Sewa Asrama 1 Tahun',
+                    jumlah: 10000000,
+                },
+            ],
+        },
         blockers: [
             'Pembayaran awal atau verifikasi pembayaran oleh pengelola belum memenuhi syarat.',
         ],
@@ -194,7 +205,74 @@ it('shows payment upload immediately after document upload without blocker banne
     expect(html).toContain(
         'Berkas terunggah! Silakan selesaikan pembayaran sesuai tagihan',
     );
+    expect(html).toContain('Kembali ke Tahap Sebelumnya');
+    expect(html).toContain('REG-2211521020');
+    expect(html).toContain('Rincian Tagihan');
+    expect(html).toContain('Sewa Asrama 1 Tahun');
     expect(html).toContain('Unggah Bukti Pembayaran');
+    expect(html).toContain(
+        'Tanggal dan Jam Pembayaran (Harus Sesuai dengan Bukti Bayar)',
+    );
+    expect(html).not.toContain('Berkas Pendaftaran');
+    expect(html).not.toContain('Detail Tagihan &amp; Pembayaran');
+    expect(html).not.toContain('Buka Halaman Detail Tagihan');
+    expect(html).not.toContain('Lihat Detail Tagihan');
+    expect(html).not.toContain('Bayar Penuh Sesuai Tagihan');
     expect(html).not.toContain('Syarat yang perlu dilengkapi');
     expect(html).not.toContain('Tahap Pembayaran Belum Dibuka');
+});
+
+it('shows all uploaded documents and billing details with Belum Check-in badge in Step 5 before facilitator verification', () => {
+    const step5Pending = {
+        ...sampleRegistration,
+        payment_unlocked: true,
+        completed_at: null,
+        decisions: [
+            {
+                id: 'dec-full',
+                kind: 'full',
+                status: 'approved',
+                reason: 'Pembayaran penuh sesuai tagihan.',
+            },
+        ],
+        tagihan: {
+            ...sampleRegistration.tagihan,
+            nomor: 'REG-2211521020',
+            items: [
+                {
+                    id: 'item-1',
+                    keterangan: 'Sewa Asrama 1 Tahun',
+                    jumlah: 10000000,
+                },
+            ],
+            pembayaran: [
+                {
+                    id: 'pay-1',
+                    status: 'menunggu_verifikasi',
+                    jumlah: 10000000,
+                    bank_pengirim: 'BSI',
+                    nomor_rekening_pengirim: '7001122334',
+                    atas_nama_pengirim: 'Muhammad Nouval Habibie',
+                    paid_at: '2026-11-17T08:00:00Z',
+                },
+            ],
+        },
+    };
+
+    const html = renderToStaticMarkup(
+        <RegistrationStatus
+            registrations={{
+                data: [step5Pending],
+                last_page: 1,
+                links: [],
+            }}
+        />,
+    );
+
+    expect(html).toContain('Belum Check-in');
+    expect(html).toContain('Berkas Pendaftaran');
+    expect(html).toContain('Pembiayaan &amp; Tagihan');
+    expect(html).toContain('REG-2211521020');
+    expect(html).not.toContain('Detail Tagihan &amp; Pembayaran');
+    expect(html).not.toContain('Buka Halaman Detail Tagihan');
 });

@@ -150,6 +150,7 @@ export default function Registration({
     room_invitations = [],
 }: Props) {
     const [step, setStep] = useState(0);
+    const [stepPreview, setStepPreview] = useState<number | null>(null);
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [friendNim, setFriendNim] = useState('');
     const [friendError, setFriendError] = useState('');
@@ -326,42 +327,47 @@ export default function Registration({
                                 hunian kembali dari akun ini.
                             </p>
                         )}
-                        {initialUser?.status_huni === 'aktif' ? (
-                            <p>
-                                Anda masih menghuni asrama. Selesaikan check-out
-                                sebelum mendaftar lagi.
-                            </p>
-                        ) : pending ? (
-                            (() => {
-                                const currentReg = registration.find(
-                                    (r) =>
-                                        !r.completed_at &&
-                                        ![
-                                            'draft',
-                                            'rejected',
-                                            'cancelled',
-                                        ].includes(r.status),
-                                );
-                                const waitingKipkAllocation = registration.some(
-                                    (r) =>
-                                        !r.completed_at &&
-                                        ![
-                                            'draft',
-                                            'rejected',
-                                            'cancelled',
-                                        ].includes(r.status) &&
-                                        r.is_kipk &&
-                                        r.funding === 'personal' &&
-                                        !r.tagihan_id,
-                                );
+                        {(() => {
+                            const currentReg = registration.find(
+                                (r) =>
+                                    !r.completed_at &&
+                                    ![
+                                        'draft',
+                                        'rejected',
+                                        'cancelled',
+                                    ].includes(r.status),
+                            );
+                            const activeCheckedInReg =
+                                !currentReg &&
+                                initialUser?.status_huni === 'aktif'
+                                    ? registration.find(
+                                          (r) =>
+                                              Boolean(r.completed_at) &&
+                                              !r.keys_returned_at &&
+                                              ![
+                                                  'rejected',
+                                                  'cancelled',
+                                              ].includes(r.status),
+                                      )
+                                    : undefined;
+                            const activeDisplayReg =
+                                currentReg ?? activeCheckedInReg;
 
-                                const requiredDocs = currentReg?.policy
+                            if (activeDisplayReg) {
+                                const waitingKipkAllocation =
+                                    !activeDisplayReg.completed_at &&
+                                    Boolean(activeDisplayReg.is_kipk) &&
+                                    activeDisplayReg.funding === 'personal' &&
+                                    !activeDisplayReg.tagihan_id;
+
+                                const requiredDocs = activeDisplayReg.policy
                                     ?.settings?.documents ?? ['perjanjian'];
                                 const latestDocs = new Map<
                                     string,
                                     { version: number; status: string }
                                 >();
-                                for (const doc of currentReg?.documents ?? []) {
+                                for (const doc of activeDisplayReg.documents ??
+                                    []) {
                                     const existing = latestDocs.get(doc.kind);
                                     if (
                                         !existing ||
@@ -382,12 +388,12 @@ export default function Registration({
                                         'revision',
                                 );
                                 const paymentSubmittedOrSettled =
-                                    Boolean(currentReg?.completed_at) ||
-                                    Boolean(currentReg?.ready_at) ||
+                                    Boolean(activeDisplayReg.completed_at) ||
+                                    Boolean(activeDisplayReg.ready_at) ||
                                     Boolean(
                                         (
-                                            currentReg?.tagihan?.pembayaran ??
-                                            []
+                                            activeDisplayReg.tagihan
+                                                ?.pembayaran ?? []
                                         ).some(
                                             (p) =>
                                                 p.status ===
@@ -395,14 +401,14 @@ export default function Registration({
                                                 p.status === 'lunas',
                                         ),
                                     );
-                                const currentActiveStep =
-                                    currentReg?.completed_at
+                                const computedActiveStep =
+                                    activeDisplayReg.completed_at
                                         ? 5
                                         : waitingKipkAllocation
                                           ? 1
                                           : !allDocsUploaded || hasRevisionDoc
                                             ? 2
-                                            : currentReg?.is_kipk ||
+                                            : activeDisplayReg.is_kipk ||
                                                 paymentSubmittedOrSettled
                                               ? 4
                                               : 3;
@@ -410,62 +416,81 @@ export default function Registration({
                                 return (
                                     <div className="space-y-5">
                                         <LinearStepper
-                                            activeStep={currentActiveStep}
+                                            activeStep={
+                                                stepPreview ??
+                                                computedActiveStep
+                                            }
                                             kipk={kipk}
                                         />
                                         <div className="border-base-300 bg-base-200/40 rounded-xl border p-4 text-sm">
                                             <p className="font-semibold">
-                                                Pendaftaran sedang diproses
+                                                {activeDisplayReg.completed_at
+                                                    ? 'Sudah Check-in · Penghuni Aktif'
+                                                    : 'Pendaftaran sedang diproses'}
                                             </p>
                                             <p className="text-base-content/75 mt-1">
                                                 {waitingKipkAllocation
                                                     ? 'Menunggu alokasi kamar sesuai prioritas dan kapasitas. Tagihan diterbitkan setelah kamar dialokasikan.'
                                                     : hasRevisionDoc
                                                       ? 'Petugas meminta revisi berkas. Unggah ulang dokumen yang diminta pada panel di bawah.'
-                                                      : !allDocsUploaded
-                                                        ? 'Tahap 3: Unggah seluruh berkas wajib pada panel di bawah agar tahap pembayaran dapat langsung dilanjutkan.'
-                                                        : currentReg?.completed_at
-                                                          ? 'Tahap 5: Verifikasi berkas dan check-in fisik di asrama telah selesai.'
+                                                      : stepPreview === 2 ||
+                                                          !allDocsUploaded
+                                                        ? 'Tahap 3: Periksa atau unggah seluruh berkas wajib pada panel di bawah sebelum melanjutkan ke pembayaran.'
+                                                        : activeDisplayReg.completed_at
+                                                          ? 'Tahap 5: Verifikasi berkas dan check-in telah dinyatakan selesai oleh petugas. Untuk mengakhiri masa huni, ajukan Check-out pada menu Check-out.'
                                                           : paymentSubmittedOrSettled ||
-                                                              currentReg?.ready_at
-                                                            ? 'Tahap 5: Pembayaran tercatat dan status hunian aktif. Bawa berkas asli untuk verifikasi petugas saat check-in di asrama.'
-                                                            : currentReg?.payment_unlocked
+                                                              activeDisplayReg.ready_at
+                                                            ? 'Tahap 5 (Belum Check-in): Pembayaran sudah tercatat. Periksa ringkasan data dan berkas Anda di bawah, lalu bawa berkas asli ke petugas gedung untuk verifikasi saat check-in.'
+                                                            : activeDisplayReg.payment_unlocked
                                                               ? 'Tahap 4: Berkas sudah terunggah. Silakan langsung selesaikan pembayaran dan unggah bukti transfer tanpa menunggu verifikasi berkas.'
                                                               : 'Tahap pembiayaan sedang diproses sesuai ketentuan kategori Anda.'}
                                             </p>
                                         </div>
-                                        {currentReg && (
-                                            <StudentRegistrationCard
-                                                registration={
-                                                    currentReg as WorkflowRegistration
-                                                }
-                                                templates={templates}
-                                                paymentAccounts={
-                                                    payment_accounts
-                                                }
-                                                virtualAccounts={
-                                                    virtual_accounts
-                                                }
-                                                embedded
-                                            />
-                                        )}
+                                        <StudentRegistrationCard
+                                            registration={
+                                                activeDisplayReg as WorkflowRegistration
+                                            }
+                                            templates={templates}
+                                            paymentAccounts={payment_accounts}
+                                            virtualAccounts={virtual_accounts}
+                                            embedded
+                                            onStepPreviewChange={setStepPreview}
+                                        />
                                     </div>
                                 );
-                            })()
-                        ) : !housingProfileReady && housingProfileUrl ? (
-                            <div className="space-y-3">
-                                <p>
-                                    Lengkapi identitas, data akademik, dan
-                                    alamat sebelum memilih hunian.
-                                </p>
-                                <Link
-                                    href={housingProfileUrl}
-                                    className="btn btn-primary"
-                                >
-                                    Lengkapi Data Hunian
-                                </Link>
-                            </div>
-                        ) : (
+                            }
+
+                            if (initialUser?.status_huni === 'aktif') {
+                                return (
+                                    <p>
+                                        Anda masih menghuni asrama. Selesaikan
+                                        check-out sebelum mendaftar lagi.
+                                    </p>
+                                );
+                            }
+
+                            if (!housingProfileReady && housingProfileUrl) {
+                                return (
+                                    <div className="space-y-3">
+                                        <p>
+                                            Lengkapi identitas, data akademik,
+                                            dan alamat sebelum memilih hunian.
+                                        </p>
+                                        <Link
+                                            href={housingProfileUrl}
+                                            className="btn btn-primary"
+                                        >
+                                            Lengkapi Data Hunian
+                                        </Link>
+                                    </div>
+                                );
+                            }
+
+                            return null;
+                        })()}
+                        {!pending &&
+                            initialUser?.status_huni !== 'aktif' &&
+                            housingProfileReady && (
                             <form
                                 className="space-y-4"
                                 onSubmit={(e) => {

@@ -596,3 +596,105 @@ it('disallows student installment submission in the system while allowing pengel
         ->and($registration->tagihan->jadwalCicilan()->count())->toBe(2)
         ->and((float) $registration->tagihan->amount_due_now)->toBe((float) $firstTerm);
 });
+
+it('formats registration invoice nomor as REG-<NIM> with safe unique suffix on re-registration', function () {
+    $f = toBeFixture('local_non_kipk', 2);
+    $f['user']->update(['nim_nip' => '2211523012']);
+
+    $this->actingAs($f['user'])
+        ->post(route('andalas.registrations.store'), [
+            'periode_id' => $f['period']->id,
+            'preferences' => [['kamar_id' => $f['room']->id]],
+            'files' => [
+                'perjanjian' => UploadedFile::fake()->create('perjanjian.pdf', 80, 'application/pdf'),
+            ],
+            'decision_kind' => 'full',
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $first = ResidenceRegistration::where('student_profile_id', $f['profile']->id)
+        ->where('status', 'submitted')
+        ->sole();
+
+    expect($first->tagihan->nomor)->toBe('REG-2211523012');
+
+    $this->actingAs($f['user'])
+        ->post(route('residence.cancel', $first))
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $this->actingAs($f['user'])
+        ->post(route('andalas.registrations.store'), [
+            'periode_id' => $f['period']->id,
+            'preferences' => [['kamar_id' => $f['room']->id]],
+            'files' => [
+                'perjanjian' => UploadedFile::fake()->create('perjanjian.pdf', 80, 'application/pdf'),
+            ],
+            'decision_kind' => 'full',
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $second = ResidenceRegistration::where('student_profile_id', $f['profile']->id)
+        ->where('status', 'submitted')
+        ->sole();
+
+    expect($second->id)->not->toBe($first->id)
+        ->and($second->tagihan->nomor)->toBe('REG-2211523012-2');
+});
+
+it('aligns registration and invoice payment deadline to the track registration deadline and blocks registration after expiration', function () {
+    $f = toBeFixture('local_non_kipk', 2);
+    $deadline = now()->addDays(5)->startOfMinute();
+    $settings = $f['policy']->settings;
+    unset($settings['rates']);
+    $settings['registration_deadline'] = $deadline->toIso8601String();
+
+    $this->actingAs($f['manager'])
+        ->post(route('residence.policies'), [
+            'category' => 'local_non_kipk',
+            'settings' => $settings,
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $this->actingAs($f['user'])
+        ->post(route('andalas.registrations.store'), [
+            'periode_id' => $f['period']->id,
+            'preferences' => [['kamar_id' => $f['room']->id]],
+            'files' => [
+                'perjanjian' => UploadedFile::fake()->create('perjanjian.pdf', 80, 'application/pdf'),
+            ],
+            'decision_kind' => 'full',
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $registration = ResidenceRegistration::where('student_profile_id', $f['profile']->id)
+        ->where('status', 'submitted')
+        ->sole();
+
+    expect($registration->reservation_expires_at?->timestamp)->toBe($deadline->timestamp)
+        ->and($registration->tagihan->jatuh_tempo?->timestamp)->toBe($deadline->timestamp);
+
+    $this->actingAs($f['user'])
+        ->post(route('residence.cancel', $registration))
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $this->travelTo($deadline->copy()->addMinute());
+
+    $this->actingAs($f['user'])
+        ->post(route('andalas.registrations.store'), [
+            'periode_id' => $f['period']->id,
+            'preferences' => [['kamar_id' => $f['room']->id]],
+            'files' => [
+                'perjanjian' => UploadedFile::fake()->create('perjanjian.pdf', 80, 'application/pdf'),
+            ],
+            'decision_kind' => 'full',
+        ])
+        ->assertSessionHasErrors();
+
+    expect(ResidenceRegistration::where('student_profile_id', $f['profile']->id)->where('status', 'submitted')->count())->toBe(0);
+});

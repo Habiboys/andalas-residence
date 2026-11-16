@@ -12,6 +12,7 @@ use App\Models\Tagihan;
 use App\Models\TransaksiKeuangan;
 use App\Models\VirtualAccount;
 use App\Services\AuditLogService;
+use App\Services\ResidencePolicyService;
 use App\Services\ResidenceWorkflow;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
@@ -216,7 +217,13 @@ class PembayaranController extends Controller
                 $workflow = app(ResidenceWorkflow::class);
                 $freshReg = $registration->fresh();
                 if ($validated['status'] === 'ditolak') {
-                    if (! $freshReg->completed_at && $freshReg->reservation_expires_at && $freshReg->reservation_expires_at->lt(now()->addHours(6))) {
+                    $policyDeadline = $freshReg->policy
+                        ? app(ResidencePolicyService::class)->registrationDeadline($freshReg->policy)
+                        : null;
+                    if (! $freshReg->completed_at && $policyDeadline && $policyDeadline->isFuture()) {
+                        $freshReg->update(['reservation_expires_at' => $policyDeadline]);
+                        $freshReg->refresh();
+                    } elseif (! $freshReg->completed_at && $freshReg->reservation_expires_at && $freshReg->reservation_expires_at->lt(now()->addHours(6))) {
                         $hours = max(24, (int) ($freshReg->periode?->reservation_hours ?? 24));
                         $freshReg->update(['reservation_expires_at' => now()->addHours($hours)]);
                         $freshReg->refresh();

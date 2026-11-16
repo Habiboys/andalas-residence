@@ -68,7 +68,7 @@ class ResidenceWorkflowController extends Controller
             return redirect()->route('mahasiswa.registration');
         }
         abort_unless($manager || $finance || $user->hasAnyRole(['mahasiswa', 'fasilitator', 'pimpinan']), 403);
-        $registrations = ResidenceRegistration::with(['studentProfile.user', 'reservedRoom.lantai.gedung', 'placement.kamar.lantai.gedung', 'policy', 'documents.reviewer:id,nama', 'decisions', 'tagihan.jadwalCicilan', 'tagihan.pembayaran' => fn ($q) => $q->latest(), 'application', 'roomContract'])
+        $registrations = ResidenceRegistration::with(['studentProfile.user', 'reservedRoom.lantai.gedung', 'placement.kamar.lantai.gedung', 'policy', 'documents.reviewer:id,nama', 'decisions', 'tagihan.items', 'tagihan.dokumen', 'tagihan.jadwalCicilan', 'tagihan.pembayaran' => fn ($q) => $q->latest(), 'application', 'roomContract'])
             ->when($studentView, fn ($q) => $q->where('student_profile_id', $user->mahasiswaProfil?->id))
             ->when(! $studentView && ! $manager && ! $finance && ! $user->hasRole('pimpinan'), function ($q) use ($user): void {
                 if ($user->hasRole('fasilitator')) {
@@ -164,7 +164,7 @@ class ResidenceWorkflowController extends Controller
             abort_unless(ResidenceWorkflowAccess::officer($user, $registration), 403);
         }
 
-        $registration->load(['studentProfile.user', 'reservedRoom.lantai.gedung', 'placement.kamar.lantai.gedung', 'policy', 'documents.reviewer:id,nama', 'decisions', 'tagihan.pembayaran' => fn ($q) => $q->latest(), 'application', 'roomContract']);
+        $registration->load(['studentProfile.user', 'reservedRoom.lantai.gedung', 'placement.kamar.lantai.gedung', 'policy', 'documents.reviewer:id,nama', 'decisions', 'tagihan.items', 'tagihan.dokumen', 'tagihan.jadwalCicilan', 'tagihan.pembayaran' => fn ($q) => $q->latest(), 'application', 'roomContract']);
         $registration = $this->decorateRegistration($registration, $user);
 
         return Inertia::render('admin/residence-workflow', [

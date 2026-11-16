@@ -5,6 +5,7 @@ namespace App\Http\Requests;
 use App\Services\ResidencePolicyService;
 use App\Services\ResidenceWorkflowAccess;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 
 class PublishResidencePolicyRequest extends FormRequest
@@ -35,7 +36,7 @@ class PublishResidencePolicyRequest extends FormRequest
     {
         return [
             'category' => ['required', Rule::in(ResidencePolicyService::CATEGORIES)],
-            'settings' => ['required', 'array:open,documents,building_ids,month_days,day_basis,monthly_allowed'],
+            'settings' => ['required', 'array:open,documents,building_ids,month_days,day_basis,monthly_allowed,registration_deadline'],
             'settings.open' => ['required', 'boolean'],
             'settings.documents' => ['required', 'array', 'min:1'],
             'settings.documents.*' => ['required', 'string', 'regex:/^[a-z0-9_]{1,80}$/', 'distinct'],
@@ -44,6 +45,7 @@ class PublishResidencePolicyRequest extends FormRequest
             'settings.month_days' => ['required', 'integer', 'min:1', 'max:31'],
             'settings.day_basis' => ['required', 'in:nights,inclusive_days'],
             'settings.monthly_allowed' => ['required', 'boolean'],
+            'settings.registration_deadline' => ['nullable', 'date'],
         ];
     }
 
@@ -54,6 +56,10 @@ class PublishResidencePolicyRequest extends FormRequest
             if ($validator->errors()->isEmpty() && $this->input('category') === 'local_kipk'
                 && ! in_array('perjanjian', $this->input('settings.documents'), true)) {
                 $validator->errors()->add('settings.documents', 'KIP-K wajib memiliki dokumen perjanjian pembayaran setelah pencairan.');
+            }
+            $deadline = $this->input('settings.registration_deadline');
+            if ($validator->errors()->isEmpty() && $this->boolean('settings.open') && ! empty($deadline) && Carbon::parse((string) $deadline)->isPast()) {
+                $validator->errors()->add('settings.registration_deadline', 'Batas waktu pendaftaran jalur ini harus di masa mendatang.');
             }
         }];
     }

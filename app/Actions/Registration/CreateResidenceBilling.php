@@ -15,6 +15,22 @@ class CreateResidenceBilling
 {
     public function __construct(private CreateTagihan $createTagihan) {}
 
+    private function invoiceNumberFor(ResidenceRegistration $r): string
+    {
+        $nim = trim((string) ($r->studentProfile->user->nim_nip ?? ''));
+        $base = 'REG-'.($nim !== '' ? $nim : substr((string) $r->id, 0, 8));
+        $base = substr($base, 0, 44);
+        $candidate = $base;
+        $suffix = 2;
+
+        while (Tagihan::where('nomor', $candidate)->exists()) {
+            $candidate = "{$base}-{$suffix}";
+            $suffix++;
+        }
+
+        return $candidate;
+    }
+
     public function handle(ResidenceRegistration $registration): Tagihan
     {
         if ($registration->tagihan_id) {
@@ -51,7 +67,7 @@ class CreateResidenceBilling
             default => 1,
         };
         $sponsored = $registration->funding === 'sponsor';
-        $invoice = $this->createTagihan->handle($registration->studentProfile, 'REG-'.$registration->id, [
+        $invoice = $this->createTagihan->handle($registration->studentProfile, $this->invoiceNumberFor($registration), [
             ['deskripsi' => 'Hunian '.($room?->lantai->gedung->nama_gedung ?? 'KIP-K menunggu penempatan').' / '.($room === null ? '-' : $room->nomor_kamar), 'kuantitas' => $quantity, 'harga_satuan' => $amount],
         ], $sponsored && $amount > 0 ? [[
             'sumber' => $registration->is_kipk ? 'kipk_sponsor' : 'subsidi_internasional_gratis', 'deskripsi' => 'Ditanggung '.$registration->sponsor_name, 'jumlah' => -$amount * $quantity,
@@ -99,7 +115,7 @@ class CreateResidenceBilling
         }
         $totalCents = $cents * $quantity;
         $sponsorCents = $r->funding === 'sponsor' ? min($totalCents, $r->sponsor_limit === null ? $totalCents : (int) round((float) $r->sponsor_limit * 100)) : 0;
-        $invoice = $this->createTagihan->handle($r->studentProfile, 'REG-'.$r->id, [
+        $invoice = $this->createTagihan->handle($r->studentProfile, $this->invoiceNumberFor($r), [
             ['deskripsi' => 'Hunian '.$room->lantai->gedung->nama_gedung.' / '.$room->nomor_kamar, 'kuantitas' => $quantity, 'harga_satuan' => $cents / 100],
         ], $sponsorCents > 0 ? [['sumber' => 'institution', 'deskripsi' => 'Tanggungan '.$r->sponsor_name, 'jumlah' => -$sponsorCents / 100]] : [], generateDocument: $r->stay_kind !== 'summer_course');
         $invoice->update([
