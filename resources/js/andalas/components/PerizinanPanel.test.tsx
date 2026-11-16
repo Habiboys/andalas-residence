@@ -9,6 +9,9 @@ it('explains the monthly allowance and offers medical leave with mandatory evide
     expect(html).toContain('Sakit tidak mengurangi kuota');
     expect(html).toContain('<option value="sakit">Sakit</option>');
     expect(html).not.toContain('pengajuan sebelumnya lebih dari 6');
+    expect(html).not.toContain('<details><summary');
+    expect(html).toContain('<dialog class="modal');
+    expect(html).toContain('Ajukan Izin Baru');
 });
 
 it('does not block new applications after an approved medical leave period has ended', () => {

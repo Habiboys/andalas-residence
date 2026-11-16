@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useForm } from '@inertiajs/react';
+import { Plus } from 'lucide-react';
 import {
     Badge,
     Card,
@@ -10,6 +11,7 @@ import {
     inputClass,
     DataTable,
     Drawer,
+    Modal,
     RowActions,
     StatusBadge,
 } from './ui';
@@ -62,6 +64,8 @@ export default function PerizinanPanel({
     canSubmit?: boolean;
 }) {
     const [selected, setSelected] = useState<Leave | null>(null);
+    const [createOpen, setCreateOpen] = useState(false);
+    const [createFormKey, setCreateFormKey] = useState(0);
     const [locating, setLocating] = useState(false);
     const [locationError, setLocationError] = useState('');
     const form = useForm({
@@ -134,7 +138,11 @@ export default function PerizinanPanel({
         event.preventDefault();
         form.post(store.url(), {
             forceFormData: true,
-            onSuccess: () => form.reset(),
+            onSuccess: () => {
+                form.reset();
+                setCreateFormKey((prev) => prev + 1);
+                setCreateOpen(false);
+            },
             preserveScroll: true,
         });
     }
@@ -215,188 +223,263 @@ export default function PerizinanPanel({
                             memantau status atau mengunggah bukti.
                         </p>
                     ) : (
-                        <details>
-                            <summary className="cursor-pointer font-medium">
-                                Ajukan izin baru
-                            </summary>
-                            <p className="text-muted my-4 text-sm">
-                                Izin pulang kampung dan kegiatan maksimal 6 hari
-                                per bulan. Tanggal mulai dan kembali ikut
-                                dihitung. Izin lintas bulan memakai kuota
-                                masing-masing bulan. Sakit tidak mengurangi
-                                kuota dan wajib diverifikasi fasilitator.
-                            </p>
-                            <div className="mb-4 flex flex-wrap items-center gap-2 text-xs">
-                                <Badge
-                                    color={
-                                        usedMonthDays >= 6 ? 'red' : 'blue'
-                                    }
+                        <>
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                                <div className="min-w-0 space-y-1.5">
+                                    <h2 className="text-base-content text-sm font-semibold">
+                                        Pengajuan Izin Keluar / Pulang
+                                    </h2>
+                                    <div className="flex flex-wrap items-center gap-2 text-xs">
+                                        <Badge
+                                            color={
+                                                usedMonthDays >= 6
+                                                    ? 'red'
+                                                    : 'blue'
+                                            }
+                                        >
+                                            Kuota bulan ini terpakai:{' '}
+                                            {usedMonthDays} / 6 hari
+                                        </Badge>
+                                    </div>
+                                </div>
+                                <Button
+                                    type="button"
+                                    onClick={() => setCreateOpen(true)}
+                                    className="shrink-0 gap-1.5"
                                 >
-                                    Kuota bulan ini terpakai: {usedMonthDays} /
-                                    6 hari
-                                </Badge>
+                                    <Plus
+                                        className="size-4"
+                                        aria-hidden="true"
+                                    />
+                                    Ajukan izin baru
+                                </Button>
                             </div>
-                            <form
-                                onSubmit={submit}
-                                className="grid gap-4 md:grid-cols-2"
+
+                            <Modal
+                                open={createOpen}
+                                onClose={() => {
+                                    if (!form.processing) {
+                                        setCreateOpen(false);
+                                        form.clearErrors();
+                                    }
+                                }}
+                                title="Ajukan Izin Baru"
+                                width="max-w-2xl"
                             >
-                                <FormField label="Jenis izin">
-                                    <select
-                                        className={inputClass}
-                                        value={form.data.jenis}
-                                        onChange={(event) =>
-                                            form.setData(
-                                                'jenis',
-                                                event.target.value,
-                                            )
-                                        }
-                                    >
-                                        <option value="pulkam">
-                                            Pulang kampung
-                                        </option>
-                                        <option value="kegiatan">
-                                            Kegiatan
-                                        </option>
-                                        <option value="sakit">Sakit</option>
-                                    </select>
-                                </FormField>
-                                <FormField
-                                    label={
-                                        form.data.jenis === 'sakit'
-                                            ? 'Lokasi istirahat / perawatan (opsional)'
-                                            : 'Tujuan / alamat'
-                                    }
-                                >
-                                    <input
-                                        required={form.data.jenis !== 'sakit'}
-                                        maxLength={255}
-                                        className={inputClass}
-                                        value={form.data.tujuan_alamat}
-                                        onChange={(event) =>
-                                            form.setData(
-                                                'tujuan_alamat',
-                                                event.target.value,
-                                            )
-                                        }
-                                    />
-                                </FormField>
-                                <FormField label="Tanggal mulai">
-                                    <input
-                                        required
-                                        type="date"
-                                        min={todayIso}
-                                        className={inputClass}
-                                        value={form.data.tanggal_mulai}
-                                        onChange={(event) =>
-                                            form.setData(
-                                                'tanggal_mulai',
-                                                event.target.value,
-                                            )
-                                        }
-                                    />
-                                </FormField>
-                                <FormField
-                                    label={
-                                        form.data.jenis === 'sakit'
-                                            ? 'Berlaku sampai'
-                                            : 'Rencana kembali'
-                                    }
-                                >
-                                    <input
-                                        required
-                                        type="date"
-                                        min={
-                                            form.data.tanggal_mulai || todayIso
-                                        }
-                                        className={inputClass}
-                                        value={form.data.tanggal_kembali}
-                                        onChange={(event) =>
-                                            form.setData(
-                                                'tanggal_kembali',
-                                                event.target.value,
-                                            )
-                                        }
-                                    />
-                                </FormField>
-                                <FormField label="Alasan">
-                                    <textarea
-                                        required
-                                        rows={3}
-                                        maxLength={2000}
-                                        className={inputClass}
-                                        value={form.data.alasan}
-                                        onChange={(event) =>
-                                            form.setData(
-                                                'alasan',
-                                                event.target.value,
-                                            )
-                                        }
-                                    />
-                                </FormField>
                                 <div className="space-y-4">
-                                    <FormField
-                                        label={
-                                            form.data.jenis === 'sakit'
-                                                ? 'Bukti sakit (wajib)'
-                                                : 'Dokumen pendukung (opsional)'
-                                        }
-                                    >
-                                        <input
-                                            type="file"
-                                            required={
-                                                form.data.jenis === 'sakit'
-                                            }
-                                            accept=".pdf,.jpg,.jpeg,.png,.webp"
-                                            className={inputClass}
-                                            onChange={(event) =>
-                                                form.setData(
-                                                    'dokumen',
-                                                    event.target.files?.[0] ??
-                                                        null,
-                                                )
-                                            }
-                                        />
-                                        <p className="text-muted mt-1 text-xs">
-                                            PDF atau foto, maksimal 5 MB.
+                                    <div className="border-base-300 bg-base-200/50 space-y-2 rounded-lg border p-3">
+                                        <p className="text-muted text-xs leading-relaxed">
+                                            Izin pulang kampung dan kegiatan
+                                            maksimal 6 hari per bulan. Tanggal
+                                            mulai dan kembali ikut dihitung.
+                                            Izin lintas bulan memakai kuota
+                                            masing-masing bulan. Sakit tidak
+                                            mengurangi kuota dan wajib
+                                            diverifikasi fasilitator.
                                         </p>
-                                    </FormField>
-                                    <FormField label="Kontak darurat (opsional)">
-                                        <input
-                                            maxLength={50}
-                                            className={inputClass}
-                                            value={form.data.kontak_darurat}
-                                            onChange={(event) =>
-                                                form.setData(
-                                                    'kontak_darurat',
-                                                    event.target.value,
-                                                )
-                                            }
-                                        />
-                                    </FormField>
-                                </div>
-                                <div className="md:col-span-2">
-                                    {Object.values(form.errors).map(
-                                        (message) => (
-                                            <p
-                                                key={message}
-                                                role="alert"
-                                                className="text-error text-sm"
+                                        <div className="flex flex-wrap items-center gap-2 text-xs">
+                                            <Badge
+                                                color={
+                                                    usedMonthDays >= 6
+                                                        ? 'red'
+                                                        : 'blue'
+                                                }
                                             >
-                                                {message}
-                                            </p>
-                                        ),
-                                    )}
-                                    <Button
-                                        type="submit"
-                                        disabled={form.processing}
+                                                Kuota bulan ini terpakai:{' '}
+                                                {usedMonthDays} / 6 hari
+                                            </Badge>
+                                        </div>
+                                    </div>
+
+                                    <form
+                                        key={createFormKey}
+                                        onSubmit={submit}
+                                        className="grid gap-4 md:grid-cols-2"
                                     >
-                                        {form.processing
-                                            ? 'Mengirim…'
-                                            : 'Kirim pengajuan'}
-                                    </Button>
+                                        <FormField label="Jenis izin">
+                                            <select
+                                                className={inputClass}
+                                                value={form.data.jenis}
+                                                onChange={(event) =>
+                                                    form.setData(
+                                                        'jenis',
+                                                        event.target.value,
+                                                    )
+                                                }
+                                            >
+                                                <option value="pulkam">
+                                                    Pulang kampung
+                                                </option>
+                                                <option value="kegiatan">
+                                                    Kegiatan
+                                                </option>
+                                                <option value="sakit">
+                                                    Sakit
+                                                </option>
+                                            </select>
+                                        </FormField>
+                                        <FormField
+                                            label={
+                                                form.data.jenis === 'sakit'
+                                                    ? 'Lokasi istirahat / perawatan (opsional)'
+                                                    : 'Tujuan / alamat'
+                                            }
+                                        >
+                                            <input
+                                                required={
+                                                    form.data.jenis !== 'sakit'
+                                                }
+                                                maxLength={255}
+                                                className={inputClass}
+                                                value={form.data.tujuan_alamat}
+                                                onChange={(event) =>
+                                                    form.setData(
+                                                        'tujuan_alamat',
+                                                        event.target.value,
+                                                    )
+                                                }
+                                            />
+                                        </FormField>
+                                        <FormField label="Tanggal mulai">
+                                            <input
+                                                required
+                                                type="date"
+                                                min={todayIso}
+                                                className={inputClass}
+                                                value={form.data.tanggal_mulai}
+                                                onChange={(event) =>
+                                                    form.setData(
+                                                        'tanggal_mulai',
+                                                        event.target.value,
+                                                    )
+                                                }
+                                            />
+                                        </FormField>
+                                        <FormField
+                                            label={
+                                                form.data.jenis === 'sakit'
+                                                    ? 'Berlaku sampai'
+                                                    : 'Rencana kembali'
+                                            }
+                                        >
+                                            <input
+                                                required
+                                                type="date"
+                                                min={
+                                                    form.data.tanggal_mulai ||
+                                                    todayIso
+                                                }
+                                                className={inputClass}
+                                                value={
+                                                    form.data.tanggal_kembali
+                                                }
+                                                onChange={(event) =>
+                                                    form.setData(
+                                                        'tanggal_kembali',
+                                                        event.target.value,
+                                                    )
+                                                }
+                                            />
+                                        </FormField>
+                                        <FormField label="Alasan">
+                                            <textarea
+                                                required
+                                                rows={3}
+                                                maxLength={2000}
+                                                className={inputClass}
+                                                value={form.data.alasan}
+                                                onChange={(event) =>
+                                                    form.setData(
+                                                        'alasan',
+                                                        event.target.value,
+                                                    )
+                                                }
+                                            />
+                                        </FormField>
+                                        <div className="space-y-4">
+                                            <FormField
+                                                label={
+                                                    form.data.jenis === 'sakit'
+                                                        ? 'Bukti sakit (wajib)'
+                                                        : 'Dokumen pendukung (opsional)'
+                                                }
+                                            >
+                                                <input
+                                                    type="file"
+                                                    required={
+                                                        form.data.jenis ===
+                                                        'sakit'
+                                                    }
+                                                    accept=".pdf,.jpg,.jpeg,.png,.webp"
+                                                    className={inputClass}
+                                                    onChange={(event) =>
+                                                        form.setData(
+                                                            'dokumen',
+                                                            event.target
+                                                                .files?.[0] ??
+                                                                null,
+                                                        )
+                                                    }
+                                                />
+                                                <p className="text-muted mt-1 text-xs">
+                                                    PDF atau foto, maksimal 5
+                                                    MB.
+                                                </p>
+                                            </FormField>
+                                            <FormField label="Kontak darurat (opsional)">
+                                                <input
+                                                    maxLength={50}
+                                                    className={inputClass}
+                                                    value={
+                                                        form.data.kontak_darurat
+                                                    }
+                                                    onChange={(event) =>
+                                                        form.setData(
+                                                            'kontak_darurat',
+                                                            event.target.value,
+                                                        )
+                                                    }
+                                                />
+                                            </FormField>
+                                        </div>
+                                        <div className="space-y-3 md:col-span-2">
+                                            {Object.values(form.errors).map(
+                                                (message) => (
+                                                    <p
+                                                        key={message}
+                                                        role="alert"
+                                                        className="text-error text-sm"
+                                                    >
+                                                        {message}
+                                                    </p>
+                                                ),
+                                            )}
+                                            <div className="border-base-200 flex flex-wrap items-center justify-end gap-2 border-t pt-3">
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    disabled={form.processing}
+                                                    onClick={() => {
+                                                        setCreateOpen(false);
+                                                        form.clearErrors();
+                                                    }}
+                                                >
+                                                    Batal
+                                                </Button>
+                                                <Button
+                                                    type="submit"
+                                                    disabled={form.processing}
+                                                >
+                                                    {form.processing
+                                                        ? 'Mengirim…'
+                                                        : 'Kirim pengajuan'}
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </form>
                                 </div>
-                            </form>
-                        </details>
+                            </Modal>
+                        </>
                     )}
                 </Card>
             )}
@@ -465,7 +548,9 @@ export default function PerizinanPanel({
                                     ([value, label]) => ({ value, label }),
                                 ),
                             },
-                            render: (row) => <StatusBadge status={row.status} />,
+                            render: (row) => (
+                                <StatusBadge status={row.status} />
+                            ),
                         },
                         {
                             key: 'actions',

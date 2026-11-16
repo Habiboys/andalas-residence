@@ -13,6 +13,7 @@ import {
     Card,
     Button,
     ConfirmDialog,
+    Modal,
     StatusBadge,
     inputClass,
 } from '../../components/ui';
@@ -183,6 +184,8 @@ function Ticket({
     const cancel = useForm({ reason: '' });
     const asset = useForm({ aset_id: '', reason: '', item_id: '' });
     const [confirmClaim, setConfirmClaim] = useState(false);
+    const [assetModalOpen, setAssetModalOpen] = useState(false);
+    const [cancelModalOpen, setCancelModalOpen] = useState(false);
     const [confirmCancel, setConfirmCancel] = useState(false);
     const [busyClaim, setBusyClaim] = useState(false);
     const base = `/andalas/tiket/${r.id}`;
@@ -529,101 +532,204 @@ function Ticket({
                     </Button>
                 </form>
             )}
+            {(r.abilities.linkAsset ||
+                (r.abilities.cancel && r.status !== 'dibatalkan')) && (
+                <div className="flex flex-wrap gap-2 border-t pt-3">
+                    {r.abilities.linkAsset && (
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => setAssetModalOpen(true)}
+                        >
+                            Hubungkan inventaris
+                        </Button>
+                    )}
+                    {r.abilities.cancel && r.status !== 'dibatalkan' && (
+                        <Button
+                            type="button"
+                            variant="danger"
+                            size="sm"
+                            onClick={() => setCancelModalOpen(true)}
+                        >
+                            Batalkan dengan alasan
+                        </Button>
+                    )}
+                </div>
+            )}
+
             {r.abilities.linkAsset && (
-                <details>
-                    <summary className="cursor-pointer">
-                        Hubungkan inventaris
-                    </summary>
+                <Modal
+                    open={assetModalOpen}
+                    onClose={() => {
+                        if (!asset.processing) {
+                            setAssetModalOpen(false);
+                            asset.clearErrors();
+                        }
+                    }}
+                    title="Hubungkan Inventaris ke Item Laporan"
+                    width="max-w-lg"
+                >
                     <form
-                        className="mt-2 space-y-2"
+                        className="space-y-4"
                         onSubmit={(e) => {
                             e.preventDefault();
                             asset.post(`${base}/asset`, {
                                 preserveScroll: true,
+                                onSuccess: () => {
+                                    asset.reset();
+                                    setAssetModalOpen(false);
+                                },
                             });
                         }}
                     >
-                        <select
-                            aria-label="Item yang ditautkan ke inventaris"
-                            className={inputClass}
-                            value={asset.data.item_id}
-                            onChange={(e) =>
-                                asset.setData('item_id', e.target.value)
-                            }
-                            required={r.items.length > 1}
-                        >
-                            <option value="">Pilih item laporan</option>
-                            {r.items.map((item) => (
-                                <option key={item.id} value={item.id}>
-                                    {item.description}
+                        <div className="space-y-1">
+                            <label className="text-base-content block text-xs font-medium">
+                                Item laporan
+                            </label>
+                            <select
+                                aria-label="Item yang ditautkan ke inventaris"
+                                className={inputClass}
+                                value={asset.data.item_id}
+                                onChange={(e) =>
+                                    asset.setData('item_id', e.target.value)
+                                }
+                                required={r.items.length > 1}
+                            >
+                                <option value="">Pilih item laporan</option>
+                                {r.items.map((item) => (
+                                    <option key={item.id} value={item.id}>
+                                        {item.description}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className="space-y-1">
+                            <label className="text-base-content block text-xs font-medium">
+                                Inventaris lokasi ini{' '}
+                                <span className="text-error">*</span>
+                            </label>
+                            <select
+                                aria-label="Inventaris yang ditautkan"
+                                className={inputClass}
+                                value={asset.data.aset_id}
+                                onChange={(e) =>
+                                    asset.setData('aset_id', e.target.value)
+                                }
+                                required
+                            >
+                                <option value="">
+                                    Pilih inventaris lokasi ini
                                 </option>
-                            ))}
-                        </select>
-                        <select
-                            aria-label="Inventaris yang ditautkan"
-                            className={inputClass}
-                            value={asset.data.aset_id}
-                            onChange={(e) =>
-                                asset.setData('aset_id', e.target.value)
-                            }
-                            required
-                        >
-                            <option value="">
-                                Pilih inventaris lokasi ini
-                            </option>
-                            {r.linkable_assets?.map((a) => (
-                                <option key={a.id} value={a.id}>
-                                    {a.nama_aset}
-                                </option>
-                            ))}
-                        </select>
-                        <input
-                            aria-label="Alasan pengaitan aset"
-                            className={inputClass}
-                            value={asset.data.reason}
-                            onChange={(e) =>
-                                asset.setData('reason', e.target.value)
-                            }
-                            placeholder="Alasan pengaitan"
-                            required
-                        />
+                                {r.linkable_assets?.map((a) => (
+                                    <option key={a.id} value={a.id}>
+                                        {a.nama_aset}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className="space-y-1">
+                            <label className="text-base-content block text-xs font-medium">
+                                Alasan pengaitan{' '}
+                                <span className="text-error">*</span>
+                            </label>
+                            <input
+                                aria-label="Alasan pengaitan aset"
+                                className={inputClass}
+                                value={asset.data.reason}
+                                onChange={(e) =>
+                                    asset.setData('reason', e.target.value)
+                                }
+                                placeholder="Alasan pengaitan"
+                                required
+                            />
+                        </div>
+
                         <Errors errors={asset.errors} />
-                        <Button type="submit" disabled={asset.processing}>
-                            Tautkan inventaris
-                        </Button>
+
+                        <div className="border-base-200 flex flex-wrap items-center justify-end gap-2 border-t pt-3">
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                disabled={asset.processing}
+                                onClick={() => {
+                                    setAssetModalOpen(false);
+                                    asset.clearErrors();
+                                }}
+                            >
+                                Batal
+                            </Button>
+                            <Button type="submit" disabled={asset.processing}>
+                                {asset.processing
+                                    ? 'Menyimpan...'
+                                    : 'Tautkan inventaris'}
+                            </Button>
+                        </div>
                     </form>
-                </details>
+                </Modal>
             )}
+
             {r.abilities.cancel && r.status !== 'dibatalkan' && (
-                <details>
-                    <summary className="text-error cursor-pointer">
-                        Batalkan dengan alasan
-                    </summary>
+                <Modal
+                    open={cancelModalOpen}
+                    onClose={() => {
+                        if (!cancel.processing) {
+                            setCancelModalOpen(false);
+                            cancel.clearErrors();
+                        }
+                    }}
+                    title={`Batalkan Tiket ${r.nomor_tiket}`}
+                    width="max-w-md"
+                >
                     <form
-                        className="mt-2 space-y-2"
+                        className="space-y-4"
                         onSubmit={(e) => {
                             e.preventDefault();
                             setConfirmCancel(true);
                         }}
                     >
-                        <input
-                            aria-label="Alasan pembatalan"
-                            className={inputClass}
-                            value={cancel.data.reason}
-                            onChange={(e) =>
-                                cancel.setData('reason', e.target.value)
-                            }
-                            placeholder="Alasan pembatalan"
-                            required
-                        />
+                        <div className="space-y-1">
+                            <label className="text-base-content block text-xs font-medium">
+                                Alasan pembatalan{' '}
+                                <span className="text-error">*</span>
+                            </label>
+                            <input
+                                aria-label="Alasan pembatalan"
+                                className={inputClass}
+                                value={cancel.data.reason}
+                                onChange={(e) =>
+                                    cancel.setData('reason', e.target.value)
+                                }
+                                placeholder="Alasan pembatalan"
+                                required
+                            />
+                        </div>
+
                         <Errors errors={cancel.errors} />
-                        <Button
-                            type="submit"
-                            variant="danger"
-                            disabled={cancel.processing}
-                        >
-                            Konfirmasi pembatalan
-                        </Button>
+
+                        <div className="border-base-200 flex flex-wrap items-center justify-end gap-2 border-t pt-3">
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                disabled={cancel.processing}
+                                onClick={() => {
+                                    setCancelModalOpen(false);
+                                    cancel.clearErrors();
+                                }}
+                            >
+                                Batal
+                            </Button>
+                            <Button
+                                type="submit"
+                                variant="danger"
+                                disabled={cancel.processing}
+                            >
+                                Konfirmasi pembatalan
+                            </Button>
+                        </div>
+
                         {confirmCancel && (
                             <ConfirmDialog
                                 open
@@ -635,13 +741,17 @@ function Ticket({
                                 onConfirm={() =>
                                     cancel.post(`${base}/cancel`, {
                                         preserveScroll: true,
-                                        onSuccess: () => setConfirmCancel(false),
+                                        onSuccess: () => {
+                                            setConfirmCancel(false);
+                                            setCancelModalOpen(false);
+                                            cancel.reset();
+                                        },
                                     })
                                 }
                             />
                         )}
                     </form>
-                </details>
+                </Modal>
             )}
         </Card>
     );

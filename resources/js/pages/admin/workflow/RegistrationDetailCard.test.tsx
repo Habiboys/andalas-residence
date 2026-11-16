@@ -256,3 +256,60 @@ it('shows payment verification shortcut on detail page for finance/pengelola', (
         'Ubah Skema Tagihan &amp; Jadwal Cicilan (ACC Offline Pimpinan)',
     );
 });
+
+it('renders registration operational and amendment forms inside modals rather than expandable details toggles', () => {
+    const registration = makeRegistration({
+        is_kipk: true,
+        stay_kind: 'non_student',
+        completed_at: '2026-11-12T10:00:00Z',
+        room_contract_id: 'rc-1',
+        room_contract: {
+            id: 'rc-1',
+            total: '10000000',
+            members: ['reg-1'],
+        },
+        contract_candidates: [{ id: 'reg-1', name: 'Siti Aisyah' }],
+        tagihan: {
+            id: 'inv-1',
+            nomor: 'REG-2026-010',
+            total: '2500000',
+            total_dibayar: '0',
+            sponsor_total: '0',
+            sponsor_paid: '0',
+            pembayaran: [],
+        },
+    });
+
+    const html = renderToStaticMarkup(
+        <RegistrationDetailCard
+            r={registration}
+            manager={true}
+            finance={true}
+            leader={false}
+            rooms={[]}
+            role="admin"
+        />,
+    );
+
+    expect(html).not.toContain(
+        '<details class="border-base-300 rounded-lg border p-3"><summary class="cursor-pointer font-medium">Pindah kamar</summary>',
+    );
+    expect(html).not.toContain(
+        '<details class="border-base-300 rounded-lg border p-3"><summary class="cursor-pointer font-medium">Revisi anggota kontrak bersama</summary>',
+    );
+    expect(html).not.toContain(
+        '<details class="border-base-300 rounded-lg border p-3"><summary class="cursor-pointer font-medium">Catat bukti transfer penyewa umum</summary>',
+    );
+    expect(html).not.toContain(
+        '<details class="border-base-300 rounded-lg border p-3"><summary class="cursor-pointer font-medium">Pengembalian kunci</summary>',
+    );
+    expect(html).not.toContain(
+        '<details class="border-base-300 rounded-lg border p-3"><summary class="cursor-pointer font-medium">Catat pencairan KIP-K</summary>',
+    );
+    expect(html).toContain('Pindah Kamar');
+    expect(html).toContain('Revisi Anggota Kontrak Bersama');
+    expect(html).toContain('Catat Bukti Transfer Penyewa Umum');
+    expect(html).toContain('Pengembalian Kunci &amp; Pemeriksaan Kamar');
+    expect(html).toContain('Catat Pencairan KIP-K');
+    expect(html).toContain('<dialog class="modal');
+});

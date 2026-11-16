@@ -14,7 +14,7 @@ export function WorkflowPanel({
     children: ReactNode;
 }) {
     return (
-        <section className="card border-base-300 bg-base-100 min-w-0 max-w-full space-y-4 overflow-hidden border p-5 shadow-xs">
+        <section className="card border-base-300 bg-base-100 max-w-full min-w-0 space-y-4 overflow-hidden border p-5 shadow-xs">
             <div className="min-w-0 space-y-0.5">
                 <h2 className="text-lg font-semibold break-words">{title}</h2>
                 {subtitle && (
@@ -90,6 +90,7 @@ export function ActionForm({
     label,
     children,
     onSuccess,
+    onCancel,
     disabled = false,
     confirmTitle,
     confirmMessage,
@@ -97,6 +98,7 @@ export function ActionForm({
     url: string;
     label: string;
     onSuccess?: () => void;
+    onCancel?: () => void;
     disabled?: boolean;
     confirmTitle?: string;
     confirmMessage?: string;
@@ -137,7 +139,24 @@ export function ActionForm({
                             </p>
                         ))}
 
-                        <div className="flex flex-wrap items-center gap-2 pt-1">
+                        <div
+                            className={
+                                onCancel
+                                    ? 'border-base-200 flex flex-wrap items-center justify-end gap-2 border-t pt-3'
+                                    : 'flex flex-wrap items-center gap-2 pt-1'
+                            }
+                        >
+                            {onCancel && (
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    disabled={processing}
+                                    onClick={onCancel}
+                                >
+                                    Batal
+                                </Button>
+                            )}
                             {confirmMessage ? (
                                 <>
                                     <Button
@@ -185,7 +204,10 @@ export function ActionForm({
                         submitBtnRef.current?.click();
                     }}
                     title={confirmTitle ?? 'Konfirmasi Tindakan'}
-                    message={confirmMessage ?? 'Apakah Anda yakin ingin menyimpan tindakan ini?'}
+                    message={
+                        confirmMessage ??
+                        'Apakah Anda yakin ingin menyimpan tindakan ini?'
+                    }
                     confirmLabel="Ya, Lanjutkan"
                 />
             )}

@@ -3,7 +3,7 @@ import * as amendments from '@/actions/App/Http/Controllers/ResidenceAmendmentCo
 import * as workflow from '@/actions/App/Http/Controllers/ResidenceWorkflowController';
 import { verifikasiPembayaran as adminVerifikasiPembayaran } from '@/routes/admin';
 import { verifikasiPembayaran as adminLayananVerifikasiPembayaran } from '@/routes/admin_layanan';
-import { Modal, StatusBadge } from '@/andalas/components/ui';
+import { Button, Modal, StatusBadge } from '@/andalas/components/ui';
 import { formatDateTime, formatRupiah } from '@/andalas/lib/format';
 import {
     ArrowRight,
@@ -108,7 +108,8 @@ function DocumentReviewSection({
         const savedNotes = (doc.notes ?? '').trim();
         return (
             draft.status !== doc.status ||
-            (draft.status === 'revision' && draft.notes.trim() !== savedNotes) ||
+            (draft.status === 'revision' &&
+                draft.notes.trim() !== savedNotes) ||
             (draft.status === 'valid' && draft.notes.trim() !== savedNotes)
         );
     });
@@ -494,8 +495,8 @@ function DocumentReviewSection({
                     <p>
                         Pastikan hasil pemeriksaan berikut sudah sesuai sebelum
                         disimpan. Bila seluruh dokumen dinyatakan{' '}
-                        <strong>Valid</strong>, tahap pembayaran untuk
-                        pendaftar akan otomatis dibuka.
+                        <strong>Valid</strong>, tahap pembayaran untuk pendaftar
+                        akan otomatis dibuka.
                     </p>
                     <div className="border-base-300 bg-base-200/40 divide-base-300 divide-y rounded-xl border px-3">
                         {reviewableDocs.map(({ kind, doc }) => {
@@ -569,114 +570,138 @@ function AmendmentsSection({
     const [contractReference, setContractReference] = useState(() =>
         newReference(),
     );
+    const [moveOpen, setMoveOpen] = useState(false);
+    const [contractOpen, setContractOpen] = useState(false);
+
+    const canMove = Boolean(
+        r.can_operate &&
+        (r.reserved_room || r.checked_in_at) &&
+        !r.keys_returned_at &&
+        (r.billing_basis !== 'room' || manager),
+    );
+    const canReviseContract = Boolean(manager && r.room_contract);
 
     return (
         <div className="space-y-3">
-            {r.can_operate &&
-                (r.reserved_room || r.checked_in_at) &&
-                !r.keys_returned_at &&
-                (r.billing_basis !== 'room' || manager) && (
-                    <details className="border-base-300 rounded-lg border p-3">
-                        <summary className="cursor-pointer font-medium">
+            {(canMove || canReviseContract) && (
+                <div className="flex flex-wrap gap-2">
+                    {canMove && (
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => setMoveOpen(true)}
+                        >
                             Pindah kamar
-                        </summary>
+                        </Button>
+                    )}
+                    {canReviseContract && (
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => setContractOpen(true)}
+                        >
+                            Revisi anggota kontrak bersama
+                        </Button>
+                    )}
+                </div>
+            )}
 
-                        <div className="mt-3">
-                            <ActionForm
-                                onSuccess={() =>
-                                    setMoveReference(newReference())
-                                }
-                                url={amendments.move.url(r.id)}
-                                label="Konfirmasi mutasi dan serah kunci"
-                                confirmTitle="Proses Mutasi Kamar?"
-                                confirmMessage="Penghuni akan dipindahkan ke kamar tujuan dan selisih tarif berlaku sesuai ketentuan kontrak."
+            {canMove && (
+                <Modal
+                    open={moveOpen}
+                    onClose={() => setMoveOpen(false)}
+                    title="Pindah Kamar"
+                    width="max-w-xl"
+                >
+                    <ActionForm
+                        onSuccess={() => {
+                            setMoveReference(newReference());
+                            setMoveOpen(false);
+                        }}
+                        onCancel={() => setMoveOpen(false)}
+                        url={amendments.move.url(r.id)}
+                        label="Konfirmasi mutasi dan serah kunci"
+                        confirmTitle="Proses Mutasi Kamar?"
+                        confirmMessage="Penghuni akan dipindahkan ke kamar tujuan dan selisih tarif berlaku sesuai ketentuan kontrak."
+                    >
+                        <input
+                            type="hidden"
+                            name="reference"
+                            value={moveReference}
+                        />
+
+                        <p className="border-base-300 bg-base-200/50 text-base-content/75 rounded-lg border p-3 text-xs">
+                            Tarif kamar tujuan berlaku untuk seluruh masa
+                            kontrak. Komitmen sponsor tetap; selisih menjadi
+                            kewajiban pribadi. Fasilitator hanya dapat
+                            memindahkan dalam gedungnya; lintas gedung melalui
+                            pengelola.
+                        </p>
+
+                        <Field name="room_id" label="Kamar tujuan">
+                            <select
+                                className={fieldInputClass}
+                                name="room_id"
+                                required
                             >
-                                <input
-                                    type="hidden"
-                                    name="reference"
-                                    value={moveReference}
-                                />
-
-                                <p className="text-base-content/75 text-xs">
-                                    Tarif kamar tujuan berlaku untuk seluruh
-                                    masa kontrak. Komitmen sponsor tetap;
-                                    selisih menjadi kewajiban pribadi.
-                                    Fasilitator hanya dapat memindahkan dalam
-                                    gedungnya; lintas gedung melalui pengelola.
-                                </p>
-
-                                <Field name="room_id" label="Kamar tujuan">
-                                    <select
-                                        className={fieldInputClass}
-                                        name="room_id"
-                                        required
-                                    >
-                                        <option value="">Pilih kamar</option>
-                                        {rooms
-                                            .filter(
-                                                (room) =>
-                                                    room.id !==
-                                                    r.reserved_room?.id,
-                                            )
-                                            .map((room) => (
-                                                <option
-                                                    key={room.id}
-                                                    value={room.id}
-                                                >
-                                                    {
-                                                        room.lantai.gedung
-                                                            .nama_gedung
-                                                    }{' '}
-                                                    / {room.nomor_kamar}
-                                                </option>
-                                            ))}
-                                    </select>
-                                </Field>
-
-                                <Field
-                                    name="reason"
-                                    label="Alasan dan dasar persetujuan mutasi"
-                                />
-
-                                <Field
-                                    name="room_condition"
-                                    label="Kondisi kamar asal"
-                                >
-                                    <select
-                                        className={fieldInputClass}
-                                        name="room_condition"
-                                    >
-                                        <option value="ready">Layak</option>
-                                        <option value="damaged">
-                                            Rusak — tahan untuk perbaikan
+                                <option value="">Pilih kamar</option>
+                                {rooms
+                                    .filter(
+                                        (room) =>
+                                            room.id !== r.reserved_room?.id,
+                                    )
+                                    .map((room) => (
+                                        <option key={room.id} value={room.id}>
+                                            {room.lantai.gedung.nama_gedung} /{' '}
+                                            {room.nomor_kamar}
                                         </option>
-                                    </select>
-                                </Field>
+                                    ))}
+                            </select>
+                        </Field>
 
-                                {r.room_contract_id && (
-                                    <Field
-                                        name="consent"
-                                        label="Persetujuan perubahan kontrak seluruh anggota (PDF/gambar)"
-                                        type="file"
-                                    />
-                                )}
-                                <ConfirmCheckbox name="keys_exchanged">
-                                    Identitas diperiksa, kunci asal diterima, dan
-                                    kunci tujuan diserahkan.
-                                </ConfirmCheckbox>
-                            </ActionForm>
-                        </div>
-                    </details>
-                )}
+                        <Field
+                            name="reason"
+                            label="Alasan dan dasar persetujuan mutasi"
+                        />
 
-            {manager && r.room_contract && (
-                <details className="border-base-300 rounded-lg border p-3">
-                    <summary className="cursor-pointer font-medium">
-                        Revisi anggota kontrak bersama
-                    </summary>
+                        <Field name="room_condition" label="Kondisi kamar asal">
+                            <select
+                                className={fieldInputClass}
+                                name="room_condition"
+                            >
+                                <option value="ready">Layak</option>
+                                <option value="damaged">
+                                    Rusak — tahan untuk perbaikan
+                                </option>
+                            </select>
+                        </Field>
 
-                    <div className="mt-3 space-y-2">
-                        <p className="text-base-content/75 text-sm">
+                        {r.room_contract_id && (
+                            <Field
+                                name="consent"
+                                label="Persetujuan perubahan kontrak seluruh anggota (PDF/gambar)"
+                                type="file"
+                            />
+                        )}
+                        <ConfirmCheckbox name="keys_exchanged">
+                            Identitas diperiksa, kunci asal diterima, dan kunci
+                            tujuan diserahkan.
+                        </ConfirmCheckbox>
+                    </ActionForm>
+                </Modal>
+            )}
+
+            {canReviseContract && r.room_contract && (
+                <Modal
+                    open={contractOpen}
+                    onClose={() => setContractOpen(false)}
+                    title="Revisi Anggota Kontrak Bersama"
+                    width="max-w-xl"
+                >
+                    <div className="space-y-3">
+                        <p className="border-base-300 bg-base-200/50 text-base-content/75 rounded-lg border p-3 text-xs">
                             Total kontrak{' '}
                             <strong>
                                 {formatRupiah(Number(r.room_contract.total))}
@@ -687,9 +712,11 @@ function AmendmentsSection({
                         </p>
 
                         <ActionForm
-                            onSuccess={() =>
-                                setContractReference(newReference())
-                            }
+                            onSuccess={() => {
+                                setContractReference(newReference());
+                                setContractOpen(false);
+                            }}
+                            onCancel={() => setContractOpen(false)}
                             url={amendments.contract.url(r.room_contract.id)}
                             label="Sahkan revisi kontrak"
                             confirmTitle="Sahkan Revisi Kontrak Bersama?"
@@ -701,23 +728,25 @@ function AmendmentsSection({
                                 value={contractReference}
                             />
 
-                            {r.contract_candidates?.map((candidate) => (
-                                <label
-                                    key={candidate.id}
-                                    className="flex items-center gap-2 text-sm"
-                                >
-                                    <input
-                                        className="checkbox checkbox-sm"
-                                        type="checkbox"
-                                        name="members[]"
-                                        value={candidate.id}
-                                        defaultChecked={r.room_contract?.members.includes(
-                                            candidate.id,
-                                        )}
-                                    />
-                                    {candidate.name}
-                                </label>
-                            ))}
+                            <div className="space-y-1.5">
+                                {r.contract_candidates?.map((candidate) => (
+                                    <label
+                                        key={candidate.id}
+                                        className="flex items-center gap-2 text-sm"
+                                    >
+                                        <input
+                                            className="checkbox checkbox-sm"
+                                            type="checkbox"
+                                            name="members[]"
+                                            value={candidate.id}
+                                            defaultChecked={r.room_contract?.members.includes(
+                                                candidate.id,
+                                            )}
+                                        />
+                                        {candidate.name}
+                                    </label>
+                                ))}
+                            </div>
 
                             <Field
                                 name="scheme"
@@ -751,7 +780,7 @@ function AmendmentsSection({
                             />
                         </ActionForm>
                     </div>
-                </details>
+                </Modal>
             )}
 
             {!!r.amendments?.length && (
@@ -949,6 +978,7 @@ function InstallmentScheduleFields({
 }
 
 function OfflineFinancingSection({ r }: { r: Registration }) {
+    const [open, setOpen] = useState(false);
     const [kind, setKind] = useState<'installment' | 'defer' | 'monthly'>(
         'installment',
     );
@@ -983,67 +1013,99 @@ function OfflineFinancingSection({ r }: { r: Registration }) {
     }
 
     return (
-        <details className="border-base-300 rounded-lg border p-3">
-            <summary className="cursor-pointer font-medium">
-                Ubah Skema Tagihan &amp; Jadwal Cicilan (ACC Offline Pimpinan)
-            </summary>
-            <div className="mt-3 space-y-3">
-                <p className="text-base-content/75 text-xs">
-                    Gunakan formulir ini bila calon penghuni sudah mengajukan
-                    dan mendapat persetujuan langsung dari Pimpinan secara
-                    offline untuk skema cicilan atau penundaan pembayaran.
-                </p>
-                <ActionForm
-                    url={workflow.requestDecision.url(r.id)}
-                    label="Simpan Skema & Jadwal Tagihan"
-                    confirmTitle="Ubah Skema Tagihan & Pembayaran?"
-                    confirmMessage="Jadwal termin tagihan mahasiswa akan diperbarui sesuai persetujuan Pimpinan (offline)."
+        <>
+            <div className="border-base-300 bg-base-200/30 flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3">
+                <div className="min-w-0 space-y-0.5">
+                    <p className="text-sm font-medium">
+                        Ubah Skema Tagihan &amp; Jadwal Cicilan (ACC Offline
+                        Pimpinan)
+                    </p>
+                    <p className="text-base-content/70 text-xs">
+                        Atur cicilan atau penundaan pembayaran (0 DP) bila sudah
+                        mendapat persetujuan offline dari Pimpinan.
+                    </p>
+                </div>
+                <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setOpen(true)}
                 >
-                    <input type="hidden" name="offline_approval" value="1" />
-                    <input type="hidden" name="status" value="approved" />
-                    <div className="grid gap-3 sm:grid-cols-2">
-                        <Field label="Skema Pembiayaan" name="kind">
-                            <select
-                                name="kind"
-                                className={fieldInputClass}
-                                value={kind}
-                                onChange={(e) => {
-                                    const nextKind = e.target.value as
-                                        | 'installment'
-                                        | 'defer'
-                                        | 'monthly';
-                                    setKind(nextKind);
-                                    if (nextKind === 'defer') {
-                                        setInitialAmount('0');
-                                    }
-                                }}
-                            >
-                                <option value="installment">
-                                    Cicilan (Termin Pembayaran)
-                                </option>
-                                <option value="defer">
-                                    Penundaan Pembayaran (0 DP)
-                                </option>
-                                {r.rate_unit === 'month' && (
-                                    <option value="monthly">Bulanan</option>
-                                )}
-                            </select>
-                        </Field>
-                        <Field
-                            label="Dasar persetujuan Pimpinan (offline)"
-                            name="approval_basis"
-                        />
-                    </div>
-                    <InstallmentScheduleFields
-                        remainingTotal={remainingTotal}
-                        initialAmount={initialAmount}
-                        onInitialAmountChange={setInitialAmount}
-                        terms={terms}
-                        onTermsChange={setTerms}
-                    />
-                </ActionForm>
+                    Atur Skema &amp; Jadwal
+                </Button>
             </div>
-        </details>
+
+            <Modal
+                open={open}
+                onClose={() => setOpen(false)}
+                title="Ubah Skema Tagihan & Jadwal Cicilan (ACC Offline Pimpinan)"
+                width="max-w-2xl"
+            >
+                <div className="space-y-3">
+                    <p className="border-base-300 bg-base-200/50 text-base-content/75 rounded-lg border p-3 text-xs">
+                        Gunakan formulir ini bila calon penghuni sudah
+                        mengajukan dan mendapat persetujuan langsung dari
+                        Pimpinan secara offline untuk skema cicilan atau
+                        penundaan pembayaran.
+                    </p>
+                    <ActionForm
+                        url={workflow.requestDecision.url(r.id)}
+                        label="Simpan Skema & Jadwal Tagihan"
+                        confirmTitle="Ubah Skema Tagihan & Pembayaran?"
+                        confirmMessage="Jadwal termin tagihan mahasiswa akan diperbarui sesuai persetujuan Pimpinan (offline)."
+                        onSuccess={() => setOpen(false)}
+                        onCancel={() => setOpen(false)}
+                    >
+                        <input
+                            type="hidden"
+                            name="offline_approval"
+                            value="1"
+                        />
+                        <input type="hidden" name="status" value="approved" />
+                        <div className="grid gap-3 sm:grid-cols-2">
+                            <Field label="Skema Pembiayaan" name="kind">
+                                <select
+                                    name="kind"
+                                    className={fieldInputClass}
+                                    value={kind}
+                                    onChange={(e) => {
+                                        const nextKind = e.target.value as
+                                            | 'installment'
+                                            | 'defer'
+                                            | 'monthly';
+                                        setKind(nextKind);
+                                        if (nextKind === 'defer') {
+                                            setInitialAmount('0');
+                                        }
+                                    }}
+                                >
+                                    <option value="installment">
+                                        Cicilan (Termin Pembayaran)
+                                    </option>
+                                    <option value="defer">
+                                        Penundaan Pembayaran (0 DP)
+                                    </option>
+                                    {r.rate_unit === 'month' && (
+                                        <option value="monthly">Bulanan</option>
+                                    )}
+                                </select>
+                            </Field>
+                            <Field
+                                label="Dasar persetujuan Pimpinan (offline)"
+                                name="approval_basis"
+                            />
+                        </div>
+                        <InstallmentScheduleFields
+                            remainingTotal={remainingTotal}
+                            initialAmount={initialAmount}
+                            onInitialAmountChange={setInitialAmount}
+                            terms={terms}
+                            onTermsChange={setTerms}
+                        />
+                    </ActionForm>
+                </div>
+            </Modal>
+        </>
     );
 }
 
@@ -1105,11 +1167,7 @@ function FinancingTermsForm({
                 }
             >
                 {offlineManagerApproval && (
-                    <input
-                        type="hidden"
-                        name="offline_approval"
-                        value="1"
-                    />
+                    <input type="hidden" name="offline_approval" value="1" />
                 )}
                 <div className="grid gap-3 sm:grid-cols-2">
                     <Field label="Keputusan" name="status">
@@ -1178,6 +1236,10 @@ export default function RegistrationDetailCard({
     rooms: Room[];
     role?: string;
 }) {
+    const [transferProofOpen, setTransferProofOpen] = useState(false);
+    const [returnKeysOpen, setReturnKeysOpen] = useState(false);
+    const [disburseOpen, setDisburseOpen] = useState(false);
+
     const latestDocuments = r.documents.filter(
         (d) =>
             !r.documents.some(
@@ -1205,7 +1267,7 @@ export default function RegistrationDetailCard({
           ? 'aktif'
           : r.completed_at
             ? 'selesai'
-            : (r.allocation_status || r.status);
+            : r.allocation_status || r.status;
     const statusLabel = r.keys_returned_at
         ? 'Kunci telah kembali'
         : r.checked_in_at
@@ -1486,9 +1548,10 @@ export default function RegistrationDetailCard({
                                     {d.status === 'pending' &&
                                         (manager ||
                                             (leader &&
-                                                ['installment', 'defer'].includes(
-                                                    d.kind,
-                                                ))) && (
+                                                [
+                                                    'installment',
+                                                    'defer',
+                                                ].includes(d.kind))) && (
                                             <FinancingTermsForm
                                                 decision={d}
                                                 tagihan={r.tagihan}
@@ -1503,10 +1566,7 @@ export default function RegistrationDetailCard({
                 )}
 
             {r.cash_refunds && r.cash_refunds.length > 0 && (
-                <details
-                    className="border-base-300 rounded-lg border p-3"
-                    open
-                >
+                <details className="border-base-300 rounded-lg border p-3" open>
                     <summary className="cursor-pointer font-medium">
                         Refund Tunai Kelebihan Bayar ({r.cash_refunds.length})
                     </summary>
@@ -1567,64 +1627,100 @@ export default function RegistrationDetailCard({
                 </details>
             )}
 
-            {r.can_operate && r.stay_kind === 'non_student' && r.tagihan && (
-                <details className="border-base-300 rounded-lg border p-3">
-                    <summary className="cursor-pointer font-medium">
-                        Catat bukti transfer penyewa umum
-                    </summary>
-                    <div className="mt-3">
-                        <ActionForm
-                            url={workflow.transferProof.url(r.id)}
-                            label="Simpan bukti untuk diperiksa"
+            {((r.can_operate && r.stay_kind === 'non_student' && r.tagihan) ||
+                (r.can_operate && r.completed_at && !r.keys_returned_at) ||
+                (manager && r.is_kipk && !r.kipk_disbursed_at)) && (
+                <div className="flex flex-wrap gap-2">
+                    {r.can_operate &&
+                        r.stay_kind === 'non_student' &&
+                        r.tagihan && (
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => setTransferProofOpen(true)}
+                            >
+                                Catat bukti transfer penyewa umum
+                            </Button>
+                        )}
+                    {r.can_operate && r.completed_at && !r.keys_returned_at && (
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => setReturnKeysOpen(true)}
                         >
-                            <Field
-                                name="nominal"
-                                label="Nominal transfer (Rp)"
-                                type="number"
-                            />
-                            <Field
-                                name="file"
-                                label="Bukti transfer"
-                                type="file"
-                            />
-                        </ActionForm>
-                    </div>
-                </details>
+                            Pengembalian kunci
+                        </Button>
+                    )}
+                    {manager && r.is_kipk && !r.kipk_disbursed_at && (
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => setDisburseOpen(true)}
+                        >
+                            Catat pencairan KIP-K
+                        </Button>
+                    )}
+                </div>
             )}
 
-            {r.can_operate &&
-                !r.completed_at &&
-                r.blockers.length === 0 && (
-                    <div className="border-success/40 bg-success/5 rounded-lg border p-4">
-                        <h3 className="mb-2 text-sm font-semibold">
-                            Check-in Fisik &amp; Serah Kunci
-                        </h3>
-                        <ActionForm
-                            url={workflow.checkIn.url(r.id)}
-                            label="Konfirmasi check-in dan serah kunci"
-                            confirmTitle="Konfirmasi Check-in Penghuni?"
-                            confirmMessage="Status penghuni akan menjadi aktif di asrama setelah check-in dan serah kunci dicatat."
-                        >
-                            <ConfirmCheckbox name="identity_checked">
-                                Identitas penghuni telah diperiksa langsung.
-                            </ConfirmCheckbox>
-                            <ConfirmCheckbox name="original_documents_checked">
-                                Berkas asli sesuai dokumen yang disahkan.
-                            </ConfirmCheckbox>
-                            <ConfirmCheckbox name="keys_handed">
-                                Penghuni hadir dan kunci telah diserahkan.
-                            </ConfirmCheckbox>
-                        </ActionForm>
-                    </div>
-                )}
+            {r.can_operate && r.stay_kind === 'non_student' && r.tagihan && (
+                <Modal
+                    open={transferProofOpen}
+                    onClose={() => setTransferProofOpen(false)}
+                    title="Catat Bukti Transfer Penyewa Umum"
+                    width="max-w-lg"
+                >
+                    <ActionForm
+                        url={workflow.transferProof.url(r.id)}
+                        label="Simpan bukti untuk diperiksa"
+                        onSuccess={() => setTransferProofOpen(false)}
+                        onCancel={() => setTransferProofOpen(false)}
+                    >
+                        <Field
+                            name="nominal"
+                            label="Nominal transfer (Rp)"
+                            type="number"
+                        />
+                        <Field name="file" label="Bukti transfer" type="file" />
+                    </ActionForm>
+                </Modal>
+            )}
+
+            {r.can_operate && !r.completed_at && r.blockers.length === 0 && (
+                <div className="border-success/40 bg-success/5 rounded-lg border p-4">
+                    <h3 className="mb-2 text-sm font-semibold">
+                        Check-in Fisik &amp; Serah Kunci
+                    </h3>
+                    <ActionForm
+                        url={workflow.checkIn.url(r.id)}
+                        label="Konfirmasi check-in dan serah kunci"
+                        confirmTitle="Konfirmasi Check-in Penghuni?"
+                        confirmMessage="Status penghuni akan menjadi aktif di asrama setelah check-in dan serah kunci dicatat."
+                    >
+                        <ConfirmCheckbox name="identity_checked">
+                            Identitas penghuni telah diperiksa langsung.
+                        </ConfirmCheckbox>
+                        <ConfirmCheckbox name="original_documents_checked">
+                            Berkas asli sesuai dokumen yang disahkan.
+                        </ConfirmCheckbox>
+                        <ConfirmCheckbox name="keys_handed">
+                            Penghuni hadir dan kunci telah diserahkan.
+                        </ConfirmCheckbox>
+                    </ActionForm>
+                </div>
+            )}
 
             {r.can_operate && r.completed_at && !r.keys_returned_at && (
-                <details className="border-base-300 rounded-lg border p-3">
-                    <summary className="cursor-pointer font-medium">
-                        Pengembalian kunci
-                    </summary>
-
-                    <div className="mt-3 space-y-3">
+                <Modal
+                    open={returnKeysOpen}
+                    onClose={() => setReturnKeysOpen(false)}
+                    title="Pengembalian Kunci & Pemeriksaan Kamar"
+                    width="max-w-xl"
+                >
+                    <div className="space-y-3">
                         {!r.checkout_request ? (
                             <ActionForm
                                 url={workflow.requestInspection.url(r.id)}
@@ -1645,8 +1741,9 @@ export default function RegistrationDetailCard({
 
                         {blockedReturnByInspection && (
                             <p className="alert alert-warning py-2 text-xs">
-                                Pengembalian kunci baru dapat diselesaikan setelah
-                                petugas GO menyelesaikan pemeriksaan kamar.
+                                Pengembalian kunci baru dapat diselesaikan
+                                setelah petugas GO menyelesaikan pemeriksaan
+                                kamar.
                             </p>
                         )}
 
@@ -1656,6 +1753,8 @@ export default function RegistrationDetailCard({
                             disabled={blockedReturnByInspection}
                             confirmTitle="Konfirmasi Pengembalian Kunci?"
                             confirmMessage="Kamar akan dilepas dari hunian aktif penghuni dan tercatat sesuai kondisi yang dipilih."
+                            onSuccess={() => setReturnKeysOpen(false)}
+                            onCancel={() => setReturnKeysOpen(false)}
                         >
                             <ConfirmCheckbox name="keys_received">
                                 Kunci sudah diterima petugas.
@@ -1685,7 +1784,7 @@ export default function RegistrationDetailCard({
                             />
                         </ActionForm>
                     </div>
-                </details>
+                </Modal>
             )}
 
             {manager && r.is_kipk && !r.reserved_room && (
@@ -1696,34 +1795,36 @@ export default function RegistrationDetailCard({
             )}
 
             {manager && r.is_kipk && !r.kipk_disbursed_at && (
-                <details className="border-base-300 rounded-lg border p-3">
-                    <summary className="cursor-pointer font-medium">
-                        Catat pencairan KIP-K
-                    </summary>
-                    <div className="mt-3">
-                        <ActionForm
-                            url={workflow.disburse.url(r.id)}
-                            label="Simpan pencairan"
-                            confirmTitle="Catat Pencairan KIP-K?"
-                            confirmMessage="Tanggal pencairan dan jatuh tempo tagihan KIP-K akan diperbarui secara permanen."
-                        >
-                            <Field
-                                name="disbursed_at"
-                                label="Tanggal pencairan"
-                                type="date"
-                            />
-                            <Field
-                                name="due_at"
-                                label="Jatuh tempo pembayaran"
-                                type="date"
-                            />
-                            <Field
-                                name="reference"
-                                label="Referensi konfirmasi pencairan"
-                            />
-                        </ActionForm>
-                    </div>
-                </details>
+                <Modal
+                    open={disburseOpen}
+                    onClose={() => setDisburseOpen(false)}
+                    title="Catat Pencairan KIP-K"
+                    width="max-w-lg"
+                >
+                    <ActionForm
+                        url={workflow.disburse.url(r.id)}
+                        label="Simpan pencairan"
+                        confirmTitle="Catat Pencairan KIP-K?"
+                        confirmMessage="Tanggal pencairan dan jatuh tempo tagihan KIP-K akan diperbarui secara permanen."
+                        onSuccess={() => setDisburseOpen(false)}
+                        onCancel={() => setDisburseOpen(false)}
+                    >
+                        <Field
+                            name="disbursed_at"
+                            label="Tanggal pencairan"
+                            type="date"
+                        />
+                        <Field
+                            name="due_at"
+                            label="Jatuh tempo pembayaran"
+                            type="date"
+                        />
+                        <Field
+                            name="reference"
+                            label="Referensi konfirmasi pencairan"
+                        />
+                    </ActionForm>
+                </Modal>
             )}
 
             {manager &&

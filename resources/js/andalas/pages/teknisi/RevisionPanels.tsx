@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useForm } from '@inertiajs/react';
-import { Plus } from 'lucide-react';
+import { MessageSquarePlus, Plus } from 'lucide-react';
 import { Button, Card, Modal, inputClass } from '../../components/ui';
 import { newDamageRequestKey } from '../../lib/damage-reports';
 
@@ -242,7 +242,9 @@ export function MultiItemForm({
                                             })
                                         }
                                     >
-                                        <option value="">Tanpa inventaris</option>
+                                        <option value="">
+                                            Tanpa inventaris
+                                        </option>
                                         {filteredAssets.map((a) => (
                                             <option key={a.id} value={a.id}>
                                                 {a.nama_aset}
@@ -432,69 +434,153 @@ export function ItemCompletion({
 export function ComplaintForm({
     reportId,
     items,
+    open: controlledOpen,
+    onClose: controlledOnClose,
 }: {
     reportId: string;
     items: DamageItem[];
+    open?: boolean;
+    onClose?: () => void;
 }) {
+    const [internalOpen, setInternalOpen] = useState(false);
+    const isControlled = controlledOpen !== undefined;
+    const isOpen = controlledOpen ?? internalOpen;
     const form = useForm({
         reason: '',
         item_id: '',
         request_key: newDamageRequestKey(),
     });
+
+    function closeModal() {
+        if (form.processing) {
+            return;
+        }
+        if (controlledOnClose) {
+            controlledOnClose();
+        } else {
+            setInternalOpen(false);
+        }
+        form.clearErrors();
+    }
+
     return (
-        <details>
-            <summary className="cursor-pointer font-medium">
-                Ajukan komplain ulang hasil perbaikan
-            </summary>
-            <form
-                className="mt-2 space-y-2"
-                onSubmit={(e) => {
-                    e.preventDefault();
-                    form.post(`/pelaporan/${reportId}/complaints`, {
-                        preserveScroll: true,
-                        onSuccess: () => {
-                            form.reset('reason');
-                            form.setData('request_key', newDamageRequestKey());
-                        },
-                    });
-                }}
+        <>
+            {!isControlled && (
+                <div>
+                    <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        className="gap-1.5"
+                        onClick={() => setInternalOpen(true)}
+                    >
+                        <MessageSquarePlus
+                            className="size-3.5"
+                            aria-hidden="true"
+                        />
+                        Ajukan komplain ulang hasil perbaikan
+                    </Button>
+                </div>
+            )}
+
+            <Modal
+                open={isOpen}
+                onClose={closeModal}
+                title="Ajukan Komplain Ulang Hasil Perbaikan"
+                width="max-w-lg"
             >
-                <select
-                    aria-label="Item komplain"
-                    className={inputClass}
-                    value={form.data.item_id}
-                    onChange={(e) => form.setData('item_id', e.target.value)}
+                <form
+                    className="space-y-4"
+                    onSubmit={(e) => {
+                        e.preventDefault();
+                        form.post(`/pelaporan/${reportId}/complaints`, {
+                            preserveScroll: true,
+                            onSuccess: () => {
+                                form.setData({
+                                    reason: '',
+                                    item_id: '',
+                                    request_key: newDamageRequestKey(),
+                                });
+                                if (controlledOnClose) {
+                                    controlledOnClose();
+                                } else {
+                                    setInternalOpen(false);
+                                }
+                            },
+                        });
+                    }}
                 >
-                    <option value="">Laporan secara keseluruhan</option>
-                    {items.map((i) => (
-                        <option key={i.id} value={i.id}>
-                            {i.description}
-                        </option>
-                    ))}
-                </select>
-                <textarea
-                    aria-label="Alasan komplain"
-                    className={inputClass}
-                    value={form.data.reason}
-                    onChange={(e) => form.setData('reason', e.target.value)}
-                    required
-                    placeholder="Jelaskan hasil perbaikan yang kembali bermasalah"
-                />
-                <p className="text-muted text-sm">
-                    Pengajuan dicatat dengan referensi laporan ini. Histori
-                    selesai tidak ditimpa dan laporan tidak otomatis dibuka
-                    ulang.
-                </p>
-                <ErrorList errors={form.errors} />
-                <Button type="submit" disabled={form.processing}>
-                    Kirim komplain ulang
-                </Button>
-            </form>
-        </details>
+                    <p className="border-base-300 bg-base-200/50 text-muted rounded-lg border p-3 text-xs">
+                        Pengajuan dicatat dengan referensi laporan ini. Histori
+                        selesai tidak ditimpa dan laporan tidak otomatis dibuka
+                        ulang.
+                    </p>
+
+                    <div className="space-y-1">
+                        <label className="text-base-content block text-xs font-medium">
+                            Item terdampak
+                        </label>
+                        <select
+                            aria-label="Item komplain"
+                            className={inputClass}
+                            value={form.data.item_id}
+                            onChange={(e) =>
+                                form.setData('item_id', e.target.value)
+                            }
+                        >
+                            <option value="">Laporan secara keseluruhan</option>
+                            {items.map((i) => (
+                                <option key={i.id} value={i.id}>
+                                    {i.description}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div className="space-y-1">
+                        <label className="text-base-content block text-xs font-medium">
+                            Alasan komplain{' '}
+                            <span className="text-error">*</span>
+                        </label>
+                        <textarea
+                            aria-label="Alasan komplain"
+                            className={inputClass}
+                            rows={3}
+                            value={form.data.reason}
+                            onChange={(e) =>
+                                form.setData('reason', e.target.value)
+                            }
+                            required
+                            placeholder="Jelaskan hasil perbaikan yang kembali bermasalah"
+                        />
+                    </div>
+
+                    <ErrorList errors={form.errors} />
+
+                    <div className="border-base-200 flex flex-wrap items-center justify-end gap-2 border-t pt-3">
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            disabled={form.processing}
+                            onClick={closeModal}
+                        >
+                            Batal
+                        </Button>
+                        <Button type="submit" disabled={form.processing}>
+                            {form.processing
+                                ? 'Mengirim...'
+                                : 'Kirim komplain ulang'}
+                        </Button>
+                    </div>
+                </form>
+            </Modal>
+        </>
     );
 }
 
 export function LogbookForm({ today }: { today: string }) {
+    const [open, setOpen] = useState(false);
+    const [formKey, setFormKey] = useState(0);
     const form = useForm<{
         work_date: string;
         description: string;
@@ -508,79 +594,171 @@ export function LogbookForm({ today }: { today: string }) {
         request_key: newDamageRequestKey(),
         photos: [],
     });
+
+    function closeModal() {
+        if (form.processing) {
+            return;
+        }
+        setOpen(false);
+        form.clearErrors();
+    }
+
     return (
-        <details>
-            <summary className="cursor-pointer font-semibold">
-                Catat logbook pekerjaan lain / perintah pimpinan
-            </summary>
-            <form
-                className="mt-3 space-y-3"
-                onSubmit={(e) => {
-                    e.preventDefault();
-                    form.post('/pelaporan/logbook', {
-                        forceFormData: true,
-                        onSuccess: () => {
-                            form.reset('description', 'photos');
-                            form.setData('request_key', newDamageRequestKey());
-                        },
-                    });
-                }}
+        <>
+            <Card className="p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="min-w-0 space-y-0.5">
+                        <h2 className="text-base-content text-sm font-semibold">
+                            Catat logbook pekerjaan lain / perintah pimpinan
+                        </h2>
+                        <p className="text-muted text-xs">
+                            Catatan harian ini tidak membuat tiket kerusakan dan
+                            tidak memerlukan klaim.
+                        </p>
+                    </div>
+                    <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => setOpen(true)}
+                        className="shrink-0 gap-1.5"
+                    >
+                        <Plus className="size-4" aria-hidden="true" />
+                        Catat logbook pekerjaan lain / perintah pimpinan
+                    </Button>
+                </div>
+            </Card>
+
+            <Modal
+                open={open}
+                onClose={closeModal}
+                title="Catat Logbook Pekerjaan Lain / Perintah Pimpinan"
+                width="max-w-xl"
             >
-                <p className="text-muted text-sm">
-                    Catatan harian ini tidak membuat tiket kerusakan dan tidak
-                    memerlukan klaim.
-                </p>
-                <input
-                    aria-label="Tanggal logbook"
-                    className={inputClass}
-                    type="date"
-                    max={today}
-                    value={form.data.work_date}
-                    onChange={(e) => form.setData('work_date', e.target.value)}
-                    required
-                />
-                <select
-                    aria-label="Sumber logbook"
-                    className={inputClass}
-                    value={form.data.source}
-                    onChange={(e) => form.setData('source', e.target.value)}
+                <form
+                    key={formKey}
+                    className="space-y-4"
+                    onSubmit={(e) => {
+                        e.preventDefault();
+                        form.post('/pelaporan/logbook', {
+                            forceFormData: true,
+                            onSuccess: () => {
+                                form.setData({
+                                    work_date: today,
+                                    description: '',
+                                    source: 'other_work',
+                                    request_key: newDamageRequestKey(),
+                                    photos: [],
+                                });
+                                setFormKey((prev) => prev + 1);
+                                setOpen(false);
+                            },
+                        });
+                    }}
                 >
-                    <option value="other_work">Pekerjaan harian lain</option>
-                    <option value="leader_instruction">
-                        Perintah pimpinan
-                    </option>
-                </select>
-                <textarea
-                    aria-label="Uraian logbook"
-                    className={inputClass}
-                    value={form.data.description}
-                    onChange={(e) =>
-                        form.setData('description', e.target.value)
-                    }
-                    required
-                    placeholder="Uraian pekerjaan dan hasil"
-                />
-                <label className="block">
-                    Foto dokumentasi logbook (wajib)
-                    <input
-                        type="file"
-                        className="file-input w-full"
-                        multiple
-                        accept="image/jpeg,image/png"
-                        required
-                        onChange={(e) =>
-                            form.setData(
-                                'photos',
-                                Array.from(e.target.files ?? []),
-                            )
-                        }
-                    />
-                </label>
-                <ErrorList errors={form.errors} />
-                <Button type="submit" disabled={form.processing}>
-                    Simpan logbook
-                </Button>
-            </form>
-        </details>
+                    <p className="border-base-300 bg-base-200/50 text-muted rounded-lg border p-3 text-xs">
+                        Catatan harian ini tidak membuat tiket kerusakan dan
+                        tidak memerlukan klaim.
+                    </p>
+
+                    <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="space-y-1">
+                            <label className="text-base-content block text-xs font-medium">
+                                Tanggal logbook{' '}
+                                <span className="text-error">*</span>
+                            </label>
+                            <input
+                                aria-label="Tanggal logbook"
+                                className={inputClass}
+                                type="date"
+                                max={today}
+                                value={form.data.work_date}
+                                onChange={(e) =>
+                                    form.setData('work_date', e.target.value)
+                                }
+                                required
+                            />
+                        </div>
+
+                        <div className="space-y-1">
+                            <label className="text-base-content block text-xs font-medium">
+                                Sumber pekerjaan{' '}
+                                <span className="text-error">*</span>
+                            </label>
+                            <select
+                                aria-label="Sumber logbook"
+                                className={inputClass}
+                                value={form.data.source}
+                                onChange={(e) =>
+                                    form.setData('source', e.target.value)
+                                }
+                            >
+                                <option value="other_work">
+                                    Pekerjaan harian lain
+                                </option>
+                                <option value="leader_instruction">
+                                    Perintah pimpinan
+                                </option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div className="space-y-1">
+                        <label className="text-base-content block text-xs font-medium">
+                            Uraian pekerjaan dan hasil{' '}
+                            <span className="text-error">*</span>
+                        </label>
+                        <textarea
+                            aria-label="Uraian logbook"
+                            className={inputClass}
+                            rows={3}
+                            value={form.data.description}
+                            onChange={(e) =>
+                                form.setData('description', e.target.value)
+                            }
+                            required
+                            placeholder="Uraian pekerjaan dan hasil"
+                        />
+                    </div>
+
+                    <div className="space-y-1">
+                        <label className="text-base-content block text-xs font-medium">
+                            Foto dokumentasi logbook (wajib){' '}
+                            <span className="text-error">*</span>
+                        </label>
+                        <input
+                            type="file"
+                            className="file-input file-input-sm w-full"
+                            multiple
+                            accept="image/jpeg,image/png"
+                            required
+                            onChange={(e) =>
+                                form.setData(
+                                    'photos',
+                                    Array.from(e.target.files ?? []),
+                                )
+                            }
+                        />
+                    </div>
+
+                    <ErrorList errors={form.errors} />
+
+                    <div className="border-base-200 flex flex-wrap items-center justify-end gap-2 border-t pt-3">
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            disabled={form.processing}
+                            onClick={closeModal}
+                        >
+                            Batal
+                        </Button>
+                        <Button type="submit" disabled={form.processing}>
+                            {form.processing
+                                ? 'Menyimpan...'
+                                : 'Simpan logbook'}
+                        </Button>
+                    </div>
+                </form>
+            </Modal>
+        </>
     );
 }

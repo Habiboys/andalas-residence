@@ -325,7 +325,10 @@ export default function StudentPelaporan({
             </Card>
 
             {/* Reports List */}
-            <section aria-label="Daftar laporan kerusakan" className="space-y-4">
+            <section
+                aria-label="Daftar laporan kerusakan"
+                className="space-y-4"
+            >
                 {rows.length === 0 ? (
                     <Card>
                         <EmptyState
@@ -358,7 +361,7 @@ export default function StudentPelaporan({
                             r.location_label ??
                             (r.kamar
                                 ? `${r.kamar.lantai?.gedung?.nama_gedung ?? 'Gedung'} · Kamar ${r.kamar.nomor_kamar}`
-                                : r.fasilitas_umum?.nama_fasilitas ?? '-');
+                                : (r.fasilitas_umum?.nama_fasilitas ?? '-'));
 
                         return (
                             <Card key={r.id} className="space-y-4 p-4 md:p-5">
@@ -415,12 +418,7 @@ export default function StudentPelaporan({
                                                     size="sm"
                                                     variant="secondary"
                                                     onClick={() =>
-                                                        setOpenComplaintId(
-                                                            openComplaintId ===
-                                                                r.id
-                                                                ? null
-                                                                : r.id,
-                                                        )
+                                                        setOpenComplaintId(r.id)
                                                     }
                                                 >
                                                     <MessageSquarePlus
@@ -504,7 +502,9 @@ export default function StudentPelaporan({
                                             {r.photos.map((ph, idx) => (
                                                 <a
                                                     key={ph.id}
-                                                    href={tiket.photo.url(ph.id)}
+                                                    href={tiket.photo.url(
+                                                        ph.id,
+                                                    )}
                                                     target="_blank"
                                                     rel="noreferrer"
                                                     className="btn btn-xs btn-outline gap-1"
@@ -554,6 +554,10 @@ export default function StudentPelaporan({
                                     r.status === 'selesai' &&
                                     openComplaintId === r.id && (
                                         <ComplaintForm
+                                            open
+                                            onClose={() =>
+                                                setOpenComplaintId(null)
+                                            }
                                             reportId={r.id}
                                             items={r.items}
                                         />
