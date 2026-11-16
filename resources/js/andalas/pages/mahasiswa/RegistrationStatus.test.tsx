@@ -174,7 +174,9 @@ it('shows payment upload immediately after document upload without blocker banne
             items: [
                 {
                     id: 'item-1',
-                    keterangan: 'Sewa Asrama 1 Tahun',
+                    deskripsi: 'Sewa Asrama 1 Tahun',
+                    kuantitas: 1,
+                    harga_satuan: 10000000,
                     jumlah: 10000000,
                 },
             ],
@@ -241,19 +243,22 @@ it('shows all uploaded documents and billing details with Belum Check-in badge i
             items: [
                 {
                     id: 'item-1',
-                    keterangan: 'Sewa Asrama 1 Tahun',
+                    deskripsi: 'Sewa Asrama 1 Tahun',
+                    kuantitas: 1,
+                    harga_satuan: 10000000,
                     jumlah: 10000000,
                 },
             ],
             pembayaran: [
                 {
                     id: 'pay-1',
+                    kode_transaksi: 'PAY-1',
                     status: 'menunggu_verifikasi',
-                    jumlah: 10000000,
-                    bank_pengirim: 'BSI',
+                    nominal: 10000000,
+                    nama_bank: 'BSI',
                     nomor_rekening_pengirim: '7001122334',
                     atas_nama_pengirim: 'Muhammad Nouval Habibie',
-                    paid_at: '2026-11-17T08:00:00Z',
+                    tanggal_bayar: '2026-11-17T08:00:00Z',
                 },
             ],
         },

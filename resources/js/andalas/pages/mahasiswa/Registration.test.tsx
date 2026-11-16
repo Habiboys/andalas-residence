@@ -134,7 +134,9 @@ it('embeds the 5-step registration flow advancing directly to Pembayaran and Che
                         items: [
                             {
                                 id: 'it-1',
-                                keterangan: 'Biaya Asrama 1 Tahun',
+                                deskripsi: 'Biaya Asrama 1 Tahun',
+                                kuantitas: 1,
+                                harga_satuan: 2500000,
                                 jumlah: 2500000,
                             },
                         ],
@@ -193,8 +195,9 @@ it('keeps the 5-step view visible with Belum Check-in and uploaded files once pa
                         pembayaran: [
                             {
                                 id: 'pay-1',
+                                kode_transaksi: 'PAY-1',
                                 status: 'menunggu_verifikasi',
-                                jumlah: 2500000,
+                                nominal: 2500000,
                             },
                         ],
                     },
@@ -242,8 +245,9 @@ it('keeps the 5-step view visible with Sudah Check-in Penghuni Aktif after facil
                         pembayaran: [
                             {
                                 id: 'pay-1',
-                                status: 'verified',
-                                jumlah: 2500000,
+                                kode_transaksi: 'PAY-1',
+                                status: 'lunas',
+                                nominal: 2500000,
                             },
                         ],
                     },

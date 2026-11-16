@@ -297,9 +297,7 @@ export function PaymentProofForm({
                     disabled={form.processing || noTargetAccounts}
                 >
                     <Upload className="size-4" />
-                    {form.processing
-                        ? 'Mengirim...'
-                        : 'Kirim Bukti Pembayaran'}
+                    {form.processing ? 'Mengirim...' : 'Kirim Bukti Pembayaran'}
                 </button>
             </div>
         </form>

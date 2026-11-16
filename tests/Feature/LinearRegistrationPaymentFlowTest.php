@@ -7,6 +7,7 @@ use App\Models\Lantai;
 use App\Models\PaymentBankAccount;
 use App\Models\Pembayaran;
 use App\Models\ResidencePaymentReference;
+use App\Models\ResidenceRate;
 use App\Models\ResidenceRegistration;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
@@ -646,6 +647,11 @@ it('formats registration invoice nomor as REG-<NIM> with safe unique suffix on r
 
 it('aligns registration and invoice payment deadline to the track registration deadline and blocks registration after expiration', function () {
     $f = toBeFixture('local_non_kipk', 2);
+    ResidenceRate::updateOrCreate([
+        'gedung_id' => $f['building']->id,
+        'tipe_kamar' => $f['room']->tipe_kamar,
+        'unit' => 'year',
+    ], ['amount' => 1000000]);
     $deadline = now()->addDays(5)->startOfMinute();
     $settings = $f['policy']->settings;
     unset($settings['rates']);

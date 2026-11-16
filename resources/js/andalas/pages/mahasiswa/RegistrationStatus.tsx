@@ -374,6 +374,23 @@ function documentStatusText(status: string): string {
     return 'Belum Diunggah';
 }
 
+function isRegistrationCheckedIn(r: Registration): boolean {
+    return Boolean(r.completed_at || r.checked_in_at);
+}
+
+function hasSubmittedOrSettledPayment(r: Registration): boolean {
+    return (
+        isRegistrationCheckedIn(r) ||
+        Boolean(r.ready_at) ||
+        Boolean(
+            (r.tagihan?.pembayaran ?? []).some(
+                (p) =>
+                    p.status === 'menunggu_verifikasi' || p.status === 'lunas',
+            ),
+        )
+    );
+}
+
 function buildStepState(r: Registration) {
     const isRejected = r.status === 'rejected' || r.status === 'cancelled';
     const hasRoom = Boolean(
@@ -400,16 +417,8 @@ function buildStepState(r: Registration) {
         r.is_kipk && r.policy?.category === 'local_kipk',
     );
     const docsStepDone = allDocsUploaded && hasDecisionOrExempt;
-    const isCheckedIn = Boolean(r.completed_at || r.checked_in_at);
-    const hasPaymentSubmittedOrSettled =
-        isCheckedIn ||
-        Boolean(r.ready_at) ||
-        Boolean(
-            (r.tagihan?.pembayaran ?? []).some(
-                (p) =>
-                    p.status === 'menunggu_verifikasi' || p.status === 'lunas',
-            ),
-        );
+    const isCheckedIn = isRegistrationCheckedIn(r);
+    const hasPaymentSubmittedOrSettled = hasSubmittedOrSettledPayment(r);
     const paymentUnlocked = Boolean(r.payment_unlocked);
     const paymentDone = isKipkExempt
         ? docsStepDone
@@ -501,7 +510,7 @@ function heroBanner(r: Registration) {
             subtitle: `Kunci kamar dikembalikan pada ${formatDate(r.keys_returned_at)}. Arsip dokumen pendaftaran tetap tersimpan untuk Anda.`,
         };
     }
-    if (r.completed_at) {
+    if (isRegistrationCheckedIn(r)) {
         return {
             tone: 'border-base-300 border-l-4 border-l-primary bg-base-100',
             badge: (
@@ -511,10 +520,10 @@ function heroBanner(r: Registration) {
                 />
             ),
             title: 'Selamat! Verifikasi berkas dan check-in Anda telah dinyatakan selesai',
-            subtitle: `Diverifikasi dan dinyatakan check-in pada ${formatDate(r.completed_at)}. Anda resmi menjadi penghuni aktif asrama.`,
+            subtitle: `Diverifikasi dan dinyatakan check-in pada ${formatDate(r.completed_at ?? r.checked_in_at)}. Anda resmi menjadi penghuni aktif asrama.`,
         };
     }
-    if (r.ready_at || (r.blockers ?? []).length === 0) {
+    if (hasSubmittedOrSettledPayment(r) || (r.blockers ?? []).length === 0) {
         return {
             tone: 'border-base-300 border-l-4 border-l-primary bg-base-100',
             badge: <StatusChip label="Belum Check-in" tone="warning" />,
@@ -654,14 +663,7 @@ export function StudentRegistrationCard({
     const totalTagihan = Number(r.tagihan?.total ?? 0);
     const totalDibayar = Number(r.tagihan?.total_dibayar ?? 0);
     const remaining = Math.max(0, totalTagihan - totalDibayar);
-    const hasPaymentSubmittedOrSettled =
-        Boolean(r.completed_at) ||
-        Boolean(r.ready_at) ||
-        Boolean(
-            (r.tagihan?.pembayaran ?? []).some(
-                (p) => p.status === 'menunggu_verifikasi' || p.status === 'lunas',
-            ),
-        );
+    const hasPaymentSubmittedOrSettled = hasSubmittedOrSettledPayment(r);
 
     const hasMonthlyOption =
         r.rate_unit === 'month' && Boolean(r.policy?.settings?.monthly_allowed);
@@ -1006,9 +1008,7 @@ export function StudentRegistrationCard({
             {/* Main Content Grid: Documents & Financing (documents hidden during Step 4 payment) */}
             <div
                 className={
-                    isPaymentStage
-                        ? 'grid gap-5'
-                        : 'grid gap-5 lg:grid-cols-2'
+                    isPaymentStage ? 'grid gap-5' : 'grid gap-5 lg:grid-cols-2'
                 }
             >
                 {/* Section A: Berkas Pendaftaran */}
@@ -1017,294 +1017,329 @@ export function StudentRegistrationCard({
                         id={`berkas-${r.id}`}
                         className="border-base-300 bg-base-100 min-w-0 space-y-4 overflow-hidden rounded-xl border p-4 md:p-5"
                     >
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="flex min-w-0 items-center gap-2">
-                            <FileText
-                                className="text-muted size-5 shrink-0"
-                                aria-hidden="true"
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex min-w-0 items-center gap-2">
+                                <FileText
+                                    className="text-muted size-5 shrink-0"
+                                    aria-hidden="true"
+                                />
+                                <h3 className="text-base font-semibold">
+                                    Berkas Pendaftaran
+                                </h3>
+                            </div>
+                            <StatusChip
+                                label={
+                                    editableKinds.length === 0
+                                        ? 'Semua berkas terunggah'
+                                        : `${editableKinds.length} berkas perlu diunggah`
+                                }
+                                tone={
+                                    editableKinds.length === 0
+                                        ? 'success'
+                                        : 'warning'
+                                }
                             />
-                            <h3 className="text-base font-semibold">
-                                Berkas Pendaftaran
-                            </h3>
                         </div>
-                        <StatusChip
-                            label={
-                                editableKinds.length === 0
-                                    ? 'Semua berkas terunggah'
-                                    : `${editableKinds.length} berkas perlu diunggah`
-                            }
-                            tone={
-                                editableKinds.length === 0
-                                    ? 'success'
-                                    : 'warning'
-                            }
-                        />
-                    </div>
 
-                    <div className="space-y-3">
-                        {requiredKinds.map((kind) => {
-                            const doc = latestByKind.get(kind);
-                            const template = templates.find(
-                                (t) =>
-                                    t.category === category && t.kind === kind,
-                            );
-                            const needsUpload = editableKinds.includes(kind);
+                        <div className="space-y-3">
+                            {requiredKinds.map((kind) => {
+                                const doc = latestByKind.get(kind);
+                                const template = templates.find(
+                                    (t) =>
+                                        t.category === category &&
+                                        t.kind === kind,
+                                );
+                                const needsUpload =
+                                    editableKinds.includes(kind);
 
-                            return (
-                                <div
-                                    key={kind}
-                                    className="border-base-300 bg-base-200/30 min-w-0 space-y-2.5 overflow-hidden rounded-lg border p-3.5"
-                                >
-                                    <div className="flex flex-wrap items-start justify-between gap-2">
-                                        <div className="min-w-0">
-                                            <p className="text-base-content text-sm font-semibold">
-                                                {friendlyDocumentLabel(kind)}
-                                            </p>
-                                            {doc && (
-                                                <p className="text-muted text-xs">
-                                                    Versi {doc.version}
-                                                    {doc.reviewer?.nama
-                                                        ? ` · Diperiksa oleh ${doc.reviewer.nama}`
-                                                        : ''}
+                                return (
+                                    <div
+                                        key={kind}
+                                        className="border-base-300 bg-base-200/30 min-w-0 space-y-2.5 overflow-hidden rounded-lg border p-3.5"
+                                    >
+                                        <div className="flex flex-wrap items-start justify-between gap-2">
+                                            <div className="min-w-0">
+                                                <p className="text-base-content text-sm font-semibold">
+                                                    {friendlyDocumentLabel(
+                                                        kind,
+                                                    )}
                                                 </p>
+                                                {doc && (
+                                                    <p className="text-muted text-xs">
+                                                        Versi {doc.version}
+                                                        {doc.reviewer?.nama
+                                                            ? ` · Diperiksa oleh ${doc.reviewer.nama}`
+                                                            : ''}
+                                                    </p>
+                                                )}
+                                            </div>
+                                            <StatusChip
+                                                label={documentStatusText(
+                                                    doc?.status ?? 'missing',
+                                                )}
+                                                tone={documentChipTone(
+                                                    doc?.status ?? 'missing',
+                                                )}
+                                            />
+                                        </div>
+
+                                        {doc?.status === 'revision' &&
+                                            doc.notes && (
+                                                <div className="border-base-300 border-l-error bg-base-100 text-base-content rounded-md border border-l-4 px-3 py-2 text-xs break-words">
+                                                    <strong>
+                                                        Catatan revisi:
+                                                    </strong>{' '}
+                                                    {doc.notes}
+                                                </div>
+                                            )}
+
+                                        <div className="flex min-w-0 flex-wrap gap-2">
+                                            {template && (
+                                                <a
+                                                    href={workflow.downloadTemplate.url(
+                                                        [category, kind],
+                                                    )}
+                                                    title={`Unduh Template (${template.original_name})`}
+                                                    className="btn btn-xs btn-outline max-w-full min-w-0 gap-1.5 overflow-hidden"
+                                                >
+                                                    <Download
+                                                        className="size-3.5 shrink-0"
+                                                        aria-hidden="true"
+                                                    />
+                                                    <span className="truncate">
+                                                        Unduh Template (
+                                                        {template.original_name}
+                                                        )
+                                                    </span>
+                                                </a>
+                                            )}
+                                            {doc && (
+                                                <a
+                                                    href={workflow.document.url(
+                                                        doc.id,
+                                                    )}
+                                                    className="btn btn-xs btn-ghost border-base-300 max-w-full min-w-0 gap-1.5 overflow-hidden border"
+                                                >
+                                                    <FileCheck2
+                                                        className="size-3.5 shrink-0"
+                                                        aria-hidden="true"
+                                                    />
+                                                    <span className="truncate">
+                                                        Unduh Berkas v
+                                                        {doc.version}
+                                                    </span>
+                                                </a>
                                             )}
                                         </div>
-                                        <StatusChip
-                                            label={documentStatusText(
-                                                doc?.status ?? 'missing',
-                                            )}
-                                            tone={documentChipTone(
-                                                doc?.status ?? 'missing',
-                                            )}
-                                        />
-                                    </div>
 
-                                    {doc?.status === 'revision' &&
-                                        doc.notes && (
-                                            <div className="border-base-300 border-l-error bg-base-100 text-base-content rounded-md border border-l-4 px-3 py-2 text-xs break-words">
-                                                <strong>Catatan revisi:</strong>{' '}
-                                                {doc.notes}
-                                            </div>
-                                        )}
-
-                                    <div className="flex min-w-0 flex-wrap gap-2">
-                                        {template && (
-                                            <a
-                                                href={workflow.downloadTemplate.url(
-                                                    [category, kind],
+                                        {/* Upload input ONLY rendered when missing or revision required */}
+                                        {needsUpload ? (
+                                            <div className="space-y-1 pt-1">
+                                                <label className="block">
+                                                    <span className="text-muted mb-1 block text-xs">
+                                                        Unggah PDF atau gambar
+                                                        (maks. 5 MB)
+                                                    </span>
+                                                    <input
+                                                        type="file"
+                                                        accept=".pdf,.jpg,.jpeg,.png"
+                                                        className="file-input file-input-bordered file-input-sm w-full max-w-full"
+                                                        onChange={(e) => {
+                                                            const file =
+                                                                e.target
+                                                                    .files?.[0];
+                                                            const fieldKey = `files.${kind}`;
+                                                            if (file) {
+                                                                const ext =
+                                                                    file.name
+                                                                        .split(
+                                                                            '.',
+                                                                        )
+                                                                        .pop()
+                                                                        ?.toLowerCase() ??
+                                                                    '';
+                                                                if (
+                                                                    !ALLOWED_UPLOAD_EXTENSIONS.has(
+                                                                        ext,
+                                                                    )
+                                                                ) {
+                                                                    e.target.value =
+                                                                        '';
+                                                                    setSelectedFiles(
+                                                                        (
+                                                                            prev,
+                                                                        ) => {
+                                                                            const next =
+                                                                                {
+                                                                                    ...prev,
+                                                                                };
+                                                                            delete next[
+                                                                                kind
+                                                                            ];
+                                                                            return next;
+                                                                        },
+                                                                    );
+                                                                    setErrors(
+                                                                        (
+                                                                            prev,
+                                                                        ) => ({
+                                                                            ...prev,
+                                                                            [fieldKey]:
+                                                                                'Format berkas harus PDF, JPG, JPEG, atau PNG.',
+                                                                        }),
+                                                                    );
+                                                                    return;
+                                                                }
+                                                                if (
+                                                                    file.size >
+                                                                    MAX_UPLOAD_BYTES
+                                                                ) {
+                                                                    e.target.value =
+                                                                        '';
+                                                                    setSelectedFiles(
+                                                                        (
+                                                                            prev,
+                                                                        ) => {
+                                                                            const next =
+                                                                                {
+                                                                                    ...prev,
+                                                                                };
+                                                                            delete next[
+                                                                                kind
+                                                                            ];
+                                                                            return next;
+                                                                        },
+                                                                    );
+                                                                    setErrors(
+                                                                        (
+                                                                            prev,
+                                                                        ) => ({
+                                                                            ...prev,
+                                                                            [fieldKey]: `Ukuran berkas ${formatFileSize(file.size)} melebihi batas maksimum 5 MB. Kompres berkas terlebih dahulu.`,
+                                                                        }),
+                                                                    );
+                                                                    return;
+                                                                }
+                                                            }
+                                                            setErrors(
+                                                                (prev) => {
+                                                                    if (
+                                                                        !(
+                                                                            fieldKey in
+                                                                            prev
+                                                                        )
+                                                                    ) {
+                                                                        return prev;
+                                                                    }
+                                                                    const next =
+                                                                        {
+                                                                            ...prev,
+                                                                        };
+                                                                    delete next[
+                                                                        fieldKey
+                                                                    ];
+                                                                    return next;
+                                                                },
+                                                            );
+                                                            setSelectedFiles(
+                                                                (prev) => {
+                                                                    const next =
+                                                                        {
+                                                                            ...prev,
+                                                                        };
+                                                                    if (file) {
+                                                                        next[
+                                                                            kind
+                                                                        ] =
+                                                                            file;
+                                                                    } else {
+                                                                        delete next[
+                                                                            kind
+                                                                        ];
+                                                                    }
+                                                                    return next;
+                                                                },
+                                                            );
+                                                        }}
+                                                    />
+                                                </label>
+                                                {selectedFiles[kind] && (
+                                                    <p className="text-primary text-xs font-medium break-all">
+                                                        Siap disimpan:{' '}
+                                                        {
+                                                            selectedFiles[kind]
+                                                                .name
+                                                        }{' '}
+                                                        (
+                                                        {formatFileSize(
+                                                            selectedFiles[kind]
+                                                                .size,
+                                                        )}
+                                                        )
+                                                    </p>
                                                 )}
-                                                title={`Unduh Template (${template.original_name})`}
-                                                className="btn btn-xs btn-outline max-w-full min-w-0 gap-1.5 overflow-hidden"
-                                            >
-                                                <Download
-                                                    className="size-3.5 shrink-0"
-                                                    aria-hidden="true"
-                                                />
-                                                <span className="truncate">
-                                                    Unduh Template (
-                                                    {template.original_name})
-                                                </span>
-                                            </a>
+                                                {errors[`files.${kind}`] && (
+                                                    <p className="text-error text-xs">
+                                                        {
+                                                            errors[
+                                                                `files.${kind}`
+                                                            ]
+                                                        }
+                                                    </p>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            doc && (
+                                                <p className="text-muted flex items-start gap-1.5 text-xs">
+                                                    <Lock
+                                                        className="mt-0.5 size-3.5 shrink-0"
+                                                        aria-hidden="true"
+                                                    />
+                                                    <span>
+                                                        Berkas sudah tersimpan
+                                                        permanen. Pengunggahan
+                                                        ulang hanya dibuka bila
+                                                        petugas meminta revisi.
+                                                    </span>
+                                                </p>
+                                            )
                                         )}
-                                        {doc && (
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        {(r.documents?.length ?? 0) > 1 && (
+                            <details className="border-base-300 rounded-lg border p-3 text-xs">
+                                <summary className="cursor-pointer font-medium">
+                                    Riwayat versi dokumen (
+                                    {(r.documents ?? []).length})
+                                </summary>
+                                <div className="mt-2 space-y-1">
+                                    {(r.documents ?? []).map((d) => (
+                                        <div
+                                            key={d.id}
+                                            className="flex flex-wrap items-center justify-between gap-2"
+                                        >
                                             <a
                                                 href={workflow.document.url(
-                                                    doc.id,
+                                                    d.id,
                                                 )}
-                                                className="btn btn-xs btn-ghost border-base-300 max-w-full min-w-0 gap-1.5 overflow-hidden border"
+                                                className="link link-primary"
                                             >
-                                                <FileCheck2
-                                                    className="size-3.5 shrink-0"
-                                                    aria-hidden="true"
-                                                />
-                                                <span className="truncate">
-                                                    Unduh Berkas v{doc.version}
-                                                </span>
+                                                {friendlyDocumentLabel(d.kind)}{' '}
+                                                v{d.version}
                                             </a>
-                                        )}
-                                    </div>
-
-                                    {/* Upload input ONLY rendered when missing or revision required */}
-                                    {needsUpload ? (
-                                        <div className="space-y-1 pt-1">
-                                            <label className="block">
-                                                <span className="text-muted mb-1 block text-xs">
-                                                    Unggah PDF atau gambar
-                                                    (maks. 5 MB)
-                                                </span>
-                                                <input
-                                                    type="file"
-                                                    accept=".pdf,.jpg,.jpeg,.png"
-                                                    className="file-input file-input-bordered file-input-sm w-full max-w-full"
-                                                    onChange={(e) => {
-                                                        const file =
-                                                            e.target.files?.[0];
-                                                        const fieldKey = `files.${kind}`;
-                                                        if (file) {
-                                                            const ext =
-                                                                file.name
-                                                                    .split('.')
-                                                                    .pop()
-                                                                    ?.toLowerCase() ??
-                                                                '';
-                                                            if (
-                                                                !ALLOWED_UPLOAD_EXTENSIONS.has(
-                                                                    ext,
-                                                                )
-                                                            ) {
-                                                                e.target.value =
-                                                                    '';
-                                                                setSelectedFiles(
-                                                                    (prev) => {
-                                                                        const next =
-                                                                            {
-                                                                                ...prev,
-                                                                            };
-                                                                        delete next[
-                                                                            kind
-                                                                        ];
-                                                                        return next;
-                                                                    },
-                                                                );
-                                                                setErrors(
-                                                                    (prev) => ({
-                                                                        ...prev,
-                                                                        [fieldKey]:
-                                                                            'Format berkas harus PDF, JPG, JPEG, atau PNG.',
-                                                                    }),
-                                                                );
-                                                                return;
-                                                            }
-                                                            if (
-                                                                file.size >
-                                                                MAX_UPLOAD_BYTES
-                                                            ) {
-                                                                e.target.value =
-                                                                    '';
-                                                                setSelectedFiles(
-                                                                    (prev) => {
-                                                                        const next =
-                                                                            {
-                                                                                ...prev,
-                                                                            };
-                                                                        delete next[
-                                                                            kind
-                                                                        ];
-                                                                        return next;
-                                                                    },
-                                                                );
-                                                                setErrors(
-                                                                    (prev) => ({
-                                                                        ...prev,
-                                                                        [fieldKey]: `Ukuran berkas ${formatFileSize(file.size)} melebihi batas maksimum 5 MB. Kompres berkas terlebih dahulu.`,
-                                                                    }),
-                                                                );
-                                                                return;
-                                                            }
-                                                        }
-                                                        setErrors((prev) => {
-                                                            if (
-                                                                !(
-                                                                    fieldKey in
-                                                                    prev
-                                                                )
-                                                            ) {
-                                                                return prev;
-                                                            }
-                                                            const next = {
-                                                                ...prev,
-                                                            };
-                                                            delete next[
-                                                                fieldKey
-                                                            ];
-                                                            return next;
-                                                        });
-                                                        setSelectedFiles(
-                                                            (prev) => {
-                                                                const next = {
-                                                                    ...prev,
-                                                                };
-                                                                if (file) {
-                                                                    next[kind] =
-                                                                        file;
-                                                                } else {
-                                                                    delete next[
-                                                                        kind
-                                                                    ];
-                                                                }
-                                                                return next;
-                                                            },
-                                                        );
-                                                    }}
-                                                />
-                                            </label>
-                                            {selectedFiles[kind] && (
-                                                <p className="text-primary text-xs font-medium break-all">
-                                                    Siap disimpan:{' '}
-                                                    {selectedFiles[kind].name} (
-                                                    {formatFileSize(
-                                                        selectedFiles[kind]
-                                                            .size,
-                                                    )}
-                                                    )
-                                                </p>
-                                            )}
-                                            {errors[`files.${kind}`] && (
-                                                <p className="text-error text-xs">
-                                                    {errors[`files.${kind}`]}
-                                                </p>
-                                            )}
+                                            <span className="text-muted break-words">
+                                                {documentStatusText(d.status)}
+                                                {d.notes ? ` — ${d.notes}` : ''}
+                                            </span>
                                         </div>
-                                    ) : (
-                                        doc && (
-                                            <p className="text-muted flex items-start gap-1.5 text-xs">
-                                                <Lock
-                                                    className="mt-0.5 size-3.5 shrink-0"
-                                                    aria-hidden="true"
-                                                />
-                                                <span>
-                                                    Berkas sudah tersimpan
-                                                    permanen. Pengunggahan ulang
-                                                    hanya dibuka bila petugas
-                                                    meminta revisi.
-                                                </span>
-                                            </p>
-                                        )
-                                    )}
+                                    ))}
                                 </div>
-                            );
-                        })}
+                            </details>
+                        )}
                     </div>
-
-                    {(r.documents?.length ?? 0) > 1 && (
-                        <details className="border-base-300 rounded-lg border p-3 text-xs">
-                            <summary className="cursor-pointer font-medium">
-                                Riwayat versi dokumen (
-                                {(r.documents ?? []).length})
-                            </summary>
-                            <div className="mt-2 space-y-1">
-                                {(r.documents ?? []).map((d) => (
-                                    <div
-                                        key={d.id}
-                                        className="flex flex-wrap items-center justify-between gap-2"
-                                    >
-                                        <a
-                                            href={workflow.document.url(d.id)}
-                                            className="link link-primary"
-                                        >
-                                            {friendlyDocumentLabel(d.kind)} v
-                                            {d.version}
-                                        </a>
-                                        <span className="text-muted break-words">
-                                            {documentStatusText(d.status)}
-                                            {d.notes ? ` — ${d.notes}` : ''}
-                                        </span>
-                                    </div>
-                                ))}
-                            </div>
-                        </details>
-                    )}
-                </div>
                 )}
 
                 {/* Section B: Pembiayaan & Tagihan */}
