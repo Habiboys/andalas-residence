@@ -33,9 +33,6 @@ export function PaymentProofForm({
     const defaultNominal = Math.round(dueAmount ?? totalRemaining);
 
     const [clientFileError, setClientFileError] = useState<string | null>(null);
-    const [manualTarget, setManualTarget] = useState(
-        activeAccounts.length === 0,
-    );
 
     const form = useForm<{
         tagihan_id: string;
@@ -44,7 +41,6 @@ export function PaymentProofForm({
         termin_ke: string;
         metode_pembayaran: string;
         payment_bank_account_id: string;
-        rekening_tujuan: string;
         nama_bank: string;
         nomor_rekening_pengirim: string;
         atas_nama_pengirim: string;
@@ -58,7 +54,6 @@ export function PaymentProofForm({
         termin_ke: terminKe ? String(terminKe) : '',
         metode_pembayaran: 'transfer_bank',
         payment_bank_account_id: activeAccounts[0]?.id ?? '',
-        rekening_tujuan: '',
         nama_bank: '',
         nomor_rekening_pengirim: '',
         atas_nama_pengirim: '',
@@ -88,7 +83,6 @@ export function PaymentProofForm({
                     'nama_bank',
                     'nomor_rekening_pengirim',
                     'atas_nama_pengirim',
-                    'rekening_tujuan',
                     'tanggal_bayar',
                     'bukti_transfer',
                 );
@@ -105,8 +99,8 @@ export function PaymentProofForm({
     return (
         <form onSubmit={submit} className="space-y-4">
             <p className="text-base-content/75 text-sm">
-                Lengkapi detail transfer sesuai struk pembayaran, lalu unggah
-                bukti pembayaran Anda untuk diverifikasi oleh pengelola.
+                Transfer sesuai nominal tagihan ke rekening resmi asrama, lalu
+                lengkapi detail pengirim dan unggah bukti transfer Anda.
             </p>
 
             {firstFormError && (
@@ -117,64 +111,45 @@ export function PaymentProofForm({
             )}
 
             <div className="grid gap-3 sm:grid-cols-2">
-                {activeAccounts.length > 0 && (
+                <div className="sm:col-span-2">
                     <FormField label="Rekening Tujuan Pengiriman">
-                        <select
-                            className={selectClass}
-                            value={
-                                manualTarget
-                                    ? 'manual'
-                                    : form.data.payment_bank_account_id
-                            }
-                            onChange={(event) => {
-                                const value = event.target.value;
-                                if (value === 'manual') {
-                                    setManualTarget(true);
+                        {activeAccounts.length === 0 ? (
+                            <div className="border-base-300 bg-base-200/50 text-base-content/75 rounded-lg border px-3 py-2 text-xs">
+                                Rekening tujuan asrama belum dikonfigurasi oleh
+                                Pengelola. Hubungi pengelola sebelum melakukan
+                                transfer.
+                            </div>
+                        ) : activeAccounts.length === 1 ? (
+                            <div className="border-base-300 bg-base-100 rounded-lg border px-3 py-2 text-sm font-medium">
+                                {activeAccounts[0].bank_name} ·{' '}
+                                <span className="font-mono">
+                                    {activeAccounts[0].account_number}
+                                </span>{' '}
+                                · a.n. {activeAccounts[0].account_name}
+                            </div>
+                        ) : (
+                            <select
+                                className={selectClass}
+                                value={form.data.payment_bank_account_id}
+                                onChange={(event) =>
                                     form.setData(
                                         'payment_bank_account_id',
-                                        '',
-                                    );
-                                } else {
-                                    setManualTarget(false);
-                                    form.setData({
-                                        ...form.data,
-                                        payment_bank_account_id: value,
-                                        rekening_tujuan: '',
-                                    });
+                                        event.target.value,
+                                    )
                                 }
-                            }}
-                            required={!manualTarget}
-                        >
-                            {activeAccounts.map((account) => (
-                                <option key={account.id} value={account.id}>
-                                    {account.bank_name} ·{' '}
-                                    {account.account_number} (a.n.{' '}
-                                    {account.account_name})
-                                </option>
-                            ))}
-                            <option value="manual">
-                                Lainnya (ketik nomor rekening tujuan)
-                            </option>
-                        </select>
+                                required
+                            >
+                                {activeAccounts.map((account) => (
+                                    <option key={account.id} value={account.id}>
+                                        {account.bank_name} ·{' '}
+                                        {account.account_number} (a.n.{' '}
+                                        {account.account_name})
+                                    </option>
+                                ))}
+                            </select>
+                        )}
                     </FormField>
-                )}
-
-                {manualTarget && (
-                    <FormField label="Nomor Rekening Tujuan Pengiriman">
-                        <input
-                            className={inputClass}
-                            placeholder="Contoh: Bank Nagari · 2100020188888"
-                            value={form.data.rekening_tujuan}
-                            onChange={(event) =>
-                                form.setData(
-                                    'rekening_tujuan',
-                                    event.target.value,
-                                )
-                            }
-                            required
-                        />
-                    </FormField>
-                )}
+                </div>
 
                 <FormField label="Bank Pengirim">
                     <input

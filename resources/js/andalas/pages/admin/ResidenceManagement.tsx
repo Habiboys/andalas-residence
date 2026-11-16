@@ -684,7 +684,16 @@ export default function ResidenceManagement({
     kipk_recipients = [],
     payment_accounts = [],
 }: Props) {
-    const [tab, setTab] = useState('legacy');
+    const [tab, setTab] = useState(() => {
+        if (typeof window === 'undefined') {
+            return 'legacy';
+        }
+        const initial = new URLSearchParams(window.location.search).get('tab');
+        return initial &&
+            ['legacy', 'period', 'kipk', 'payment-account'].includes(initial)
+            ? initial
+            : 'legacy';
+    });
     const [importModalOpen, setImportModalOpen] = useState(false);
     const [kipkImportOpen, setKipkImportOpen] = useState(false);
     const kipkUpload = useForm({ file: null as File | null });

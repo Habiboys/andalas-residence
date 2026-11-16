@@ -1,7 +1,10 @@
+import { Link, usePage } from '@inertiajs/react';
 import * as applications from '@/actions/App/Http/Controllers/ResidenceApplicationController';
 import * as invoiceActions from '@/actions/App/Http/Controllers/InvoiceController';
 import * as workflow from '@/actions/App/Http/Controllers/ResidenceWorkflowController';
 import { bukti as pembayaranBukti } from '@/routes/andalas/pembayaran';
+import { residenceManagement as adminResMgmt } from '@/routes/admin';
+import { residenceManagement as adminLayananResMgmt } from '@/routes/admin_layanan';
 import { StatusBadge } from '@/andalas/components/ui';
 import { formatDateTime, formatRupiah } from '@/andalas/lib/format';
 import { useMemo, useState } from 'react';
@@ -257,8 +260,31 @@ export default function FinanceTab({
         );
     }, [invoices, selectedAppId, payerFilter]);
 
+    const page = usePage<{ auth?: { user?: { role?: string } } }>();
+    const role = page?.props?.auth?.user?.role;
+    const paymentAccountsUrl =
+        role === 'admin_layanan'
+            ? adminLayananResMgmt.url({ query: { tab: 'payment-account' } })
+            : adminResMgmt.url({ query: { tab: 'payment-account' } });
+
     return (
         <div className="space-y-5">
+            <div className="border-primary/25 bg-primary/5 flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3 text-sm">
+                <div>
+                    <p className="font-semibold text-base-content">
+                        Rekening Resmi Tujuan Transfer Asrama
+                    </p>
+                    <p className="text-base-content/75 text-xs">
+                        Tambah atau perbarui nomor rekening bank resmi asrama agar tampil otomatis di halaman pembayaran mahasiswa (mahasiswa tidak mengetik rekening tujuan secara manual).
+                    </p>
+                </div>
+                <Link
+                    href={paymentAccountsUrl}
+                    className="btn btn-sm btn-primary btn-outline shrink-0"
+                >
+                    Kelola Rekening Pembayaran →
+                </Link>
+            </div>
             <WorkflowPanel
                 title={`Bukti transfer menunggu rekonsiliasi (${proofs.length})`}
                 subtitle="Periksa lampiran bukti transfer mahasiswa, catat transaksi resmi DPUB di bawah, lalu pasangkan bukti pembayaran dengan mutasi rekening agar tagihan lunas dan status penghuni aktif."

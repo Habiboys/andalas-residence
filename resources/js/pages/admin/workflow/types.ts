@@ -41,6 +41,7 @@ export type Document = {
     id: string;
     kind: string;
     version: number;
+    path?: string;
     status: string;
     notes?: string;
     reviewed_at?: string;
@@ -274,9 +275,9 @@ export const WORKFLOW_STATUS_LABELS: Record<string, string> = {
     released: 'Selesai fisik',
     pending: 'Menunggu keputusan',
     approved: 'Disetujui',
-    valid: 'Valid',
-    uploaded: 'Menunggu pemeriksaan',
-    revision: 'Perlu revisi',
+    valid: 'Sudah diperiksa · Valid',
+    uploaded: 'Belum diperiksa',
+    revision: 'Sudah diperiksa · Perlu revisi',
     unmatched: 'Belum dicocokkan',
     matched: 'Sudah dibukukan',
 };

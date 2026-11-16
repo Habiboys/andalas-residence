@@ -35,6 +35,7 @@ Route::prefix('residence-process')->name('residence.')->group(function (): void 
     Route::post('/registrations/{registration}/cancel', [Workflow::class, 'cancel'])->name('cancel');
     Route::get('/documents/{document}', [Workflow::class, 'document'])->name('documents.download');
     Route::post('/documents/{document}/review', [Workflow::class, 'reviewDocument'])->name('documents.review');
+    Route::post('/registrations/{registration}/documents/review', [Workflow::class, 'reviewDocuments'])->name('documents.review-batch');
     Route::post('/registrations/{registration}/decisions', [Workflow::class, 'requestDecision'])->name('decisions.request');
     Route::post('/decisions/{decision}', [Workflow::class, 'decide'])->name('decisions.review');
     Route::post('/refunds/{refund}/complete', [Workflow::class, 'completeRefund'])->name('refunds.complete');

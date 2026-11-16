@@ -332,3 +332,78 @@ it('stores mandatory documents and financing scheme atomically in stage 3 submis
     expect(Pembayaran::where('tagihan_id', $registration->tagihan_id)->count())->toBe(2)
         ->and(Pembayaran::where('tagihan_id', $registration->tagihan_id)->where('status', 'menunggu_verifikasi')->count())->toBe(1);
 });
+
+it('serves inline document previews and lets building facilitators batch-review multiple documents atomically', function () {
+    $f = toBeFixture('local_non_kipk', 2);
+    $facilitator = toBeFacilitator($f['building']);
+
+    $settings = $f['policy']->settings;
+    $settings['documents'] = ['ktp', 'perjanjian'];
+    $f['policy']->update(['settings' => $settings]);
+
+    $this->actingAs($f['user'])
+        ->post(route('andalas.registrations.store'), [
+            'periode_id' => $f['period']->id,
+            'preferences' => [['kamar_id' => $f['room']->id]],
+            'files' => [
+                'ktp' => UploadedFile::fake()->create('ktp.jpg', 60, 'image/jpeg'),
+                'perjanjian' => UploadedFile::fake()->create('perjanjian.pdf', 80, 'application/pdf'),
+            ],
+            'decision_kind' => 'full',
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $registration = ResidenceRegistration::where('student_profile_id', $f['profile']->id)->sole();
+    $ktp = $registration->documents()->where('kind', 'ktp')->sole();
+    $perjanjian = $registration->documents()->where('kind', 'perjanjian')->sole();
+
+    // Inline preview endpoint responds with inline disposition (rather than attachment) for preview modal
+    $inlineResponse = $this->actingAs($facilitator)
+        ->get(route('residence.documents.download', $perjanjian).'?inline=1')
+        ->assertOk();
+    expect(strtolower((string) $inlineResponse->headers->get('content-disposition')))
+        ->toStartWith('inline');
+
+    // Non-facilitator (e.g. pengelola / admin) cannot batch-review documents
+    $this->actingAs($f['manager'])
+        ->post(route('residence.documents.review-batch', $registration), [
+            'reviews' => [
+                ['document_id' => $ktp->id, 'status' => 'valid'],
+                ['document_id' => $perjanjian->id, 'status' => 'valid'],
+            ],
+        ])
+        ->assertForbidden();
+
+    // Revision requires notes
+    $this->actingAs($facilitator)
+        ->post(route('residence.documents.review-batch', $registration), [
+            'reviews' => [
+                ['document_id' => $ktp->id, 'status' => 'revision', 'notes' => ''],
+                ['document_id' => $perjanjian->id, 'status' => 'valid'],
+            ],
+        ])
+        ->assertSessionHasErrors('reviews.0.notes');
+
+    // Building facilitator batch-reviews both documents atomically in one request
+    $this->actingAs($facilitator)
+        ->post(route('residence.documents.review-batch', $registration), [
+            'reviews' => [
+                ['document_id' => $ktp->id, 'status' => 'valid'],
+                ['document_id' => $perjanjian->id, 'status' => 'valid', 'notes' => 'Berkas sesuai'],
+            ],
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    expect($ktp->fresh()->status)->toBe('valid')
+        ->and($perjanjian->fresh()->status)->toBe('valid')
+        ->and($perjanjian->fresh()->notes)->toBe('Berkas sesuai');
+
+    $this->actingAs($f['user'])
+        ->get(route('mahasiswa.tagihan'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('billing.0.payment_unlocked', true)
+        );
+});

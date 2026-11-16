@@ -1,0 +1,197 @@
+import type { ReactNode } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { expect, it, vi } from 'vite-plus/test';
+import RegistrationDetailCard from './RegistrationDetailCard';
+import type { Registration } from './types';
+
+vi.mock('@inertiajs/react', () => ({
+    Link: ({
+        href,
+        children,
+        className,
+    }: {
+        href: string;
+        children: ReactNode;
+        className?: string;
+    }) => (
+        <a href={href} className={className}>
+            {children}
+        </a>
+    ),
+    Form: ({
+        children,
+        action,
+    }: {
+        children:
+            | ReactNode
+            | ((props: {
+                  errors: Record<string, string>;
+                  processing: boolean;
+                  recentlySuccessful: boolean;
+              }) => ReactNode);
+        action?: string;
+    }) => (
+        <form action={action}>
+            {typeof children === 'function'
+                ? children({
+                      errors: {},
+                      processing: false,
+                      recentlySuccessful: false,
+                  })
+                : children}
+        </form>
+    ),
+    router: {
+        post: vi.fn(),
+    },
+    useForm: (initial: Record<string, unknown>) => ({
+        data: initial,
+        errors: {},
+        processing: false,
+        setData: vi.fn(),
+        post: vi.fn(),
+        reset: vi.fn(),
+        transform: vi.fn(),
+    }),
+}));
+
+function makeRegistration(overrides?: Partial<Registration>): Registration {
+    return {
+        id: 'reg-1',
+        workflow_version: 2,
+        status: 'submitted',
+        is_kipk: false,
+        funding: 'mandiri',
+        stay_kind: 'standard',
+        rate_unit: 'year',
+        student_profile: {
+            user: {
+                nama: 'Siti Aisyah',
+                nim_nip: '2310990001',
+            },
+        },
+        reserved_room: {
+            id: 'room-1',
+            nomor_kamar: '101',
+            kapasitas: 2,
+            lantai: {
+                gedung: {
+                    id: 'b-1',
+                    nama_gedung: 'RPX (A)',
+                    kode_gedung: 'A',
+                },
+            },
+        },
+        allocation_status: 'held',
+        policy: {
+            id: 'pol-1',
+            category: 'local_non_kipk',
+            version: 1,
+            settings: {
+                open: true,
+                documents: ['ktp', 'perjanjian'],
+                building_ids: ['b-1'],
+                rates: [],
+                month_days: 30,
+                day_basis: 'nights',
+                monthly_allowed: false,
+            },
+        },
+        documents: [
+            {
+                id: 'doc-1',
+                kind: 'ktp',
+                version: 1,
+                path: 'residence-documents/reg-1/ktp.jpg',
+                status: 'uploaded',
+            },
+            {
+                id: 'doc-2',
+                kind: 'perjanjian',
+                version: 1,
+                path: 'residence-documents/reg-1/perjanjian.pdf',
+                status: 'uploaded',
+            },
+        ],
+        decisions: [],
+        blockers: [],
+        can_operate: true,
+        can_review_documents: true,
+        can_submit: false,
+        billing_basis: 'person',
+        ...overrides,
+    };
+}
+
+it('shows Preview button, Belum diperiksa badge, and one single batch save button for facilitator review', () => {
+    const html = renderToStaticMarkup(
+        <RegistrationDetailCard
+            r={makeRegistration()}
+            manager={false}
+            leader={false}
+            rooms={[]}
+        />,
+    );
+
+    expect(html).toContain('Belum diperiksa');
+    expect(html.match(/>Preview</g)?.length).toBe(2);
+    expect(html).toContain('Simpan Pemeriksaan (2 Dokumen)');
+    expect(html.match(/Simpan Pemeriksaan \(/g)?.length).toBe(1);
+    expect(html).not.toContain('Simpan pemeriksaan');
+});
+
+it('shows Sudah diperiksa badge and reviewer timestamp once documents are reviewed', () => {
+    const html = renderToStaticMarkup(
+        <RegistrationDetailCard
+            r={makeRegistration({
+                documents: [
+                    {
+                        id: 'doc-1',
+                        kind: 'ktp',
+                        version: 1,
+                        path: 'residence-documents/reg-1/ktp.jpg',
+                        status: 'valid',
+                        reviewed_at: '2026-11-16T09:00:00+07:00',
+                        reviewer: { nama: 'Budi Fasilitator' },
+                    },
+                    {
+                        id: 'doc-2',
+                        kind: 'perjanjian',
+                        version: 1,
+                        path: 'residence-documents/reg-1/perjanjian.pdf',
+                        status: 'revision',
+                        notes: 'Tanda tangan kurang jelas',
+                        reviewed_at: '2026-11-16T09:05:00+07:00',
+                        reviewer: { nama: 'Budi Fasilitator' },
+                    },
+                ],
+            })}
+            manager={false}
+            leader={false}
+            rooms={[]}
+        />,
+    );
+
+    expect(html).toContain('Sudah diperiksa');
+    expect(html).toContain('Sudah diperiksa · Valid');
+    expect(html).toContain('Sudah diperiksa · Perlu revisi');
+    expect(html).toContain('Terakhir diperiksa Budi Fasilitator');
+    expect(html).toContain('Tanda tangan kurang jelas');
+});
+
+it('restricts document review controls to assigned building facilitator', () => {
+    const html = renderToStaticMarkup(
+        <RegistrationDetailCard
+            r={makeRegistration({ can_review_documents: false })}
+            manager={true}
+            leader={false}
+            rooms={[]}
+        />,
+    );
+
+    expect(html).toContain(
+        'Pemeriksaan dan persetujuan berkas pendaftar dilakukan secara eksklusif oleh Fasilitator gedung terkait.',
+    );
+    expect(html).not.toContain('Simpan Pemeriksaan (');
+    expect(html).not.toContain('Keputusan pemeriksaan');
+});

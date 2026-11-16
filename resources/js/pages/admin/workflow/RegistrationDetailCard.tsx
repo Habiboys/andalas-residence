@@ -1,7 +1,9 @@
+import { router } from '@inertiajs/react';
 import * as amendments from '@/actions/App/Http/Controllers/ResidenceAmendmentController';
 import * as workflow from '@/actions/App/Http/Controllers/ResidenceWorkflowController';
-import { StatusBadge } from '@/andalas/components/ui';
-import { formatRupiah } from '@/andalas/lib/format';
+import { Modal, StatusBadge } from '@/andalas/components/ui';
+import { formatDateTime, formatRupiah } from '@/andalas/lib/format';
+import { CheckCircle2, Clock, Download, Eye, ShieldAlert } from 'lucide-react';
 import { useState } from 'react';
 import {
     ActionForm,
@@ -23,113 +25,524 @@ import {
     type Room,
 } from './types';
 
-function DocumentReviewItem({
-    doc,
-    kind,
-    canReview,
-    registrationId,
+function previewFileKind(path?: string): 'image' | 'pdf' | 'other' {
+    const ext = (path?.split('.').pop() ?? '').toLowerCase();
+    if (['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext)) {
+        return 'image';
+    }
+    if (ext === 'pdf') {
+        return 'pdf';
+    }
+    return 'other';
+}
+
+function DocumentReviewSection({
+    r,
+    requiredDocumentKinds,
+    latestDocuments,
 }: {
-    doc?: Document;
-    kind: string;
-    canReview: boolean;
-    registrationId: string;
+    r: Registration;
+    requiredDocumentKinds: string[];
+    latestDocuments: Document[];
 }) {
-    const [reviewStatus, setReviewStatus] = useState<'valid' | 'revision'>(
-        'valid',
+    const reviewableDocs = requiredDocumentKinds
+        .map((kind) => ({
+            kind,
+            doc: latestDocuments.find((d) => d.kind === kind),
+        }))
+        .filter(
+            (entry): entry is { kind: string; doc: Document } =>
+                Boolean(entry.doc) &&
+                (!r.completed_at || entry.kind.startsWith('pembiayaan_')) &&
+                !r.keys_returned_at &&
+                Boolean(r.can_review_documents),
+        );
+
+    const [drafts, setDrafts] = useState<
+        Record<string, { status: 'valid' | 'revision'; notes: string }>
+    >(() =>
+        Object.fromEntries(
+            latestDocuments.map((d) => [
+                d.id,
+                {
+                    status: d.status === 'revision' ? 'revision' : 'valid',
+                    notes: d.notes ?? '',
+                },
+            ]),
+        ),
     );
-    const [notes, setNotes] = useState('');
+    const [validationError, setValidationError] = useState<string | null>(null);
+    const [confirmOpen, setConfirmOpen] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [previewDoc, setPreviewDoc] = useState<{
+        doc: Document;
+        kind: string;
+    } | null>(null);
+
+    const hasPendingUnreviewed = requiredDocumentKinds.some((kind) => {
+        const doc = latestDocuments.find((d) => d.kind === kind);
+        return doc && doc.status === 'uploaded';
+    });
+    const allReviewed =
+        requiredDocumentKinds.length > 0 &&
+        requiredDocumentKinds.every((kind) => {
+            const doc = latestDocuments.find((d) => d.kind === kind);
+            return doc && ['valid', 'revision'].includes(doc.status);
+        });
+
+    const hasUnsavedChanges = reviewableDocs.some(({ doc }) => {
+        const draft = drafts[doc.id];
+        if (!draft) {
+            return false;
+        }
+        const savedNotes = (doc.notes ?? '').trim();
+        return (
+            draft.status !== doc.status ||
+            (draft.status === 'revision' && draft.notes.trim() !== savedNotes) ||
+            (draft.status === 'valid' && draft.notes.trim() !== savedNotes)
+        );
+    });
+
+    const updateDraft = (
+        docId: string,
+        patch: Partial<{ status: 'valid' | 'revision'; notes: string }>,
+    ) => {
+        setValidationError(null);
+        setDrafts((prev) => ({
+            ...prev,
+            [docId]: {
+                status: prev[docId]?.status ?? 'valid',
+                notes: prev[docId]?.notes ?? '',
+                ...patch,
+            },
+        }));
+    };
+
+    const requestSaveConfirmation = () => {
+        setValidationError(null);
+        for (const { kind, doc } of reviewableDocs) {
+            const draft = drafts[doc.id] ?? {
+                status: doc.status === 'revision' ? 'revision' : 'valid',
+                notes: doc.notes ?? '',
+            };
+            if (draft.status === 'revision' && draft.notes.trim() === '') {
+                setValidationError(
+                    `Catatan revisi wajib diisi untuk dokumen "${formatDocumentLabel(kind)}".`,
+                );
+                return;
+            }
+        }
+        setConfirmOpen(true);
+    };
+
+    const submitAll = () => {
+        if (saving) {
+            return;
+        }
+        setSaving(true);
+        const reviews = reviewableDocs.map(({ doc }) => {
+            const draft = drafts[doc.id] ?? {
+                status: doc.status === 'revision' ? 'revision' : 'valid',
+                notes: doc.notes ?? '',
+            };
+            return {
+                document_id: doc.id,
+                status: draft.status,
+                notes: draft.notes.trim() || null,
+            };
+        });
+
+        router.post(
+            workflow.reviewDocuments.url(r.id),
+            { reviews },
+            {
+                preserveScroll: true,
+                onFinish: () => {
+                    setSaving(false);
+                    setConfirmOpen(false);
+                },
+            },
+        );
+    };
 
     return (
-        <div
-            key={`${registrationId}-${kind}`}
-            className="border-base-200 space-y-2 border-b pb-3 last:border-b-0"
-        >
-            <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="font-medium">{formatDocumentLabel(kind)}</p>
-                <StatusBadge
-                    status={doc?.status ?? 'menunggu'}
-                    label={
-                        doc
-                            ? (WORKFLOW_STATUS_LABELS[doc.status] ?? doc.status)
-                            : 'Belum diunggah'
-                    }
-                />
+        <details className="border-base-300 rounded-lg border p-3" open>
+            <summary className="flex cursor-pointer flex-wrap items-center justify-between gap-2 font-medium">
+                <span>
+                    Dokumen pendaftaran ({requiredDocumentKinds.length})
+                </span>
+                {allReviewed ? (
+                    <span className="badge badge-success badge-sm gap-1">
+                        <CheckCircle2 className="size-3" />
+                        Sudah diperiksa
+                    </span>
+                ) : hasPendingUnreviewed ? (
+                    <span className="badge badge-warning badge-sm gap-1">
+                        <Clock className="size-3" />
+                        Belum diperiksa
+                    </span>
+                ) : null}
+            </summary>
+
+            <div className="mt-3 space-y-4">
+                {!r.can_review_documents && r.can_operate && (
+                    <p className="border-base-300 bg-base-200/50 text-base-content/75 rounded-lg border px-3 py-2 text-xs">
+                        Pemeriksaan dan persetujuan berkas pendaftar dilakukan
+                        secara eksklusif oleh Fasilitator gedung terkait.
+                    </p>
+                )}
+
+                {requiredDocumentKinds.map((kind) => {
+                    const doc = latestDocuments.find((d) => d.kind === kind);
+                    const editable =
+                        Boolean(doc) &&
+                        (!r.completed_at || kind.startsWith('pembiayaan_')) &&
+                        !r.keys_returned_at &&
+                        Boolean(r.can_review_documents);
+                    const draft = doc
+                        ? (drafts[doc.id] ?? {
+                              status:
+                                  doc.status === 'revision'
+                                      ? 'revision'
+                                      : 'valid',
+                              notes: doc.notes ?? '',
+                          })
+                        : null;
+
+                    return (
+                        <div
+                            key={`${r.id}-${kind}`}
+                            className="border-base-200 space-y-2.5 border-b pb-3.5 last:border-b-0"
+                        >
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                <div className="space-y-0.5">
+                                    <p className="font-medium">
+                                        {formatDocumentLabel(kind)}
+                                    </p>
+                                    {doc && (
+                                        <p className="text-base-content/65 text-xs">
+                                            {doc.reviewed_at
+                                                ? `Terakhir diperiksa ${doc.reviewer?.nama ?? 'Fasilitator'} · ${formatDateTime(doc.reviewed_at)}`
+                                                : 'Menunggu pemeriksaan fasilitator gedung'}
+                                        </p>
+                                    )}
+                                </div>
+                                <StatusBadge
+                                    status={doc?.status ?? 'menunggu'}
+                                    label={
+                                        doc
+                                            ? (WORKFLOW_STATUS_LABELS[
+                                                  doc.status
+                                              ] ?? doc.status)
+                                            : 'Belum diunggah'
+                                    }
+                                />
+                            </div>
+
+                            {doc && (
+                                <div className="space-y-1.5 text-sm">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <button
+                                            type="button"
+                                            className="btn btn-xs btn-primary btn-outline gap-1"
+                                            onClick={() =>
+                                                setPreviewDoc({ doc, kind })
+                                            }
+                                        >
+                                            <Eye className="size-3.5" />
+                                            Preview
+                                        </button>
+                                        <a
+                                            className="btn btn-xs btn-outline gap-1"
+                                            href={workflow.document.url(doc.id)}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                        >
+                                            <Download className="size-3.5" />
+                                            Unduh berkas (v{doc.version})
+                                        </a>
+                                    </div>
+                                    {doc.notes && (
+                                        <p className="bg-base-200/50 text-base-content/80 rounded px-2.5 py-1 text-xs">
+                                            Catatan tersimpan: {doc.notes}
+                                        </p>
+                                    )}
+                                </div>
+                            )}
+
+                            {editable && doc && draft && (
+                                <div className="bg-base-200/30 border-base-300 grid gap-3 rounded-lg border p-3 sm:grid-cols-2">
+                                    <Field
+                                        label="Keputusan pemeriksaan"
+                                        name={`status-${doc.id}`}
+                                    >
+                                        <select
+                                            className={fieldInputClass}
+                                            value={draft.status}
+                                            onChange={(e) =>
+                                                updateDraft(doc.id, {
+                                                    status: e.target.value as
+                                                        | 'valid'
+                                                        | 'revision',
+                                                })
+                                            }
+                                        >
+                                            <option value="valid">Valid</option>
+                                            <option value="revision">
+                                                Perlu revisi
+                                            </option>
+                                        </select>
+                                    </Field>
+
+                                    <Field
+                                        name={`notes-${doc.id}`}
+                                        label={
+                                            draft.status === 'revision'
+                                                ? 'Catatan revisi (wajib diisi)'
+                                                : 'Catatan pemeriksaan (opsional)'
+                                        }
+                                    >
+                                        <input
+                                            type="text"
+                                            className={fieldInputClass}
+                                            value={draft.notes}
+                                            placeholder={
+                                                draft.status === 'revision'
+                                                    ? 'Jelaskan bagian yang perlu diperbaiki mahasiswa...'
+                                                    : 'Catatan tambahan (opsional)'
+                                            }
+                                            onChange={(e) =>
+                                                updateDraft(doc.id, {
+                                                    notes: e.target.value,
+                                                })
+                                            }
+                                        />
+                                    </Field>
+                                </div>
+                            )}
+                        </div>
+                    );
+                })}
+
+                {validationError && (
+                    <div role="alert" className="alert alert-error text-xs">
+                        <ShieldAlert className="size-4 shrink-0" />
+                        <span>{validationError}</span>
+                    </div>
+                )}
+
+                {reviewableDocs.length > 0 && (
+                    <div className="border-base-300 bg-base-200/40 flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3.5">
+                        <div className="text-xs">
+                            {hasUnsavedChanges ? (
+                                <span className="text-warning font-semibold">
+                                    Terdapat perubahan pemeriksaan yang belum
+                                    disimpan.
+                                </span>
+                            ) : allReviewed ? (
+                                <span className="text-base-content/75">
+                                    Semua berkas sudah berstatus diperiksa. Anda
+                                    tetap dapat memperbarui lalu menyimpan ulang
+                                    bila diperlukan.
+                                </span>
+                            ) : (
+                                <span className="text-base-content/75">
+                                    Pilih hasil untuk semua berkas di atas, lalu
+                                    simpan sekaligus.
+                                </span>
+                            )}
+                        </div>
+                        <button
+                            type="button"
+                            className="btn btn-primary btn-sm"
+                            onClick={requestSaveConfirmation}
+                            disabled={saving}
+                        >
+                            {saving
+                                ? 'Menyimpan...'
+                                : `Simpan Pemeriksaan (${reviewableDocs.length} Dokumen)`}
+                        </button>
+                    </div>
+                )}
+
+                {r.documents.length > 0 && (
+                    <details>
+                        <summary className="text-base-content/70 cursor-pointer text-xs font-medium">
+                            Riwayat seluruh versi dokumen ({r.documents.length})
+                        </summary>
+                        <div className="mt-2 space-y-1">
+                            {r.documents.map((d) => (
+                                <p key={d.id} className="text-xs">
+                                    <a
+                                        className="link link-primary"
+                                        href={workflow.document.url(d.id)}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                    >
+                                        {formatDocumentLabel(d.kind)} v
+                                        {d.version}
+                                    </a>{' '}
+                                    ·{' '}
+                                    {WORKFLOW_STATUS_LABELS[d.status] ??
+                                        d.status}{' '}
+                                    {d.reviewer
+                                        ? `· ${d.reviewer.nama} (${formatDateTime(d.reviewed_at)})`
+                                        : ''}
+                                    {d.notes ? ` · ${d.notes}` : ''}
+                                </p>
+                            ))}
+                        </div>
+                    </details>
+                )}
             </div>
 
-            {doc && (
-                <div className="space-y-1 text-sm">
-                    <div className="flex flex-wrap items-center gap-3">
-                        <a
-                            className="btn btn-xs btn-outline"
-                            href={workflow.document.url(doc.id)}
-                            target="_blank"
-                            rel="noreferrer"
-                        >
-                            Unduh berkas (v{doc.version})
-                        </a>
-                        {doc.reviewer && (
-                            <span className="text-base-content/70 text-xs">
-                                Diperiksa {doc.reviewer.nama} ·{' '}
-                                {doc.reviewed_at?.slice(0, 16)}
-                            </span>
-                        )}
+            <Modal
+                open={Boolean(previewDoc)}
+                onClose={() => setPreviewDoc(null)}
+                title={
+                    previewDoc
+                        ? `Preview · ${formatDocumentLabel(previewDoc.kind)} (v${previewDoc.doc.version})`
+                        : 'Preview Dokumen'
+                }
+                width="max-w-4xl"
+            >
+                {previewDoc &&
+                    (() => {
+                        const inlineUrl = workflow.document.url(
+                            previewDoc.doc.id,
+                            {
+                                query: { inline: 1 },
+                            },
+                        );
+                        const fileKind = previewFileKind(previewDoc.doc.path);
+                        return (
+                            <div className="space-y-4">
+                                {fileKind === 'image' ? (
+                                    <div className="border-base-300 bg-base-200/40 flex justify-center rounded-xl border p-2">
+                                        <img
+                                            src={inlineUrl}
+                                            alt={formatDocumentLabel(
+                                                previewDoc.kind,
+                                            )}
+                                            className="max-h-[70vh] w-auto rounded-lg object-contain"
+                                        />
+                                    </div>
+                                ) : fileKind === 'pdf' ? (
+                                    <iframe
+                                        src={inlineUrl}
+                                        title={`Preview ${formatDocumentLabel(previewDoc.kind)}`}
+                                        className="border-base-300 bg-base-100 h-[70vh] w-full rounded-xl border"
+                                    />
+                                ) : (
+                                    <div className="border-base-300 bg-base-200/40 rounded-xl border p-6 text-center text-sm">
+                                        <p>
+                                            Preview langsung hanya mendukung
+                                            gambar dan PDF. Silakan unduh berkas
+                                            untuk membukanya.
+                                        </p>
+                                    </div>
+                                )}
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <span className="text-base-content/70 text-xs">
+                                        Status:{' '}
+                                        {WORKFLOW_STATUS_LABELS[
+                                            previewDoc.doc.status
+                                        ] ?? previewDoc.doc.status}
+                                    </span>
+                                    <div className="flex gap-2">
+                                        <a
+                                            href={workflow.document.url(
+                                                previewDoc.doc.id,
+                                            )}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="btn btn-outline btn-sm gap-1.5"
+                                        >
+                                            <Download className="size-4" />
+                                            Unduh Berkas
+                                        </a>
+                                        <button
+                                            type="button"
+                                            className="btn btn-primary btn-sm"
+                                            onClick={() => setPreviewDoc(null)}
+                                        >
+                                            Tutup Preview
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })()}
+            </Modal>
+
+            <Modal
+                open={confirmOpen}
+                onClose={() => !saving && setConfirmOpen(false)}
+                title="Konfirmasi Simpan Pemeriksaan Dokumen"
+            >
+                <div className="space-y-4 text-sm">
+                    <p>
+                        Pastikan hasil pemeriksaan berikut sudah sesuai sebelum
+                        disimpan. Bila seluruh dokumen dinyatakan{' '}
+                        <strong>Valid</strong>, tahap pembayaran untuk
+                        pendaftar akan otomatis dibuka.
+                    </p>
+                    <div className="border-base-300 bg-base-200/40 divide-base-300 divide-y rounded-xl border px-3">
+                        {reviewableDocs.map(({ kind, doc }) => {
+                            const draft = drafts[doc.id] ?? {
+                                status:
+                                    doc.status === 'revision'
+                                        ? 'revision'
+                                        : 'valid',
+                                notes: doc.notes ?? '',
+                            };
+                            return (
+                                <div key={doc.id} className="space-y-1 py-2.5">
+                                    <div className="flex items-center justify-between gap-2">
+                                        <span className="font-medium">
+                                            {formatDocumentLabel(kind)}
+                                        </span>
+                                        <StatusBadge
+                                            status={draft.status}
+                                            label={
+                                                draft.status === 'valid'
+                                                    ? 'Valid'
+                                                    : 'Perlu revisi'
+                                            }
+                                        />
+                                    </div>
+                                    {draft.notes.trim() !== '' && (
+                                        <p className="text-base-content/75 text-xs">
+                                            Catatan: {draft.notes.trim()}
+                                        </p>
+                                    )}
+                                </div>
+                            );
+                        })}
                     </div>
-                    {doc.notes && (
-                        <p className="text-base-content/80 text-xs">
-                            Catatan: {doc.notes}
-                        </p>
-                    )}
+                    <div className="flex justify-end gap-2">
+                        <button
+                            type="button"
+                            className="btn btn-outline btn-sm"
+                            disabled={saving}
+                            onClick={() => setConfirmOpen(false)}
+                        >
+                            Periksa Ulang
+                        </button>
+                        <button
+                            type="button"
+                            className="btn btn-primary btn-sm"
+                            disabled={saving}
+                            onClick={submitAll}
+                        >
+                            {saving
+                                ? 'Menyimpan...'
+                                : 'Ya, Simpan Hasil Pemeriksaan'}
+                        </button>
+                    </div>
                 </div>
-            )}
-
-            {canReview && doc && (
-                <ActionForm
-                    url={workflow.reviewDocument.url(doc.id)}
-                    label="Simpan pemeriksaan"
-                >
-                    <div className="grid gap-3 sm:grid-cols-2">
-                        <Field label="Hasil pemeriksaan" name="status">
-                            <select
-                                name="status"
-                                className={fieldInputClass}
-                                value={reviewStatus}
-                                onChange={(e) =>
-                                    setReviewStatus(
-                                        e.target.value as 'valid' | 'revision',
-                                    )
-                                }
-                            >
-                                <option value="valid">Valid</option>
-                                <option value="revision">Perlu revisi</option>
-                            </select>
-                        </Field>
-
-                        <Field
-                            name="notes"
-                            label={
-                                reviewStatus === 'revision'
-                                    ? 'Catatan revisi (wajib diisi)'
-                                    : 'Catatan pemeriksaan (opsional)'
-                            }
-                        >
-                            <input
-                                type="text"
-                                name="notes"
-                                className={fieldInputClass}
-                                value={notes}
-                                required={reviewStatus === 'revision'}
-                                placeholder={
-                                    reviewStatus === 'revision'
-                                        ? 'Jelaskan bagian yang perlu diperbaiki mahasiswa...'
-                                        : 'Catatan tambahan (opsional)'
-                                }
-                                onChange={(e) => setNotes(e.target.value)}
-                            />
-                        </Field>
-                    </div>
-                </ActionForm>
-            )}
-        </div>
+            </Modal>
+        </details>
     );
 }
 
@@ -791,78 +1204,11 @@ export default function RegistrationDetailCard({
             )}
 
             {r.workflow_version === 2 && (
-                <details
-                    className="border-base-300 rounded-lg border p-3"
-                    open
-                >
-                    <summary className="cursor-pointer font-medium">
-                        Dokumen pendaftaran ({requiredDocumentKinds.length})
-                    </summary>
-
-                    <div className="mt-3 space-y-4">
-                        {!r.can_review_documents && r.can_operate && (
-                            <p className="border-base-300 bg-base-200/50 text-base-content/75 rounded-lg border px-3 py-2 text-xs">
-                                Pemeriksaan dan persetujuan berkas pendaftar
-                                dilakukan secara eksklusif oleh Fasilitator
-                                gedung terkait.
-                            </p>
-                        )}
-                        {requiredDocumentKinds.map((kind) => {
-                            const doc = latestDocuments.find(
-                                (d) => d.kind === kind,
-                            );
-                            const canReview =
-                                (!r.completed_at ||
-                                    kind.startsWith('pembiayaan_')) &&
-                                !r.keys_returned_at &&
-                                Boolean(doc) &&
-                                Boolean(r.can_review_documents);
-
-                            return (
-                                <DocumentReviewItem
-                                    key={kind}
-                                    doc={doc}
-                                    kind={kind}
-                                    canReview={canReview}
-                                    registrationId={r.id}
-                                />
-                            );
-                        })}
-
-                        {r.documents.length > 0 && (
-                            <details>
-                                <summary className="text-base-content/70 cursor-pointer text-xs font-medium">
-                                    Riwayat seluruh versi dokumen (
-                                    {r.documents.length})
-                                </summary>
-                                <div className="mt-2 space-y-1">
-                                    {r.documents.map((d) => (
-                                        <p key={d.id} className="text-xs">
-                                            <a
-                                                className="link link-primary"
-                                                href={workflow.document.url(
-                                                    d.id,
-                                                )}
-                                                target="_blank"
-                                                rel="noreferrer"
-                                            >
-                                                {formatDocumentLabel(d.kind)} v
-                                                {d.version}
-                                            </a>{' '}
-                                            ·{' '}
-                                            {WORKFLOW_STATUS_LABELS[d.status] ??
-                                                d.status}{' '}
-                                            ·{' '}
-                                            {d.reviewer?.nama ??
-                                                'Belum diperiksa'}{' '}
-                                            {d.notes && `— ${d.notes}`}
-                                        </p>
-                                    ))}
-                                </div>
-                            </details>
-                        )}
-                    </div>
-                </details>
+                <DocumentReviewSection
+                    r={r}
+                    requiredDocumentKinds={requiredDocumentKinds}
+                    latestDocuments={latestDocuments}
+                />
             )}
 
             {r.decisions.length > 0 &&

@@ -442,6 +442,10 @@ class ResidenceWorkflowController extends Controller
     {
         abort_unless(ResidenceWorkflowAccess::view($request->user(), $document->registration), 403);
 
+        if ($request->boolean('inline')) {
+            return Storage::disk('local')->response($document->path);
+        }
+
         return Storage::disk('local')->download($document->path);
     }
 
@@ -512,31 +516,106 @@ class ResidenceWorkflowController extends Controller
 
     public function reviewDocument(Request $request, RegistrationDocument $document): RedirectResponse
     {
-        abort_unless(ResidenceWorkflowAccess::documentReviewer($request->user(), $document->registration), 403);
         $data = $request->validate(['status' => ['required', 'in:valid,revision'], 'notes' => ['required_if:status,revision', 'nullable', 'string', 'max:2000']]);
-        DB::transaction(function () use ($request, $document, $data): void {
-            $r = ResidenceRegistration::whereKey($document->residence_registration_id)->lockForUpdate()->firstOrFail();
-            $document->refresh();
-            if (($r->completed_at && ! $r->decisions()->where('status', 'approved')->get()->contains(fn ($d) => ! empty($d->terms['amendment_id']) && ($d->terms['agreement_kind'] ?? null) === $document->kind)) || $r->keys_returned_at || $r->isClosed() || $document->version !== $r->documents()->where('kind', $document->kind)->max('version')) {
-                throw ValidationException::withMessages(['document' => 'Hanya versi dokumen terbaru pada pendaftaran berjalan yang dapat diperiksa.']);
+        $this->applyDocumentReviews($document->registration, $request->user(), [[
+            'document_id' => $document->id,
+            'status' => $data['status'],
+            'notes' => $data['notes'] ?? null,
+        ]]);
+
+        return back()->with('toast', ['type' => 'success', 'message' => 'Hasil pemeriksaan dokumen tersimpan.']);
+    }
+
+    public function reviewDocuments(Request $request, ResidenceRegistration $registration): RedirectResponse
+    {
+        abort_unless(ResidenceWorkflowAccess::documentReviewer($request->user(), $registration), 403);
+
+        $data = $request->validate([
+            'reviews' => ['required', 'array', 'min:1'],
+            'reviews.*.document_id' => ['required', 'uuid', 'distinct'],
+            'reviews.*.status' => ['required', 'in:valid,revision'],
+            'reviews.*.notes' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        foreach ($data['reviews'] as $index => $review) {
+            if ($review['status'] === 'revision' && trim((string) ($review['notes'] ?? '')) === '') {
+                throw ValidationException::withMessages(["reviews.{$index}.notes" => 'Catatan revisi wajib diisi bila dokumen perlu revisi.']);
             }
-            if ($document->status === $data['status'] && $document->notes === ($data['notes'] ?? null)) {
+        }
+
+        $this->applyDocumentReviews($registration, $request->user(), $data['reviews']);
+
+        return back()->with('toast', ['type' => 'success', 'message' => 'Seluruh hasil pemeriksaan dokumen berhasil disimpan.']);
+    }
+
+    /**
+     * @param  list<array{document_id: string, status: string, notes?: string|null}>  $reviews
+     */
+    private function applyDocumentReviews(ResidenceRegistration $registration, User $reviewer, array $reviews): void
+    {
+        abort_unless(ResidenceWorkflowAccess::documentReviewer($reviewer, $registration), 403);
+
+        DB::transaction(function () use ($registration, $reviewer, $reviews): void {
+            $r = ResidenceRegistration::whereKey($registration->id)->lockForUpdate()->firstOrFail();
+            $revisionNotes = [];
+            $changed = false;
+
+            foreach ($reviews as $entry) {
+                $document = RegistrationDocument::where('residence_registration_id', $r->id)
+                    ->whereKey($entry['document_id'])
+                    ->lockForUpdate()
+                    ->first();
+
+                if (! $document) {
+                    throw ValidationException::withMessages(['document' => 'Dokumen tidak ditemukan pada pendaftaran ini.']);
+                }
+
+                $amendmentAllowed = $r->decisions()->where('status', 'approved')->get()
+                    ->contains(fn ($d) => ! empty($d->terms['amendment_id']) && ($d->terms['agreement_kind'] ?? null) === $document->kind);
+
+                if (($r->completed_at && ! $amendmentAllowed)
+                    || $r->keys_returned_at
+                    || $r->isClosed()
+                    || $document->version !== $r->documents()->where('kind', $document->kind)->max('version')) {
+                    throw ValidationException::withMessages(['document' => 'Hanya versi dokumen terbaru pada pendaftaran berjalan yang dapat diperiksa.']);
+                }
+
+                $notes = isset($entry['notes']) && trim((string) $entry['notes']) !== ''
+                    ? trim((string) $entry['notes'])
+                    : null;
+
+                if ($document->status === $entry['status'] && $document->notes === $notes) {
+                    continue;
+                }
+
+                $old = $document->toArray();
+                $document->update([
+                    'status' => $entry['status'],
+                    'notes' => $notes,
+                    'reviewed_by' => $reviewer->id,
+                    'reviewed_at' => now(),
+                ]);
+                AuditLogService::log($reviewer, 'registration_document_reviewed', $document, $old, $document->toArray());
+                $changed = true;
+
+                if ($entry['status'] === 'revision') {
+                    $revisionNotes[] = $document->kind.': '.($notes ?? 'Perlu perbaikan.');
+                }
+            }
+
+            if (! $changed) {
                 return;
             }
-            $old = $document->toArray();
-            $document->update([...$data, 'reviewed_by' => $request->user()->id, 'reviewed_at' => now()]);
-            AuditLogService::log($request->user(), 'registration_document_reviewed', $document, $old, $document->toArray());
+
             $workflow = app(ResidenceWorkflow::class);
             $fresh = $r->fresh();
-            if ($data['status'] === 'revision') {
-                $workflow->notify($fresh, 'Dokumen perlu revisi', $document->kind.': '.$data['notes']);
+            if ($revisionNotes !== []) {
+                $workflow->notify($fresh, 'Dokumen perlu revisi', implode(' | ', $revisionNotes));
             } elseif ($workflow->paymentUnlocked($fresh)) {
-                $workflow->notify($fresh, 'Berkas disetujui — lanjut ke pembayaran', 'Seluruh berkas pendaftaran Anda telah disetujui fasilitator gedung. Silakan buka detail tagihan untuk mengunggah bukti pembayaran.');
+                $workflow->notify($fresh, 'Berkas disetujui — lanjut ke pembayaran', 'Seluruh berkas pendaftaran Anda telah disetujui fasilitator gedung. Silakan buka detail tagihan atau tahap pembayaran untuk mengunggah bukti pembayaran.');
             }
             $workflow->evaluate($fresh);
         });
-
-        return back()->with('toast', ['type' => 'success', 'message' => 'Hasil pemeriksaan dokumen tersimpan.']);
     }
 
     public function requestDecision(Request $request, ResidenceRegistration $registration): RedirectResponse

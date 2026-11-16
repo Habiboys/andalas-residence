@@ -99,6 +99,10 @@ it('shows destination bank accounts, deadline countdown, and proof upload form w
     expect(html).toContain('2100020199999');
     expect(html).toContain('Unggah Bukti Pembayaran');
     expect(html).toContain('Rekening Tujuan Pengiriman');
+    expect(html).not.toContain('name="rekening_tujuan"');
+    expect(html).toContain('Bank Nagari');
+    expect(html).toContain('2100020199999');
+    expect(html).toContain('RPL 014 UNAND Asrama');
     expect(html).toContain('Bank Pengirim');
     expect(html).toContain('Nomor Rekening Pengirim');
     expect(html).toContain('Atas Nama Pengirim');
@@ -106,6 +110,26 @@ it('shows destination bank accounts, deadline countdown, and proof upload form w
     expect(html).toContain('Tanggal dan Jam Pembayaran');
     expect(html).toContain('Upload Bukti Bayar');
     expect(html).toContain('Kirim Bukti Pembayaran');
+});
+
+it('shows configuration notice instead of manual target account input when no bank account is configured', () => {
+    const html = renderToStaticMarkup(
+        <TagihanDetail
+            invoice={baseInvoice}
+            payment_accounts={[]}
+            registration={{
+                id: 'reg-1',
+                status: 'submitted',
+                payment_unlocked: true,
+            }}
+        />,
+    );
+
+    expect(html).toContain('Rekening Tujuan Pengiriman');
+    expect(html).toContain(
+        'Rekening tujuan asrama belum dikonfigurasi oleh Pengelola',
+    );
+    expect(html).not.toContain('name="rekening_tujuan"');
 });
 
 it('shows pending verification status and hides duplicate upload when proof is awaiting manager check', () => {
