@@ -216,7 +216,9 @@ export default function ResidenceWorkflowPage(props: WorkflowProps) {
                             rooms={props.rooms}
                             r={detailRegistration}
                             manager={props.manager}
+                            finance={props.finance}
                             leader={props.leader}
+                            role={props.role}
                         />
                     ) : (
                         <div className="bg-base-100 border-base-300 min-w-0 max-w-full space-y-4 overflow-hidden rounded-xl border p-4 shadow-xs">

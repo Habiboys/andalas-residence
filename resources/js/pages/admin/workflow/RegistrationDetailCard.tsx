@@ -1,9 +1,20 @@
-import { router } from '@inertiajs/react';
+import { Link, router } from '@inertiajs/react';
 import * as amendments from '@/actions/App/Http/Controllers/ResidenceAmendmentController';
 import * as workflow from '@/actions/App/Http/Controllers/ResidenceWorkflowController';
+import { verifikasiPembayaran as adminVerifikasiPembayaran } from '@/routes/admin';
+import { verifikasiPembayaran as adminLayananVerifikasiPembayaran } from '@/routes/admin_layanan';
+import { workflow as workflowPage } from '@/routes/residence';
 import { Modal, StatusBadge } from '@/andalas/components/ui';
 import { formatDateTime, formatRupiah } from '@/andalas/lib/format';
-import { CheckCircle2, Clock, Download, Eye, ShieldAlert } from 'lucide-react';
+import {
+    ArrowRight,
+    CheckCircle2,
+    Clock,
+    CreditCard,
+    Download,
+    Eye,
+    ShieldAlert,
+} from 'lucide-react';
 import { useState } from 'react';
 import {
     ActionForm,
@@ -1047,13 +1058,17 @@ function FinancingTermsForm({
 export default function RegistrationDetailCard({
     r,
     manager,
+    finance = false,
     leader,
     rooms,
+    role,
 }: {
     r: Registration;
     manager: boolean;
+    finance?: boolean;
     leader: boolean;
     rooms: Room[];
+    role?: string;
 }) {
     const latestDocuments = r.documents.filter(
         (d) =>
@@ -1096,6 +1111,39 @@ export default function RegistrationDetailCard({
     const goInspectionStatus = r.checkout_request?.inspection?.status;
     const blockedReturnByInspection =
         r.workflow_version === 2 && goInspectionStatus !== 'selesai';
+
+    const pendingPayments = (r.tagihan?.pembayaran ?? []).filter(
+        (p) => p.status === 'menunggu_verifikasi',
+    );
+    const hasPersonalBalance = r.tagihan
+        ? Number(r.tagihan.total) - Number(r.tagihan.total_dibayar) > 0
+        : false;
+    const hasSponsorBalance = r.tagihan
+        ? Number(r.tagihan.sponsor_total) - Number(r.tagihan.sponsor_paid) > 0
+        : false;
+    const needsPaymentVerification =
+        finance &&
+        Boolean(r.tagihan) &&
+        !r.keys_returned_at &&
+        r.status !== 'rejected' &&
+        r.status !== 'cancelled' &&
+        (pendingPayments.length > 0 ||
+            hasPersonalBalance ||
+            hasSponsorBalance ||
+            r.blockers.some((issue) =>
+                issue.toLowerCase().includes('pembayaran'),
+            ));
+    const verifikasiPembayaranUrl =
+        role === 'admin_layanan'
+            ? adminLayananVerifikasiPembayaran.url({
+                  query: { search: r.student_profile.user.nim_nip },
+              })
+            : adminVerifikasiPembayaran.url({
+                  query: { search: r.student_profile.user.nim_nip },
+              });
+    const rekonsiliasiDpubUrl = workflowPage.url({
+        query: { section: 'finance' },
+    });
 
     return (
         <WorkflowPanel
@@ -1147,25 +1195,67 @@ export default function RegistrationDetailCard({
             <AmendmentsSection r={r} rooms={rooms} manager={manager} />
 
             {r.tagihan && (
-                <div className="bg-base-200/40 border-base-300 grid gap-2 rounded-lg border p-3 text-sm sm:grid-cols-2">
-                    <p>
-                        Kewajiban pribadi:{' '}
-                        <strong>{formatRupiah(Number(r.tagihan.total))}</strong>{' '}
-                        · Dibayar{' '}
-                        <strong>
-                            {formatRupiah(Number(r.tagihan.total_dibayar))}
-                        </strong>
-                    </p>
-                    <p>
-                        Kewajiban institusi:{' '}
-                        <strong>
-                            {formatRupiah(Number(r.tagihan.sponsor_total))}
-                        </strong>{' '}
-                        · Dibayar{' '}
-                        <strong>
-                            {formatRupiah(Number(r.tagihan.sponsor_paid))}
-                        </strong>
-                    </p>
+                <div className="bg-base-200/40 border-base-300 space-y-3 rounded-lg border p-3 text-sm">
+                    <div className="grid gap-2 sm:grid-cols-2">
+                        <p>
+                            Kewajiban pribadi:{' '}
+                            <strong>
+                                {formatRupiah(Number(r.tagihan.total))}
+                            </strong>{' '}
+                            · Dibayar{' '}
+                            <strong>
+                                {formatRupiah(Number(r.tagihan.total_dibayar))}
+                            </strong>
+                        </p>
+                        <p>
+                            Kewajiban institusi:{' '}
+                            <strong>
+                                {formatRupiah(Number(r.tagihan.sponsor_total))}
+                            </strong>{' '}
+                            · Dibayar{' '}
+                            <strong>
+                                {formatRupiah(Number(r.tagihan.sponsor_paid))}
+                            </strong>
+                        </p>
+                    </div>
+                    {needsPaymentVerification && (
+                        <div className="border-base-300 flex flex-wrap items-center justify-between gap-2 border-t pt-2.5">
+                            <div className="text-xs">
+                                {pendingPayments.length > 0 ? (
+                                    <span className="text-primary font-semibold">
+                                        {pendingPayments.length} bukti transfer
+                                        menunggu verifikasi / rekonsiliasi
+                                        {pendingPayments[0]?.kode_transaksi
+                                            ? ` (${pendingPayments[0].kode_transaksi})`
+                                            : ''}
+                                        .
+                                    </span>
+                                ) : (
+                                    <span className="text-base-content/75">
+                                        Menunggu pembayaran / pencocokan dana oleh
+                                        pengelola.
+                                    </span>
+                                )}
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2">
+                                <Link
+                                    href={verifikasiPembayaranUrl}
+                                    className="btn btn-primary btn-xs gap-1"
+                                >
+                                    <CreditCard className="size-3.5" />
+                                    Verifikasi Pembayaran
+                                    <ArrowRight className="size-3.5" />
+                                </Link>
+                                <Link
+                                    href={rekonsiliasiDpubUrl}
+                                    className="btn btn-outline btn-xs gap-1"
+                                >
+                                    Rekonsiliasi DPUB (ACC Lunas)
+                                    <ArrowRight className="size-3.5" />
+                                </Link>
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
 

@@ -165,7 +165,7 @@ class ResidenceWorkflowController extends Controller
             abort_unless(ResidenceWorkflowAccess::officer($user, $registration), 403);
         }
 
-        $registration->load(['studentProfile.user', 'reservedRoom.lantai.gedung', 'placement.kamar.lantai.gedung', 'policy', 'documents.reviewer:id,nama', 'decisions', 'tagihan', 'application', 'roomContract']);
+        $registration->load(['studentProfile.user', 'reservedRoom.lantai.gedung', 'placement.kamar.lantai.gedung', 'policy', 'documents.reviewer:id,nama', 'decisions', 'tagihan.pembayaran' => fn ($q) => $q->latest(), 'application', 'roomContract']);
         $registration = $this->decorateRegistration($registration, $user);
 
         return Inertia::render('admin/residence-workflow', [

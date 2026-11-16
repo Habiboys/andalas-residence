@@ -195,3 +195,62 @@ it('restricts document review controls to assigned building facilitator', () => 
     expect(html).not.toContain('Simpan Pemeriksaan (');
     expect(html).not.toContain('Keputusan pemeriksaan');
 });
+
+it('shows payment verification and DPUB reconciliation shortcuts on detail page for finance/pengelola', () => {
+    const registrationWithPendingPayment = makeRegistration({
+        allocation_status: 'admin_occupied',
+        can_review_documents: false,
+        tagihan: {
+            id: 'inv-1',
+            nomor: 'REG-2026-009',
+            total: '2500000',
+            total_dibayar: '0',
+            sponsor_total: '0',
+            sponsor_paid: '0',
+            pembayaran: [
+                {
+                    id: 'pay-1',
+                    kode_transaksi: 'PAY-001',
+                    nominal: '2500000',
+                    status: 'menunggu_verifikasi',
+                },
+            ],
+        },
+    });
+
+    const htmlPengelola = renderToStaticMarkup(
+        <RegistrationDetailCard
+            r={registrationWithPendingPayment}
+            manager={true}
+            finance={true}
+            leader={false}
+            rooms={[]}
+            role="admin_layanan"
+        />,
+    );
+
+    expect(htmlPengelola).toContain(
+        '1 bukti transfer menunggu verifikasi / rekonsiliasi (PAY-001)',
+    );
+    expect(htmlPengelola).toContain('Verifikasi Pembayaran');
+    expect(htmlPengelola).toContain(
+        'href="/admin_layanan/verifikasi-pembayaran?search=2310990001"',
+    );
+    expect(htmlPengelola).toContain('Rekonsiliasi DPUB (ACC Lunas)');
+    expect(htmlPengelola).toContain(
+        'href="/residence-process?section=finance"',
+    );
+
+    const htmlFacilitator = renderToStaticMarkup(
+        <RegistrationDetailCard
+            r={registrationWithPendingPayment}
+            manager={false}
+            finance={false}
+            leader={false}
+            rooms={[]}
+            role="fasilitator"
+        />,
+    );
+    expect(htmlFacilitator).not.toContain('Verifikasi Pembayaran');
+    expect(htmlFacilitator).not.toContain('Rekonsiliasi DPUB (ACC Lunas)');
+});

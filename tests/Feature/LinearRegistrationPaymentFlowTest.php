@@ -407,3 +407,58 @@ it('serves inline document previews and lets building facilitators batch-review 
             ->where('billing.0.payment_unlocked', true)
         );
 });
+
+it('blocks bank transfer submission with validation error when no active bank account exists and includes pending proof & finance flags on registration detail', function () {
+    $f = toBeFixture('local_non_kipk', 2);
+    $facilitator = toBeFacilitator($f['building']);
+    $registration = toBeSubmit($f, ['billing_basis' => 'person']);
+    toBeDocument($registration, $facilitator);
+
+    // No PaymentBankAccount seeded -> UI transfer_bank submission must fail with error
+    $this->actingAs($f['user'])
+        ->post(route('andalas.pembayaran.store'), [
+            'tagihan_id' => $registration->tagihan_id,
+            'jenis_pembayaran' => 'sewa_asrama',
+            'nominal' => (float) $registration->tagihan->total,
+            'metode_pembayaran' => 'transfer_bank',
+            'nama_bank' => 'BNI',
+            'nomor_rekening_pengirim' => '1122334455',
+            'atas_nama_pengirim' => 'Nouval',
+            'tanggal_bayar' => '2026-11-16 09:00:00',
+            'bukti_transfer' => UploadedFile::fake()->create('bukti.jpg', 60, 'image/jpeg'),
+        ])
+        ->assertSessionHasErrors('payment_bank_account_id');
+
+    $account = PaymentBankAccount::create([
+        'bank_name' => 'Bank Nagari',
+        'account_number' => '2100020177777',
+        'account_name' => 'RPL Asrama UNAND',
+        'is_active' => true,
+    ]);
+
+    // Once admin adds active bank account, transfer succeeds and shows on Pengelola Detail Pengajuan
+    $this->actingAs($f['user'])
+        ->post(route('andalas.pembayaran.store'), [
+            'tagihan_id' => $registration->tagihan_id,
+            'jenis_pembayaran' => 'sewa_asrama',
+            'nominal' => (float) $registration->tagihan->total,
+            'metode_pembayaran' => 'transfer_bank',
+            'payment_bank_account_id' => $account->id,
+            'nama_bank' => 'BNI',
+            'nomor_rekening_pengirim' => '1122334455',
+            'atas_nama_pengirim' => 'Nouval',
+            'tanggal_bayar' => '2026-11-16 09:05:00',
+            'bukti_transfer' => UploadedFile::fake()->create('bukti.jpg', 60, 'image/jpeg'),
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $this->actingAs($f['manager'])
+        ->get(route('residence.registrations.show', $registration))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('finance', true)
+            ->has('registrations.data.0.tagihan.pembayaran', 1)
+            ->where('registrations.data.0.tagihan.pembayaran.0.status', 'menunggu_verifikasi')
+        );
+});

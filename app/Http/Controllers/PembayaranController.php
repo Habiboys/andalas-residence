@@ -124,6 +124,16 @@ class PembayaranController extends Controller
                     throw ValidationException::withMessages(['tagihan_id' => 'Reservasi sudah kedaluwarsa. Silakan mendaftar kembali.']);
                 }
             }
+            $hasActiveVirtualAccount = VirtualAccount::where('mahasiswa_id', $mhs->id)->where('aktif', true)->exists();
+            $hasActiveBankAccounts = PaymentBankAccount::where('is_active', true)->exists();
+            if (($validated['metode_pembayaran'] ?? null) === 'transfer_bank' && empty($validated['payment_bank_account_id']) && empty($validated['rekening_tujuan']) && ! $hasActiveVirtualAccount) {
+                throw ValidationException::withMessages([
+                    'payment_bank_account_id' => $hasActiveBankAccounts
+                        ? 'Pilih rekening tujuan transfer resmi asrama terlebih dahulu.'
+                        : 'Rekening tujuan pembayaran asrama belum diisi oleh admin/pengelola. Pembayaran belum dapat dilakukan hingga rekening resmi tersedia.',
+                ]);
+            }
+
             $path = null;
             if ($request->hasFile('bukti_transfer')) {
                 $path = $request->file('bukti_transfer')->store('bukti-pembayaran', 'local');

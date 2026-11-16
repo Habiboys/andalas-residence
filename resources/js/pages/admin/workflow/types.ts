@@ -30,6 +30,14 @@ export type Invoice = {
     sponsor_total: string;
     sponsor_paid: string;
     mahasiswa?: { user: { nama: string } };
+    pembayaran?: Array<{
+        id: string;
+        kode_transaksi: string;
+        nominal: string | number;
+        status: string;
+        tanggal_bayar?: string | null;
+        created_at?: string | null;
+    }>;
     registration?: {
         id: string;
         tagihan_id?: string | null;
@@ -215,6 +223,7 @@ export type PublicStay = {
 };
 
 export type WorkflowProps = {
+    role?: string;
     studentView?: boolean;
     detailMode?: boolean;
     section?: string;

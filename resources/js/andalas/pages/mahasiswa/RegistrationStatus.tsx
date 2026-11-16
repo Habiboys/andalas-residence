@@ -1423,21 +1423,17 @@ export function StudentRegistrationCard({
                                                             </span>
                                                         </div>
                                                     )}
-                                                    {remaining > 0 &&
-                                                        (paymentAccounts.length >
-                                                            0 ||
-                                                            virtualAccounts.length >
-                                                                0) && (
-                                                            <PaymentAccountsBox
-                                                                paymentAccounts={
-                                                                    paymentAccounts
-                                                                }
-                                                                virtualAccounts={
-                                                                    virtualAccounts
-                                                                }
-                                                                compact
-                                                            />
-                                                        )}
+                                                    {remaining > 0 && (
+                                                        <PaymentAccountsBox
+                                                            paymentAccounts={
+                                                                paymentAccounts
+                                                            }
+                                                            virtualAccounts={
+                                                                virtualAccounts
+                                                            }
+                                                            compact
+                                                        />
+                                                    )}
                                                     {remaining > 0 && (
                                                         <div className="border-base-300 bg-base-200/30 space-y-3 rounded-xl border p-4">
                                                             <div className="flex flex-wrap items-center justify-between gap-2">

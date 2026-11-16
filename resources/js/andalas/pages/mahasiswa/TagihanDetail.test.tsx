@@ -112,7 +112,7 @@ it('shows destination bank accounts, deadline countdown, and proof upload form w
     expect(html).toContain('Kirim Bukti Pembayaran');
 });
 
-it('shows configuration notice instead of manual target account input when no bank account is configured', () => {
+it('shows explicit error banner and disables payment upload when no bank account is configured by admin', () => {
     const html = renderToStaticMarkup(
         <TagihanDetail
             invoice={baseInvoice}
@@ -125,10 +125,13 @@ it('shows configuration notice instead of manual target account input when no ba
         />,
     );
 
+    expect(html).toContain('alert alert-error');
+    expect(html).toContain('Rekening tujuan pembayaran belum diisi oleh admin.');
     expect(html).toContain('Rekening Tujuan Pengiriman');
     expect(html).toContain(
-        'Rekening tujuan asrama belum dikonfigurasi oleh Pengelola',
+        'Rekening tujuan asrama belum diisi oleh admin/pengelola.',
     );
+    expect(html).toContain('disabled=""');
     expect(html).not.toContain('name="rekening_tujuan"');
 });
 

@@ -230,7 +230,9 @@ export default function Tagihan({
                 title="Tagihan & Pembayaran"
                 subtitle="Invoice dan sisa kewajiban Anda, tujuan transfer resmi, serta detail verifikasi pembayaran."
             />
-            {(payment_accounts.length > 0 || virtual_accounts.length > 0) && (
+            {(total - paid > 0 ||
+                payment_accounts.length > 0 ||
+                virtual_accounts.length > 0) && (
                 <Card className="space-y-3 p-4 md:p-5">
                     <h2 className="text-base font-semibold">
                         Tujuan Pembayaran Resmi
@@ -292,14 +294,11 @@ export default function Tagihan({
                             layanan. Untuk cicilan, pastikan jadwal termin telah
                             disetujui sebelum pembayaran pertama.
                         </p>
-                        {(payment_accounts.length > 0 ||
-                            virtual_accounts.length > 0) && (
-                            <PaymentAccountsBox
-                                paymentAccounts={payment_accounts}
-                                virtualAccounts={virtual_accounts}
-                                compact
-                            />
-                        )}
+                        <PaymentAccountsBox
+                            paymentAccounts={payment_accounts}
+                            virtualAccounts={virtual_accounts}
+                            compact
+                        />
                         {selected.jadwal_cicilan.length > 0 && (
                             <div className="border-base-300 space-y-1 rounded-lg border p-3 text-xs">
                                 <p className="font-semibold">

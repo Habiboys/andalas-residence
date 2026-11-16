@@ -30,6 +30,7 @@ export function PaymentProofForm({
     const activeAccounts = paymentAccounts.filter(
         (account) => account.is_active !== false,
     );
+    const noTargetAccounts = activeAccounts.length === 0;
     const defaultNominal = Math.round(dueAmount ?? totalRemaining);
 
     const [clientFileError, setClientFileError] = useState<string | null>(null);
@@ -64,6 +65,12 @@ export function PaymentProofForm({
     const submit = (event: React.FormEvent) => {
         event.preventDefault();
         setClientFileError(null);
+        if (noTargetAccounts) {
+            setClientFileError(
+                'Rekening tujuan pembayaran asrama belum diisi oleh admin/pengelola. Anda belum dapat mengirim bukti pembayaran sebelum rekening resmi tersedia.',
+            );
+            return;
+        }
         if (!form.data.bukti_transfer) {
             setClientFileError('Pilih file bukti transfer terlebih dahulu.');
             return;
@@ -113,11 +120,21 @@ export function PaymentProofForm({
             <div className="grid gap-3 sm:grid-cols-2">
                 <div className="sm:col-span-2">
                     <FormField label="Rekening Tujuan Pengiriman">
-                        {activeAccounts.length === 0 ? (
-                            <div className="border-base-300 bg-base-200/50 text-base-content/75 rounded-lg border px-3 py-2 text-xs">
-                                Rekening tujuan asrama belum dikonfigurasi oleh
-                                Pengelola. Hubungi pengelola sebelum melakukan
-                                transfer.
+                        {noTargetAccounts ? (
+                            <div
+                                role="alert"
+                                className="alert alert-error text-xs"
+                            >
+                                <AlertCircle className="size-4 shrink-0" />
+                                <span>
+                                    <strong>
+                                        Rekening tujuan asrama belum diisi oleh
+                                        admin/pengelola.
+                                    </strong>{' '}
+                                    Pengiriman bukti pembayaran diblokir sampai
+                                    admin menambahkan rekening resmi tujuan
+                                    transfer.
+                                </span>
                             </div>
                         ) : activeAccounts.length === 1 ? (
                             <div className="border-base-300 bg-base-100 rounded-lg border px-3 py-2 text-sm font-medium">
@@ -277,7 +294,7 @@ export function PaymentProofForm({
                 <button
                     type="submit"
                     className="btn btn-primary gap-2"
-                    disabled={form.processing}
+                    disabled={form.processing || noTargetAccounts}
                 >
                     <Upload className="size-4" />
                     {form.processing

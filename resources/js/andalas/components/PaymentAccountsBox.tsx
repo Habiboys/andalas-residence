@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Building2, Check, Copy, Landmark } from 'lucide-react';
+import { AlertCircle, Building2, Check, Copy, Landmark } from 'lucide-react';
 
 export type PaymentBankAccountItem = {
     id: string;
@@ -44,14 +44,19 @@ export function PaymentAccountsBox({
 
     if (activeAccounts.length === 0 && virtualAccounts.length === 0) {
         return (
-            <div className="border-base-300 bg-base-200/50 rounded-xl border border-dashed p-4 text-sm">
-                <p className="font-medium">
-                    Rekening tujuan pembayaran belum dikonfigurasi
-                </p>
-                <p className="text-base-content/70 mt-1 text-xs">
-                    Hubungi pengelola asrama untuk informasi nomor rekening
-                    transfer resmi sebelum mengunggah bukti pembayaran.
-                </p>
+            <div role="alert" className="alert alert-error text-sm">
+                <AlertCircle className="size-4 shrink-0" />
+                <div>
+                    <p className="font-semibold">
+                        Rekening tujuan pembayaran belum diisi oleh admin.
+                    </p>
+                    <p className="mt-0.5 text-xs opacity-90">
+                        Pembayaran belum dapat diproses karena admin atau
+                        pengelola asrama belum mengonfigurasi rekening tujuan
+                        transfer resmi. Hubungi pengelola asrama terlebih
+                        dahulu.
+                    </p>
+                </div>
             </div>
         );
     }
