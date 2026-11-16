@@ -90,6 +90,7 @@ export default function RoomCatalog({
     rates,
     selected,
     onSelect,
+    onReview,
     unit,
     basis,
     isStudent = true,
@@ -98,6 +99,7 @@ export default function RoomCatalog({
     rates: CatalogRate[];
     selected: string;
     onSelect: (id: string) => void;
+    onReview?: () => void;
     unit: string;
     basis: string;
     isStudent?: boolean;
@@ -421,9 +423,10 @@ export default function RoomCatalog({
                                                         ? 'btn-primary'
                                                         : 'btn-primary btn-outline'
                                                 }`}
-                                                onClick={() =>
-                                                    onSelect(room.id)
-                                                }
+                                                onClick={() => {
+                                                    onSelect(room.id);
+                                                    setDetailRoom(room);
+                                                }}
                                             >
                                                 {isSelected
                                                     ? 'Terpilih'
@@ -500,6 +503,15 @@ export default function RoomCatalog({
                         onSelect(detailRoom.id);
                         setDetailRoom(null);
                     }}
+                    onReview={
+                        onReview
+                            ? () => {
+                                  onSelect(detailRoom.id);
+                                  setDetailRoom(null);
+                                  onReview();
+                              }
+                            : undefined
+                    }
                 />
             )}
         </section>
@@ -516,6 +528,7 @@ function RoomDetailModal({
     typeName,
     onClose,
     onSelect,
+    onReview,
 }: {
     room: CatalogRoom;
     rates: CatalogRate[];
@@ -526,6 +539,7 @@ function RoomDetailModal({
     typeName: string;
     onClose: () => void;
     onSelect: () => void;
+    onReview?: () => void;
 }) {
     const photo = room.foto ?? room.lantai?.gedung?.foto;
     const facilities = parseFacilities(room.facilities);
@@ -747,9 +761,13 @@ function RoomDetailModal({
                             type="button"
                             className="btn btn-primary"
                             disabled={disabled}
-                            onClick={onSelect}
+                            onClick={onReview ?? onSelect}
                         >
-                            {isSelected ? 'Kamar sudah dipilih' : 'Pilih kamar ini'}
+                            {onReview
+                                ? 'Review pengajuan'
+                                : isSelected
+                                  ? 'Kamar sudah dipilih'
+                                  : 'Pilih kamar ini'}
                         </button>
                     </div>
                 </div>

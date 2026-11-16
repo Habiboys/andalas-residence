@@ -2,11 +2,13 @@
 
 namespace App\Actions\Registration;
 
+use App\Models\Kamar;
 use App\Models\MahasiswaProfil;
 use App\Models\Periode;
 use App\Models\ResidenceRegistration;
 use App\Services\ResidenceLifecycle;
 use App\Services\ResidencePolicyService;
+use App\Services\RoomInvitationService;
 use App\Services\RoomReservations;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -28,7 +30,7 @@ class SubmitResidenceRegistration
                 throw ValidationException::withMessages(['periode_id' => 'Permohonan internasional/S2/S3 dicatat melalui pengelola.']);
             }
             app(RoomReservations::class)->expire();
-            if ($student->penempatanKamar()->where('status', 'aktif')->exists() || $student->residenceRegistrations()->whereNull('completed_at')->whereNotIn('status', ['draft', 'rejected'])->exists()) {
+            if ($student->penempatanKamar()->where('status', 'aktif')->exists() || $student->residenceRegistrations()->whereNull('completed_at')->whereNotIn('status', ['draft', 'rejected', 'cancelled'])->exists()) {
                 throw ValidationException::withMessages(['periode_id' => 'Selesaikan hunian atau pendaftaran yang sedang berjalan.']);
             }
             $period = Periode::where('status', 'aktif')->whereKey($data['periode_id'])->firstOrFail();
@@ -68,6 +70,33 @@ class SubmitResidenceRegistration
             }
             $r->statusHistories()->create(['from_status' => 'draft', 'to_status' => 'submitted', 'changed_by' => $student->user_id]);
             app(AllocateResidenceRoom::class)->handle($r, $kipk ? null : $roomId);
+
+            $inviteeNims = array_values(array_filter(array_map(
+                fn (mixed $nim): string => trim((string) $nim),
+                is_array($data['invitee_nims'] ?? null) ? $data['invitee_nims'] : [],
+            ), fn (string $nim): bool => $nim !== ''));
+
+            if ($inviteeNims !== []) {
+                if ($kipk) {
+                    throw ValidationException::withMessages(['invitee_nims' => 'Undangan teman sekamar hanya tersedia untuk mahasiswa non-KIP-K.']);
+                }
+                $r->refresh();
+                $room = Kamar::query()->lockForUpdate()->findOrFail($r->reserved_room_id);
+                $activeCount = $room->penempatanKamar()->where('status', 'aktif')->count();
+                $heldCount = ResidenceRegistration::where('reserved_room_id', $room->id)
+                    ->whereNull('completed_at')
+                    ->whereNotIn('status', ['draft', 'rejected', 'cancelled'])
+                    ->count();
+                $remainingSlots = max(0, (int) $room->kapasitas - $activeCount - $heldCount);
+                if (count($inviteeNims) > $remainingSlots) {
+                    throw ValidationException::withMessages(['invitee_nims' => "Jumlah teman yang diundang melebihi sisa kapasitas kamar ({$remainingSlots} tempat tersisa)."]);
+                }
+
+                $invitations = app(RoomInvitationService::class);
+                foreach ($inviteeNims as $index => $nim) {
+                    $invitations->invite($r, $student->user, $nim, "invitee_nims.{$index}");
+                }
+            }
 
             return $r->fresh(['roomPreferences', 'statusHistories']);
         }, 3);

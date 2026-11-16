@@ -8,6 +8,7 @@ use App\Actions\Checkout\ReturnResidenceKeys;
 use App\Actions\Registration\AllocateResidenceRoom;
 use App\Actions\Registration\ConfirmResidenceCheckIn;
 use App\Actions\Registration\CreateResidenceBilling;
+use App\Enums\TagihanStatus;
 use App\Http\Requests\PublishResidencePolicyRequest;
 use App\Models\CheckoutRequest;
 use App\Models\Departemen;
@@ -17,6 +18,7 @@ use App\Models\InvoiceGroup;
 use App\Models\Kamar;
 use App\Models\KipkRecipient;
 use App\Models\LegacyResident;
+use App\Models\PaymentBankAccount;
 use App\Models\Pembayaran;
 use App\Models\Periode;
 use App\Models\Prodi;
@@ -29,6 +31,7 @@ use App\Models\ResidencePaymentReference;
 use App\Models\ResidencePolicy;
 use App\Models\ResidenceRegistration;
 use App\Models\RoomContract;
+use App\Models\RoomInvitation;
 use App\Models\Tagihan;
 use App\Models\User;
 use App\Notifications\ResidenceWorkflowNotification;
@@ -76,8 +79,8 @@ class ResidenceWorkflowController extends Controller
                 }
             });
         $summary = [
-            'applicants' => (clone $registrations)->whereNull('completed_at')->whereNotIn('status', ['draft', 'rejected'])->count(),
-            'allocated' => (clone $registrations)->whereNull('completed_at')->whereNotNull('reserved_room_id')->whereNotIn('status', ['draft', 'rejected'])->count(),
+            'applicants' => (clone $registrations)->whereNull('completed_at')->whereNotIn('status', ['draft', 'rejected', 'cancelled'])->count(),
+            'allocated' => (clone $registrations)->whereNull('completed_at')->whereNotNull('reserved_room_id')->whereNotIn('status', ['draft', 'rejected', 'cancelled'])->count(),
             'ready' => (clone $registrations)->whereNull('completed_at')->whereNotNull('ready_at')->count(),
             'occupants' => (clone $registrations)->whereHas('placement', fn ($q) => $q->where('status', 'aktif'))->count(),
             'historical' => (clone $registrations)->whereNull('workflow_version')->whereNotNull('completed_at')->whereNull('historical_confirmed_at')->count(),
@@ -117,9 +120,10 @@ class ResidenceWorkflowController extends Controller
             'pendingRoomContracts' => $manager && in_array($section, ['registrations', 'contracts'], true) ? (clone $registrations)
                 ->with(['studentProfile.user', 'reservedRoom.lantai.gedung'])
                 ->where('billing_basis', 'room')->whereNull('room_contract_id')->whereNull('completed_at')
-                ->whereNotNull('reserved_room_id')->whereNotIn('status', ['draft', 'rejected'])->get() : [],
+                ->whereNotNull('reserved_room_id')->whereNotIn('status', ['draft', 'rejected', 'cancelled'])->get() : [],
             'registrations' => $page, 'summary' => $summary,
             'studentView' => $studentView,
+            'payment_accounts' => $studentView ? PaymentBankAccount::where('is_active', true)->orderBy('bank_name')->orderBy('account_number')->get() : [],
             'manager' => $manager, 'finance' => $finance, 'leader' => ! $studentView && $user->hasRole('pimpinan'),
             'profile' => $user->mahasiswaProfil?->load('prodi.departemen'), 'gender' => $user->gender,
             'no_hp' => $user->no_hp,
@@ -141,7 +145,7 @@ class ResidenceWorkflowController extends Controller
             'masterHousingUrl' => $user->hasAnyRole(['staff_admin', 'superadmin']) ? route('admin.kelola-bangunan') : null,
             'rooms' => ($manager || $user->hasRole('fasilitator')) ? Kamar::with('lantai.gedung')->where('status', '!=', 'maintenance')->when(! $manager, fn ($q) => $q->whereHas('lantai', fn ($q) => $q->whereIn('gedung_id', ResidenceBuildingAccess::ids($user))))->get() : [],
             'applications' => ($manager || $finance) ? ResidenceApplication::with('registrations.tagihan')->latest()->limit(100)->get() : [],
-            'paymentProofs' => $finance ? Pembayaran::with('mahasiswa.user')->where('status', 'menunggu_verifikasi')->latest()->limit(200)->get() : [],
+            'paymentProofs' => $finance ? Pembayaran::with(['mahasiswa.user', 'tagihan:id,nomor,total,total_dibayar,status'])->where('status', 'menunggu_verifikasi')->latest()->limit(200)->get() : [],
             'invoiceGroups' => $finance ? InvoiceGroup::latest()->limit(100)->get() : [],
             'reconciliations' => $finance ? ResidencePaymentReference::latest()->limit(100)->get() : [],
             'invoices' => $finance ? Tagihan::with(['mahasiswa.user', 'registration:id,tagihan_id,residence_application_id'])->where('status', '!=', 'batal')->where(fn ($q) => $q->whereColumn('total', '>', 'total_dibayar')->orWhereColumn('sponsor_total', '>', 'sponsor_paid'))->latest()->limit(200)->get() : [],
@@ -192,16 +196,19 @@ class ResidenceWorkflowController extends Controller
         ]);
     }
 
-    private function decorateRegistration(ResidenceRegistration $r, User $user): ResidenceRegistration
+    public function decorateRegistration(ResidenceRegistration $r, User $user): ResidenceRegistration
     {
+        $workflow = app(ResidenceWorkflow::class);
         $r->loadMissing('cashRefunds.officer:id,nama');
-        $r->setAttribute('blockers', $r->completed_at ? [] : app(ResidenceWorkflow::class)->blockers($r));
+        $r->setAttribute('blockers', $r->completed_at ? [] : $workflow->blockers($r));
         $r->setAttribute('can_submit', ResidenceWorkflowAccess::manager($user) || $r->studentProfile->user_id === $user->id);
+        $r->setAttribute('can_cancel', $workflow->canStudentCancel($r, $user));
+        $r->setAttribute('payment_unlocked', $workflow->paymentUnlocked($r));
         $r->setAttribute('checkout_request', $r->penempatan_kamar_id ? CheckoutRequest::with('inspection')->where('penempatan_kamar_id', $r->penempatan_kamar_id)->where('status', '!=', 'ditolak')->latest()->first() : null);
         if (ResidenceWorkflowAccess::manager($user) && $r->room_contract_id) {
             $r->setAttribute('contract_candidates', ResidenceRegistration::with('studentProfile.user')->where(function ($q) use ($r): void {
-                $q->where('room_contract_id', $r->room_contract_id)->orWhere(fn ($q) => $q->whereNull('room_contract_id')->whereNull('tagihan_id')->whereNull('completed_at')->whereNotIn('status', ['draft', 'rejected'])->where('reserved_room_id', $r->reserved_room_id)->where('billing_basis', 'room')->where('residence_policy_id', $r->residence_policy_id)->whereDate('starts_at', $r->starts_at)->whereDate('ends_at', $r->ends_at));
-            })->whereNotIn('status', ['draft', 'rejected'])->get()->map(fn ($candidate) => ['id' => $candidate->id, 'name' => $candidate->studentProfile->user->nama]));
+                $q->where('room_contract_id', $r->room_contract_id)->orWhere(fn ($q) => $q->whereNull('room_contract_id')->whereNull('tagihan_id')->whereNull('completed_at')->whereNotIn('status', ['draft', 'rejected', 'cancelled'])->where('reserved_room_id', $r->reserved_room_id)->where('billing_basis', 'room')->where('residence_policy_id', $r->residence_policy_id)->whereDate('starts_at', $r->starts_at)->whereDate('ends_at', $r->ends_at));
+            })->whereNotIn('status', ['draft', 'rejected', 'cancelled'])->get()->map(fn ($candidate) => ['id' => $candidate->id, 'name' => $candidate->studentProfile->user->nama]));
         }
         $r->setAttribute('amendments', DB::table('residence_amendments')->where(function ($q) use ($r): void {
             $q->where('subject_id', $r->id)->orWhereJsonContains('after->registration_ids', $r->id);
@@ -210,6 +217,7 @@ class ResidenceWorkflowController extends Controller
             }
         })->orderByDesc('created_at')->get()->map(fn ($a) => ['id' => $a->id, 'kind' => $a->kind, 'reason' => $a->reason, 'created_at' => $a->created_at]));
         $r->setAttribute('can_operate', ResidenceWorkflowAccess::officer($user, $r));
+        $r->setAttribute('can_review_documents', ResidenceWorkflowAccess::documentReviewer($user, $r));
 
         return $r;
     }
@@ -235,7 +243,7 @@ class ResidenceWorkflowController extends Controller
         DB::transaction(function () use ($request, $data, $isSso): void {
             $user = $request->user();
             $profile = $user->mahasiswaProfil()->lockForUpdate()->firstOrFail();
-            if ($profile->residenceRegistrations()->whereNull('completed_at')->whereNotIn('status', ['draft', 'rejected'])->exists() || $profile->penempatanKamar()->where('status', 'aktif')->exists()) {
+            if ($profile->residenceRegistrations()->whereNull('completed_at')->whereNotIn('status', ['draft', 'rejected', 'cancelled'])->exists() || $profile->penempatanKamar()->where('status', 'aktif')->exists()) {
                 throw ValidationException::withMessages(['profile' => 'Data kategori penghuni berjalan hanya dapat dikoreksi pengelola.']);
             }
             $year = StudentCohort::fromNim($user->nim_nip);
@@ -252,7 +260,7 @@ class ResidenceWorkflowController extends Controller
             }
 
             $user->update([
-                'nama' => $data['nama'] ?? $user->nama,
+                'nama' => isset($data['nama']) ? mb_strtoupper(trim($data['nama']), 'UTF-8') : $user->nama,
                 'gender' => $data['gender'],
                 'no_hp' => array_key_exists('no_hp', $data) ? $data['no_hp'] : $user->no_hp,
                 'client_profile_category' => $resolvedCategory,
@@ -387,7 +395,7 @@ class ResidenceWorkflowController extends Controller
         $data = $request->validate(['kind' => ['required', 'string', 'max:80'], 'file' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120']]);
         DB::transaction(function () use ($request, $registration, $data): void {
             $r = ResidenceRegistration::whereKey($registration->id)->lockForUpdate()->firstOrFail();
-            if (($r->completed_at && ! $r->decisions()->where('status', 'approved')->get()->contains(fn ($d) => ! empty($d->terms['amendment_id']) && ($d->terms['agreement_kind'] ?? null) === $data['kind'])) || $r->keys_returned_at || $r->status->value === 'rejected' || ! in_array($data['kind'], array_unique([...($r->policy?->settings['documents'] ?? []), ...$r->decisions()->where('status', 'approved')->get()->filter(fn ($decision) => ! ($decision->terms['requires_configuration'] ?? false))->pluck('terms.agreement_kind')->filter()->all(), 'perjanjian']), true)) {
+            if (($r->completed_at && ! $r->decisions()->where('status', 'approved')->get()->contains(fn ($d) => ! empty($d->terms['amendment_id']) && ($d->terms['agreement_kind'] ?? null) === $data['kind'])) || $r->keys_returned_at || $r->isClosed() || ! in_array($data['kind'], array_unique([...($r->policy?->settings['documents'] ?? []), ...$r->decisions()->where('status', 'approved')->get()->filter(fn ($decision) => ! ($decision->terms['requires_configuration'] ?? false))->pluck('terms.agreement_kind')->filter()->all(), 'perjanjian']), true)) {
                 throw ValidationException::withMessages(['kind' => 'Jenis dokumen tidak berlaku atau pendaftaran sudah selesai.']);
             }
             $document = $r->documents()->create(['kind' => $data['kind'], 'version' => 1 + (int) $r->documents()->where('kind', $data['kind'])->max('version'),
@@ -431,7 +439,7 @@ class ResidenceWorkflowController extends Controller
                 $amendmentAllowed = $approvedDecisions->contains(
                     fn ($d) => ! empty($d->terms['amendment_id']) && ($d->terms['agreement_kind'] ?? null) === $kind
                 );
-                if (($r->completed_at && ! $amendmentAllowed) || $r->keys_returned_at || $r->status->value === 'rejected' || ! in_array($kind, $allowedKinds, true)) {
+                if (($r->completed_at && ! $amendmentAllowed) || $r->keys_returned_at || $r->isClosed() || ! in_array($kind, $allowedKinds, true)) {
                     throw ValidationException::withMessages(["files.{$kind}" => 'Jenis dokumen tidak berlaku atau pendaftaran sudah selesai.']);
                 }
 
@@ -452,7 +460,7 @@ class ResidenceWorkflowController extends Controller
             }
 
             if (! empty($data['decision_kind'])) {
-                if ($r->completed_at || ! $r->tagihan_id || $r->status->value === 'rejected') {
+                if ($r->completed_at || ! $r->tagihan_id || $r->isClosed()) {
                     throw ValidationException::withMessages(['decision_kind' => 'Keputusan membutuhkan pendaftaran berjalan dan tagihan.']);
                 }
                 if ($r->decisions()->whereIn('status', ['pending', 'approved'])->exists()) {
@@ -504,14 +512,79 @@ class ResidenceWorkflowController extends Controller
         return Storage::disk('local')->download($document->path);
     }
 
+    public function cancel(Request $request, ResidenceRegistration $registration): RedirectResponse
+    {
+        abort_unless($registration->studentProfile->user_id === $request->user()->id, 403);
+
+        DB::transaction(function () use ($request, $registration): void {
+            $r = ResidenceRegistration::whereKey($registration->id)->lockForUpdate()->firstOrFail();
+            $invoice = $r->tagihan_id ? Tagihan::whereKey($r->tagihan_id)->lockForUpdate()->first() : null;
+
+            if ($r->completed_at || $r->keys_returned_at || $r->isClosed()) {
+                throw ValidationException::withMessages(['registration' => 'Pendaftaran yang sudah aktif atau selesai tidak dapat dibatalkan sendiri.']);
+            }
+            if ($invoice && ((float) $invoice->total_dibayar > 0 || (float) $invoice->sponsor_paid > 0
+                || Pembayaran::where('tagihan_id', $invoice->id)->whereIn('status', ['menunggu_verifikasi', 'lunas'])->exists())) {
+                throw ValidationException::withMessages(['registration' => 'Pendaftaran dengan pembayaran yang sudah masuk atau menunggu verifikasi tidak dapat dibatalkan.']);
+            }
+            if ($r->room_contract_id) {
+                $contract = RoomContract::whereKey($r->room_contract_id)->lockForUpdate()->first();
+                $members = ResidenceRegistration::where('room_contract_id', $r->room_contract_id)->lockForUpdate()->get();
+                $otherPaid = $members->where('id', '!=', $r->id)->contains(function (ResidenceRegistration $member): bool {
+                    return $member->completed_at !== null
+                        || ($member->tagihan && ((float) $member->tagihan->total_dibayar > 0 || (float) $member->tagihan->sponsor_paid > 0
+                            || Pembayaran::where('tagihan_id', $member->tagihan->id)->whereIn('status', ['menunggu_verifikasi', 'lunas'])->exists()));
+                });
+                if ($otherPaid) {
+                    throw ValidationException::withMessages(['registration' => 'Kontrak kamar bersama sudah memiliki pembayaran anggota lain. Hubungi pengelola untuk penyesuaian.']);
+                }
+                if ($contract) {
+                    $remainingMembers = $members->where('id', '!=', $r->id)->pluck('id')->values()->all();
+                    $contract->update([
+                        'members' => $remainingMembers,
+                        'occupants' => count($remainingMembers),
+                    ]);
+                }
+            }
+
+            $fromStatus = $r->status;
+            $r->update([
+                'status' => 'cancelled',
+                'allocation_status' => 'released',
+                'reserved_room_id' => null,
+                'reservation_expires_at' => null,
+                'ready_at' => null,
+                'room_contract_id' => null,
+                'notes' => 'Dibatalkan oleh pendaftar sebelum pembayaran untuk mengganti pilihan kamar/gedung.',
+            ]);
+            $r->statusHistories()->create([
+                'from_status' => $fromStatus,
+                'to_status' => 'cancelled',
+                'changed_by' => $request->user()->id,
+                'notes' => 'Pembatalan mandiri oleh pendaftar sebelum pembayaran.',
+            ]);
+            $invoice?->update(['status' => TagihanStatus::Batal]);
+            RoomInvitation::where('residence_registration_id', $r->id)
+                ->where('status', 'pending')
+                ->update(['status' => 'cancelled', 'responded_at' => now()]);
+
+            AuditLogService::log($request->user(), 'residence_registration_cancelled_by_student', $r);
+        });
+
+        return redirect()->route('mahasiswa.registration')->with('toast', [
+            'type' => 'success',
+            'message' => 'Pengajuan dibatalkan. Silakan pilih ulang gedung dan kamar sesuai kebutuhan Anda.',
+        ]);
+    }
+
     public function reviewDocument(Request $request, RegistrationDocument $document): RedirectResponse
     {
-        abort_unless(ResidenceWorkflowAccess::officer($request->user(), $document->registration), 403);
+        abort_unless(ResidenceWorkflowAccess::documentReviewer($request->user(), $document->registration), 403);
         $data = $request->validate(['status' => ['required', 'in:valid,revision'], 'notes' => ['required_if:status,revision', 'nullable', 'string', 'max:2000']]);
         DB::transaction(function () use ($request, $document, $data): void {
             $r = ResidenceRegistration::whereKey($document->residence_registration_id)->lockForUpdate()->firstOrFail();
             $document->refresh();
-            if (($r->completed_at && ! $r->decisions()->where('status', 'approved')->get()->contains(fn ($d) => ! empty($d->terms['amendment_id']) && ($d->terms['agreement_kind'] ?? null) === $document->kind)) || $r->keys_returned_at || $document->version !== $r->documents()->where('kind', $document->kind)->max('version')) {
+            if (($r->completed_at && ! $r->decisions()->where('status', 'approved')->get()->contains(fn ($d) => ! empty($d->terms['amendment_id']) && ($d->terms['agreement_kind'] ?? null) === $document->kind)) || $r->keys_returned_at || $r->isClosed() || $document->version !== $r->documents()->where('kind', $document->kind)->max('version')) {
                 throw ValidationException::withMessages(['document' => 'Hanya versi dokumen terbaru pada pendaftaran berjalan yang dapat diperiksa.']);
             }
             if ($document->status === $data['status'] && $document->notes === ($data['notes'] ?? null)) {
@@ -520,10 +593,14 @@ class ResidenceWorkflowController extends Controller
             $old = $document->toArray();
             $document->update([...$data, 'reviewed_by' => $request->user()->id, 'reviewed_at' => now()]);
             AuditLogService::log($request->user(), 'registration_document_reviewed', $document, $old, $document->toArray());
+            $workflow = app(ResidenceWorkflow::class);
+            $fresh = $r->fresh();
             if ($data['status'] === 'revision') {
-                app(ResidenceWorkflow::class)->notify($r, 'Dokumen perlu revisi', $document->kind.': '.$data['notes']);
+                $workflow->notify($fresh, 'Dokumen perlu revisi', $document->kind.': '.$data['notes']);
+            } elseif ($workflow->paymentUnlocked($fresh)) {
+                $workflow->notify($fresh, 'Berkas disetujui — lanjut ke pembayaran', 'Seluruh berkas pendaftaran Anda telah disetujui fasilitator gedung. Silakan buka detail tagihan untuk mengunggah bukti pembayaran.');
             }
-            app(ResidenceWorkflow::class)->evaluate($r->fresh());
+            $workflow->evaluate($fresh);
         });
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Hasil pemeriksaan dokumen tersimpan.']);
@@ -543,7 +620,7 @@ class ResidenceWorkflowController extends Controller
         }
         $decision = DB::transaction(function () use ($request, $registration, $data, $reason): ResidenceDecision {
             $r = ResidenceRegistration::whereKey($registration->id)->lockForUpdate()->firstOrFail();
-            if ($r->completed_at || ! $r->tagihan_id || $r->status->value === 'rejected') {
+            if ($r->completed_at || ! $r->tagihan_id || $r->isClosed()) {
                 throw ValidationException::withMessages(['decision' => 'Keputusan membutuhkan pendaftaran berjalan dan tagihan.']);
             }
             if ($data['kind'] === 'monthly' && $r->rate_unit !== 'month') {
@@ -593,7 +670,7 @@ class ResidenceWorkflowController extends Controller
             DB::transaction(function () use ($request, $decision, $data): void {
                 $r = ResidenceRegistration::whereKey($decision->residence_registration_id)->lockForUpdate()->firstOrFail();
                 $decision = ResidenceDecision::whereKey($decision->id)->lockForUpdate()->firstOrFail();
-                if (($r->completed_at && empty($decision->terms['amendment_id'])) || $r->keys_returned_at || $r->status->value === 'rejected' || $decision->status !== 'pending') {
+                if (($r->completed_at && empty($decision->terms['amendment_id'])) || $r->keys_returned_at || $r->isClosed() || $decision->status !== 'pending') {
                     throw ValidationException::withMessages(['decision' => 'Keputusan sudah final.']);
                 }
                 $decision->update(['status' => $data['status'], 'decided_by' => $request->user()->id, 'decided_at' => now(), 'terms' => [...($decision->terms ?? []), 'requires_configuration' => true, 'agreement_kind' => 'pembiayaan_'.$decision->id, 'notes' => $data['notes']]]);
@@ -623,7 +700,7 @@ class ResidenceWorkflowController extends Controller
             if (($configuring && ! ($decision->status === 'approved' && ($decision->terms['requires_configuration'] ?? false))) || (! $configuring && $decision->status !== 'pending')) {
                 throw ValidationException::withMessages(['decision' => 'Keputusan sudah final.']);
             }
-            if (($r->completed_at && empty($decision->terms['amendment_id'])) || $r->keys_returned_at || $r->status->value === 'rejected') {
+            if (($r->completed_at && empty($decision->terms['amendment_id'])) || $r->keys_returned_at || $r->isClosed()) {
                 throw ValidationException::withMessages(['decision' => 'Pendaftaran sudah selesai atau dibatalkan.']);
             }
             $invoice = $r->tagihan()->lockForUpdate()->firstOrFail();
@@ -768,11 +845,11 @@ class ResidenceWorkflowController extends Controller
             $room = Kamar::whereKey($first->reserved_room_id)->lockForUpdate()->firstOrFail();
             $existingContractIds = $members->pluck('room_contract_id')->filter()->unique()->values();
             foreach ($members as $r) {
-                if ($r->workflow_version !== 2 || $r->is_kipk || $r->billing_basis !== 'room' || $r->reserved_room_id !== $room->id || $r->completed_at || ($r->room_contract_id && ! $existingContractIds->contains($r->room_contract_id)) || $r->status->value === 'rejected' || $r->residence_policy_id !== $first->residence_policy_id || ! $r->starts_at->equalTo($first->starts_at) || ! $r->ends_at->equalTo($first->ends_at)) {
+                if ($r->workflow_version !== 2 || $r->is_kipk || $r->billing_basis !== 'room' || $r->reserved_room_id !== $room->id || $r->completed_at || ($r->room_contract_id && ! $existingContractIds->contains($r->room_contract_id)) || $r->isClosed() || $r->residence_policy_id !== $first->residence_policy_id || ! $r->starts_at->equalTo($first->starts_at) || ! $r->ends_at->equalTo($first->ends_at)) {
                     throw ValidationException::withMessages(['contract' => 'Anggota harus memiliki alokasi kamar, periode, dan kebijakan yang sama serta belum ditagih.']);
                 }
             }
-            $allocated = ResidenceRegistration::where('reserved_room_id', $room->id)->whereNull('completed_at')->whereNotIn('status', ['draft', 'rejected'])->pluck('id')->sort()->values()->all();
+            $allocated = ResidenceRegistration::where('reserved_room_id', $room->id)->whereNull('completed_at')->whereNotIn('status', ['draft', 'rejected', 'cancelled'])->pluck('id')->sort()->values()->all();
             if ($allocated !== $members->modelKeys()) {
                 throw ValidationException::withMessages(['contract' => 'Sertakan seluruh anggota yang sudah menerima alokasi kamar.']);
             }
@@ -890,7 +967,7 @@ class ResidenceWorkflowController extends Controller
         DB::transaction(function () use ($request, $registration, $data): void {
             $r = ResidenceRegistration::whereKey($registration->id)->lockForUpdate()->firstOrFail();
             $invoice = $r->tagihan()->lockForUpdate()->firstOrFail();
-            if ($r->status->value === 'rejected' || (float) $data['nominal'] > (float) $invoice->total - (float) $invoice->total_dibayar || Pembayaran::where('tagihan_id', $invoice->id)->where('status', 'menunggu_verifikasi')->exists()) {
+            if ($r->isClosed() || (float) $data['nominal'] > (float) $invoice->total - (float) $invoice->total_dibayar || Pembayaran::where('tagihan_id', $invoice->id)->where('status', 'menunggu_verifikasi')->exists()) {
                 throw ValidationException::withMessages(['nominal' => 'Periksa sisa tagihan dan bukti yang masih menunggu rekonsiliasi.']);
             }
             $proof = Pembayaran::create(['kode_transaksi' => 'PUB-'.Str::uuid(), 'mahasiswa_id' => $r->student_profile_id,

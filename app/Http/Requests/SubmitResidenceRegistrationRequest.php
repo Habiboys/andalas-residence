@@ -43,11 +43,13 @@ class SubmitResidenceRegistrationRequest extends FormRequest
             'ends_at' => ['required_if:rate_unit,month,day', 'nullable', 'date', 'after:starts_at'],
             'funding' => ['sometimes', 'in:personal,sponsor'],
             'sponsor_name' => ['required_if:funding,sponsor', 'nullable', 'string', 'max:255'],
+            'invitee_nims' => ['nullable', 'array', 'max:10'],
+            'invitee_nims.*' => ['required', 'string', 'max:50', 'distinct'],
         ];
     }
 
     /**
-     * @return array{periode_id: string, is_kipk: bool, notes?: string|null, rate_unit?: string, billing_basis?: 'person'|'room', starts_at?: string|null, ends_at?: string|null, funding?: string, sponsor_name?: string|null, preferences?: list<array{kamar_id: string, notes?: string|null}>}
+     * @return array{periode_id: string, is_kipk: bool, notes?: string|null, rate_unit?: string, billing_basis?: 'person'|'room', starts_at?: string|null, ends_at?: string|null, funding?: string, sponsor_name?: string|null, preferences?: list<array{kamar_id: string, notes?: string|null}>, invitee_nims?: list<string>}
      */
     public function validated($key = null, $default = null): array
     {

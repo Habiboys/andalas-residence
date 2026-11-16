@@ -4,6 +4,15 @@ import RoomInvitations, {
     InviteRoommateButton,
     type RoomInvitation,
 } from '../../components/RoomInvitations';
+import type {
+    PaymentBankAccountItem,
+    VirtualAccountItem,
+} from '../../components/PaymentAccountsBox';
+import {
+    StudentRegistrationCard,
+    type Registration as WorkflowRegistration,
+    type TemplateItem,
+} from './RegistrationStatus';
 import { Link, useForm } from '@inertiajs/react';
 import {
     Button,
@@ -14,7 +23,6 @@ import {
     StatusBadge,
 } from '../../components/ui';
 import { store } from '@/routes/andalas/registrations';
-import { tagihan } from '@/routes/mahasiswa';
 import { formatRupiah } from '../../lib/format';
 type Room = CatalogRoom;
 type Props = {
@@ -51,23 +59,69 @@ type Props = {
         student_amount?: string | null;
         room_amount?: string | null;
     }>;
+    templates?: TemplateItem[];
+    payment_accounts?: PaymentBankAccountItem[];
+    virtual_accounts?: VirtualAccountItem[];
     room_invitations?: RoomInvitation[];
-    registration?: Array<{
-        id: string;
-        status: string;
-        can_invite?: boolean;
-        reserved_room?: {
-            nomor_kamar: string;
-            lantai?: { gedung?: { nama_gedung: string } };
-        };
-        tagihan_id?: string | null;
-        is_kipk?: boolean;
-        funding?: string;
-        completed_at?: string;
-        reservation_expires_at?: string;
-        periode?: { nama_periode: string };
-    }>;
+    registration?: Array<
+        Partial<WorkflowRegistration> & {
+            id: string;
+            status: string;
+            can_invite?: boolean;
+            tagihan_id?: string | null;
+        }
+    >;
 };
+
+function LinearStepper({
+    activeStep,
+    kipk,
+}: {
+    activeStep: number;
+    kipk: boolean;
+}) {
+    const labels = [
+        'Rencana hunian',
+        kipk ? 'Alokasi kamar' : 'Pilih kamar',
+        'Review & Teman',
+        'Berkas & Pembiayaan',
+        'Verifikasi & Pembayaran',
+    ];
+
+    return (
+        <ol
+            className="border-base-300 bg-base-100 grid grid-cols-1 gap-2 rounded-2xl border p-3 text-sm sm:grid-cols-2 lg:grid-cols-5"
+            aria-label="Tahapan pendaftaran"
+        >
+            {labels.map((label, index) => (
+                <li
+                    key={label}
+                    aria-current={activeStep === index ? 'step' : undefined}
+                    className={`flex items-center gap-2.5 rounded-xl px-3 py-2 transition-colors ${
+                        activeStep === index
+                            ? 'bg-primary/10 text-primary font-semibold'
+                            : activeStep > index
+                              ? 'bg-emerald-50 font-medium text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300'
+                              : 'text-base-content/60'
+                    }`}
+                >
+                    <span
+                        className={`flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                            activeStep === index
+                                ? 'bg-primary text-primary-content'
+                                : activeStep > index
+                                  ? 'bg-emerald-600 text-white'
+                                  : 'bg-base-200 text-base-content/70'
+                        }`}
+                    >
+                        {index + 1}
+                    </span>
+                    <span className="min-w-0 leading-tight">{label}</span>
+                </li>
+            ))}
+        </ol>
+    );
+}
 export default function Registration({
     housingProfileReady = true,
     housingProfileUrl,
@@ -80,18 +134,25 @@ export default function Registration({
     periode = [],
     rooms = [],
     rates = [],
+    templates = [],
+    payment_accounts = [],
+    virtual_accounts = [],
     registration = [],
     room_invitations = [],
 }: Props) {
     const [step, setStep] = useState(0);
     const [confirmOpen, setConfirmOpen] = useState(false);
+    const [friendNim, setFriendNim] = useState('');
+    const [friendError, setFriendError] = useState('');
     const [tab, setTab] = useState<'registration' | 'invitations'>(
         'registration',
     );
     const periods = periode.filter((p) => p.status === 'aktif');
     const kipk = initialUser?.is_kipk === true;
     const pending = registration.some(
-        (r) => !r.completed_at && !['draft', 'rejected'].includes(r.status),
+        (r) =>
+            !r.completed_at &&
+            !['draft', 'rejected', 'cancelled'].includes(r.status),
     );
     const form = useForm({
         periode_id: periods[0]?.id ?? '',
@@ -104,6 +165,7 @@ export default function Registration({
         funding: 'personal',
         sponsor_name: '',
         notes: '',
+        invitee_nims: [] as string[],
     });
     const selectedPeriod =
         periods.find((p) => p.id === form.data.periode_id) ?? periods[0];
@@ -158,11 +220,35 @@ export default function Registration({
                   ),
               )
             : 1;
+    const maxInvites = Math.max(
+        0,
+        (room?.available_places ?? room?.kapasitas ?? 1) - 1,
+    );
+    const addFriendNim = (raw: string): boolean => {
+        const nim = raw.trim();
+        if (!nim) {
+            return true;
+        }
+        if (form.data.invitee_nims.includes(nim)) {
+            setFriendError(`NIM ${nim} sudah ada dalam daftar teman.`);
+            return false;
+        }
+        if (form.data.invitee_nims.length >= maxInvites) {
+            setFriendError(
+                `Maksimal ${maxInvites} teman untuk sisa tempat di kamar ini.`,
+            );
+            return false;
+        }
+        form.setData('invitee_nims', [...form.data.invitee_nims, nim]);
+        setFriendNim('');
+        setFriendError('');
+        return true;
+    };
     return (
         <div className="space-y-5">
             <PageHeader
                 title="Pendaftaran Asrama"
-                subtitle="Pilih hunian, lengkapi administrasi, lalu lakukan check-in fisik dan serah kunci bersama petugas."
+                subtitle="Pilih kamar, lengkapi berkas dan pembiayaan, hingga verifikasi dan pembayaran dalam satu alur."
             />
             {!pending && registration.length > 0 && housingStatusUrl && (
                 <Link
@@ -241,94 +327,98 @@ export default function Registration({
                                 const currentReg = registration.find(
                                     (r) =>
                                         !r.completed_at &&
-                                        !['draft', 'rejected'].includes(
-                                            r.status,
-                                        ),
+                                        ![
+                                            'draft',
+                                            'rejected',
+                                            'cancelled',
+                                        ].includes(r.status),
                                 );
                                 const waitingKipkAllocation = registration.some(
                                     (r) =>
                                         !r.completed_at &&
-                                        !['draft', 'rejected'].includes(
-                                            r.status,
-                                        ) &&
+                                        ![
+                                            'draft',
+                                            'rejected',
+                                            'cancelled',
+                                        ].includes(r.status) &&
                                         r.is_kipk &&
                                         r.funding === 'personal' &&
                                         !r.tagihan_id,
                                 );
 
+                                const requiredDocs =
+                                    currentReg?.policy?.settings?.documents ?? [
+                                        'perjanjian',
+                                    ];
+                                const latestDocs = new Map<
+                                    string,
+                                    { version: number; status: string }
+                                >();
+                                for (const doc of currentReg?.documents ?? []) {
+                                    const existing = latestDocs.get(doc.kind);
+                                    if (
+                                        !existing ||
+                                        doc.version > existing.version
+                                    ) {
+                                        latestDocs.set(doc.kind, doc);
+                                    }
+                                }
+                                const allDocsUploaded = requiredDocs.every(
+                                    (kind) => {
+                                        const doc = latestDocs.get(kind);
+                                        return doc && doc.status !== 'revision';
+                                    },
+                                );
+                                const hasFinancingDecision =
+                                    Boolean(
+                                        currentReg?.is_kipk &&
+                                            currentReg?.policy?.category ===
+                                                'local_kipk',
+                                    ) ||
+                                    !currentReg?.tagihan ||
+                                    (currentReg?.decisions ?? []).some(
+                                        (d) =>
+                                            d.status === 'pending' ||
+                                            d.status === 'approved',
+                                    );
+                                const activeLinearStep =
+                                    allDocsUploaded && hasFinancingDecision
+                                        ? 4
+                                        : 3;
+
                                 return (
-                                    <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 p-5">
-                                        <div className="space-y-1.5">
-                                            <div className="flex flex-wrap items-center gap-2">
-                                                <span className="badge badge-success font-medium">
-                                                    Anda Sudah Terdaftar
-                                                </span>
-                                                <span className="text-base-content/70 text-xs font-medium">
-                                                    {initialUser?.student_stage}
-                                                </span>
-                                            </div>
-                                            <h2 className="text-lg font-semibold text-emerald-950">
-                                                Pengajuan Pendaftaran Asrama
-                                                Aktif
-                                            </h2>
-                                            {currentReg && (
-                                                <p className="text-sm text-emerald-900/90">
-                                                    Periode{' '}
-                                                    <strong>
-                                                        {
-                                                            currentReg.periode
-                                                                ?.nama_periode
-                                                        }
-                                                    </strong>
-                                                    {currentReg.reserved_room && (
-                                                        <>
-                                                            {' '}
-                                                            ·{' '}
-                                                            <strong>
-                                                                {
-                                                                    currentReg
-                                                                        .reserved_room
-                                                                        .lantai
-                                                                        ?.gedung
-                                                                        ?.nama_gedung
-                                                                }{' '}
-                                                                / Kamar{' '}
-                                                                {
-                                                                    currentReg
-                                                                        .reserved_room
-                                                                        .nomor_kamar
-                                                                }
-                                                            </strong>
-                                                        </>
-                                                    )}
-                                                </p>
-                                            )}
-                                            <p className="text-sm text-emerald-900/80">
-                                                Pendaftaran sedang diproses.{' '}
+                                    <div className="space-y-5">
+                                        <LinearStepper
+                                            activeStep={activeLinearStep}
+                                            kipk={kipk}
+                                        />
+                                        <div className="border-base-300 bg-base-200/40 rounded-xl border p-4 text-sm">
+                                            <p className="font-semibold">
+                                                Pendaftaran sedang diproses
+                                            </p>
+                                            <p className="text-base-content/75 mt-1">
                                                 {waitingKipkAllocation
                                                     ? 'Menunggu alokasi kamar sesuai prioritas dan kapasitas. Tagihan diterbitkan setelah kamar dialokasikan.'
-                                                    : 'Silakan lengkapi dokumen persyaratan dan pilihan pembiayaan atau selesaikan pembayaran tagihan Anda.'}
+                                                    : activeLinearStep === 3
+                                                      ? 'Langkah 4: Lengkapi dokumen persyaratan dan pilih skema pembiayaan di bawah ini.'
+                                                      : 'Langkah 5: Pantau pemeriksaan berkas oleh Fasilitator gedung dan selesaikan pembayaran pada detail tagihan.'}
                                             </p>
                                         </div>
-                                        <div className="mt-4 flex flex-wrap gap-2.5">
-                                            {housingStatusUrl && (
-                                                <Link
-                                                    href={housingStatusUrl}
-                                                    className="btn btn-primary btn-sm"
-                                                >
-                                                    Lengkapi Dokumen &amp;
-                                                    Pembiayaan
-                                                </Link>
-                                            )}
-                                            {!waitingKipkAllocation && (
-                                                <Link
-                                                    className="btn btn-outline btn-sm bg-base-100"
-                                                    href={tagihan.url()}
-                                                >
-                                                    Lihat tagihan dan bayar
-                                                </Link>
-                                            )}
-                                        </div>
+                                        {currentReg && (
+                                            <StudentRegistrationCard
+                                                registration={
+                                                    currentReg as WorkflowRegistration
+                                                }
+                                                templates={templates}
+                                                paymentAccounts={
+                                                    payment_accounts
+                                                }
+                                                virtualAccounts={
+                                                    virtual_accounts
+                                                }
+                                                embedded
+                                            />
+                                        )}
                                     </div>
                                 );
                             })()
@@ -351,48 +441,15 @@ export default function Registration({
                                 onSubmit={(e) => {
                                     e.preventDefault();
                                     if (step !== 2) return;
+                                    if (friendNim.trim() !== '') {
+                                        if (!addFriendNim(friendNim)) {
+                                            return;
+                                        }
+                                    }
                                     setConfirmOpen(true);
                                 }}
                             >
-                                <ol
-                                    className="border-base-300 bg-base-100 grid grid-cols-1 gap-2 rounded-2xl border p-3 text-sm sm:grid-cols-3"
-                                    aria-label="Tahapan pendaftaran"
-                                >
-                                    {[
-                                        'Rencana hunian',
-                                        kipk ? 'Alokasi kamar' : 'Pilih kamar',
-                                        'Review pengajuan',
-                                    ].map((label, index) => (
-                                        <li
-                                            key={label}
-                                            aria-current={
-                                                step === index
-                                                    ? 'step'
-                                                    : undefined
-                                            }
-                                            className={`flex items-center gap-2.5 rounded-xl px-3 py-2 transition-colors ${
-                                                step === index
-                                                    ? 'bg-primary/10 text-primary font-semibold'
-                                                    : step > index
-                                                      ? 'bg-emerald-50 text-emerald-700 font-medium dark:bg-emerald-950/30 dark:text-emerald-300'
-                                                      : 'text-base-content/60'
-                                            }`}
-                                        >
-                                            <span
-                                                className={`flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-                                                    step === index
-                                                        ? 'bg-primary text-primary-content'
-                                                        : step > index
-                                                          ? 'bg-emerald-600 text-white'
-                                                          : 'bg-base-200 text-base-content/70'
-                                                }`}
-                                            >
-                                                {index + 1}
-                                            </span>
-                                            <span>{label}</span>
-                                        </li>
-                                    ))}
-                                </ol>
+                                <LinearStepper activeStep={step} kipk={kipk} />
                                 {step === 0 && periods[0] && (
                                     <div className="bg-primary/5 border-primary/20 flex flex-wrap items-center justify-between gap-2 rounded-xl border px-4 py-2.5 text-sm">
                                         <span className="font-medium">
@@ -550,17 +607,32 @@ export default function Registration({
                                                     form.data.preferences[0]
                                                         .kamar_id
                                                 }
-                                                onSelect={(id) =>
-                                                    form.setData(
-                                                        'preferences',
-                                                        [
+                                                onSelect={(id) => {
+                                                    const nextRoom = rooms.find(
+                                                        (item) => item.id === id,
+                                                    );
+                                                    const nextMax = Math.max(
+                                                        0,
+                                                        (nextRoom?.available_places ??
+                                                            nextRoom?.kapasitas ??
+                                                            1) - 1,
+                                                    );
+                                                    form.setData({
+                                                        ...form.data,
+                                                        preferences: [
                                                             {
                                                                 kamar_id: id,
                                                                 notes: '',
                                                             },
                                                         ],
-                                                    )
-                                                }
+                                                        invitee_nims:
+                                                            form.data.invitee_nims.slice(
+                                                                0,
+                                                                nextMax,
+                                                            ),
+                                                    });
+                                                }}
+                                                onReview={() => setStep(2)}
                                                 unit={rateUnit}
                                                 basis={form.data.billing_basis}
                                                 isStudent={
@@ -715,6 +787,139 @@ export default function Registration({
                                                         sampai check-in fisik
                                                         dan serah kunci.
                                                     </p>
+                                                    <div className="border-base-300 bg-base-200/30 space-y-3 rounded-xl border p-4">
+                                                        <div className="flex flex-wrap items-center justify-between gap-2">
+                                                            <div>
+                                                                <h3 className="text-sm font-semibold">
+                                                                    Undang Teman
+                                                                    Sekamar
+                                                                    (Opsional)
+                                                                </h3>
+                                                                <p className="text-base-content/70 text-xs">
+                                                                    {maxInvites > 0
+                                                                        ? `Masukkan NIM mahasiswa non-KIP-K aktif yang ingin diajak sekamar (maks. ${maxInvites} teman).`
+                                                                        : 'Kamar ini hanya menyisakan 1 tempat untuk Anda.'}
+                                                                </p>
+                                                            </div>
+                                                            {maxInvites > 0 && (
+                                                                <span className="badge badge-outline text-xs">
+                                                                    {
+                                                                        form
+                                                                            .data
+                                                                            .invitee_nims
+                                                                            .length
+                                                                    }{' '}
+                                                                    /{' '}
+                                                                    {maxInvites}{' '}
+                                                                    teman
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        {maxInvites > 0 && (
+                                                            <div className="flex flex-col gap-2 sm:flex-row">
+                                                                <input
+                                                                    type="text"
+                                                                    className={
+                                                                        inputClass
+                                                                    }
+                                                                    maxLength={50}
+                                                                    value={
+                                                                        friendNim
+                                                                    }
+                                                                    onChange={(
+                                                                        e,
+                                                                    ) => {
+                                                                        setFriendNim(
+                                                                            e
+                                                                                .target
+                                                                                .value,
+                                                                        );
+                                                                        if (
+                                                                            friendError
+                                                                        ) {
+                                                                            setFriendError(
+                                                                                '',
+                                                                            );
+                                                                        }
+                                                                    }}
+                                                                    onKeyDown={(
+                                                                        e,
+                                                                    ) => {
+                                                                        if (
+                                                                            e.key ===
+                                                                            'Enter'
+                                                                        ) {
+                                                                            e.preventDefault();
+                                                                            addFriendNim(
+                                                                                friendNim,
+                                                                            );
+                                                                        }
+                                                                    }}
+                                                                    placeholder="Masukkan NIM teman non-KIP-K"
+                                                                />
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="secondary"
+                                                                    onClick={() =>
+                                                                        addFriendNim(
+                                                                            friendNim,
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    Tambah
+                                                                    teman
+                                                                </Button>
+                                                            </div>
+                                                        )}
+                                                        {friendError && (
+                                                            <p
+                                                                role="alert"
+                                                                className="text-error text-xs"
+                                                            >
+                                                                {friendError}
+                                                            </p>
+                                                        )}
+                                                        {form.data.invitee_nims
+                                                            .length > 0 && (
+                                                            <div className="flex flex-wrap gap-2">
+                                                                {form.data.invitee_nims.map(
+                                                                    (nim) => (
+                                                                        <span
+                                                                            key={
+                                                                                nim
+                                                                            }
+                                                                            className="border-base-300 bg-base-100 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium"
+                                                                        >
+                                                                            <span>
+                                                                                {
+                                                                                    nim
+                                                                                }
+                                                                            </span>
+                                                                            <button
+                                                                                type="button"
+                                                                                aria-label={`Hapus teman ${nim}`}
+                                                                                className="text-base-content/60 hover:text-error"
+                                                                                onClick={() =>
+                                                                                    form.setData(
+                                                                                        'invitee_nims',
+                                                                                        form.data.invitee_nims.filter(
+                                                                                            (
+                                                                                                item,
+                                                                                            ) =>
+                                                                                                item !==
+                                                                                                nim,
+                                                                                        ),
+                                                                                    )
+                                                                                }
+                                                                            >
+                                                                                ×
+                                                                            </button>
+                                                                        </span>
+                                                                    ),
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </div>
 
                                                 <div className="border-base-300 bg-base-200/40 flex flex-col justify-between space-y-4 rounded-2xl border p-5 shadow-sm">
@@ -908,6 +1113,9 @@ export default function Registration({
                                     {!kipk && room
                                         ? ` · Kamar ${room.nomor_kamar}`
                                         : ''}
+                                    {form.data.invitee_nims.length > 0
+                                        ? ` · Mengundang teman (${form.data.invitee_nims.join(', ')})`
+                                        : ''}
                                     . Setelah dikirim, alokasi kamar akan segera
                                     diproses dan Anda dapat melengkapi dokumen
                                     resmi.
@@ -1005,16 +1213,6 @@ export default function Registration({
                                                         : r.status
                                                 }
                                             />
-                                            {housingStatusUrl &&
-                                                !r.completed_at && (
-                                                    <Link
-                                                        href={housingStatusUrl}
-                                                        className="link text-primary text-xs font-medium"
-                                                    >
-                                                        Dokumen &amp; Pembiayaan
-                                                        →
-                                                    </Link>
-                                                )}
                                         </div>
                                     </div>
                                 ))}

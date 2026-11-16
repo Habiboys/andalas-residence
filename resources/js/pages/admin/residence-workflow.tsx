@@ -168,6 +168,17 @@ export default function ResidenceWorkflowPage(props: WorkflowProps) {
                 </p>
             ))}
 
+            {!props.manager && !props.finance && !props.leader && (
+                <div className="alert alert-info text-sm">
+                    <span>
+                        Menampilkan pengajuan penghuni pada gedung penugasan
+                        Anda untuk pemeriksaan berkas pendaftaran dan serah
+                        kunci. Verifikasi serta rekonsiliasi pembayaran
+                        dikelola oleh Pengelola.
+                    </span>
+                </div>
+            )}
+
             {tab === 'registrations' && !props.detailMode && (
                 <>
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">

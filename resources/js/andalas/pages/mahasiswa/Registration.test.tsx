@@ -37,8 +37,8 @@ it('offers room selection and daily or period pricing for personal registration'
     expect(html).toContain('Per kamar (seluruh kamar)');
     expect(html).not.toContain('type="checkbox"');
 });
-it('blocks another application while a submitted registration is pending', () => {
-    for (const status of ['draft', 'rejected', 'submitted']) {
+it('blocks another application while a submitted registration is pending and ignores cancelled registrations', () => {
+    for (const status of ['draft', 'rejected', 'cancelled', 'submitted']) {
         const html = renderToStaticMarkup(
             <Registration registration={[{ id: 'one', status }]} />,
         );
@@ -111,4 +111,28 @@ it('waits for room allocation before directing a personal KIPK applicant to paym
     );
     expect(html).toContain('Menunggu alokasi kamar');
     expect(html).not.toContain('Lihat tagihan dan bayar');
+});
+
+it('embeds document upload and payment stage inline in the 5-step registration flow', () => {
+    const html = renderToStaticMarkup(
+        <Registration
+            housingStatusUrl="/mahasiswa/registration/status"
+            registration={[
+                {
+                    id: 'pending-1',
+                    status: 'submitted',
+                    is_kipk: false,
+                    funding: 'personal',
+                    tagihan_id: 'inv-1',
+                    periode: { nama_periode: '2026/2027' },
+                },
+            ]}
+        />,
+    );
+    expect(html).toContain('Berkas &amp; Pembiayaan');
+    expect(html).toContain('Verifikasi &amp; Pembayaran');
+    expect(html).toContain('Berkas Pendaftaran');
+    expect(html).toContain('Pembiayaan &amp; Tagihan');
+    expect(html).not.toContain('Lihat tagihan dan bayar');
+    expect(html).not.toContain('Dokumen &amp; Pembiayaan →');
 });

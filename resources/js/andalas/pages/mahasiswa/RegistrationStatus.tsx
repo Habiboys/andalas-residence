@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import {
     AlertTriangle,
+    ArrowRight,
     CheckCircle2,
     Clock,
     Download,
@@ -9,12 +10,19 @@ import {
     FileText,
     Home,
     Lock,
+    RotateCcw,
     Send,
     ShieldCheck,
     Upload,
     Wallet,
 } from 'lucide-react';
 import * as workflow from '@/actions/App/Http/Controllers/ResidenceWorkflowController';
+import {
+    PaymentAccountsBox,
+    type PaymentBankAccountItem,
+    type VirtualAccountItem,
+} from '@/andalas/components/PaymentAccountsBox';
+import { ReservationCountdown } from '@/andalas/components/ReservationCountdown';
 import {
     Button,
     Card,
@@ -23,8 +31,10 @@ import {
     PageHeader,
 } from '@/andalas/components/ui';
 import { formatDate, formatRupiah } from '@/andalas/lib/format';
+import { detailKamar as detailKamarRoute } from '@/routes/mahasiswa';
+import { show as tagihanShow } from '@/routes/mahasiswa/tagihan';
 
-type TemplateItem = {
+export type TemplateItem = {
     id: string;
     category: string;
     kind: string;
@@ -88,7 +98,7 @@ type TagihanSummary = {
     jatuh_tempo?: string | null;
 } | null;
 
-type Registration = {
+export type Registration = {
     id: string;
     status: string;
     stay_kind?: string;
@@ -103,8 +113,11 @@ type Registration = {
     checked_in_at?: string | null;
     completed_at?: string | null;
     keys_returned_at?: string | null;
+    reservation_expires_at?: string | null;
     can_submit?: boolean;
-    blockers: string[];
+    can_cancel?: boolean;
+    payment_unlocked?: boolean;
+    blockers?: string[];
     submitted_at?: string | null;
     periode?: { nama_periode?: string } | null;
     reserved_room?: RoomSummary;
@@ -126,8 +139,8 @@ type Registration = {
             monthly_allowed?: boolean;
         };
     } | null;
-    documents: DocumentItem[];
-    decisions: DecisionItem[];
+    documents?: DocumentItem[];
+    decisions?: DecisionItem[];
     amendments?: AmendmentItem[];
     tagihan?: TagihanSummary;
     room_contract?: { id: string; status?: string } | null;
@@ -147,6 +160,8 @@ type Props = {
         links: PaginationLink[];
     };
     templates?: TemplateItem[];
+    payment_accounts?: PaymentBankAccountItem[];
+    virtual_accounts?: VirtualAccountItem[];
     detailMode?: boolean;
 };
 
@@ -181,6 +196,19 @@ const DECISION_LABELS: Record<string, string> = {
     monthly: 'Skema Pembayaran Bulanan',
     transfer_permission: 'Izin Tinggal Berbasis Bukti Transfer',
 };
+
+const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+const ALLOWED_UPLOAD_EXTENSIONS = new Set(['pdf', 'jpg', 'jpeg', 'png']);
+
+function formatFileSize(bytes: number): string {
+    if (bytes < 1024) {
+        return `${bytes} B`;
+    }
+    if (bytes < 1024 * 1024) {
+        return `${(bytes / 1024).toFixed(0)} KB`;
+    }
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
 
 function friendlyDocumentLabel(kind: string): string {
     if (kind.startsWith('pembiayaan_')) {
@@ -302,7 +330,7 @@ function documentStatusText(status: string): string {
 }
 
 function buildStepState(r: Registration) {
-    const isRejected = r.status === 'rejected';
+    const isRejected = r.status === 'rejected' || r.status === 'cancelled';
     const hasRoom = Boolean(
         r.reserved_room || r.reservedRoom || r.placement?.kamar,
     );
@@ -323,9 +351,11 @@ function buildStepState(r: Registration) {
         (r.decisions ?? []).some(
             (d) => d.status === 'pending' || d.status === 'approved',
         );
+    const blockers = r.blockers ?? [];
     const docsAndFinancingDone = allDocsUploaded && hasDecisionOrExempt;
     const isCheckedIn = Boolean(r.completed_at || r.checked_in_at);
-    const isReady = Boolean(r.ready_at) || r.blockers.length === 0;
+    const isReady = Boolean(r.ready_at) || blockers.length === 0;
+    const paymentUnlocked = Boolean(r.payment_unlocked);
 
     return [
         {
@@ -348,10 +378,12 @@ function buildStepState(r: Registration) {
         },
         {
             number: 3,
-            title: 'Verifikasi & Tagihan',
+            title: 'Verifikasi & Pembayaran',
             description: isReady
                 ? 'Seluruh syarat administrasi valid'
-                : `${r.blockers.length} syarat masih menunggu`,
+                : paymentUnlocked
+                  ? 'Berkas disetujui · Selesaikan pembayaran'
+                  : `${blockers.length} syarat masih menunggu`,
             done: !isRejected && (isReady || isCheckedIn),
             active:
                 !isRejected &&
@@ -364,11 +396,9 @@ function buildStepState(r: Registration) {
             title: r.keys_returned_at ? 'Selesai / Checkout' : 'Penghuni Aktif',
             description: r.keys_returned_at
                 ? 'Kunci telah dikembalikan'
-                : isCheckedIn
-                  ? 'Sudah serah kunci & menghuni aktif'
-                  : isReady
-                    ? 'Penghuni Aktif tercatat · Ambil kunci di gedung'
-                    : 'Menunggu langkah sebelumnya',
+                : isCheckedIn || isReady
+                  ? 'Status penghuni aktif tercatat'
+                  : 'Menunggu verifikasi berkas & pembayaran',
             done: !isRejected && (isReady || isCheckedIn),
             active: false,
         },
@@ -376,6 +406,15 @@ function buildStepState(r: Registration) {
 }
 
 function heroBanner(r: Registration) {
+    if (r.status === 'cancelled') {
+        return {
+            tone: 'border-base-300 bg-base-100',
+            badge: <StatusChip label="Pendaftaran Dibatalkan" tone="neutral" />,
+            title: 'Pendaftaran ini telah dibatalkan oleh Anda',
+            subtitle:
+                'Slot reservasi kamar dan tagihan terkait sudah dilepas. Anda dapat memilih gedung dan kamar lain melalui halaman pendaftaran.',
+        };
+    }
     if (r.status === 'rejected') {
         return {
             tone: 'border-base-300 border-l-4 border-l-error bg-base-100',
@@ -397,19 +436,31 @@ function heroBanner(r: Registration) {
         return {
             tone: 'border-base-300 border-l-4 border-l-primary bg-base-100',
             badge: <StatusChip label="Penghuni Aktif" tone="success" />,
-            title: 'Selamat! Anda telah terdaftar resmi & check-in asrama',
-            subtitle: `Check-in dan serah kunci telah dikonfirmasi pada ${formatDate(r.checked_in_at ?? r.completed_at)}.`,
+            title: 'Selamat! Status penghuni aktif asrama Anda telah resmi tercatat',
+            subtitle: `Berkas valid & kewajiban pembayaran telah diverifikasi lengkap pada ${formatDate(r.completed_at)}.`,
         };
     }
-    if (r.ready_at || r.blockers.length === 0) {
+    if (r.ready_at || (r.blockers ?? []).length === 0) {
+        return {
+            tone: 'border-base-300 border-l-4 border-l-primary bg-base-100',
+            badge: <StatusChip label="Penghuni Aktif" tone="success" />,
+            title: 'Seluruh syarat administrasi & pembayaran Anda sudah lengkap!',
+            subtitle:
+                'Penempatan kamar Anda telah aktif secara administratif. Informasi kamar tersedia pada menu Kamar Saya.',
+        };
+    }
+    if (r.payment_unlocked) {
         return {
             tone: 'border-base-300 border-l-4 border-l-primary bg-base-100',
             badge: (
-                <StatusChip label="Siap Check-in & Ambil Kunci" tone="success" />
+                <StatusChip
+                    label="Berkas Disetujui · Menunggu Pembayaran"
+                    tone="info"
+                />
             ),
-            title: 'Seluruh syarat administrasi Anda sudah lengkap dan valid!',
+            title: 'Berkas disetujui! Silakan selesaikan pembayaran sesuai tagihan',
             subtitle:
-                'Datang ke pengelola gedung dengan membawa kartu identitas & berkas asli untuk verifikasi fisik serta serah terima kunci kamar.',
+                'Buka Detail Tagihan & Pembayaran untuk melihat rekening tujuan transfer resmi dan mengunggah bukti pembayaran sebelum batas waktu habis.',
         };
     }
     return {
@@ -422,16 +473,22 @@ function heroBanner(r: Registration) {
         ),
         title: 'Pendaftaran asrama Anda sudah tercatat di sistem',
         subtitle:
-            'Selesaikan seluruh butir pada daftar perhatian di bawah agar akun Anda siap untuk proses check-in.',
+            'Unggah berkas wajib dan tunggu pemeriksaan Fasilitator gedung sebelum tahap pembayaran dibuka.',
     };
 }
 
-function StudentRegistrationCard({
+export function StudentRegistrationCard({
     registration: r,
     templates,
+    paymentAccounts = [],
+    virtualAccounts = [],
+    embedded = false,
 }: {
     registration: Registration;
     templates: TemplateItem[];
+    paymentAccounts?: PaymentBankAccountItem[];
+    virtualAccounts?: VirtualAccountItem[];
+    embedded?: boolean;
 }) {
     const [selectedFiles, setSelectedFiles] = useState<Record<string, File>>(
         {},
@@ -439,8 +496,22 @@ function StudentRegistrationCard({
     const [decisionKind, setDecisionKind] = useState<string>('full');
     const [decisionReason, setDecisionReason] = useState<string>('');
     const [confirmOpen, setConfirmOpen] = useState(false);
+    const [cancelModalOpen, setCancelModalOpen] = useState(false);
+    const [cancelling, setCancelling] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+    const [slowUploadHint, setSlowUploadHint] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
+    const cancelUploadRef = useRef<(() => void) | null>(null);
+    const slowTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    useEffect(() => {
+        return () => {
+            if (slowTimerRef.current) {
+                clearTimeout(slowTimerRef.current);
+            }
+        };
+    }, []);
 
     const category = r.policy?.category ?? 'local_non_kipk';
     const room =
@@ -476,7 +547,8 @@ function StudentRegistrationCard({
     const isEditableReg =
         Boolean(r.can_submit) &&
         !r.keys_returned_at &&
-        r.status !== 'rejected';
+        r.status !== 'rejected' &&
+        r.status !== 'cancelled';
 
     const editableKinds = requiredKinds.filter((kind) => {
         if (!isEditableReg) {
@@ -503,10 +575,11 @@ function StudentRegistrationCard({
         savedDecisions.length === 0 &&
         !isKipkExempt;
 
+    const blockers = r.blockers ?? [];
     const totalTagihan = Number(r.tagihan?.total ?? 0);
     const totalDibayar = Number(r.tagihan?.total_dibayar ?? 0);
     const remaining = Math.max(0, totalTagihan - totalDibayar);
-    const hasPaymentBlocker = r.blockers.some((b) =>
+    const hasPaymentBlocker = blockers.some((b) =>
         /pembayaran|pembiayaan/i.test(b),
     );
 
@@ -515,6 +588,9 @@ function StudentRegistrationCard({
     const hasTransferOption = r.stay_kind === 'non_student';
 
     const submitPackage = () => {
+        if (submitting) {
+            return;
+        }
         const formData = new FormData();
         for (const [kind, file] of Object.entries(selectedFiles)) {
             formData.append(`files[${kind}]`, file);
@@ -526,13 +602,63 @@ function StudentRegistrationCard({
             }
         }
 
+        const hasFilesToUpload = Object.keys(selectedFiles).length > 0;
         setSubmitting(true);
+        setUploadProgress(hasFilesToUpload ? 0 : null);
+        setSlowUploadHint(false);
         setErrors({});
+        if (slowTimerRef.current) {
+            clearTimeout(slowTimerRef.current);
+        }
+        slowTimerRef.current = setTimeout(() => {
+            setSlowUploadHint(true);
+        }, 15000);
+
         router.post(workflow.submitPackage.url(r.id), formData, {
             forceFormData: true,
             preserveScroll: true,
+            onCancelToken: (token) => {
+                cancelUploadRef.current = () => token.cancel();
+            },
+            onProgress: (progress) => {
+                if (typeof progress?.percentage === 'number') {
+                    setUploadProgress(progress.percentage);
+                }
+            },
             onError: (errs) => {
                 setErrors(errs as Record<string, string>);
+                setConfirmOpen(false);
+            },
+            onHttpException: (response) => {
+                const status = response?.status;
+                let message = `Terjadi kesalahan server (${status ?? 'HTTP'}) saat menyimpan berkas. Silakan coba lagi.`;
+                if (status === 413) {
+                    message =
+                        'Ukuran total unggahan melebihi batas server. Gunakan berkas lebih kecil (maks. 5 MB per berkas) atau unggah satu per satu.';
+                } else if (status === 419) {
+                    message =
+                        'Sesi halaman kedaluwarsa. Muat ulang halaman ini lalu coba unggah kembali.';
+                } else if (status === 502 || status === 504) {
+                    message =
+                        'Server kehabisan waktu saat memproses unggahan. Periksa koneksi Anda atau coba unggah berkas satu per satu.';
+                }
+                setErrors({ package: message });
+                setConfirmOpen(false);
+                return false;
+            },
+            onNetworkError: () => {
+                setErrors({
+                    package:
+                        'Koneksi terputus atau tidak dapat menjangkau server. Periksa jaringan Anda lalu coba lagi.',
+                });
+                setConfirmOpen(false);
+                return false;
+            },
+            onCancel: () => {
+                setErrors({
+                    package:
+                        'Pengunggahan dibatalkan. Anda dapat memeriksa ulang berkas atau mengunggah satu per satu.',
+                });
                 setConfirmOpen(false);
             },
             onSuccess: () => {
@@ -540,7 +666,16 @@ function StudentRegistrationCard({
                 setDecisionReason('');
                 setConfirmOpen(false);
             },
-            onFinish: () => setSubmitting(false),
+            onFinish: () => {
+                if (slowTimerRef.current) {
+                    clearTimeout(slowTimerRef.current);
+                    slowTimerRef.current = null;
+                }
+                cancelUploadRef.current = null;
+                setUploadProgress(null);
+                setSlowUploadHint(false);
+                setSubmitting(false);
+            },
         });
     };
 
@@ -570,6 +705,25 @@ function StudentRegistrationCard({
         setConfirmOpen(true);
     };
 
+    const submitCancel = () => {
+        if (cancelling) {
+            return;
+        }
+        setCancelling(true);
+        router.post(
+            workflow.cancel.url(r.id),
+            {},
+            {
+                preserveScroll: true,
+                onFinish: () => {
+                    setCancelling(false);
+                    setCancelModalOpen(false);
+                },
+            },
+        );
+    };
+
+    const paymentUnlocked = Boolean(r.payment_unlocked);
     const banner = heroBanner(r);
     const steps = buildStepState(r);
 
@@ -590,6 +744,21 @@ function StudentRegistrationCard({
                             {banner.title}
                         </h2>
                         <p className="text-muted text-sm">{banner.subtitle}</p>
+                        {r.can_cancel && (
+                            <div className="pt-2">
+                                <button
+                                    type="button"
+                                    className="btn btn-outline btn-error btn-xs sm:btn-sm gap-1.5"
+                                    onClick={() => setCancelModalOpen(true)}
+                                >
+                                    <RotateCcw
+                                        className="size-3.5"
+                                        aria-hidden="true"
+                                    />
+                                    Batalkan & Ganti Pilihan Kamar/Gedung
+                                </button>
+                            </div>
+                        )}
                     </div>
                     <div className="bg-base-200/40 border-base-300 w-full min-w-0 rounded-lg border px-3.5 py-2.5 text-sm break-words sm:w-auto sm:max-w-xs">
                         <div className="text-muted flex items-center gap-1.5 text-xs font-medium">
@@ -610,98 +779,108 @@ function StudentRegistrationCard({
                 </div>
             </div>
 
-            {/* 4-Step Visual Stepper */}
-            <div
-                aria-label="Tahapan pendaftaran"
-                className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4"
-            >
-                {steps.map((step) => (
-                    <div
-                        key={step.number}
-                        className={`flex items-start gap-2.5 rounded-lg border p-3 ${
-                            step.done
-                                ? 'border-base-300 bg-base-100'
-                                : step.active
-                                  ? 'border-primary/60 bg-base-100'
-                                  : 'border-base-300/80 bg-base-200/40'
-                        }`}
-                    >
-                        <div className="mt-0.5 shrink-0">
-                            {step.done ? (
-                                <CheckCircle2
-                                    className="text-primary size-5"
-                                    aria-hidden="true"
-                                />
-                            ) : step.active ? (
-                                <Clock
-                                    className="text-primary size-5"
-                                    aria-hidden="true"
-                                />
-                            ) : (
-                                <span className="border-base-content/30 text-muted flex size-5 items-center justify-center rounded-full border text-xs font-semibold">
-                                    {step.number}
-                                </span>
-                            )}
+            {!embedded && (
+                /* 4-Step Visual Stepper */
+                <div
+                    aria-label="Tahapan pendaftaran"
+                    className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4"
+                >
+                    {steps.map((step) => (
+                        <div
+                            key={step.number}
+                            className={`flex items-start gap-2.5 rounded-lg border p-3 ${
+                                step.done
+                                    ? 'border-base-300 bg-base-100'
+                                    : step.active
+                                      ? 'border-primary/60 bg-base-100'
+                                      : 'border-base-300/80 bg-base-200/40'
+                            }`}
+                        >
+                            <div className="mt-0.5 shrink-0">
+                                {step.done ? (
+                                    <CheckCircle2
+                                        className="text-primary size-5"
+                                        aria-hidden="true"
+                                    />
+                                ) : step.active ? (
+                                    <Clock
+                                        className="text-primary size-5"
+                                        aria-hidden="true"
+                                    />
+                                ) : (
+                                    <span className="border-base-content/30 text-muted flex size-5 items-center justify-center rounded-full border text-xs font-semibold">
+                                        {step.number}
+                                    </span>
+                                )}
+                            </div>
+                            <div className="min-w-0">
+                                <p className="text-base-content text-xs font-semibold">
+                                    {step.number}. {step.title}
+                                </p>
+                                <p className="text-muted mt-0.5 text-xs">
+                                    {step.description}
+                                </p>
+                            </div>
                         </div>
-                        <div className="min-w-0">
-                            <p className="text-base-content text-xs font-semibold">
-                                {step.number}. {step.title}
-                            </p>
-                            <p className="text-muted mt-0.5 text-xs">
-                                {step.description}
-                            </p>
-                        </div>
-                    </div>
-                ))}
-            </div>
+                    ))}
+                </div>
+            )}
 
             {/* Actionable Blockers Box */}
-            {!r.completed_at && r.blockers.length > 0 && (
-                <div className="border-base-300 border-l-warning bg-base-200/40 space-y-3 rounded-xl border border-l-4 p-4">
-                    <div className="flex items-start gap-2.5">
-                        <AlertTriangle
-                            className="text-warning mt-0.5 size-5 shrink-0"
-                            aria-hidden="true"
-                        />
-                        <div className="flex-1 space-y-2">
-                            <p className="text-base-content text-sm font-semibold">
-                                Syarat yang perlu diselesaikan sebelum check-in:
-                            </p>
-                            <ul className="text-base-content/90 list-inside list-disc space-y-1 text-sm">
-                                {r.blockers.map((blocker, idx) => (
-                                    <li key={idx}>{blocker}</li>
-                                ))}
-                            </ul>
-                            <div className="flex flex-wrap gap-2 pt-1">
-                                {hasPaymentBlocker && r.tagihan && remaining > 0 && (
-                                    <Link
-                                        href="/mahasiswa/tagihan"
-                                        className="btn btn-sm btn-primary"
-                                    >
-                                        <Wallet
-                                            className="size-4"
-                                            aria-hidden="true"
-                                        />
-                                        Lihat & Bayar Tagihan
-                                    </Link>
-                                )}
-                                {editableKinds.length > 0 && (
-                                    <a
-                                        href={`#berkas-${r.id}`}
-                                        className="btn btn-sm btn-outline"
-                                    >
-                                        <Upload
-                                            className="size-4"
-                                            aria-hidden="true"
-                                        />
-                                        Unggah Berkas Sekarang
-                                    </a>
-                                )}
+            {!r.completed_at &&
+                r.status !== 'cancelled' &&
+                blockers.length > 0 && (
+                    <div className="border-base-300 border-l-warning bg-base-200/40 space-y-3 rounded-xl border border-l-4 p-4">
+                        <div className="flex items-start gap-2.5">
+                            <AlertTriangle
+                                className="text-warning mt-0.5 size-5 shrink-0"
+                                aria-hidden="true"
+                            />
+                            <div className="flex-1 space-y-2">
+                                <p className="text-base-content text-sm font-semibold">
+                                    Syarat yang perlu diselesaikan untuk
+                                    aktivasi penghuni:
+                                </p>
+                                <ul className="text-base-content/90 list-inside list-disc space-y-1 text-sm">
+                                    {blockers.map((blocker, idx) => (
+                                        <li key={idx}>{blocker}</li>
+                                    ))}
+                                </ul>
+                                <div className="flex flex-wrap gap-2 pt-1">
+                                    {paymentUnlocked &&
+                                        hasPaymentBlocker &&
+                                        r.tagihan &&
+                                        remaining > 0 && (
+                                            <Link
+                                                href={tagihanShow.url(
+                                                    r.tagihan.id,
+                                                )}
+                                                className="btn btn-sm btn-primary"
+                                            >
+                                                <Wallet
+                                                    className="size-4"
+                                                    aria-hidden="true"
+                                                />
+                                                Buka Detail Tagihan & Pembayaran
+                                            </Link>
+                                        )}
+                                    {editableKinds.length > 0 && (
+                                        <a
+                                            href={`#berkas-${r.id}`}
+                                            className="btn btn-sm btn-primary"
+                                        >
+                                            <Upload
+                                                className="size-4"
+                                                aria-hidden="true"
+                                            />
+                                            Unggah Berkas Sekarang
+                                        </a>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )}
 
             {/* Main Content Grid: Documents & Financing */}
             <div className="grid gap-5 lg:grid-cols-2">
@@ -827,6 +1006,86 @@ function StudentRegistrationCard({
                                                     onChange={(e) => {
                                                         const file =
                                                             e.target.files?.[0];
+                                                        const fieldKey = `files.${kind}`;
+                                                        if (file) {
+                                                            const ext =
+                                                                file.name
+                                                                    .split('.')
+                                                                    .pop()
+                                                                    ?.toLowerCase() ??
+                                                                '';
+                                                            if (
+                                                                !ALLOWED_UPLOAD_EXTENSIONS.has(
+                                                                    ext,
+                                                                )
+                                                            ) {
+                                                                e.target.value =
+                                                                    '';
+                                                                setSelectedFiles(
+                                                                    (prev) => {
+                                                                        const next =
+                                                                            {
+                                                                                ...prev,
+                                                                            };
+                                                                        delete next[
+                                                                            kind
+                                                                        ];
+                                                                        return next;
+                                                                    },
+                                                                );
+                                                                setErrors(
+                                                                    (prev) => ({
+                                                                        ...prev,
+                                                                        [fieldKey]:
+                                                                            'Format berkas harus PDF, JPG, JPEG, atau PNG.',
+                                                                    }),
+                                                                );
+                                                                return;
+                                                            }
+                                                            if (
+                                                                file.size >
+                                                                MAX_UPLOAD_BYTES
+                                                            ) {
+                                                                e.target.value =
+                                                                    '';
+                                                                setSelectedFiles(
+                                                                    (prev) => {
+                                                                        const next =
+                                                                            {
+                                                                                ...prev,
+                                                                            };
+                                                                        delete next[
+                                                                            kind
+                                                                        ];
+                                                                        return next;
+                                                                    },
+                                                                );
+                                                                setErrors(
+                                                                    (prev) => ({
+                                                                        ...prev,
+                                                                        [fieldKey]: `Ukuran berkas ${formatFileSize(file.size)} melebihi batas maksimum 5 MB. Kompres berkas terlebih dahulu.`,
+                                                                    }),
+                                                                );
+                                                                return;
+                                                            }
+                                                        }
+                                                        setErrors((prev) => {
+                                                            if (
+                                                                !(
+                                                                    fieldKey in
+                                                                    prev
+                                                                )
+                                                            ) {
+                                                                return prev;
+                                                            }
+                                                            const next = {
+                                                                ...prev,
+                                                            };
+                                                            delete next[
+                                                                fieldKey
+                                                            ];
+                                                            return next;
+                                                        });
                                                         setSelectedFiles(
                                                             (prev) => {
                                                                 const next = {
@@ -849,7 +1108,12 @@ function StudentRegistrationCard({
                                             {selectedFiles[kind] && (
                                                 <p className="text-primary text-xs font-medium break-all">
                                                     Siap disimpan:{' '}
-                                                    {selectedFiles[kind].name}
+                                                    {selectedFiles[kind].name} (
+                                                    {formatFileSize(
+                                                        selectedFiles[kind]
+                                                            .size,
+                                                    )}
+                                                    )
                                                 </p>
                                             )}
                                             {errors[`files.${kind}`] && (
@@ -882,10 +1146,11 @@ function StudentRegistrationCard({
                     {(r.documents?.length ?? 0) > 1 && (
                         <details className="border-base-300 rounded-lg border p-3 text-xs">
                             <summary className="cursor-pointer font-medium">
-                                Riwayat versi dokumen ({r.documents.length})
+                                Riwayat versi dokumen (
+                                {(r.documents ?? []).length})
                             </summary>
                             <div className="mt-2 space-y-1">
-                                {r.documents.map((d) => (
+                                {(r.documents ?? []).map((d) => (
                                     <div
                                         key={d.id}
                                         className="flex flex-wrap items-center justify-between gap-2"
@@ -932,36 +1197,125 @@ function StudentRegistrationCard({
                     </div>
 
                     {r.tagihan ? (
-                        <div className="border-base-300 bg-base-200/40 grid grid-cols-1 gap-2 rounded-lg border p-3 text-sm sm:grid-cols-3">
-                            <div className="min-w-0">
-                                <p className="text-muted text-xs">Total</p>
-                                <p className="text-base-content font-semibold break-words">
-                                    {formatRupiah(totalTagihan)}
-                                </p>
+                        <div className="space-y-3">
+                            <div className="border-base-300 bg-base-200/40 grid grid-cols-1 gap-2 rounded-lg border p-3 text-sm sm:grid-cols-3">
+                                <div className="min-w-0">
+                                    <p className="text-muted text-xs">Total</p>
+                                    <p className="text-base-content font-semibold break-words">
+                                        {formatRupiah(totalTagihan)}
+                                    </p>
+                                </div>
+                                <div className="min-w-0">
+                                    <p className="text-muted text-xs">
+                                        Dibayar
+                                    </p>
+                                    <p className="text-base-content font-semibold break-words">
+                                        {formatRupiah(totalDibayar)}
+                                    </p>
+                                </div>
+                                <div className="min-w-0">
+                                    <p className="text-muted text-xs">Sisa</p>
+                                    <p className="text-base-content font-semibold break-words">
+                                        {formatRupiah(remaining)}
+                                    </p>
+                                </div>
+                                <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 border-t pt-2 text-xs sm:col-span-3">
+                                    <span className="text-muted text-identifier min-w-0 break-all">
+                                        Tagihan: {r.tagihan.nomor}
+                                    </span>
+                                    {paymentUnlocked ? (
+                                        <Link
+                                            href={tagihanShow.url(r.tagihan.id)}
+                                            className="link link-primary shrink-0 font-medium"
+                                        >
+                                            Detail Tagihan & Pembayaran →
+                                        </Link>
+                                    ) : (
+                                        <span className="text-muted shrink-0">
+                                            Menunggu persetujuan berkas
+                                            fasilitator
+                                        </span>
+                                    )}
+                                </div>
                             </div>
-                            <div className="min-w-0">
-                                <p className="text-muted text-xs">Dibayar</p>
-                                <p className="text-base-content font-semibold break-words">
-                                    {formatRupiah(totalDibayar)}
-                                </p>
-                            </div>
-                            <div className="min-w-0">
-                                <p className="text-muted text-xs">Sisa</p>
-                                <p className="text-base-content font-semibold break-words">
-                                    {formatRupiah(remaining)}
-                                </p>
-                            </div>
-                            <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 border-t pt-2 text-xs sm:col-span-3">
-                                <span className="text-muted text-identifier min-w-0 break-all">
-                                    Tagihan: {r.tagihan.nomor}
-                                </span>
-                                <Link
-                                    href="/mahasiswa/tagihan"
-                                    className="link link-primary shrink-0 font-medium"
-                                >
-                                    Buka Halaman Tagihan →
-                                </Link>
-                            </div>
+
+                            {paymentUnlocked &&
+                                !r.completed_at &&
+                                r.status !== 'cancelled' && (
+                                    <div className="border-base-300 bg-base-100 space-y-3 rounded-xl border p-4">
+                                        <ReservationCountdown
+                                            targetIso={
+                                                r.reservation_expires_at ??
+                                                r.tagihan.jatuh_tempo
+                                            }
+                                            label="Batas waktu penyelesaian pembayaran"
+                                        />
+                                        {remaining > 0 &&
+                                            (paymentAccounts.length > 0 ||
+                                                virtualAccounts.length > 0) && (
+                                                <PaymentAccountsBox
+                                                    paymentAccounts={
+                                                        paymentAccounts
+                                                    }
+                                                    virtualAccounts={
+                                                        virtualAccounts
+                                                    }
+                                                    compact
+                                                />
+                                            )}
+                                        <div className="flex flex-wrap items-center justify-between gap-2">
+                                            <span className="text-muted text-xs">
+                                                Lihat rincian tagihan, salin
+                                                rekening tujuan, atau unggah
+                                                bukti transfer.
+                                            </span>
+                                            <Link
+                                                href={tagihanShow.url(
+                                                    r.tagihan.id,
+                                                )}
+                                                className="btn btn-primary btn-sm gap-1.5"
+                                            >
+                                                <span>
+                                                    Buka Detail Tagihan &
+                                                    Pembayaran
+                                                </span>
+                                                <ArrowRight className="size-4" />
+                                            </Link>
+                                        </div>
+                                    </div>
+                                )}
+
+                            {!paymentUnlocked &&
+                                !isKipkExempt &&
+                                !r.completed_at &&
+                                r.status !== 'cancelled' && (
+                                    <div className="border-base-300 bg-base-200/40 rounded-lg border p-3 text-xs">
+                                        <p className="font-semibold">
+                                            Tahap Pembayaran Belum Dibuka
+                                        </p>
+                                        <p className="text-muted mt-0.5">
+                                            Akses pembayaran dan menu Tagihan
+                                            akan otomatis terbuka setelah
+                                            seluruh berkas wajib Anda dinyatakan{' '}
+                                            <strong>Valid</strong> oleh
+                                            Fasilitator gedung dan skema
+                                            pembiayaan ditetapkan.
+                                        </p>
+                                    </div>
+                                )}
+
+                            {(r.completed_at || r.ready_at) &&
+                                r.status !== 'cancelled' && (
+                                    <div className="flex justify-end">
+                                        <Link
+                                            href={detailKamarRoute.url()}
+                                            className="btn btn-primary btn-sm gap-1.5"
+                                        >
+                                            <span>Buka Kamar Saya</span>
+                                            <ArrowRight className="size-4" />
+                                        </Link>
+                                    </div>
+                                )}
                         </div>
                     ) : (
                         <div className="bg-base-200/50 text-muted rounded-lg p-3 text-sm">
@@ -1218,7 +1572,7 @@ function StudentRegistrationCard({
                         <span>
                             Setelah disimpan, dokumen dan pilihan pembiayaan{' '}
                             <strong>tidak dapat diubah</strong> oleh Anda.
-                            Pengunggah ulang hanya dibuka bila petugas meminta
+                            Pengunggahan ulang hanya dibuka bila petugas meminta
                             revisi dokumen.
                         </span>
                     </div>
@@ -1234,7 +1588,8 @@ function StudentRegistrationCard({
                                         ([kind, file]) => (
                                             <li key={kind}>
                                                 {friendlyDocumentLabel(kind)}:{' '}
-                                                {file.name}
+                                                {file.name} (
+                                                {formatFileSize(file.size)})
                                             </li>
                                         ),
                                     )}
@@ -1257,24 +1612,106 @@ function StudentRegistrationCard({
                         )}
                     </div>
 
+                    {submitting && (
+                        <div className="border-base-300 bg-base-200/40 space-y-2 rounded-lg border p-3 text-xs">
+                            <div className="flex items-center justify-between gap-2 font-medium">
+                                <span>
+                                    {uploadProgress !== null &&
+                                    uploadProgress < 100
+                                        ? `Mengunggah berkas (${uploadProgress}%)...`
+                                        : 'Memproses penyimpanan di server...'}
+                                </span>
+                                {uploadProgress !== null && (
+                                    <span>{uploadProgress}%</span>
+                                )}
+                            </div>
+                            {uploadProgress !== null && (
+                                <progress
+                                    className="progress progress-primary w-full"
+                                    value={uploadProgress}
+                                    max={100}
+                                />
+                            )}
+                            {slowUploadHint && (
+                                <p className="text-muted">
+                                    Unggahan membutuhkan waktu lebih lama dari
+                                    biasanya. Anda dapat menunggu, atau batalkan
+                                    lalu unggah berkas satu per satu agar lebih
+                                    ringan.
+                                </p>
+                            )}
+                        </div>
+                    )}
+
                     <div className="flex justify-end gap-2 pt-2">
-                        <Button
-                            type="button"
-                            variant="secondary"
-                            onClick={() => setConfirmOpen(false)}
-                            disabled={submitting}
-                        >
-                            Periksa Ulang
-                        </Button>
+                        {submitting ? (
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                onClick={() => cancelUploadRef.current?.()}
+                            >
+                                Batalkan Unggahan
+                            </Button>
+                        ) : (
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                onClick={() => setConfirmOpen(false)}
+                            >
+                                Periksa Ulang
+                            </Button>
+                        )}
                         <Button
                             type="button"
                             onClick={submitPackage}
                             disabled={submitting}
                         >
                             {submitting
-                                ? 'Menyimpan...'
+                                ? uploadProgress !== null &&
+                                  uploadProgress < 100
+                                    ? `Mengunggah (${uploadProgress}%)...`
+                                    : 'Menyimpan...'
                                 : 'Ya, Simpan Permanen'}
                         </Button>
+                    </div>
+                </div>
+            </Modal>
+
+            <Modal
+                open={cancelModalOpen}
+                onClose={() => {
+                    if (!cancelling) {
+                        setCancelModalOpen(false);
+                    }
+                }}
+                title="Batalkan Pendaftaran & Ganti Pilihan Kamar"
+            >
+                <div className="space-y-4 text-sm">
+                    <p>
+                        Anda belum memiliki pembayaran yang masuk. Jika
+                        dibatalkan, slot kamar yang saat ini ditahan dan tagihan
+                        pendaftaran akan dilepas sehingga Anda langsung kembali
+                        ke Langkah 1 untuk memilih gedung atau kamar lain.
+                    </p>
+                    <div className="flex justify-end gap-2">
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            disabled={cancelling}
+                            onClick={() => setCancelModalOpen(false)}
+                        >
+                            Tutup
+                        </Button>
+                        <button
+                            type="button"
+                            className="btn btn-error btn-sm"
+                            disabled={cancelling}
+                            onClick={submitCancel}
+                        >
+                            {cancelling
+                                ? 'Membatalkan...'
+                                : 'Ya, Batalkan Pendaftaran'}
+                        </button>
                     </div>
                 </div>
             </Modal>
@@ -1285,9 +1722,14 @@ function StudentRegistrationCard({
 export default function RegistrationStatus({
     registrations,
     templates = [],
+    payment_accounts = [],
+    virtual_accounts = [],
     detailMode = false,
 }: Props) {
     const items = registrations?.data ?? [];
+    const hasPaymentMenuAccess = items.some(
+        (item) => Boolean(item.payment_unlocked) || Boolean(item.completed_at),
+    );
 
     return (
         <div className="space-y-6">
@@ -1295,7 +1737,7 @@ export default function RegistrationStatus({
 
             <PageHeader
                 title="Status Pendaftaran & Berkas Asrama"
-                subtitle="Pantau tahapan pengajuan kamar, kelengkapan dokumen resmi, pilihan pembiayaan, serta jadwal check-in Anda."
+                subtitle="Pantau tahapan pengajuan kamar, kelengkapan dokumen resmi, pilihan pembiayaan, serta status verifikasi pembayaran Anda."
                 actions={
                     <div className="flex flex-wrap gap-2">
                         <Link
@@ -1304,12 +1746,14 @@ export default function RegistrationStatus({
                         >
                             ← Halaman Pendaftaran
                         </Link>
-                        <Link
-                            href="/mahasiswa/tagihan"
-                            className="btn btn-primary btn-sm"
-                        >
-                            Tagihan & Pembayaran
-                        </Link>
+                        {hasPaymentMenuAccess && (
+                            <Link
+                                href="/mahasiswa/tagihan"
+                                className="btn btn-primary btn-sm"
+                            >
+                                Tagihan & Pembayaran
+                            </Link>
+                        )}
                     </div>
                 }
             />
@@ -1336,6 +1780,8 @@ export default function RegistrationStatus({
                             key={reg.id}
                             registration={reg}
                             templates={templates}
+                            paymentAccounts={payment_accounts}
+                            virtualAccounts={virtual_accounts}
                         />
                     ))}
                 </div>

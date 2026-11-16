@@ -67,17 +67,21 @@ it('connects account registration payment damage reporting checkout and the mode
     Queue::assertPushed(GenerateBillingDocument::class, fn ($job) => $job->jenis === 'invoice');
 
     expect($student->fresh()->status_huni)->toBe('calon');
+    $this->actingAs($resident)->post(route('residence.documents.upload', $registration), [
+        'kind' => 'perjanjian', 'file' => UploadedFile::fake()->create('perjanjian.pdf', 50, 'application/pdf'),
+    ])->assertSessionHasNoErrors();
+    $doc = $registration->fresh()->documents()->sole();
+    $this->actingAs($facilitator)->post(route('residence.documents.review', $doc), ['status' => 'valid'])->assertSessionHasNoErrors();
     $this->actingAs($resident)->post(route('andalas.pembayaran.store'), [
         'tagihan_id' => $invoice->id, 'jenis_pembayaran' => 'sewa_asrama', 'nominal' => 1500000,
         'bukti_transfer' => UploadedFile::fake()->image('bukti.jpg'),
     ])->assertSessionHasNoErrors();
+    expect($student->fresh()->status_huni)->toBe('calon');
     $payment = Pembayaran::where('tagihan_id', $invoice->id)->sole();
     $this->actingAs($admin)->post(route('andalas.pembayaran.verify', $payment), ['status' => 'lunas'])->assertSessionHasErrors();
     $reference = ResidencePaymentReference::factory()->create(['recorded_by' => $admin->id, 'amount' => 1500000]);
     app(ReconcileResidencePayment::class)->handle($reference, [['tagihan_id' => $invoice->id, 'jumlah' => 1500000, 'payment_proof_id' => $payment->id]], $admin);
-    expect($student->fresh()->status_huni)->toBe('calon')
-        ->and($registration->fresh()->completed_at)->toBeNull();
-    toBeDocument($registration, $admin);
+    expect($student->fresh()->status_huni)->toBe('aktif');
     $this->actingAs($facilitator)->post(route('residence.checkin', $registration), ['identity_checked' => 1, 'original_documents_checked' => 1, 'keys_handed' => 1])->assertSessionHasNoErrors();
     expect($student->fresh()->status_huni)->toBe('aktif')
         ->and($registration->fresh()->completed_at)->not->toBeNull();

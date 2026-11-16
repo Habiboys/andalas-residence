@@ -27,6 +27,7 @@ use App\Models\LaporanKerusakan;
 use App\Models\LegacyResidenceRate;
 use App\Models\LegacyResident;
 use App\Models\MahasiswaProfil;
+use App\Models\PaymentBankAccount;
 use App\Models\Pembayaran;
 use App\Models\PenempatanKamar;
 use App\Models\PengajuanBebasAsrama;
@@ -35,6 +36,7 @@ use App\Models\PenilaianTeknisi;
 use App\Models\Periode;
 use App\Models\Prodi;
 use App\Models\Province;
+use App\Models\ResidenceDocumentTemplate;
 use App\Models\ResidenceRate;
 use App\Models\ResidenceRegistration;
 use App\Models\RoomInvitation;
@@ -50,12 +52,14 @@ use App\Services\MasterDataService;
 use App\Services\ResidenceBuildingAccess;
 use App\Services\ResidenceLifecycle;
 use App\Services\ResidencePolicyService;
+use App\Services\ResidenceWorkflow;
 use App\Services\RoomEligibility;
 use App\Services\RoomReservations;
 use App\Services\UserProfileSummary;
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -98,6 +102,7 @@ class RolePageController extends Controller
                 'legacy_residents' => LegacyResident::orderBy('nim')->get(),
                 'legacy_rates' => LegacyResidenceRate::orderBy('angkatan')->get(),
                 'kipk_recipients' => KipkRecipient::orderByDesc('angkatan')->get(),
+                'payment_accounts' => PaymentBankAccount::orderBy('bank_name')->orderBy('account_number')->get(),
             ],
             'invoices' => [
                 'billing' => Tagihan::with(['mahasiswa.user', 'mahasiswa.prodi', 'jadwalCicilan', 'dokumen', 'registration:id,tagihan_id,workflow_version'])->latest()->get(),
@@ -149,7 +154,7 @@ class RolePageController extends Controller
                 $user = $request->user();
                 $profile = $user->mahasiswaProfil;
                 $locked = $profile
-                    ? ($profile->residenceRegistrations()->whereNull('completed_at')->whereNotIn('status', ['draft', 'rejected'])->exists()
+                    ? ($profile->residenceRegistrations()->whereNull('completed_at')->whereNotIn('status', ['draft', 'rejected', 'cancelled'])->exists()
                         || $profile->penempatanKamar()->where('status', 'aktif')->exists())
                     : false;
                 $isSso = filled($user->sso_id) || str_ends_with(strtolower((string) $user->email), 'unand.ac.id');
@@ -193,6 +198,7 @@ class RolePageController extends Controller
             'verifikasi-pembayaran' => $this->paymentVerificationPayload($request),
             'tagihan' => [
                 'virtual_accounts' => VirtualAccount::where('mahasiswa_id', $request->user()->mahasiswaProfil?->id)->where('aktif', true)->get(),
+                'payment_accounts' => PaymentBankAccount::where('is_active', true)->orderBy('bank_name')->orderBy('account_number')->get(),
                 'pembayaran' => $this->payments($request),
                 'billing' => Tagihan::with(['mahasiswa.user', 'mahasiswa.prodi', 'jadwalCicilan', 'dokumen'])
                     ->when($request->user()->hasRole('mahasiswa'), fn ($query) => $query->where('mahasiswa_id', $request->user()->mahasiswaProfil?->id))
@@ -625,13 +631,37 @@ class RolePageController extends Controller
         }
         $rooms = $policy && $student ? app(ResidencePolicyService::class)->catalog($policy, $student) : collect();
         $rates = collect($policy?->settings['rates'] ?? [])->map(fn ($rate) => new ResidenceRate(['gedung_id' => $rate['gedung_id'], 'tipe_kamar' => $rate['type'], 'unit' => $rate['unit'], 'amount' => $rate['amount'], 'room_amount' => $rate['room_amount'] ?? null]));
-        $registrations = ResidenceRegistration::with(['roomPreferences.kamar', 'reservedRoom.lantai.gedung', 'placement.kamar', 'periode', 'tagihan'])->where('student_profile_id', $student?->id)->latest()->get();
+        $registrations = ResidenceRegistration::with([
+            'studentProfile.user',
+            'roomPreferences.kamar',
+            'reservedRoom.lantai.gedung',
+            'placement.kamar.lantai.gedung',
+            'policy',
+            'documents.reviewer:id,nama',
+            'decisions',
+            'periode',
+            'tagihan.items',
+            'tagihan.jadwalCicilan',
+            'tagihan.dokumen',
+            'tagihan.pembayaran' => fn ($q) => $q->latest(),
+        ])->where('student_profile_id', $student?->id)->latest()->get();
         $heldIds = app(RoomReservations::class)->held()->where('student_profile_id', $student?->id)->pluck('id')->all();
         $canInvite = $student && app(ResidenceLifecycle::class)->isLocal($student) && ! app(ResidenceLifecycle::class)->isKipk($student);
+        $workflow = app(ResidenceWorkflow::class);
         foreach ($registrations as $registration) {
             $registration->setAttribute('can_invite', $canInvite && ! $registration->is_kipk && ($registration->billing_basis !== 'room' || $registration->workflow_version === 2) && ! $registration->ended_at && $registration->periode?->status === 'aktif'
                 && ($registration->billing_basis === 'room' || $rooms->contains('id', $registration->reserved_room_id ?? $registration->placement?->kamar_id))
                 && ($registration->completed_at ? $registration->placement?->status === 'aktif' : in_array($registration->id, $heldIds, true)));
+            $registration->setAttribute('blockers', $registration->completed_at ? [] : $workflow->blockers($registration));
+            $registration->setAttribute('can_submit', true);
+            $registration->setAttribute('can_cancel', $workflow->canStudentCancel($registration, $request->user()));
+            $registration->setAttribute('payment_unlocked', $workflow->paymentUnlocked($registration));
+            $registration->setAttribute('amendments', DB::table('residence_amendments')->where(function ($q) use ($registration): void {
+                $q->where('subject_id', $registration->id)->orWhereJsonContains('after->registration_ids', $registration->id);
+                if ($registration->room_contract_id) {
+                    $q->orWhere('subject_id', $registration->room_contract_id);
+                }
+            })->orderByDesc('created_at')->get()->map(fn ($a) => ['id' => $a->id, 'kind' => $a->kind, 'reason' => $a->reason, 'created_at' => $a->created_at]));
         }
         $invitations = RoomInvitation::where(fn ($query) => $query->where('sender_id', $request->user()->id)->orWhere('invitee_id', $request->user()->id))
             ->with(['sender:id,nama', 'invitee:id,nama', 'room.lantai.gedung', 'registration'])->latest()->get()->map(fn (RoomInvitation $invitation): array => $this->invitationPayload($invitation, $request->user(), $rates));
@@ -641,6 +671,9 @@ class RolePageController extends Controller
             'rates' => $rates, 'periode' => Periode::where('status', 'aktif')->get(),
             'billing' => Tagihan::with(['items', 'jadwalCicilan', 'dokumen'])->where('mahasiswa_id', $student?->id)->latest()->get(),
             'rooms' => $rooms,
+            'templates' => ResidenceDocumentTemplate::orderBy('category')->orderBy('kind')->get(['id', 'category', 'kind', 'original_name', 'updated_at']),
+            'virtual_accounts' => VirtualAccount::where('mahasiswa_id', $student?->id)->where('aktif', true)->get(),
+            'payment_accounts' => PaymentBankAccount::where('is_active', true)->orderBy('bank_name')->orderBy('account_number')->get(),
             'registration' => $registrations, 'room_invitations' => $invitations,
             'housingProfileUrl' => route('mahasiswa.data-hunian'),
             'housingStatusUrl' => route('mahasiswa.registration.status'),
@@ -806,6 +839,41 @@ class RolePageController extends Controller
             'status_huni' => $user->mahasiswaProfil?->status_huni,
             'client_profile_category' => $user->client_profile_category?->value,
             'attendance_eligible' => $user->mahasiswaProfil && app(AttendanceEligibility::class)->isEligible($user->mahasiswaProfil, now()),
+            'payment_menu_visible' => $this->studentPaymentMenuVisible($user),
         ];
+    }
+
+    private function studentPaymentMenuVisible(User $user): bool
+    {
+        if (! $user->hasRole('mahasiswa') || ! $user->mahasiswaProfil) {
+            return true;
+        }
+        $student = $user->mahasiswaProfil;
+        if ($student->status_huni === 'aktif') {
+            return true;
+        }
+        $workflow = app(ResidenceWorkflow::class);
+        $invoices = Tagihan::with(['registration.reservedRoom.lantai.gedung', 'registration.placement.kamar.lantai.gedung', 'registration.policy', 'registration.documents', 'registration.decisions', 'registration.studentProfile'])
+            ->where('mahasiswa_id', $student->id)
+            ->where('status', '!=', 'batal')
+            ->get();
+
+        if ($invoices->isEmpty()) {
+            return false;
+        }
+
+        foreach ($invoices as $invoice) {
+            if ((float) $invoice->total_dibayar > 0 || Pembayaran::where('tagihan_id', $invoice->id)->exists()) {
+                return true;
+            }
+            if (! $invoice->registration) {
+                return true;
+            }
+            if ($workflow->paymentUnlocked($invoice->registration)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

@@ -28,6 +28,7 @@ class EnsureResidenceAccountAccess
                     'residence.housing-profile',
                     'residence.documents.upload',
                     'residence.package.submit',
+                    'residence.cancel',
                     'residence.decisions.request',
                     'residence.transfer-proof',
                     'andalas.room-invitations.store',

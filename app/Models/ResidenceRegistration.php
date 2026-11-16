@@ -125,6 +125,11 @@ class ResidenceRegistration extends BaseModel
         return $this->hasMany(ResidenceCashRefund::class);
     }
 
+    public function isClosed(): bool
+    {
+        return in_array($this->status->value, ['rejected', 'cancelled'], true);
+    }
+
     protected function casts(): array
     {
         return [

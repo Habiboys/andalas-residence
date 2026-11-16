@@ -6,9 +6,11 @@ use App\Actions\Billing\PostPayment;
 use App\Enums\TagihanStatus;
 use App\Models\DokumenTagihan;
 use App\Models\KategoriTransaksi;
+use App\Models\PaymentBankAccount;
 use App\Models\Pembayaran;
 use App\Models\Tagihan;
 use App\Models\TransaksiKeuangan;
+use App\Models\VirtualAccount;
 use App\Services\AuditLogService;
 use App\Services\ResidenceWorkflow;
 use Illuminate\Http\RedirectResponse;
@@ -18,10 +20,51 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Inertia\Inertia;
+use Inertia\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class PembayaranController extends Controller
 {
+    public function show(Request $request, Tagihan $tagihan, ResidenceWorkflow $workflow): Response
+    {
+        $student = $request->user()->mahasiswaProfil;
+        abort_unless($student !== null && $tagihan->mahasiswa_id === $student->id, 403);
+
+        $tagihan->load([
+            'items',
+            'jadwalCicilan',
+            'dokumen',
+            'registration.reservedRoom.lantai.gedung',
+            'registration.placement.kamar.lantai.gedung',
+            'registration.periode',
+            'registration.policy',
+            'registration.documents',
+            'registration.decisions',
+        ]);
+
+        $registration = $tagihan->registration;
+        $registrationData = null;
+        if ($registration) {
+            $registration->setAttribute('payment_unlocked', $workflow->paymentUnlocked($registration));
+            $registration->setAttribute('blockers', $registration->completed_at ? [] : $workflow->blockers($registration));
+            $registrationData = $registration;
+        }
+
+        return Inertia::render('mahasiswa/tagihan-detail', [
+            'role' => 'mahasiswa',
+            'page' => 'tagihan',
+            'initialUser' => app(RolePageController::class)->userPayload($request),
+            'invoice' => $tagihan,
+            'payments' => Pembayaran::where('tagihan_id', $tagihan->id)->latest()->get(),
+            'virtual_accounts' => VirtualAccount::where('mahasiswa_id', $student->id)->where('aktif', true)->get(),
+            'payment_accounts' => PaymentBankAccount::where('is_active', true)->orderBy('bank_name')->orderBy('account_number')->get(),
+            'registration' => $registrationData,
+            'registrationUrl' => route('mahasiswa.registration'),
+            'invoicesUrl' => route('mahasiswa.tagihan'),
+        ]);
+    }
+
     public function store(Request $request): RedirectResponse
     {
         $this->authorizePermission($request, 'pembayaran.create');
@@ -66,8 +109,16 @@ class PembayaranController extends Controller
             }
 
             $registration = $invoice->registration;
-            if ($registration && ! $registration->completed_at && $registration->reservation_expires_at?->isPast()) {
-                throw ValidationException::withMessages(['tagihan_id' => 'Reservasi sudah kedaluwarsa. Silakan mendaftar kembali.']);
+            if ($registration) {
+                if ($registration->isClosed()) {
+                    throw ValidationException::withMessages(['tagihan_id' => 'Pendaftaran terkait tagihan ini telah dibatalkan atau ditolak.']);
+                }
+                if ($registration->workflow_version === 2 && ! app(ResidenceWorkflow::class)->paymentUnlocked($registration)) {
+                    throw ValidationException::withMessages(['tagihan_id' => 'Pembayaran baru dapat dilakukan setelah seluruh berkas pendaftaran disetujui fasilitator gedung dan skema pembiayaan disetujui.']);
+                }
+                if (! $registration->completed_at && $registration->reservation_expires_at?->isPast()) {
+                    throw ValidationException::withMessages(['tagihan_id' => 'Reservasi sudah kedaluwarsa. Silakan mendaftar kembali.']);
+                }
             }
             $path = null;
             if ($request->hasFile('bukti_transfer')) {
@@ -184,7 +235,11 @@ class PembayaranController extends Controller
 
     public function downloadBukti(Request $request, Pembayaran $pembayaran): StreamedResponse
     {
-        $this->authorizePermission($request, 'pembayaran.download_bukti');
+        abort_unless(
+            $request->user()->can('pembayaran.download_bukti')
+            || $pembayaran->mahasiswa_id === $request->user()->mahasiswaProfil?->id,
+            403,
+        );
 
         abort_unless($pembayaran->bukti_transfer_path !== null, 404);
         abort_unless(Storage::disk('local')->exists($pembayaran->bukti_transfer_path), 404);

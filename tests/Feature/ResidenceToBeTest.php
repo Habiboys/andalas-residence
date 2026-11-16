@@ -6,6 +6,7 @@ use App\Actions\Registration\AllocateResidenceRoom;
 use App\Actions\Registration\ConfirmResidenceCheckIn;
 use App\Actions\Registration\SubmitResidenceRegistration;
 use App\Models\City;
+use App\Models\FasilitatorWilayah;
 use App\Models\MahasiswaProfil;
 use App\Models\Periode;
 use App\Models\Province;
@@ -153,10 +154,12 @@ it('stores document revisions privately and prevents cross-student access', func
     Storage::disk('local')->assertExists($document->path);
     $this->actingAs($other)->get(route('residence.documents.download', $document))->assertForbidden();
     $this->post(route('residence.documents.upload', $r), ['kind' => 'perjanjian', 'file' => UploadedFile::fake()->create('other.pdf', 15, 'application/pdf')])->assertForbidden();
-    $this->actingAs($f['manager'])->post(route('residence.documents.review', $document), ['status' => 'revision', 'notes' => 'Tanda tangan belum ada'])->assertRedirect()->assertSessionHasNoErrors();
+    $facilitator = toBeFacilitator($f['building']);
+    $this->actingAs($f['manager'])->post(route('residence.documents.review', $document), ['status' => 'revision', 'notes' => 'Tanda tangan belum ada'])->assertForbidden();
+    $this->actingAs($facilitator)->post(route('residence.documents.review', $document), ['status' => 'revision', 'notes' => 'Tanda tangan belum ada'])->assertRedirect()->assertSessionHasNoErrors();
     $this->actingAs($f['user'])->post(route('residence.documents.upload', $r), ['kind' => 'perjanjian', 'file' => UploadedFile::fake()->create('signed.pdf', 15, 'application/pdf')])->assertRedirect()->assertSessionHasNoErrors();
     expect($r->documents()->count())->toBe(2);
-    $this->actingAs($f['manager'])->post(route('residence.documents.review', $document), ['status' => 'valid'])->assertSessionHasErrors('document');
+    $this->actingAs($facilitator)->post(route('residence.documents.review', $document), ['status' => 'valid'])->assertSessionHasErrors('document');
 });
 
 it('requires and saves identity and address on the housing data page', function () {
@@ -175,7 +178,7 @@ it('requires and saves identity and address on the housing data page', function 
     $this->post($url, [...$base, 'nama' => 'Nama Resmi Uji', 'nik' => '9999999999999999',
         'city_id' => $city->id, 'alamat' => 'Jalan Uji 1'])
         ->assertSessionHasNoErrors()->assertRedirect(route('mahasiswa.registration'));
-    expect($f['user']->fresh()->nama)->toBe('Nama Resmi Uji');
+    expect($f['user']->fresh()->nama)->toBe('NAMA RESMI UJI');
     expect($f['profile']->fresh()->alamat)->toBe('Jalan Uji 1');
 
     // SSO account must also provide personal email (email_pribadi)
@@ -534,4 +537,40 @@ it('records full payment choice in package submission as approved without pendin
         ->assertRedirect();
 
     expect($r->decisions()->where('kind', 'full')->where('status', 'approved')->count())->toBe(1);
+});
+
+it('allows building facilitator to review documents for assigned building while reserving payment reconciliation for manager', function () {
+    Storage::fake('local');
+    $f = toBeFixture();
+    $r = toBeSubmit($f);
+    $doc = RegistrationDocument::create([
+        'residence_registration_id' => $r->id,
+        'kind' => 'perjanjian',
+        'version' => 1,
+        'path' => 'documents/registration/doc.pdf',
+        'checksum' => hash('sha256', 'doc'),
+        'uploaded_by' => $f['user']->id,
+        'status' => 'uploaded',
+    ]);
+
+    $facilitator = User::factory()->create()->assignRole('fasilitator');
+    FasilitatorWilayah::create(['user_id' => $facilitator->id, 'gedung_id' => $f['building']->id]);
+
+    $this->actingAs($facilitator)
+        ->post(route('residence.documents.review', $doc), ['status' => 'valid'])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+    expect($doc->fresh()->status)->toBe('valid');
+
+    $this->actingAs($facilitator)
+        ->post(route('residence.payments.record'), [
+            'reference' => 'DPUB-FORBIDDEN',
+            'source' => 'DPUB',
+            'paid_at' => now()->toDateString(),
+            'amount' => 2500000,
+            'payer_type' => 'personal',
+            'evidence' => UploadedFile::fake()->create('dpub.pdf', 50, 'application/pdf'),
+            'official_source_confirmed' => '1',
+        ])
+        ->assertForbidden();
 });

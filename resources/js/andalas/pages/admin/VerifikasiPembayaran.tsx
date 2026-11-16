@@ -12,6 +12,7 @@ import {
 import { Modal } from '../../components/atoms/Modal';
 import { verify, bukti } from '@/routes/andalas/pembayaran';
 import { show as showWorkflowRegistration } from '@/routes/residence/registrations';
+import { workflow as workflowPage } from '@/routes/residence';
 import { verifikasiPembayaran as adminPage } from '@/routes/admin';
 import { verifikasiPembayaran as adminLayananPage } from '@/routes/admin_layanan';
 import { formatRupiah } from '../../lib/format';
@@ -283,21 +284,40 @@ export default function VerifikasiPembayaran({
                                 {selected.tagihan?.registration
                                     ?.workflow_version === 2 && (
                                     <div className="alert alert-info text-sm">
-                                        <span>
-                                            Tagihan ini terhubung ke alur
-                                            pendaftaran baru. Anda tetap dapat
-                                            memverifikasi di sini atau membuka{' '}
-                                            <Link
-                                                href={showWorkflowRegistration.url(
-                                                    selected.tagihan
-                                                        .registration.id,
-                                                )}
-                                                className="link font-medium"
-                                            >
-                                                detail proses pendaftaran
-                                            </Link>
-                                            .
-                                        </span>
+                                        <div className="space-y-1.5">
+                                            <p>
+                                                Tagihan pendaftaran asrama
+                                                memerlukan pencocokan mutasi
+                                                bank DPUB untuk mengesahkan{' '}
+                                                <strong>Lunas</strong> agar
+                                                status penghuni mahasiswa
+                                                otomatis aktif. Anda tetap dapat
+                                                menolak bukti yang tidak sesuai
+                                                di sini, atau melihat{' '}
+                                                <Link
+                                                    href={showWorkflowRegistration.url(
+                                                        selected.tagihan
+                                                            .registration.id,
+                                                    )}
+                                                    className="link font-medium"
+                                                >
+                                                    detail pendaftaran
+                                                </Link>
+                                                .
+                                            </p>
+                                            {form.data.status === 'lunas' && (
+                                                <Link
+                                                    href={workflowPage.url({
+                                                        query: {
+                                                            section: 'finance',
+                                                        },
+                                                    })}
+                                                    className="btn btn-primary btn-xs"
+                                                >
+                                                    Buka Rekonsiliasi DPUB →
+                                                </Link>
+                                            )}
+                                        </div>
                                     </div>
                                 )}
                                 <label className="block space-y-1 text-sm">
@@ -360,7 +380,12 @@ export default function VerifikasiPembayaran({
                                     </button>
                                     <button
                                         className="btn btn-primary"
-                                        disabled={form.processing}
+                                        disabled={
+                                            form.processing ||
+                                            (selected.tagihan?.registration
+                                                ?.workflow_version === 2 &&
+                                                form.data.status === 'lunas')
+                                        }
                                     >
                                         {form.processing
                                             ? 'Menyimpan...'

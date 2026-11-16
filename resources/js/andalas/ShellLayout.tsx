@@ -197,6 +197,7 @@ function ShellInner({
                     role={sidebarRole}
                     attendanceEligible={currentUser.attendance_eligible}
                     activeResident={currentUser.status_huni === 'aktif'}
+                    paymentMenuVisible={currentUser.payment_menu_visible ?? true}
                     currentPage={currentPage}
                     setPage={nav}
                     collapsed={desktopCollapsed}
@@ -227,6 +228,9 @@ function ShellInner({
                         role={sidebarRole}
                         attendanceEligible={currentUser.attendance_eligible}
                         activeResident={currentUser.status_huni === 'aktif'}
+                        paymentMenuVisible={
+                            currentUser.payment_menu_visible ?? true
+                        }
                         currentPage={currentPage}
                         setPage={(p) => {
                             nav(p);
@@ -377,6 +381,9 @@ function ShellInner({
                         role={sidebarRole}
                         attendanceEligible={currentUser.attendance_eligible}
                         activeResident={currentUser.status_huni === 'aktif'}
+                        paymentMenuVisible={
+                            currentUser.payment_menu_visible ?? true
+                        }
                         onNavigate={(page) => nav(page)}
                     />
                 </header>

@@ -27,7 +27,7 @@ import {
 } from '@/routes/andalas/residence-management';
 import { importMethod } from '@/routes/andalas/legacy-residents';
 
-type Row = Record<string, string | number | string[] | null>;
+type Row = Record<string, string | number | boolean | string[] | null>;
 type Building = {
     id: string;
     kode_gedung: string;
@@ -49,6 +49,7 @@ type Props = {
     kipk_recipients?: Row[];
     residence_rates?: Row[];
     rooms?: Row[];
+    payment_accounts?: Row[];
 };
 type Field = {
     name: string;
@@ -275,6 +276,9 @@ function Editor({
                     if (field.type === 'categories') {
                         return [field.name, Array.isArray(value) ? value : []];
                     }
+                    if (typeof value === 'boolean') {
+                        return [field.name, value ? '1' : '0'];
+                    }
                     if (field.name === 'nama_periode') {
                         const year = String(value ?? '').match(/20\d{2}/)?.[0];
                         return [
@@ -342,6 +346,11 @@ function Editor({
                 }
 
                 const value = row[field.name];
+                if (field.name === 'is_active') {
+                    return value === true || value === 1 || value === '1'
+                        ? 'Aktif'
+                        : 'Nonaktif';
+                }
                 if (
                     [
                         'amount',
@@ -369,6 +378,11 @@ function Editor({
                 }
 
                 const value = row[field.name];
+                if (field.name === 'is_active') {
+                    return value === true || value === 1 || value === '1'
+                        ? 'Aktif'
+                        : 'Nonaktif';
+                }
                 if (
                     [
                         'amount',
@@ -668,6 +682,7 @@ export default function ResidenceManagement({
     legacy_residents = [],
     legacy_rates = [],
     kipk_recipients = [],
+    payment_accounts = [],
 }: Props) {
     const [tab, setTab] = useState('legacy');
     const [importModalOpen, setImportModalOpen] = useState(false);
@@ -800,6 +815,7 @@ export default function ResidenceManagement({
                     ['legacy', 'Bebas asrama'],
                     ['period', 'Periode Hunian'],
                     ['kipk', 'Penerima KIP-K'],
+                    ['payment-account', 'Rekening Pembayaran'],
                 ].map(([v, l]) => (
                     <button
                         key={v}
@@ -991,7 +1007,7 @@ export default function ResidenceManagement({
                         },
                     ]}
                 />
-            ) : (
+            ) : tab === 'kipk' ? (
                 <Editor
                     kind="kipk"
                     title="Penerima KIP-K"
@@ -1009,6 +1025,31 @@ export default function ResidenceManagement({
                     fields={[
                         { name: 'nim', label: 'NIM' },
                         { name: 'nama', label: 'Nama' },
+                    ]}
+                />
+            ) : (
+                <Editor
+                    kind="payment-account"
+                    title="Rekening Pembayaran Resmi"
+                    rows={payment_accounts}
+                    buildings={orderedBuildings}
+                    fields={[
+                        { name: 'id', label: 'ID', hidden: true },
+                        { name: 'bank_name', label: 'Nama Bank' },
+                        { name: 'account_number', label: 'Nomor Rekening' },
+                        { name: 'account_name', label: 'Atas Nama' },
+                        {
+                            name: 'instructions',
+                            label: 'Instruksi Transfer (Opsional)',
+                        },
+                        {
+                            name: 'is_active',
+                            label: 'Status',
+                            options: [
+                                ['1', 'Aktif'],
+                                ['0', 'Nonaktif'],
+                            ],
+                        },
                     ]}
                 />
             )}

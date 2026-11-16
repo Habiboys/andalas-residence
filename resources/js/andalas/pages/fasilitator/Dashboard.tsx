@@ -1,5 +1,6 @@
 import { Link } from '@inertiajs/react';
 import { jadwalKegiatan } from '@/routes/fasilitator';
+import { workflow as residenceWorkflow } from '@/routes/residence';
 import { ChartCard, OccupancyChart } from '../../components/charts';
 import { PageHeader, StatCard, Card } from '../../components/ui';
 import type { DashboardStats } from '../../lib/types';
@@ -82,6 +83,12 @@ export default function FasilitatorDashboard({
                             href={jadwalKegiatan.url()}
                         >
                             Kegiatan & Absensi
+                        </Link>
+                        <Link
+                            className="btn btn-outline"
+                            href={residenceWorkflow.url()}
+                        >
+                            Periksa Berkas &amp; Pengajuan
                         </Link>
                     </div>
                 </Card>

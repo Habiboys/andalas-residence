@@ -1,8 +1,9 @@
 import * as applications from '@/actions/App/Http/Controllers/ResidenceApplicationController';
 import * as invoiceActions from '@/actions/App/Http/Controllers/InvoiceController';
 import * as workflow from '@/actions/App/Http/Controllers/ResidenceWorkflowController';
+import { bukti as pembayaranBukti } from '@/routes/andalas/pembayaran';
 import { StatusBadge } from '@/andalas/components/ui';
-import { formatRupiah } from '@/andalas/lib/format';
+import { formatDate, formatRupiah } from '@/andalas/lib/format';
 import { useMemo, useState } from 'react';
 import {
     ActionForm,
@@ -258,6 +259,89 @@ export default function FinanceTab({
 
     return (
         <div className="space-y-5">
+            <WorkflowPanel
+                title={`Bukti transfer menunggu rekonsiliasi (${proofs.length})`}
+                subtitle="Periksa lampiran bukti transfer mahasiswa, catat transaksi resmi DPUB di bawah, lalu pasangkan bukti pembayaran dengan mutasi rekening agar tagihan lunas dan status penghuni aktif."
+            >
+                {proofs.length === 0 ? (
+                    <p className="text-base-content/70 text-sm">
+                        Belum ada bukti transfer mahasiswa yang menunggu
+                        verifikasi.
+                    </p>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="table-sm table">
+                            <thead>
+                                <tr>
+                                    <th>Kode Transaksi</th>
+                                    <th>Mahasiswa</th>
+                                    <th>Invoice</th>
+                                    <th>Pengirim</th>
+                                    <th className="text-right">Nominal</th>
+                                    <th>Tanggal</th>
+                                    <th className="text-right">Bukti</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {proofs.map((proof) => (
+                                    <tr key={proof.id}>
+                                        <td className="font-mono text-xs">
+                                            {proof.kode_transaksi}
+                                        </td>
+                                        <td>
+                                            <div className="font-medium">
+                                                {proof.mahasiswa.user.nama}
+                                            </div>
+                                            {proof.mahasiswa.user.nim_nip && (
+                                                <div className="text-base-content/60 text-xs">
+                                                    {
+                                                        proof.mahasiswa.user
+                                                            .nim_nip
+                                                    }
+                                                </div>
+                                            )}
+                                        </td>
+                                        <td className="font-mono text-xs">
+                                            {proof.tagihan?.nomor ?? '-'}
+                                        </td>
+                                        <td className="text-xs">
+                                            {proof.nama_bank || '-'}{' '}
+                                            {proof.nomor_rekening_pengirim
+                                                ? `· ${proof.nomor_rekening_pengirim}`
+                                                : ''}
+                                            {proof.atas_nama_pengirim && (
+                                                <div className="text-base-content/60">
+                                                    a.n.{' '}
+                                                    {proof.atas_nama_pengirim}
+                                                </div>
+                                            )}
+                                        </td>
+                                        <td className="text-right font-semibold tabular-nums">
+                                            {formatRupiah(
+                                                Number(proof.nominal),
+                                            )}
+                                        </td>
+                                        <td className="text-xs">
+                                            {formatDate(proof.created_at)}
+                                        </td>
+                                        <td className="text-right">
+                                            <a
+                                                href={pembayaranBukti.url(
+                                                    proof.id,
+                                                )}
+                                                className="btn btn-outline btn-xs"
+                                            >
+                                                Unduh Bukti
+                                            </a>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </WorkflowPanel>
+
             <WorkflowPanel
                 title="Catat transaksi resmi DPUB"
                 subtitle="Bukti transfer penghuni tetap dicocokkan dengan rekening koran resmi. Dana baru terbukukan setelah alokasinya disahkan."

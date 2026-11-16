@@ -92,8 +92,10 @@ it('requires leader approval then manager terms then the specific validated fina
     $this->post(route('residence.checkin', $r), $checkin)->assertSessionHasErrors('checkin');
     $this->actingAs($f['user'])->post(route('residence.documents.upload', $r), ['kind' => $agreement, 'file' => UploadedFile::fake()->create('agreement.pdf', 10, 'application/pdf')])->assertRedirect()->assertSessionHasNoErrors();
     $doc = $r->documents()->where('kind', $agreement)->sole();
-    $this->actingAs($f['manager'])->post(route('residence.documents.review', $doc), ['status' => 'valid'])->assertRedirect()->assertSessionHasNoErrors();
-    $this->post(route('residence.checkin', $r), $checkin)->assertRedirect()->assertSessionHasNoErrors();
+    $facilitator = toBeFacilitator($f['building']);
+    $this->actingAs($f['manager'])->post(route('residence.documents.review', $doc), ['status' => 'valid'])->assertForbidden();
+    $this->actingAs($facilitator)->post(route('residence.documents.review', $doc), ['status' => 'valid'])->assertRedirect()->assertSessionHasNoErrors();
+    $this->actingAs($f['manager'])->post(route('residence.checkin', $r), $checkin)->assertRedirect()->assertSessionHasNoErrors();
     expect((float) $r->fresh()->tagihan->total_dibayar)->toBe(0.0);
     expect($r->fresh()->checked_in_at)->not->toBeNull();
     $this->post(route('residence.decisions.review', $decision), $terms)->assertForbidden();

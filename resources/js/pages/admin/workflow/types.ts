@@ -110,7 +110,10 @@ export type Registration = {
     decisions: Decision[];
     blockers: string[];
     can_operate: boolean;
+    can_review_documents?: boolean;
     can_submit: boolean;
+    can_cancel?: boolean;
+    payment_unlocked?: boolean;
     checkout_request?: { inspection?: { status: string } };
     tagihan?: Invoice;
     billing_basis: string;
@@ -167,8 +170,22 @@ export type TemplateItem = {
 export type PaymentProof = {
     id: string;
     kode_transaksi: string;
+    tagihan_id?: string;
     nominal: string;
-    mahasiswa: { user: { nama: string } };
+    jenis_pembayaran?: string;
+    nama_bank?: string | null;
+    nomor_rekening_pengirim?: string | null;
+    atas_nama_pengirim?: string | null;
+    status?: string;
+    created_at?: string | null;
+    mahasiswa: { user: { nama: string; nim_nip?: string } };
+    tagihan?: {
+        id: string;
+        nomor: string;
+        total: string | number;
+        total_dibayar: string | number;
+        status: string;
+    } | null;
 };
 
 export type InvoiceGroupItem = {

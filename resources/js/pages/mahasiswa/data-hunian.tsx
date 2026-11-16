@@ -49,7 +49,7 @@ export default function DataHunian({
         identity.is_sso ??
         identity.email.toLowerCase().endsWith('unand.ac.id');
     const form = useForm({
-        nama: profile?.nik && identity.nama ? identity.nama : '',
+        nama: profile?.nik && identity.nama ? identity.nama.toUpperCase() : '',
         email_pribadi:
             profile?.email_pribadi ?? (isSso ? '' : identity.email),
         no_hp: identity.no_hp ?? '',
@@ -208,12 +208,15 @@ export default function DataHunian({
                             <label className="block space-y-1.5 text-sm font-medium sm:col-span-2">
                                 <span>Nama lengkap</span>
                                 <input
-                                    className={control}
+                                    className={`${control} uppercase`}
                                     autoComplete="name"
                                     placeholder="Ketik nama lengkap sesuai KTP / KTM"
                                     value={form.data.nama}
                                     onChange={(e) =>
-                                        form.setData('nama', e.target.value)
+                                        form.setData(
+                                            'nama',
+                                            e.target.value.toUpperCase(),
+                                        )
                                     }
                                     maxLength={255}
                                 />

@@ -15,7 +15,7 @@ class RoomReservations
     {
         return ResidenceRegistration::whereNull('penempatan_kamar_id')
             ->whereNull('ended_at')
-            ->whereNotIn('status', ['rejected', 'draft'])
+            ->whereNotIn('status', ['rejected', 'draft', 'cancelled'])
             ->whereNotNull('reserved_room_id')
             ->when($startsAt && $endsAt, function (Builder $query) use ($startsAt, $endsAt): void {
                 $query->where(function (Builder $overlap) use ($startsAt, $endsAt): void {
@@ -69,7 +69,7 @@ class RoomReservations
     public function expire(): void
     {
         ResidenceRegistration::whereNull('completed_at')
-            ->whereNotIn('status', ['rejected', 'draft'])
+            ->whereNotIn('status', ['rejected', 'draft', 'cancelled'])
             ->where('is_kipk', false)
             ->where('funding', '!=', 'sponsor')
             ->where('stay_kind', '!=', 'summer_course')

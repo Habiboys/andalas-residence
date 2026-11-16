@@ -88,7 +88,7 @@ class ResidenceAmendmentController extends Controller
                 return;
             }
             $fromRoomId = $r->placement?->kamar_id ?? $r->reserved_room_id;
-            if ($r->workflow_version !== 2 || ! $fromRoomId || $r->keys_returned_at || $r->status->value === 'rejected' || $r->ends_at->isBefore(today())) {
+            if ($r->workflow_version !== 2 || ! $fromRoomId || $r->keys_returned_at || $r->isClosed() || $r->ends_at->isBefore(today())) {
                 throw ValidationException::withMessages(['move' => 'Mutasi memerlukan hunian workflow baru yang masih aktif dan kunci belum dikembalikan.']);
             }
             $from = Kamar::with('lantai.gedung')->findOrFail($fromRoomId);
@@ -193,7 +193,7 @@ class ResidenceAmendmentController extends Controller
                     if ($r->checked_in_at && ! $r->keys_returned_at) {
                         throw ValidationException::withMessages(['members' => 'Anggota yang keluar harus menyelesaikan pengembalian kunci terlebih dahulu.']);
                     }
-                } elseif ($r->residence_policy_id !== $anchor->residence_policy_id || ! $r->starts_at->equalTo($anchor->starts_at) || ! $r->ends_at->equalTo($anchor->ends_at) || $r->funding !== 'personal' || $r->billing_basis !== 'room' || ($r->room_contract_id && $r->room_contract_id !== $contract->id) || $r->status->value === 'rejected' || $r->keys_returned_at || $r->reserved_room_id !== $room->id || (! $r->room_contract_id && ($r->tagihan_id || $r->completed_at))) {
+                } elseif ($r->residence_policy_id !== $anchor->residence_policy_id || ! $r->starts_at->equalTo($anchor->starts_at) || ! $r->ends_at->equalTo($anchor->ends_at) || $r->funding !== 'personal' || $r->billing_basis !== 'room' || ($r->room_contract_id && $r->room_contract_id !== $contract->id) || $r->isClosed() || $r->keys_returned_at || $r->reserved_room_id !== $room->id || (! $r->room_contract_id && ($r->tagihan_id || $r->completed_at))) {
                     throw ValidationException::withMessages(['members' => 'Anggota harus memiliki kebijakan, masa tinggal, alokasi dan tarif kamar yang sama; anggota baru belum ditagih atau menghuni.']);
                 }
             }
@@ -219,7 +219,7 @@ class ResidenceAmendmentController extends Controller
             $index = 0;
             foreach ($all as $r) {
                 $retained = in_array($r->id, $ids, true);
-                if (! $retained && $r->status->value === 'rejected') {
+                if (! $retained && $r->isClosed()) {
                     continue;
                 }
                 if ($retained && ! $r->room_contract_id) {
@@ -248,7 +248,7 @@ class ResidenceAmendmentController extends Controller
                 }
             }
             foreach ($all as $r) {
-                if ($r->status->value === 'rejected' && ! in_array($r->id, $ids, true)) {
+                if ($r->isClosed() && ! in_array($r->id, $ids, true)) {
                     continue;
                 }
                 app(ResidenceWorkflow::class)->evaluate($r->fresh());

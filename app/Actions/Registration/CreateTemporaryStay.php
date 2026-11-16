@@ -57,7 +57,7 @@ class CreateTemporaryStay
                 }
                 MahasiswaProfil::whereKey($student->id)->lockForUpdate()->firstOrFail();
                 if ($student->penempatanKamar()->where('status', 'aktif')->exists()
-                    || $student->residenceRegistrations()->whereNull('completed_at')->whereNotIn('status', ['draft', 'rejected'])->exists()) {
+                    || $student->residenceRegistrations()->whereNull('completed_at')->whereNotIn('status', ['draft', 'rejected', 'cancelled'])->exists()) {
                     throw ValidationException::withMessages(['nim_nip' => 'Penghuni masih mempunyai hunian atau pendaftaran berjalan.']);
                 }
             } else {

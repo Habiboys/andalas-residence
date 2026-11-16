@@ -46,6 +46,7 @@ export interface User {
     barcode_code?: string;
     status_huni?: string;
     attendance_eligible?: boolean;
+    payment_menu_visible?: boolean;
     foto_profil?: string;
 }
 

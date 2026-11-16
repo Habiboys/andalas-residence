@@ -25,4 +25,13 @@ class ResidenceWorkflowAccess
 
         return self::manager($user) || ($user->hasRole('fasilitator') && ResidenceBuildingAccess::allows($user, $building));
     }
+
+    public static function documentReviewer(User $user, ResidenceRegistration $registration): bool
+    {
+        $building = $registration->reservedRoom?->lantai->gedung_id ?? $registration->placement?->kamar?->lantai->gedung_id;
+
+        return $building !== null
+            && $user->hasRole('fasilitator')
+            && ResidenceBuildingAccess::allows($user, $building);
+    }
 }

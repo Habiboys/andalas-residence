@@ -800,6 +800,13 @@ export default function RegistrationDetailCard({
                     </summary>
 
                     <div className="mt-3 space-y-4">
+                        {!r.can_review_documents && r.can_operate && (
+                            <p className="border-base-300 bg-base-200/50 text-base-content/75 rounded-lg border px-3 py-2 text-xs">
+                                Pemeriksaan dan persetujuan berkas pendaftar
+                                dilakukan secara eksklusif oleh Fasilitator
+                                gedung terkait.
+                            </p>
+                        )}
                         {requiredDocumentKinds.map((kind) => {
                             const doc = latestDocuments.find(
                                 (d) => d.kind === kind,
@@ -809,7 +816,7 @@ export default function RegistrationDetailCard({
                                     kind.startsWith('pembiayaan_')) &&
                                 !r.keys_returned_at &&
                                 Boolean(doc) &&
-                                r.can_operate;
+                                Boolean(r.can_review_documents);
 
                             return (
                                 <DocumentReviewItem

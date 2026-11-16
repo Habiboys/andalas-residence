@@ -82,6 +82,12 @@ class Tagihan extends BaseModel
         return $this->hasMany(ResidenceCashRefund::class, 'tagihan_id');
     }
 
+    /** @return HasMany<Pembayaran, $this> */
+    public function pembayaran(): HasMany
+    {
+        return $this->hasMany(Pembayaran::class, 'tagihan_id');
+    }
+
     public function getReceivableTypeAttribute(): ?string
     {
         return $this->residence_snapshot['receivable_type'] ?? null;

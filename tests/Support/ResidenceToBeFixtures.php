@@ -4,6 +4,7 @@ use App\Actions\Billing\ReconcileResidencePayment;
 use App\Actions\Registration\SubmitResidenceRegistration;
 use App\Models\Departemen;
 use App\Models\Faculty;
+use App\Models\FasilitatorWilayah;
 use App\Models\Gedung;
 use App\Models\Kamar;
 use App\Models\KipkRecipient;
@@ -31,6 +32,14 @@ function toBeOfficer(string $role = 'admin_layanan'): User
     }
 
     return $user;
+}
+
+function toBeFacilitator(Gedung $building): User
+{
+    $facilitator = toBeOfficer('fasilitator');
+    FasilitatorWilayah::create(['user_id' => $facilitator->id, 'gedung_id' => $building->id]);
+
+    return $facilitator;
 }
 
 function toBeFixture(string $category = 'local_non_kipk', int $capacity = 2): array

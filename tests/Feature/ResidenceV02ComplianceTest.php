@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Billing\ReconcileResidencePayment;
 use App\Models\FasilitatorWilayah;
 use App\Models\Gedung;
 use App\Models\Kamar;
@@ -7,6 +8,7 @@ use App\Models\Lantai;
 use App\Models\MahasiswaProfil;
 use App\Models\Pembayaran;
 use App\Models\ResidenceCashRefund;
+use App\Models\ResidencePaymentReference;
 use App\Models\ResidencePolicy;
 use App\Models\ResidenceRate;
 use App\Models\ResidenceRegistration;
@@ -75,19 +77,58 @@ it('enforces canonical building gender and category rules and activates KIPK res
         ->assertRedirect()
         ->assertSessionHasNoErrors();
 
+    expect($f['profile']->fresh()->status_huni)->toBe('calon');
+
+    $facilitatorA = toBeFacilitator($buildingA);
+    $docKipk = $registration->fresh()->documents()->sole();
+    $this->actingAs($facilitatorA)
+        ->post(route('residence.documents.review', $docKipk), ['status' => 'valid'])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
     expect($f['profile']->fresh()->status_huni)->toBe('aktif')
         ->and($registration->fresh()->ready_at)->not->toBeNull()
         ->and($registration->fresh()->checked_in_at)->toBeNull()
         ->and($registration->fresh()->kipk_disbursed_at)->toBeNull();
 });
 
-it('separates held, admin_occupied, and active resident status on self-paying local registration without requiring digital checkin or bank reconciliation', function () {
+it('gates payment until facilitator approves documents and activates resident only after manager verifies payment without digital checkin', function () {
     $f = toBeFixture('local_non_kipk', 4);
+    $facilitator = toBeFacilitator($f['building']);
     $registration = toBeSubmit($f, ['billing_basis' => 'person']);
 
     expect($registration->allocation_status)->toBe('held')
         ->and($registration->reservation_expires_at)->not->toBeNull()
         ->and($f['profile']->fresh()->status_huni)->toBe('calon');
+
+    // Payment upload is locked before facilitator approves required documents
+    $this->actingAs($f['user'])
+        ->post(route('andalas.pembayaran.store'), [
+            'tagihan_id' => $registration->tagihan_id,
+            'jenis_pembayaran' => 'sewa_asrama',
+            'nominal' => (float) $registration->tagihan->total,
+            'metode_pembayaran' => 'transfer',
+            'bukti_transfer' => UploadedFile::fake()->create('bukti-awal.pdf', 100, 'application/pdf'),
+        ])
+        ->assertSessionHasErrors();
+
+    $this->actingAs($f['user'])
+        ->post(route('residence.documents.upload', $registration), [
+            'kind' => 'perjanjian',
+            'file' => UploadedFile::fake()->create('perjanjian.pdf', 120, 'application/pdf'),
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $doc = $registration->fresh()->documents()->sole();
+    $this->actingAs($f['manager'])
+        ->post(route('residence.documents.review', $doc), ['status' => 'valid'])
+        ->assertForbidden();
+
+    $this->actingAs($facilitator)
+        ->post(route('residence.documents.review', $doc), ['status' => 'valid'])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
 
     $this->actingAs($f['user'])
         ->post(route('andalas.pembayaran.store'), [
@@ -103,20 +144,23 @@ it('separates held, admin_occupied, and active resident status on self-paying lo
     $payment = Pembayaran::where('tagihan_id', $registration->tagihan_id)->sole();
     expect($payment->status)->toBe('menunggu_verifikasi')
         ->and($registration->fresh()->allocation_status)->toBe('admin_occupied')
-        ->and($f['profile']->fresh()->status_huni)->toBe('calon');
+        ->and($f['profile']->fresh()->status_huni)->toBe('calon')
+        ->and((float) $registration->tagihan->fresh()->total_dibayar)->toBe(0.0);
 
-    $this->actingAs($f['user'])
-        ->post(route('residence.documents.upload', $registration), [
-            'kind' => 'perjanjian',
-            'file' => UploadedFile::fake()->create('perjanjian.pdf', 120, 'application/pdf'),
-        ])
-        ->assertRedirect()
-        ->assertSessionHasNoErrors();
+    $reference = ResidencePaymentReference::factory()->create([
+        'recorded_by' => $f['manager']->id,
+        'amount' => $registration->tagihan->total,
+    ]);
+    app(ReconcileResidencePayment::class)->handle(
+        $reference,
+        [['tagihan_id' => $registration->tagihan_id, 'jumlah' => $reference->amount, 'payment_proof_id' => $payment->id]],
+        $f['manager'],
+    );
 
     expect($f['profile']->fresh()->status_huni)->toBe('aktif')
         ->and($registration->fresh()->allocation_status)->toBe('admin_occupied')
-        ->and($payment->fresh()->status)->toBe('menunggu_verifikasi')
-        ->and((float) $registration->tagihan->fresh()->total_dibayar)->toBe(0.0);
+        ->and($payment->fresh()->status)->toBe('lunas')
+        ->and((float) $registration->tagihan->fresh()->total_dibayar)->toBe((float) $registration->tagihan->total);
 });
 
 it('allows manager to directly configure offline-approved installment, defer 0 DP, and monthly schemes while requiring an approval basis', function () {
@@ -156,6 +200,12 @@ it('allows manager to directly configure offline-approved installment, defer 0 D
             'file' => UploadedFile::fake()->create('perjanjian-defer.pdf', 100, 'application/pdf'),
         ])
         ->assertRedirect();
+
+    $facilitator = toBeFacilitator($f['building']);
+    $this->actingAs($facilitator)
+        ->post(route('residence.documents.review', $registration->fresh()->documents()->sole()), ['status' => 'valid'])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
 
     expect($f['profile']->fresh()->status_huni)->toBe('aktif');
 });
@@ -198,7 +248,9 @@ it('handles 3-person exclusive room whole-rupiah split, individual expiry cancel
     expect($amounts)->toBe([3333333, 3333333, 3333334])
         ->and(array_sum($amounts))->toBe(10000000);
 
-    // Member 1 pays via bank verification (3.333.334), Member 2 uploads transfer proof (3.333.333, unverified), Member 3 does not pay
+    // Member 1 pays via bank verification (3.333.334), Member 2 gets doc valid and uploads transfer proof (3.333.333, unverified), Member 3 does not pay
+    $facilitator = toBeFacilitator($f['building']);
+    toBeDocument($reg2->fresh(), $facilitator);
     toBePay($reg1->fresh(), $f['manager'], (int) $reg1->fresh()->tagihan->total);
     $this->actingAs($student2User)->post(route('andalas.pembayaran.store'), [
         'tagihan_id' => $reg2->tagihan_id,
@@ -206,7 +258,7 @@ it('handles 3-person exclusive room whole-rupiah split, individual expiry cancel
         'nominal' => (int) $reg2->tagihan->total,
         'metode_pembayaran' => 'transfer',
         'bukti_transfer' => UploadedFile::fake()->create('bukti-m2.pdf', 100, 'application/pdf'),
-    ])->assertRedirect();
+    ])->assertRedirect()->assertSessionHasNoErrors();
 
     ResidenceRegistration::query()->update(['reservation_expires_at' => now()->subMinute()]);
     app(RoomReservations::class)->expire();

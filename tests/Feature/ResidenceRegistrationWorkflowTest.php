@@ -52,6 +52,7 @@ function registrationStudent(): array
     ]);
 
     withHousingIdentity($profile);
+
     return [$user, $profile, $periode];
 }
 
@@ -310,6 +311,7 @@ it('verifies invoice evidence once and rejects payment against another residents
     $registration = app(SubmitResidenceRegistration::class)->handle($profile, [
         'periode_id' => $period->id, 'is_kipk' => false, 'preferences' => [['kamar_id' => registrationRoom()->id]],
     ]);
+    toBeDocument($registration, toBeOfficer('fasilitator'));
     $invoice = $registration->fresh()->tagihan;
     $payload = [
         'tagihan_id' => $invoice->id,
@@ -347,6 +349,7 @@ it('allocates a combined invoice payment to the original invoice without duplica
     $registration = app(SubmitResidenceRegistration::class)->handle($profile, [
         'periode_id' => $period->id, 'is_kipk' => false, 'preferences' => [['kamar_id' => registrationRoom()->id]],
     ]);
+    toBeDocument($registration, toBeOfficer('fasilitator'));
     $invoice = $registration->fresh()->tagihan;
     $admin = registrationAdmin('pembayaran.verify');
 

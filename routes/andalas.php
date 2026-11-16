@@ -78,6 +78,10 @@ Route::middleware(['auth', 'verified', EnsureResidenceAccountAccess::class])->gr
         ]);
     })->middleware('role:mahasiswa')->name('mahasiswa.layanan');
 
+    Route::get('/mahasiswa/tagihan/{tagihan}', [PembayaranController::class, 'show'])
+        ->middleware('role:mahasiswa')
+        ->name('mahasiswa.tagihan.show');
+
     Route::get('/dashboard/redirect', function () {
         $role = request()->user()->roles->first()?->name ?? 'mahasiswa';
         if ($role === 'mahasiswa' && request()->user()->mahasiswaProfil?->status_huni !== 'aktif') {

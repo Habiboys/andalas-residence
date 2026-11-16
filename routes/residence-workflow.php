@@ -32,6 +32,7 @@ Route::prefix('residence-process')->name('residence.')->group(function (): void 
     Route::post('/registrations/{registration}/transfer-proof', [Workflow::class, 'transferProof'])->name('transfer-proof');
     Route::post('/registrations/{registration}/documents', [Workflow::class, 'upload'])->name('documents.upload');
     Route::post('/registrations/{registration}/submit-package', [Workflow::class, 'submitPackage'])->name('package.submit');
+    Route::post('/registrations/{registration}/cancel', [Workflow::class, 'cancel'])->name('cancel');
     Route::get('/documents/{document}', [Workflow::class, 'document'])->name('documents.download');
     Route::post('/documents/{document}/review', [Workflow::class, 'reviewDocument'])->name('documents.review');
     Route::post('/registrations/{registration}/decisions', [Workflow::class, 'requestDecision'])->name('decisions.request');

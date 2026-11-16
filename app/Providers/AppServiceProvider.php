@@ -27,13 +27,23 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->configureDefaults();
         TrustProxies::at(config('app.trusted_proxies', []));
-        $publicUrl = rtrim((string) config('app.url'), '/');
-        $scheme = parse_url($publicUrl, PHP_URL_SCHEME);
-        if (in_array($scheme, ['http', 'https'], true) && parse_url($publicUrl, PHP_URL_HOST)) {
-            URL::useOrigin($publicUrl);
-            URL::useAssetOrigin($publicUrl);
-            URL::forceScheme($scheme);
+        if (! $this->isGeneratingWayfinder()) {
+            $publicUrl = rtrim((string) config('app.url'), '/');
+            $scheme = parse_url($publicUrl, PHP_URL_SCHEME);
+            if (in_array($scheme, ['http', 'https'], true) && parse_url($publicUrl, PHP_URL_HOST)) {
+                URL::useOrigin($publicUrl);
+                URL::useAssetOrigin($publicUrl);
+                URL::forceScheme($scheme);
+            }
         }
+    }
+
+    private function isGeneratingWayfinder(): bool
+    {
+        return $this->app->runningInConsole()
+            && collect($_SERVER['argv'] ?? [])->contains(
+                fn (mixed $arg): bool => is_string($arg) && str_starts_with($arg, 'wayfinder:generate'),
+            );
     }
 
     /**

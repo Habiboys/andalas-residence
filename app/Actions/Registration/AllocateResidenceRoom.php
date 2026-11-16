@@ -19,7 +19,7 @@ class AllocateResidenceRoom
     {
         DB::transaction(function () use ($registration, $selectedRoom): void {
             $r = ResidenceRegistration::whereKey($registration->id)->lockForUpdate()->firstOrFail();
-            if ($r->reserved_room_id || $r->completed_at || $r->status->value === 'rejected') {
+            if ($r->reserved_room_id || $r->completed_at || $r->isClosed()) {
                 return;
             }
             $buildings = $r->policy->settings['building_ids'];

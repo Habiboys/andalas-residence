@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useForm } from '@inertiajs/react';
+import { Link, useForm } from '@inertiajs/react';
 import {
     PageHeader,
     Card,
@@ -12,9 +12,20 @@ import {
     Modal,
     type DataColumn,
 } from '../../components/ui';
-import { Check, Copy, CreditCard, Download, Receipt, Wallet } from 'lucide-react';
+import {
+    ArrowRight,
+    CreditCard,
+    Download,
+    Receipt,
+    Wallet,
+} from 'lucide-react';
 import { store as pembayaranStore } from '@/routes/andalas/pembayaran';
 import { document as billingDocument } from '@/routes/andalas/tagihan';
+import { show as tagihanShow } from '@/routes/mahasiswa/tagihan';
+import {
+    PaymentAccountsBox,
+    type PaymentBankAccountItem,
+} from '../../components/PaymentAccountsBox';
 import { formatRupiah, mapPaymentStatus } from '../../lib/format';
 
 type Invoice = {
@@ -75,6 +86,7 @@ export default function Tagihan({
     pembayaran = [],
     billing = [],
     virtual_accounts = [],
+    payment_accounts = [],
 }: {
     pembayaran?: Payment[];
     billing?: Invoice[];
@@ -83,9 +95,9 @@ export default function Tagihan({
         nomor: string;
         atas_nama: string;
     }>;
+    payment_accounts?: PaymentBankAccountItem[];
 }) {
     const [selected, setSelected] = useState<Invoice | null>(null);
-    const [copiedVa, setCopiedVa] = useState<string | null>(null);
     const form = useForm({
         tagihan_id: '',
         jenis_pembayaran: 'sewa_asrama',
@@ -172,7 +184,7 @@ export default function Tagihan({
             label: 'Aksi',
             action: true,
             render: ({ invoice, remaining: balance }) => (
-                <div className="flex items-center justify-end gap-1">
+                <div className="flex flex-wrap items-center justify-end gap-1.5">
                     {invoice.dokumen.map((document) => (
                         <a
                             className="btn btn-ghost btn-xs btn-square"
@@ -192,13 +204,28 @@ export default function Tagihan({
                             <Download className="size-4" aria-hidden="true" />
                         </a>
                     ))}
+                    <Link
+                        href={tagihanShow.url(invoice.id)}
+                        className={`btn btn-xs gap-1 ${
+                            balance > 0 && invoice.status !== 'batal'
+                                ? 'btn-primary'
+                                : 'btn-ghost'
+                        }`}
+                    >
+                        <span>
+                            {balance > 0 && invoice.status !== 'batal'
+                                ? 'Detail & Bayar'
+                                : 'Detail'}
+                        </span>
+                        <ArrowRight className="size-3.5" aria-hidden="true" />
+                    </Link>
                     {balance > 0 && invoice.status !== 'batal' && (
                         <button
                             type="button"
-                            className="btn btn-primary btn-xs btn-square"
+                            className="btn btn-ghost btn-xs btn-square"
                             onClick={() => pay(invoice)}
-                            aria-label={`Bayar ${invoice.nomor}`}
-                            title="Bayar invoice"
+                            aria-label={`Bayar cepat ${invoice.nomor}`}
+                            title="Unggah bukti cepat"
                         >
                             <CreditCard className="size-4" aria-hidden="true" />
                         </button>
@@ -211,51 +238,19 @@ export default function Tagihan({
         <div className="space-y-4">
             <PageHeader
                 title="Tagihan & Pembayaran"
-                subtitle="Invoice dan sisa kewajiban Anda, termasuk jadwal cicilan yang disetujui admin."
+                subtitle="Invoice dan sisa kewajiban Anda, tujuan transfer resmi, serta detail verifikasi pembayaran."
             />
-            {virtual_accounts.map((a) => (
-                <Card
-                    key={a.nomor}
-                    className="flex flex-wrap items-center justify-between gap-3 p-4 md:p-5"
-                >
-                    <div className="text-sm">
-                        Bayar ke Virtual Account {a.bank}:{' '}
-                        <strong className="text-identifier">{a.nomor}</strong> ·{' '}
-                        {a.atas_nama}
-                    </div>
-                    <Button
-                        type="button"
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => {
-                            void navigator.clipboard?.writeText(a.nomor);
-                            setCopiedVa(a.nomor);
-                            setTimeout(
-                                () =>
-                                    setCopiedVa((curr) =>
-                                        curr === a.nomor ? null : curr,
-                                    ),
-                                2000,
-                            );
-                        }}
-                    >
-                        {copiedVa === a.nomor ? (
-                            <>
-                                <Check
-                                    className="text-success size-3.5"
-                                    aria-hidden="true"
-                                />
-                                Tersalin
-                            </>
-                        ) : (
-                            <>
-                                <Copy className="size-3.5" aria-hidden="true" />
-                                Salin No. VA
-                            </>
-                        )}
-                    </Button>
+            {(payment_accounts.length > 0 || virtual_accounts.length > 0) && (
+                <Card className="space-y-3 p-4 md:p-5">
+                    <h2 className="text-base font-semibold">
+                        Tujuan Pembayaran Resmi
+                    </h2>
+                    <PaymentAccountsBox
+                        paymentAccounts={payment_accounts}
+                        virtualAccounts={virtual_accounts}
+                    />
                 </Card>
-            ))}
+            )}
             <div className="grid gap-4 sm:grid-cols-3">
                 <StatCard
                     label="Total Tagihan"
@@ -307,21 +302,13 @@ export default function Tagihan({
                             layanan. Untuk cicilan, pastikan jadwal termin telah
                             disetujui sebelum pembayaran pertama.
                         </p>
-                        {virtual_accounts.length > 0 && (
-                            <div className="bg-base-200/60 border-base-300 space-y-1.5 rounded-lg border p-3 text-xs">
-                                <p className="font-semibold">
-                                    Tujuan Pembayaran (Virtual Account):
-                                </p>
-                                {virtual_accounts.map((a) => (
-                                    <p key={a.nomor}>
-                                        {a.bank}:{' '}
-                                        <strong className="text-identifier">
-                                            {a.nomor}
-                                        </strong>{' '}
-                                        ({a.atas_nama})
-                                    </p>
-                                ))}
-                            </div>
+                        {(payment_accounts.length > 0 ||
+                            virtual_accounts.length > 0) && (
+                            <PaymentAccountsBox
+                                paymentAccounts={payment_accounts}
+                                virtualAccounts={virtual_accounts}
+                                compact
+                            />
                         )}
                         {selected.jadwal_cicilan.length > 0 && (
                             <div className="border-base-300 space-y-1 rounded-lg border p-3 text-xs">

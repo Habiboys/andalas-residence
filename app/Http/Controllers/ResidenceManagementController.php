@@ -13,6 +13,7 @@ use App\Models\KipkRecipient;
 use App\Models\Lantai;
 use App\Models\LegacyResidenceRate;
 use App\Models\LegacyResident;
+use App\Models\PaymentBankAccount;
 use App\Models\Periode;
 use App\Models\ResidenceRate;
 use App\Models\ResidenceRegistration;
@@ -40,6 +41,8 @@ class ResidenceManagementController extends Controller
     {
         if (in_array($kind, ['rate', 'room-type', 'facility'], true)) {
             $this->authorizeAnyPermission($request, ['gedung.manage', 'registration.review']);
+        } elseif ($kind === 'payment-account') {
+            $this->authorizeAnyPermission($request, ['registration.review', 'pembayaran.verify']);
         } else {
             $this->authorizePermission($request, in_array($kind, ['legacy', 'legacy-rate'], true) ? 'free-residence.review' : 'registration.review');
         }
@@ -161,6 +164,25 @@ class ResidenceManagementController extends Controller
             $id = $data['id'] ?? null;
             unset($data['id']);
             $id ? MasterDataService::updatePeriode(Periode::query()->whereKey($id)->firstOrFail(), $data) : MasterDataService::createPeriode($data);
+        } elseif ($kind === 'payment-account') {
+            $data = $request->validate([
+                'id' => ['nullable', 'uuid', 'exists:payment_bank_accounts,id'],
+                'bank_name' => ['required', 'string', 'max:100'],
+                'account_number' => ['required', 'string', 'max:100'],
+                'account_name' => ['required', 'string', 'max:255'],
+                'instructions' => ['nullable', 'string', 'max:2000'],
+                'is_active' => ['nullable', 'boolean'],
+            ]);
+            $account = ! empty($data['id'])
+                ? PaymentBankAccount::query()->whereKey($data['id'])->firstOrFail()
+                : new PaymentBankAccount;
+            $account->fill([
+                'bank_name' => trim($data['bank_name']),
+                'account_number' => trim($data['account_number']),
+                'account_name' => trim($data['account_name']),
+                'instructions' => isset($data['instructions']) && trim($data['instructions']) !== '' ? trim($data['instructions']) : null,
+                'is_active' => array_key_exists('is_active', $data) ? (bool) $data['is_active'] : true,
+            ])->save();
         } else {
             abort(404);
         }
@@ -172,6 +194,8 @@ class ResidenceManagementController extends Controller
     {
         if (in_array($kind, ['rate', 'facility'], true)) {
             $this->authorizeAnyPermission($request, ['gedung.manage', 'registration.review']);
+        } elseif ($kind === 'payment-account') {
+            $this->authorizeAnyPermission($request, ['registration.review', 'pembayaran.verify']);
         } else {
             $this->authorizePermission($request, in_array($kind, ['legacy', 'legacy-rate'], true) ? 'free-residence.review' : 'registration.review');
         }
@@ -205,6 +229,9 @@ class ResidenceManagementController extends Controller
         } elseif ($kind === 'period') {
             $data = $request->validate(['id' => ['required', 'uuid', 'exists:periode,id']]);
             MasterDataService::deletePeriode(Periode::query()->whereKey($data['id'])->firstOrFail());
+        } elseif ($kind === 'payment-account') {
+            $data = $request->validate(['id' => ['required', 'uuid', 'exists:payment_bank_accounts,id']]);
+            PaymentBankAccount::query()->whereKey($data['id'])->firstOrFail()->delete();
         } else {
             abort(404);
         }
@@ -347,7 +374,7 @@ class ResidenceManagementController extends Controller
         $data = $request->validate(['kamar_id' => ['required', 'uuid', 'exists:kamar,id']]);
         DB::transaction(function () use ($request, $registration, $data): void {
             $registration = ResidenceRegistration::query()->lockForUpdate()->findOrFail($registration->id);
-            if ($registration->completed_at || in_array($registration->status->value, ['draft', 'rejected'], true) || ! $registration->is_kipk || $registration->funding !== 'personal') {
+            if ($registration->completed_at || in_array($registration->status->value, ['draft', 'rejected', 'cancelled'], true) || ! $registration->is_kipk || $registration->funding !== 'personal') {
                 throw ValidationException::withMessages(['kamar_id' => 'Pendaftaran ini tidak menunggu penentuan kamar KIP-K dengan pembayaran pribadi.']);
             }
             if ($registration->reserved_room_id || $registration->tagihan_id) {
@@ -380,7 +407,7 @@ class ResidenceManagementController extends Controller
         $data = $request->validate(['kamar_id' => ['nullable', 'uuid', 'exists:kamar,id'], 'sponsor_name' => ['required', 'string', 'max:255']]);
         DB::transaction(function () use ($request, $registration, $data): void {
             $registration = ResidenceRegistration::query()->lockForUpdate()->findOrFail($registration->id);
-            if ($registration->completed_at || $registration->status->value === 'rejected' || $registration->funding !== 'sponsor') {
+            if ($registration->completed_at || $registration->isClosed() || $registration->funding !== 'sponsor') {
                 throw ValidationException::withMessages(['sponsor_name' => 'Pendaftaran ini tidak menunggu pengesahan sponsor.']);
             }
             $roomId = $registration->reserved_room_id ?? $data['kamar_id'] ?? null;

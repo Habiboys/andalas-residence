@@ -185,3 +185,41 @@ it('rechecks eligibility and host validity when accepting an existing invitation
     expect($invitation->fresh()->status)->toBe('pending');
     $this->assertDatabaseCount('residence_registrations', 1);
 });
+
+it('invites friends directly during registration submission and rolls back on invalid invitee', function () {
+    $f = invitationFixture();
+    $f['building']->update(['room_types' => [['type' => 'standar', 'enabled' => true, 'max_capacity' => 4, 'facilities' => 'Dipan, Lemari']]]);
+    $inviter = invitationStudent();
+    $friendTwo = invitationStudent();
+    $fourBedRoom = Kamar::create([
+        'lantai_id' => $f['floor']->id,
+        'nomor_kamar' => '102',
+        'kapasitas' => 4,
+        'status' => 'kosong',
+        'tipe_kamar' => 'standar',
+    ]);
+
+    $this->actingAs($inviter)
+        ->post(route('andalas.registrations.store'), [
+            'periode_id' => $f['period']->id,
+            'is_kipk' => false,
+            'preferences' => [['kamar_id' => $fourBedRoom->id]],
+            'rate_unit' => 'year',
+            'invitee_nims' => ['UNKNOWN-NIM'],
+        ])
+        ->assertSessionHasErrors('invitee_nims.0');
+    expect(ResidenceRegistration::where('student_profile_id', $inviter->mahasiswaProfil->id)->exists())->toBeFalse();
+
+    $this->actingAs($inviter)
+        ->post(route('andalas.registrations.store'), [
+            'periode_id' => $f['period']->id,
+            'is_kipk' => false,
+            'preferences' => [['kamar_id' => $fourBedRoom->id]],
+            'rate_unit' => 'year',
+            'invitee_nims' => [$friendTwo->nim_nip],
+        ])
+        ->assertSessionHasNoErrors();
+
+    $reg = ResidenceRegistration::where('student_profile_id', $inviter->mahasiswaProfil->id)->firstOrFail();
+    expect(RoomInvitation::where('residence_registration_id', $reg->id)->where('invitee_id', $friendTwo->id)->where('status', 'pending')->exists())->toBeTrue();
+});
