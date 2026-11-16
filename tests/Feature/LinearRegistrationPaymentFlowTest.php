@@ -96,7 +96,7 @@ it('allows cancelling an unpaid registration so the student returns to step 1 an
         ->assertSessionHasErrors('registration');
 });
 
-it('restricts registration document review exclusively to assigned building facilitator and unlocks payment menu & detail page upon approval', function () {
+it('unlocks payment immediately upon document upload while reserving facilitator document verification for check-in', function () {
     $f = toBeFixture('local_non_kipk', 2);
     $assignedFacilitator = toBeFacilitator($f['building']);
     $otherBuilding = Gedung::create(['kode_gedung' => 'B-OTH', 'nama_gedung' => 'Gedung Lain', 'gender_peruntukan' => 'perempuan']);
@@ -113,24 +113,8 @@ it('restricts registration document review exclusively to assigned building faci
     ]);
 
     $reg = toBeSubmit($f);
-    $this->actingAs($f['user'])
-        ->post(route('residence.documents.upload', $reg), [
-            'kind' => 'perjanjian',
-            'file' => UploadedFile::fake()->create('perjanjian.pdf', 80, 'application/pdf'),
-        ])
-        ->assertRedirect()
-        ->assertSessionHasNoErrors();
 
-    $doc = $reg->fresh()->documents()->sole();
-
-    // Admin Layanan, Staff Admin, Superadmin, and other building facilitator are all forbidden
-    foreach ([$f['manager'], $staffAdmin, $superAdmin, $otherFacilitator] as $unauthorized) {
-        $this->actingAs($unauthorized)
-            ->post(route('residence.documents.review', $doc), ['status' => 'valid'])
-            ->assertForbidden();
-    }
-
-    // Before doc review: invoice overview & detail stay accessible to view total, while payment upload remains locked
+    // Before doc upload: payment upload remains locked because Step 3 Upload berkas is incomplete
     $this->actingAs($f['user'])
         ->get(route('mahasiswa.tagihan'))
         ->assertOk()
@@ -147,13 +131,25 @@ it('restricts registration document review exclusively to assigned building faci
             ->where('payment_accounts.0.account_number', $account->account_number)
         );
 
-    // Assigned building facilitator approves the document
-    $this->actingAs($assignedFacilitator)
-        ->post(route('residence.documents.review', $doc), ['status' => 'valid'])
+    // Student uploads required document -> payment unlocks IMMEDIATELY without waiting for facilitator verification
+    $this->actingAs($f['user'])
+        ->post(route('residence.documents.upload', $reg), [
+            'kind' => 'perjanjian',
+            'file' => UploadedFile::fake()->create('perjanjian.pdf', 80, 'application/pdf'),
+        ])
         ->assertRedirect()
         ->assertSessionHasNoErrors();
 
-    // Now payment detail upload & invoice overview payment flag are unlocked
+    $doc = $reg->fresh()->documents()->sole();
+
+    // Admin Layanan, Staff Admin, Superadmin, and other building facilitator are all forbidden from reviewing documents
+    foreach ([$f['manager'], $staffAdmin, $superAdmin, $otherFacilitator] as $unauthorized) {
+        $this->actingAs($unauthorized)
+            ->post(route('residence.documents.review', $doc), ['status' => 'valid'])
+            ->assertForbidden();
+    }
+
+    // Payment detail upload & invoice overview flag are ALREADY unlocked before facilitator verification
     $this->actingAs($f['user'])
         ->get(route('mahasiswa.tagihan.show', $reg->tagihan_id))
         ->assertOk()
@@ -161,7 +157,7 @@ it('restricts registration document review exclusively to assigned building faci
             ->where('registration.payment_unlocked', true)
         );
 
-    // Student submits payment proof; status stays calon until Pengelola reconciles
+    // Student submits payment proof immediately; status_huni becomes aktif while payment waits for DPUB check
     $this->actingAs($f['user'])
         ->post(route('andalas.pembayaran.store'), [
             'tagihan_id' => $reg->tagihan_id,
@@ -185,6 +181,31 @@ it('restricts registration document review exclusively to assigned building faci
         ->and($reg->fresh()->allocation_status)->toBe('admin_occupied')
         ->and($f['profile']->fresh()->status_huni)->toBe('aktif')
         ->and((float) $reg->tagihan->fresh()->total_dibayar)->toBe(0.0);
+
+    // Check-in requires assigned building facilitator to verify documents when resident checks in
+    $this->actingAs($assignedFacilitator)
+        ->post(route('residence.checkin', $reg), [
+            'identity_checked' => 1,
+            'original_documents_checked' => 1,
+            'keys_handed' => 1,
+        ])
+        ->assertSessionHasErrors('checkin');
+
+    $this->actingAs($assignedFacilitator)
+        ->post(route('residence.documents.review', $doc), ['status' => 'valid'])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $this->actingAs($assignedFacilitator)
+        ->post(route('residence.checkin', $reg), [
+            'identity_checked' => 1,
+            'original_documents_checked' => 1,
+            'keys_handed' => 1,
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    expect($reg->fresh()->completed_at)->not->toBeNull();
 
     // Student can download own payment proof, while another student gets 403
     $this->actingAs($f['user'])

@@ -190,10 +190,32 @@ it('restricts document review controls to assigned building facilitator', () => 
     );
 
     expect(html).toContain(
-        'Pemeriksaan dan persetujuan berkas pendaftar dilakukan secara eksklusif oleh Fasilitator gedung terkait.',
+        'Pemeriksaan dan persetujuan berkas pendaftar dilakukan secara eksklusif oleh Fasilitator gedung terkait saat proses verifikasi check-in (tidak menahan tahap pembayaran).',
     );
     expect(html).not.toContain('Simpan Pemeriksaan (');
     expect(html).not.toContain('Keputusan pemeriksaan');
+});
+
+it('shows check_in_blockers cleanly and hides check-in form until documents are verified at check-in', () => {
+    const html = renderToStaticMarkup(
+        <RegistrationDetailCard
+            r={makeRegistration({
+                blockers: [],
+                check_in_blockers: [
+                    'Dokumen perjanjian belum diverifikasi valid saat check-in.',
+                ],
+            })}
+            manager={true}
+            leader={false}
+            rooms={[]}
+        />,
+    );
+
+    expect(html).toContain('Kendala Persyaratan Check-in:');
+    expect(html).toContain(
+        'Dokumen perjanjian belum diverifikasi valid saat check-in.',
+    );
+    expect(html).not.toContain('Konfirmasi check-in dan serah kunci');
 });
 
 it('shows payment verification shortcut on detail page for finance/pengelola', () => {

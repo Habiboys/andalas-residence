@@ -199,7 +199,9 @@ function DocumentReviewSection({
                 {!r.can_review_documents && r.can_operate && (
                     <p className="border-base-300 bg-base-200/50 text-base-content/75 rounded-lg border px-3 py-2 text-xs">
                         Pemeriksaan dan persetujuan berkas pendaftar dilakukan
-                        secara eksklusif oleh Fasilitator gedung terkait.
+                        secara eksklusif oleh Fasilitator gedung terkait saat
+                        proses verifikasi check-in (tidak menahan tahap
+                        pembayaran).
                     </p>
                 )}
 
@@ -495,8 +497,8 @@ function DocumentReviewSection({
                     <p>
                         Pastikan hasil pemeriksaan berikut sudah sesuai sebelum
                         disimpan. Bila seluruh dokumen dinyatakan{' '}
-                        <strong>Valid</strong>, tahap pembayaran untuk pendaftar
-                        akan otomatis dibuka.
+                        <strong>Valid</strong>, verifikasi berkas check-in
+                        dinyatakan lengkap.
                     </p>
                     <div className="border-base-300 bg-base-200/40 divide-base-300 divide-y rounded-xl border px-3">
                         {reviewableDocs.map(({ kind, doc }) => {
@@ -1278,6 +1280,8 @@ export default function RegistrationDetailCard({
               WORKFLOW_STATUS_LABELS[r.status] ??
               r.status);
 
+    const checkInBlockers = r.check_in_blockers ?? r.blockers;
+
     const goInspectionStatus = r.checkout_request?.inspection?.status;
     const blockedReturnByInspection =
         r.workflow_version === 2 && goInspectionStatus !== 'selesai';
@@ -1419,12 +1423,14 @@ export default function RegistrationDetailCard({
                 </div>
             )}
 
-            {r.blockers.length > 0 && (
+            {checkInBlockers.length > 0 && (
                 <div className="alert alert-warning text-sm">
                     <div>
-                        <p className="font-semibold">Kendala Persyaratan:</p>
+                        <p className="font-semibold">
+                            Kendala Persyaratan Check-in:
+                        </p>
                         <ul className="mt-1 list-disc pl-5">
-                            {r.blockers.map((issue) => (
+                            {checkInBlockers.map((issue) => (
                                 <li key={issue}>{issue}</li>
                             ))}
                         </ul>
@@ -1432,7 +1438,7 @@ export default function RegistrationDetailCard({
                 </div>
             )}
 
-            {!r.completed_at && r.blockers.length === 0 && (
+            {!r.completed_at && checkInBlockers.length === 0 && (
                 <p className="alert alert-success text-sm">
                     Siap check-in. Hunian aktif setelah petugas memeriksa berkas
                     asli dan menyerahkan kunci.
@@ -1689,29 +1695,31 @@ export default function RegistrationDetailCard({
                 </Modal>
             )}
 
-            {r.can_operate && !r.completed_at && r.blockers.length === 0 && (
-                <div className="border-success/40 bg-success/5 rounded-lg border p-4">
-                    <h3 className="mb-2 text-sm font-semibold">
-                        Check-in Fisik &amp; Serah Kunci
-                    </h3>
-                    <ActionForm
-                        url={workflow.checkIn.url(r.id)}
-                        label="Konfirmasi check-in dan serah kunci"
-                        confirmTitle="Konfirmasi Check-in Penghuni?"
-                        confirmMessage="Status penghuni akan menjadi aktif di asrama setelah check-in dan serah kunci dicatat."
-                    >
-                        <ConfirmCheckbox name="identity_checked">
-                            Identitas penghuni telah diperiksa langsung.
-                        </ConfirmCheckbox>
-                        <ConfirmCheckbox name="original_documents_checked">
-                            Berkas asli sesuai dokumen yang disahkan.
-                        </ConfirmCheckbox>
-                        <ConfirmCheckbox name="keys_handed">
-                            Penghuni hadir dan kunci telah diserahkan.
-                        </ConfirmCheckbox>
-                    </ActionForm>
-                </div>
-            )}
+            {r.can_operate &&
+                !r.completed_at &&
+                checkInBlockers.length === 0 && (
+                    <div className="border-success/40 bg-success/5 rounded-lg border p-4">
+                        <h3 className="mb-2 text-sm font-semibold">
+                            Check-in Fisik &amp; Serah Kunci
+                        </h3>
+                        <ActionForm
+                            url={workflow.checkIn.url(r.id)}
+                            label="Konfirmasi check-in dan serah kunci"
+                            confirmTitle="Konfirmasi Check-in Penghuni?"
+                            confirmMessage="Status penghuni akan menjadi aktif di asrama setelah check-in dan serah kunci dicatat."
+                        >
+                            <ConfirmCheckbox name="identity_checked">
+                                Identitas penghuni telah diperiksa langsung.
+                            </ConfirmCheckbox>
+                            <ConfirmCheckbox name="original_documents_checked">
+                                Berkas asli sesuai dokumen yang disahkan.
+                            </ConfirmCheckbox>
+                            <ConfirmCheckbox name="keys_handed">
+                                Penghuni hadir dan kunci telah diserahkan.
+                            </ConfirmCheckbox>
+                        </ActionForm>
+                    </div>
+                )}
 
             {r.can_operate && r.completed_at && !r.keys_returned_at && (
                 <Modal

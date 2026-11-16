@@ -313,12 +313,13 @@ export default function TagihanDetail({
                         <AlertCircle className="text-info mt-0.5 size-6 shrink-0" />
                         <div className="space-y-2">
                             <h2 className="text-base font-semibold">
-                                Pembayaran Menunggu Persetujuan Berkas
+                                Lengkapi Berkas Pendaftaran Terlebih Dahulu
                             </h2>
                             <p className="text-base-content/80 text-sm">
-                                Unggah dan verifikasi berkas oleh fasilitator
-                                gedung diperlukan sebelum pembayaran dapat
-                                dilakukan.
+                                Unggah berkas pendaftaran yang diwajibkan
+                                terlebih dahulu agar pembayaran dapat diproses.
+                                Verifikasi berkas akan dilakukan petugas saat
+                                check-in.
                             </p>
                             {registration.blockers &&
                                 registration.blockers.length > 0 && (
@@ -334,7 +335,7 @@ export default function TagihanDetail({
                                 href={resolvedRegUrl}
                                 className="btn btn-primary btn-sm mt-1"
                             >
-                                Kembali ke Berkas Pendaftaran
+                                Lengkapi Berkas Pendaftaran
                             </Link>
                         </div>
                     </div>
@@ -343,7 +344,7 @@ export default function TagihanDetail({
                 <div className="border-base-300 bg-base-100 rounded-2xl border p-5 sm:p-6">
                     <div className="grid gap-5 md:grid-cols-12 md:items-center">
                         <div className="space-y-2 md:col-span-7">
-                            <div className="text-primary text-xs font-semibold uppercase tracking-wide">
+                            <div className="text-primary text-xs font-semibold tracking-wide uppercase">
                                 Menunggu Pembayaran
                             </div>
                             <h2 className="text-xl font-bold tracking-tight sm:text-2xl">
@@ -589,7 +590,7 @@ export default function TagihanDetail({
 
                         {(invoice.dokumen ?? []).length > 0 && (
                             <div className="border-base-300 mt-4 space-y-2 border-t pt-4">
-                                <div className="text-xs font-semibold uppercase tracking-wide text-base-content/65">
+                                <div className="text-base-content/65 text-xs font-semibold tracking-wide uppercase">
                                     Dokumen Resmi
                                 </div>
                                 <div className="flex flex-wrap gap-2">
@@ -634,7 +635,7 @@ export default function TagihanDetail({
                                     >
                                         <div className="flex flex-wrap items-start justify-between gap-2">
                                             <div>
-                                                <div className="font-mono text-xs text-base-content/70">
+                                                <div className="text-base-content/70 font-mono text-xs">
                                                     {payment.kode_transaksi}
                                                 </div>
                                                 <div className="font-semibold tabular-nums">
@@ -678,7 +679,7 @@ export default function TagihanDetail({
                                                 </div>
                                             )}
                                             {payment.catatan_verifikasi && (
-                                                <div className="text-base-content mt-1 rounded bg-base-200 px-2 py-1">
+                                                <div className="text-base-content bg-base-200 mt-1 rounded px-2 py-1">
                                                     Catatan:{' '}
                                                     {payment.catatan_verifikasi}
                                                 </div>

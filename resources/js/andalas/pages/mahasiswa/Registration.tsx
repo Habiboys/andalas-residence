@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Download, FileText, Upload } from 'lucide-react';
+import { BedDouble, Download, FileText, Upload } from 'lucide-react';
 import * as workflow from '@/actions/App/Http/Controllers/ResidenceWorkflowController';
 import RoomCatalog, { type CatalogRoom } from '../../components/RoomCatalog';
 import RoomInvitations, {
@@ -91,13 +91,14 @@ function LinearStepper({
     const labels = [
         'Rencana hunian',
         kipk ? 'Alokasi kamar' : 'Pilih kamar',
-        'Review & Berkas',
-        'Verifikasi & Pembayaran',
+        'Upload berkas',
+        kipk ? 'Pembiayaan KIP-K' : 'Pembayaran',
+        'Check-in (Verifikasi)',
     ];
 
     return (
         <ol
-            className="border-base-300 bg-base-100 grid grid-cols-1 gap-2 rounded-2xl border p-3 text-sm sm:grid-cols-2 lg:grid-cols-4"
+            className="border-base-300 bg-base-100 grid grid-cols-1 gap-2 rounded-2xl border p-3 text-sm sm:grid-cols-2 lg:grid-cols-5"
             aria-label="Tahapan pendaftaran"
         >
             {labels.map((label, index) => (
@@ -132,7 +133,6 @@ function LinearStepper({
 export default function Registration({
     housingProfileReady = true,
     housingProfileUrl,
-    housingStatusUrl,
     policy_open = false,
     policy_category = 'local_non_kipk',
     required_documents = ['perjanjian'],
@@ -265,16 +265,8 @@ export default function Registration({
         <div className="space-y-5">
             <PageHeader
                 title="Pendaftaran Asrama"
-                subtitle="Pilih kamar, lengkapi berkas dan pembiayaan, hingga verifikasi dan pembayaran dalam satu alur."
+                subtitle="Pilih kamar, unggah berkas, selesaikan pembayaran, dan lakukan verifikasi berkas saat check-in dalam satu alur."
             />
-            {!pending && registration.length > 0 && housingStatusUrl && (
-                <Link
-                    href={housingStatusUrl}
-                    className="btn btn-outline btn-sm"
-                >
-                    Lihat status dan dokumen pengajuan
-                </Link>
-            )}
             {!policy_open && (
                 <p className="alert alert-warning">
                     Pendaftaran belum dibuka untuk kategori Anda. Pengelola
@@ -363,10 +355,8 @@ export default function Registration({
                                         !r.tagihan_id,
                                 );
 
-                                const requiredDocs =
-                                    currentReg?.policy?.settings?.documents ?? [
-                                        'perjanjian',
-                                    ];
+                                const requiredDocs = currentReg?.policy
+                                    ?.settings?.documents ?? ['perjanjian'];
                                 const latestDocs = new Map<
                                     string,
                                     { version: number; status: string }
@@ -380,16 +370,47 @@ export default function Registration({
                                         latestDocs.set(doc.kind, doc);
                                     }
                                 }
+                                const allDocsUploaded = requiredDocs.every(
+                                    (kind) => {
+                                        const doc = latestDocs.get(kind);
+                                        return doc && doc.status !== 'revision';
+                                    },
+                                );
                                 const hasRevisionDoc = requiredDocs.some(
                                     (kind) =>
                                         latestDocs.get(kind)?.status ===
                                         'revision',
                                 );
+                                const paymentSubmittedOrSettled =
+                                    Boolean(currentReg?.completed_at) ||
+                                    Boolean(currentReg?.ready_at) ||
+                                    Boolean(
+                                        (
+                                            currentReg?.tagihan?.pembayaran ??
+                                            []
+                                        ).some(
+                                            (p) =>
+                                                p.status ===
+                                                    'menunggu_verifikasi' ||
+                                                p.status === 'lunas',
+                                        ),
+                                    );
+                                const currentActiveStep =
+                                    currentReg?.completed_at
+                                        ? 5
+                                        : waitingKipkAllocation
+                                          ? 1
+                                          : !allDocsUploaded || hasRevisionDoc
+                                            ? 2
+                                            : currentReg?.is_kipk ||
+                                                paymentSubmittedOrSettled
+                                              ? 4
+                                              : 3;
 
                                 return (
                                     <div className="space-y-5">
                                         <LinearStepper
-                                            activeStep={3}
+                                            activeStep={currentActiveStep}
                                             kipk={kipk}
                                         />
                                         <div className="border-base-300 bg-base-200/40 rounded-xl border p-4 text-sm">
@@ -400,10 +421,17 @@ export default function Registration({
                                                 {waitingKipkAllocation
                                                     ? 'Menunggu alokasi kamar sesuai prioritas dan kapasitas. Tagihan diterbitkan setelah kamar dialokasikan.'
                                                     : hasRevisionDoc
-                                                      ? 'Fasilitator gedung meminta revisi berkas. Unggah ulang dokumen yang diminta pada panel di bawah.'
-                                                      : currentReg?.payment_unlocked
-                                                        ? 'Tahap 4: Berkas Anda sudah disetujui Fasilitator gedung. Silakan lengkapi bukti pembayaran sesuai tagihan.'
-                                                        : 'Tahap 4: Pengajuan dan berkas Anda sedang diperiksa Fasilitator gedung. Setelah disetujui, menu dan form pembayaran akan otomatis terbuka di sini.'}
+                                                      ? 'Petugas meminta revisi berkas. Unggah ulang dokumen yang diminta pada panel di bawah.'
+                                                      : !allDocsUploaded
+                                                        ? 'Tahap 3: Unggah seluruh berkas wajib pada panel di bawah agar tahap pembayaran dapat langsung dilanjutkan.'
+                                                        : currentReg?.completed_at
+                                                          ? 'Tahap 5: Verifikasi berkas dan check-in fisik di asrama telah selesai.'
+                                                          : paymentSubmittedOrSettled ||
+                                                              currentReg?.ready_at
+                                                            ? 'Tahap 5: Pembayaran tercatat dan status hunian aktif. Bawa berkas asli untuk verifikasi petugas saat check-in di asrama.'
+                                                            : currentReg?.payment_unlocked
+                                                              ? 'Tahap 4: Berkas sudah terunggah. Silakan langsung selesaikan pembayaran dan unggah bukti transfer tanpa menunggu verifikasi berkas.'
+                                                              : 'Tahap pembiayaan sedang diproses sesuai ketentuan kategori Anda.'}
                                             </p>
                                         </div>
                                         {currentReg && (
@@ -611,7 +639,8 @@ export default function Registration({
                                                 }
                                                 onSelect={(id) => {
                                                     const nextRoom = rooms.find(
-                                                        (item) => item.id === id,
+                                                        (item) =>
+                                                            item.id === id,
                                                     );
                                                     const nextMax = Math.max(
                                                         0,
@@ -737,7 +766,8 @@ export default function Registration({
                                                     <div className="bg-base-200/50 grid gap-3 rounded-xl p-3.5 text-sm sm:grid-cols-2">
                                                         <div>
                                                             <span className="text-base-content/60 block text-xs">
-                                                                Skema &amp; dasar tarif
+                                                                Skema &amp;
+                                                                dasar tarif
                                                             </span>
                                                             <strong>
                                                                 {form.data
@@ -759,7 +789,8 @@ export default function Registration({
                                                         </div>
                                                         <div>
                                                             <span className="text-base-content/60 block text-xs">
-                                                                Periode / tanggal
+                                                                Periode /
+                                                                tanggal
                                                             </span>
                                                             <strong>
                                                                 {form.data
@@ -767,9 +798,9 @@ export default function Registration({
                                                                 form.data
                                                                     .ends_at
                                                                     ? `${form.data.starts_at} s/d ${form.data.ends_at}`
-                                                                    : periods[0]
+                                                                    : (periods[0]
                                                                           ?.nama_periode ??
-                                                                      'Periode aktif'}
+                                                                      'Periode aktif')}
                                                             </strong>
                                                         </div>
                                                     </div>
@@ -782,13 +813,14 @@ export default function Registration({
                                                         </p>
                                                     )}
                                                     <p className="text-base-content/70 text-xs">
-                                                        Alokasi kamar dipertahankan
-                                                        selama proses
-                                                        administrasi berjalan.
-                                                        Status hunian aktif
-                                                        otomatis tercatat
-                                                        setelah berkas valid dan
-                                                        pembayaran terverifikasi.
+                                                        Alokasi kamar
+                                                        dipertahankan selama
+                                                        proses administrasi
+                                                        berjalan. Status hunian
+                                                        aktif tercatat setelah
+                                                        pembayaran diunggah, dan
+                                                        verifikasi berkas asli
+                                                        dilakukan saat check-in.
                                                     </p>
                                                     <div className="border-base-300 bg-base-200/30 space-y-3 rounded-xl border p-4">
                                                         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -799,8 +831,9 @@ export default function Registration({
                                                                     (Opsional)
                                                                 </h3>
                                                                 <p className="text-base-content/70 text-xs">
-                                                                    {maxInvites > 0
-                                                                        ? `Masukkan NIM mahasiswa non-KIP-K aktif yang ingin diajak sekamar (maks. ${maxInvites} teman).`
+                                                                    {maxInvites >
+                                                                    0
+                                                                        ? 'Masukkan NIM calon teman kamar yang ingin diajukan, Teman kamar harus sudah membuat akun Andalas Residence terlebih dahulu'
                                                                         : 'Kamar ini hanya menyisakan 1 tempat untuk Anda.'}
                                                                 </p>
                                                             </div>
@@ -825,7 +858,9 @@ export default function Registration({
                                                                     className={
                                                                         inputClass
                                                                     }
-                                                                    maxLength={50}
+                                                                    maxLength={
+                                                                        50
+                                                                    }
                                                                     value={
                                                                         friendNim
                                                                     }
@@ -858,7 +893,7 @@ export default function Registration({
                                                                             );
                                                                         }
                                                                     }}
-                                                                    placeholder="Masukkan NIM teman non-KIP-K"
+                                                                    placeholder="Masukkan NIM calon teman kamar"
                                                                 />
                                                                 <Button
                                                                     type="button"
@@ -869,8 +904,7 @@ export default function Registration({
                                                                         )
                                                                     }
                                                                 >
-                                                                    Tambah
-                                                                    teman
+                                                                    Tambah teman
                                                                 </Button>
                                                             </div>
                                                         )}
@@ -959,6 +993,48 @@ export default function Registration({
                                                                 </span>
                                                             </div>
                                                         </div>
+                                                        {(() => {
+                                                            const roomPhoto =
+                                                                room?.foto ??
+                                                                (
+                                                                    room as Room & {
+                                                                        photos?:
+                                                                            | string[]
+                                                                            | null;
+                                                                    }
+                                                                )
+                                                                    ?.photos?.[0] ??
+                                                                room?.lantai
+                                                                    ?.gedung
+                                                                    ?.foto ??
+                                                                null;
+
+                                                            return (
+                                                                <div className="border-base-300 bg-base-100 relative aspect-[16/10] w-full overflow-hidden rounded-xl border">
+                                                                    {roomPhoto ? (
+                                                                        <img
+                                                                            src={`/storage/${roomPhoto}`}
+                                                                            alt={`Foto Kamar ${room?.nomor_kamar ?? ''}`}
+                                                                            className="h-full w-full object-cover"
+                                                                            loading="lazy"
+                                                                        />
+                                                                    ) : (
+                                                                        <div className="text-base-content/35 flex h-full flex-col items-center justify-center gap-1 text-xs">
+                                                                            <BedDouble
+                                                                                className="size-8"
+                                                                                aria-hidden="true"
+                                                                            />
+                                                                            <span>
+                                                                                Foto
+                                                                                kamar
+                                                                                belum
+                                                                                tersedia
+                                                                            </span>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })()}
                                                     </div>
                                                     <div className="border-base-300 border-t pt-3">
                                                         <span className="text-base-content/70 block text-xs">
@@ -1023,11 +1099,13 @@ export default function Registration({
                                                 <div className="flex items-center gap-2">
                                                     <FileText className="text-primary size-5" />
                                                     <h3 className="text-base font-semibold">
-                                                        Unggah Berkas Wajib Pendaftaran
+                                                        Unggah Berkas Wajib
+                                                        Pendaftaran
                                                     </h3>
                                                 </div>
                                                 <span className="text-base-content/65 text-xs">
-                                                    PDF, JPG, JPEG, atau PNG (maks. 5 MB)
+                                                    PDF, JPG, JPEG, atau PNG
+                                                    (maks. 5 MB)
                                                 </span>
                                             </div>
                                             <div className="space-y-3">
@@ -1210,65 +1288,44 @@ export default function Registration({
                                         </div>
 
                                         {!kipk &&
-                                            form.data.funding ===
-                                                'personal' && (
+                                            form.data.funding === 'personal' &&
+                                            form.data.rate_unit === 'month' &&
+                                            canSelectMonthly && (
                                                 <div className="border-base-300 bg-base-100 space-y-3 rounded-2xl border p-5 shadow-sm">
                                                     <h3 className="text-base font-semibold">
-                                                        Skema Pembayaran
+                                                        Jenis Pembayaran
                                                     </h3>
-                                                    {form.data.rate_unit ===
-                                                        'month' &&
-                                                    canSelectMonthly ? (
-                                                        <label className="block space-y-1 text-sm">
-                                                            <span>
-                                                                Jenis Pembayaran
-                                                            </span>
-                                                            <select
-                                                                className={
-                                                                    selectClass
-                                                                }
-                                                                value={
-                                                                    form.data
-                                                                        .decision_kind
-                                                                }
-                                                                onChange={(e) =>
-                                                                    form.setData(
-                                                                        'decision_kind',
-                                                                        e.target
-                                                                            .value,
-                                                                    )
-                                                                }
-                                                            >
-                                                                <option value="full">
-                                                                    Bayar penuh
-                                                                    sesuai
-                                                                    tagihan
-                                                                </option>
-                                                                <option value="monthly">
-                                                                    Pembayaran
-                                                                    bulanan
-                                                                </option>
-                                                            </select>
-                                                        </label>
-                                                    ) : (
-                                                        <p className="text-sm font-medium">
-                                                            Bayar penuh sesuai
-                                                            tagihan
-                                                        </p>
-                                                    )}
-                                                    <p className="text-muted text-xs">
-                                                        Pengajuan cicilan atau
-                                                        penundaan pembayaran
-                                                        tidak melalui sistem,
-                                                        melainkan diajukan
-                                                        langsung oleh calon
-                                                        penghuni kepada Pimpinan
-                                                        asrama. Setelah
-                                                        disetujui Pimpinan,
-                                                        Pengelola akan mengubah
-                                                        skema tagihan dan jadwal
-                                                        pembayaran Anda.
-                                                    </p>
+                                                    <label className="block space-y-1 text-sm">
+                                                        <span>
+                                                            Pilihan periode
+                                                            pembayaran
+                                                        </span>
+                                                        <select
+                                                            className={
+                                                                selectClass
+                                                            }
+                                                            value={
+                                                                form.data
+                                                                    .decision_kind
+                                                            }
+                                                            onChange={(e) =>
+                                                                form.setData(
+                                                                    'decision_kind',
+                                                                    e.target
+                                                                        .value,
+                                                                )
+                                                            }
+                                                        >
+                                                            <option value="full">
+                                                                Bayar penuh
+                                                                sesuai tagihan
+                                                            </option>
+                                                            <option value="monthly">
+                                                                Pembayaran
+                                                                bulanan
+                                                            </option>
+                                                        </select>
+                                                    </label>
                                                     {form.data.decision_kind ===
                                                         'monthly' && (
                                                         <label className="block space-y-1 text-sm">
@@ -1358,7 +1415,7 @@ export default function Registration({
                                                 ? kipk
                                                     ? 'Lanjut ke alokasi kamar'
                                                     : 'Lanjut ke pilihan kamar'
-                                                : 'Review pengajuan'}
+                                                : 'Lanjut ke upload berkas'}
                                         </button>
                                     ) : (
                                         <button
@@ -1369,7 +1426,8 @@ export default function Registration({
                                                 form.processing ||
                                                 !policy_open ||
                                                 !form.data.periode_id ||
-                                                (!kipk && (!room || price <= 0)) ||
+                                                (!kipk &&
+                                                    (!room || price <= 0)) ||
                                                 required_documents.some(
                                                     (kind) =>
                                                         !selectedDocFiles[kind],
@@ -1416,15 +1474,16 @@ export default function Registration({
                                         : ''}
                                     {form.data.invitee_nims.length > 0
                                         ? ` · Mengundang teman (${form.data.invitee_nims.join(', ')})`
-                                        : ''}
-                                    {' '}beserta{' '}
+                                        : ''}{' '}
+                                    beserta{' '}
                                     <strong>
                                         {Object.keys(selectedDocFiles).length}{' '}
                                         berkas pendaftaran
                                     </strong>
-                                    . Setelah diajukan, pengajuan akan diperiksa
-                                    oleh Fasilitator gedung sebelum tahap
-                                    pembayaran dibuka.
+                                    .{' '}
+                                    {kipk
+                                        ? 'Setelah diajukan, alokasi kamar dan berkas Anda akan diproses. Verifikasi berkas asli dilakukan petugas saat check-in.'
+                                        : 'Setelah diajukan, Anda dapat langsung melanjutkan ke tahap pembayaran tanpa menunggu verifikasi berkas. Verifikasi berkas asli dilakukan petugas saat check-in.'}
                                 </p>
                                 <div className="flex justify-end gap-2">
                                     <Button

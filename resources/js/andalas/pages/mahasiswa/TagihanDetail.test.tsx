@@ -60,7 +60,7 @@ const sampleAccounts = [
     },
 ];
 
-it('gates payment upload until documents are approved by building facilitator', () => {
+it('gates payment upload until required documents are uploaded', () => {
     const html = renderToStaticMarkup(
         <TagihanDetail
             invoice={baseInvoice}
@@ -69,12 +69,15 @@ it('gates payment upload until documents are approved by building facilitator', 
                 id: 'reg-1',
                 status: 'submitted',
                 payment_unlocked: false,
-                blockers: ['Dokumen perjanjian belum disetujui fasilitator gedung.'],
+                blockers: ['Dokumen perjanjian belum diunggah.'],
             }}
         />,
     );
 
-    expect(html).toContain('Pembayaran Menunggu Persetujuan Berkas');
+    expect(html).toContain('Lengkapi Berkas Pendaftaran Terlebih Dahulu');
+    expect(html).toContain(
+        'Verifikasi berkas akan dilakukan petugas saat check-in',
+    );
     expect(html).toContain('2100020199999');
     expect(html).not.toContain('Kirim Bukti Pembayaran');
 });
@@ -126,7 +129,9 @@ it('shows explicit error banner and disables payment upload when no bank account
     );
 
     expect(html).toContain('alert alert-error');
-    expect(html).toContain('Rekening tujuan pembayaran belum diisi oleh admin.');
+    expect(html).toContain(
+        'Rekening tujuan pembayaran belum diisi oleh admin.',
+    );
     expect(html).toContain('Rekening Tujuan Pengiriman');
     expect(html).toContain(
         'Rekening tujuan asrama belum diisi oleh admin/pengelola.',
@@ -145,7 +150,8 @@ it('shows pending verification status and hides duplicate upload when proof is a
                     id: 'pay-1',
                     kode_transaksi: 'PUB-12345',
                     nominal: 2500000,
-                    rekening_tujuan: 'Bank Nagari · 2100020199999 · a.n. RPL 014 UNAND Asrama',
+                    rekening_tujuan:
+                        'Bank Nagari · 2100020199999 · a.n. RPL 014 UNAND Asrama',
                     nama_bank: 'BNI',
                     nomor_rekening_pengirim: '0987654321',
                     atas_nama_pengirim: 'Mahasiswa Uji',

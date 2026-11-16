@@ -31,11 +31,7 @@ import {
     Modal,
     PageHeader,
 } from '@/andalas/components/ui';
-import {
-    formatDate,
-    formatDateTime,
-    formatRupiah,
-} from '@/andalas/lib/format';
+import { formatDate, formatDateTime, formatRupiah } from '@/andalas/lib/format';
 import { bukti as pembayaranBukti } from '@/routes/andalas/pembayaran';
 import { detailKamar as detailKamarRoute } from '@/routes/mahasiswa';
 import { show as tagihanShow } from '@/routes/mahasiswa/tagihan';
@@ -228,12 +224,7 @@ const DECISION_LABELS: Record<string, string> = {
 };
 
 export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
-export const ALLOWED_UPLOAD_EXTENSIONS = new Set([
-    'pdf',
-    'jpg',
-    'jpeg',
-    'png',
-]);
+export const ALLOWED_UPLOAD_EXTENSIONS = new Set(['pdf', 'jpg', 'jpeg', 'png']);
 
 function formatFileSize(bytes: number): string {
     if (bytes < 1024) {
@@ -356,7 +347,7 @@ function documentStatusText(status: string): string {
         return 'Valid & Disetujui';
     }
     if (status === 'uploaded') {
-        return 'Menunggu Pemeriksaan Petugas';
+        return 'Terunggah · Verifikasi Saat Check-in';
     }
     if (status === 'revision') {
         return 'Perlu Revisi Ulang';
@@ -386,56 +377,80 @@ function buildStepState(r: Registration) {
         (r.decisions ?? []).some(
             (d) => d.status === 'pending' || d.status === 'approved',
         );
-    const blockers = r.blockers ?? [];
-    const docsAndFinancingDone = allDocsUploaded && hasDecisionOrExempt;
+    const isKipkExempt = Boolean(
+        r.is_kipk && r.policy?.category === 'local_kipk',
+    );
+    const docsStepDone = allDocsUploaded && hasDecisionOrExempt;
     const isCheckedIn = Boolean(r.completed_at || r.checked_in_at);
-    const isReady = Boolean(r.ready_at) || blockers.length === 0;
+    const hasPaymentSubmittedOrSettled =
+        isCheckedIn ||
+        Boolean(r.ready_at) ||
+        Boolean(
+            (r.tagihan?.pembayaran ?? []).some(
+                (p) =>
+                    p.status === 'menunggu_verifikasi' || p.status === 'lunas',
+            ),
+        );
     const paymentUnlocked = Boolean(r.payment_unlocked);
+    const paymentDone = isKipkExempt
+        ? docsStepDone
+        : hasPaymentSubmittedOrSettled;
 
     return [
         {
             number: 1,
-            title: 'Pengajuan & Kamar',
+            title: 'Rencana hunian',
             description: hasRoom
-                ? 'Pendaftaran & alokasi kamar tercatat'
-                : 'Menunggu alokasi kamar',
+                ? 'Rencana & data hunian tercatat'
+                : 'Lengkapi rencana hunian',
             done: !isRejected && hasRoom,
             active: !isRejected && !hasRoom,
         },
         {
             number: 2,
-            title: 'Berkas & Pembiayaan',
-            description: docsAndFinancingDone
-                ? 'Dokumen & skema tersimpan'
-                : 'Lengkapi berkas & skema',
-            done: !isRejected && docsAndFinancingDone,
-            active: !isRejected && hasRoom && !docsAndFinancingDone,
+            title: r.is_kipk ? 'Alokasi kamar' : 'Pilih kamar',
+            description: hasRoom
+                ? 'Kamar penempatan tercatat'
+                : 'Menunggu alokasi kamar',
+            done: !isRejected && hasRoom,
+            active: !isRejected && !hasRoom,
         },
         {
             number: 3,
-            title: 'Verifikasi & Pembayaran',
-            description: isReady
-                ? 'Seluruh syarat administrasi valid'
-                : paymentUnlocked
-                  ? 'Berkas disetujui · Selesaikan pembayaran'
-                  : `${blockers.length} syarat masih menunggu`,
-            done: !isRejected && (isReady || isCheckedIn),
-            active:
-                !isRejected &&
-                docsAndFinancingDone &&
-                !isReady &&
-                !isCheckedIn,
+            title: 'Upload berkas',
+            description: docsStepDone
+                ? 'Berkas & pembiayaan terunggah'
+                : 'Unggah berkas & pilih pembiayaan',
+            done: !isRejected && docsStepDone,
+            active: !isRejected && hasRoom && !docsStepDone,
         },
         {
             number: 4,
-            title: r.keys_returned_at ? 'Selesai / Checkout' : 'Penghuni Aktif',
+            title: isKipkExempt ? 'Pembiayaan KIP-K' : 'Pembayaran',
+            description: paymentDone
+                ? isKipkExempt
+                    ? 'Skema KIP-K aktif'
+                    : 'Bukti / kewajiban tercatat'
+                : paymentUnlocked
+                  ? 'Silakan selesaikan pembayaran'
+                  : 'Terbuka setelah berkas diunggah',
+            done: !isRejected && paymentDone,
+            active: !isRejected && docsStepDone && !paymentDone,
+        },
+        {
+            number: 5,
+            title: r.keys_returned_at
+                ? 'Selesai / Checkout'
+                : 'Check-in (Verifikasi)',
             description: r.keys_returned_at
                 ? 'Kunci telah dikembalikan'
-                : isCheckedIn || isReady
-                  ? 'Status penghuni aktif tercatat'
-                  : 'Menunggu verifikasi berkas & pembayaran',
-            done: !isRejected && (isReady || isCheckedIn),
-            active: false,
+                : isCheckedIn
+                  ? 'Verifikasi berkas & check-in selesai'
+                  : paymentDone
+                    ? 'Menunggu verifikasi berkas saat check-in'
+                    : 'Verifikasi berkas dilakukan saat check-in',
+            done: !isRejected && isCheckedIn,
+            active: !isRejected && paymentDone && !isCheckedIn,
         },
     ];
 }
@@ -472,30 +487,30 @@ function heroBanner(r: Registration) {
             tone: 'border-base-300 border-l-4 border-l-primary bg-base-100',
             badge: <StatusChip label="Penghuni Aktif" tone="success" />,
             title: 'Selamat! Status penghuni aktif asrama Anda telah resmi tercatat',
-            subtitle: `Berkas valid & kewajiban pembayaran telah diverifikasi lengkap pada ${formatDate(r.completed_at)}.`,
+            subtitle: `Check-in dan verifikasi berkas telah selesai pada ${formatDate(r.completed_at)}.`,
         };
     }
     if (r.ready_at || (r.blockers ?? []).length === 0) {
         return {
             tone: 'border-base-300 border-l-4 border-l-primary bg-base-100',
-            badge: <StatusChip label="Penghuni Aktif" tone="success" />,
-            title: 'Seluruh syarat administrasi & pembayaran Anda sudah lengkap!',
+            badge: (
+                <StatusChip
+                    label="Penghuni Aktif · Menunggu Check-in"
+                    tone="success"
+                />
+            ),
+            title: 'Pembayaran tercatat! Status penghuni Anda aktif — lanjut ke Check-in (Verifikasi)',
             subtitle:
-                'Penempatan kamar Anda telah aktif secara administratif. Informasi kamar tersedia pada menu Kamar Saya.',
+                'Penempatan kamar Anda telah aktif. Bawa berkas asli saat kedatangan agar petugas melakukan verifikasi berkas dan serah kunci saat check-in.',
         };
     }
     if (r.payment_unlocked) {
         return {
             tone: 'border-base-300 border-l-4 border-l-primary bg-base-100',
-            badge: (
-                <StatusChip
-                    label="Berkas Disetujui · Menunggu Pembayaran"
-                    tone="info"
-                />
-            ),
-            title: 'Berkas disetujui! Silakan selesaikan pembayaran sesuai tagihan',
+            badge: <StatusChip label="Siap Pembayaran" tone="info" />,
+            title: 'Berkas terunggah! Silakan selesaikan pembayaran sesuai tagihan',
             subtitle:
-                'Buka Detail Tagihan & Pembayaran untuk melihat rekening tujuan transfer resmi dan mengunggah bukti pembayaran sebelum batas waktu habis.',
+                'Anda dapat langsung mengunggah bukti pembayaran tanpa menunggu verifikasi berkas. Verifikasi berkas akan dilakukan petugas saat check-in.',
         };
     }
     return {
@@ -508,7 +523,7 @@ function heroBanner(r: Registration) {
         ),
         title: 'Pendaftaran asrama Anda sudah tercatat di sistem',
         subtitle:
-            'Unggah berkas wajib dan tunggu pemeriksaan Fasilitator gedung sebelum tahap pembayaran dibuka.',
+            'Lengkapi unggahan berkas wajib pada bagian di bawah agar tahap pembayaran langsung terbuka.',
     };
 }
 
@@ -759,6 +774,9 @@ export function StudentRegistrationCard({
     };
 
     const paymentUnlocked = Boolean(r.payment_unlocked);
+    const displayBlockers = blockers.filter(
+        (blocker) => !(paymentUnlocked && /pembayaran awal/i.test(blocker)),
+    );
     const banner = heroBanner(r);
     const steps = buildStepState(r);
 
@@ -797,7 +815,10 @@ export function StudentRegistrationCard({
                     </div>
                     <div className="bg-base-200/40 border-base-300 w-full min-w-0 rounded-lg border px-3.5 py-2.5 text-sm break-words sm:w-auto sm:max-w-xs">
                         <div className="text-muted flex items-center gap-1.5 text-xs font-medium">
-                            <Home className="size-3.5 shrink-0" aria-hidden="true" />
+                            <Home
+                                className="size-3.5 shrink-0"
+                                aria-hidden="true"
+                            />
                             Kamar Ditempatkan
                         </div>
                         <div className="text-base-content mt-0.5 font-semibold">
@@ -815,10 +836,10 @@ export function StudentRegistrationCard({
             </div>
 
             {!embedded && (
-                /* 4-Step Visual Stepper */
+                /* 5-Step Visual Stepper */
                 <div
                     aria-label="Tahapan pendaftaran"
-                    className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4"
+                    className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5"
                 >
                     {steps.map((step) => (
                         <div
@@ -864,7 +885,7 @@ export function StudentRegistrationCard({
             {/* Actionable Blockers Box */}
             {!r.completed_at &&
                 r.status !== 'cancelled' &&
-                blockers.length > 0 && (
+                displayBlockers.length > 0 && (
                     <div className="border-base-300 border-l-warning bg-base-200/40 space-y-3 rounded-xl border border-l-4 p-4">
                         <div className="flex items-start gap-2.5">
                             <AlertTriangle
@@ -873,11 +894,10 @@ export function StudentRegistrationCard({
                             />
                             <div className="flex-1 space-y-2">
                                 <p className="text-base-content text-sm font-semibold">
-                                    Syarat yang perlu diselesaikan untuk
-                                    aktivasi penghuni:
+                                    Syarat yang perlu dilengkapi:
                                 </p>
                                 <ul className="text-base-content/90 list-inside list-disc space-y-1 text-sm">
-                                    {blockers.map((blocker, idx) => (
+                                    {displayBlockers.map((blocker, idx) => (
                                         <li key={idx}>{blocker}</li>
                                     ))}
                                 </ul>
@@ -940,7 +960,11 @@ export function StudentRegistrationCard({
                                     ? 'Semua berkas terunggah'
                                     : `${editableKinds.length} berkas perlu diunggah`
                             }
-                            tone={editableKinds.length === 0 ? 'success' : 'warning'}
+                            tone={
+                                editableKinds.length === 0
+                                    ? 'success'
+                                    : 'warning'
+                            }
                         />
                     </div>
 
@@ -982,12 +1006,13 @@ export function StudentRegistrationCard({
                                         />
                                     </div>
 
-                                    {doc?.status === 'revision' && doc.notes && (
-                                        <div className="border-base-300 border-l-error bg-base-100 text-base-content rounded-md border border-l-4 px-3 py-2 text-xs break-words">
-                                            <strong>Catatan revisi:</strong>{' '}
-                                            {doc.notes}
-                                        </div>
-                                    )}
+                                    {doc?.status === 'revision' &&
+                                        doc.notes && (
+                                            <div className="border-base-300 border-l-error bg-base-100 text-base-content rounded-md border border-l-4 px-3 py-2 text-xs break-words">
+                                                <strong>Catatan revisi:</strong>{' '}
+                                                {doc.notes}
+                                            </div>
+                                        )}
 
                                     <div className="flex min-w-0 flex-wrap gap-2">
                                         {template && (
@@ -1220,15 +1245,18 @@ export function StudentRegistrationCard({
                                 Pembiayaan & Tagihan
                             </h3>
                         </div>
-                        {r.tagihan && (() => {
-                            const chip = tagihanStatusChip(r.tagihan.status);
-                            return (
-                                <StatusChip
-                                    label={chip.label}
-                                    tone={chip.tone}
-                                />
-                            );
-                        })()}
+                        {r.tagihan &&
+                            (() => {
+                                const chip = tagihanStatusChip(
+                                    r.tagihan.status,
+                                );
+                                return (
+                                    <StatusChip
+                                        label={chip.label}
+                                        tone={chip.tone}
+                                    />
+                                );
+                            })()}
                     </div>
 
                     {r.tagihan ? (
@@ -1267,8 +1295,8 @@ export function StudentRegistrationCard({
                                         </Link>
                                     ) : (
                                         <span className="text-muted shrink-0">
-                                            Menunggu persetujuan berkas
-                                            fasilitator
+                                            Lengkapi berkas wajib terlebih
+                                            dahulu
                                         </span>
                                     )}
                                 </div>
@@ -1294,8 +1322,7 @@ export function StudentRegistrationCard({
                                     )
                                         .filter((t) => t.status !== 'diganti')
                                         .sort(
-                                            (a, b) =>
-                                                a.termin_ke - b.termin_ke,
+                                            (a, b) => a.termin_ke - b.termin_ke,
                                         );
                                     let cumulative = 0;
                                     let nextTerm:
@@ -1499,12 +1526,11 @@ export function StudentRegistrationCard({
                                             Tahap Pembayaran Belum Dibuka
                                         </p>
                                         <p className="text-muted mt-0.5">
-                                            Akses pembayaran dan menu Tagihan
-                                            akan otomatis terbuka setelah
-                                            seluruh berkas wajib Anda dinyatakan{' '}
-                                            <strong>Valid</strong> oleh
-                                            Fasilitator gedung dan skema
-                                            pembiayaan ditetapkan.
+                                            Lengkapi unggahan seluruh berkas
+                                            wajib pada panel Berkas Pendaftaran
+                                            agar akses pembayaran langsung
+                                            terbuka (verifikasi berkas akan
+                                            dilakukan petugas saat check-in).
                                         </p>
                                     </div>
                                 )}
@@ -1531,9 +1557,7 @@ export function StudentRegistrationCard({
 
                     {isKipkExempt && (
                         <div className="border-base-300 bg-base-200/40 rounded-lg border p-3.5 text-sm">
-                            <p className="font-semibold">
-                                Skema KIP-K Aktif
-                            </p>
+                            <p className="font-semibold">Skema KIP-K Aktif</p>
                             <p className="text-muted mt-0.5 text-xs">
                                 Biaya hunian ditanggung melalui skema KIP-K
                                 sesuai ketentuan asrama. Tidak perlu memilih
@@ -1638,87 +1662,77 @@ export function StudentRegistrationCard({
                         );
                     })}
 
-                    {/* Decision selector ONLY when not yet chosen */}
-                    {canChooseFinancing && (
-                        <div className="border-base-300 bg-base-200/30 space-y-3 rounded-lg border p-3.5">
-                            <p className="text-sm font-semibold">
-                                Skema Pembayaran
-                            </p>
-                            {hasMonthlyOption || hasTransferOption ? (
-                                <>
-                                    <p className="text-muted text-xs">
-                                        Pilihan ini akan dikunci permanen setelah
-                                        Anda menekan tombol simpan di bawah.
-                                    </p>
-                                    <label className="block space-y-1">
-                                        <span className="text-xs font-medium">
-                                            Jenis Pembayaran
-                                        </span>
-                                        <select
-                                            className="select select-bordered select-sm w-full"
-                                            value={decisionKind}
-                                            onChange={(e) =>
-                                                setDecisionKind(e.target.value)
-                                            }
-                                        >
-                                            <option value="full">
-                                                Bayar penuh sesuai tagihan
-                                            </option>
-                                            {hasMonthlyOption && (
-                                                <option value="monthly">
-                                                    Ajukan skema bulanan
-                                                </option>
-                                            )}
-                                            {hasTransferOption && (
-                                                <option value="transfer_permission">
-                                                    Izin tinggal berbasis bukti
-                                                    transfer
-                                                </option>
-                                            )}
-                                        </select>
-                                    </label>
-                                </>
-                            ) : (
-                                <p className="text-xs font-medium">
-                                    Bayar penuh sesuai tagihan
+                    {/* Decision selector ONLY when additional monthly/transfer scheme is actually available */}
+                    {canChooseFinancing &&
+                        (hasMonthlyOption || hasTransferOption) && (
+                            <div className="border-base-300 bg-base-200/30 space-y-3 rounded-lg border p-3.5">
+                                <p className="text-sm font-semibold">
+                                    Jenis Pembayaran
                                 </p>
-                            )}
-                            <p className="text-muted text-xs">
-                                Pengajuan cicilan atau penundaan pembayaran
-                                dilakukan langsung ke Pimpinan asrama (offline),
-                                bukan melalui sistem. Setelah disetujui Pimpinan,
-                                Pengelola akan memperbarui skema tagihan dan
-                                jadwal cicilan Anda.
-                            </p>
-                            {decisionKind !== 'full' && (
+                                <p className="text-muted text-xs">
+                                    Pilihan ini akan dikunci permanen setelah
+                                    Anda menekan tombol simpan di bawah.
+                                </p>
                                 <label className="block space-y-1">
                                     <span className="text-xs font-medium">
-                                        Alasan Permohonan{' '}
-                                        <span className="text-error">*</span>
+                                        Jenis Pembayaran
                                     </span>
-                                    <textarea
-                                        className="textarea textarea-bordered textarea-sm w-full"
-                                        rows={2}
-                                        value={decisionReason}
+                                    <select
+                                        className="select select-bordered select-sm w-full"
+                                        value={decisionKind}
                                         onChange={(e) =>
-                                            setDecisionReason(e.target.value)
+                                            setDecisionKind(e.target.value)
                                         }
-                                        placeholder="Jelaskan alasan pengajuan skema pembiayaan ini"
-                                    />
-                                    {errors.decision_reason && (
-                                        <p className="text-error text-xs">
-                                            {errors.decision_reason}
-                                        </p>
-                                    )}
+                                    >
+                                        <option value="full">
+                                            Bayar penuh sesuai tagihan
+                                        </option>
+                                        {hasMonthlyOption && (
+                                            <option value="monthly">
+                                                Ajukan skema bulanan
+                                            </option>
+                                        )}
+                                        {hasTransferOption && (
+                                            <option value="transfer_permission">
+                                                Izin tinggal berbasis bukti
+                                                transfer
+                                            </option>
+                                        )}
+                                    </select>
                                 </label>
-                            )}
-                            {errors.decision_kind && (
-                                <p className="text-error text-xs">
-                                    {errors.decision_kind}
-                                </p>
-                            )}
-                        </div>
-                    )}
+                                {decisionKind !== 'full' && (
+                                    <label className="block space-y-1">
+                                        <span className="text-xs font-medium">
+                                            Alasan Permohonan{' '}
+                                            <span className="text-error">
+                                                *
+                                            </span>
+                                        </span>
+                                        <textarea
+                                            className="textarea textarea-bordered textarea-sm w-full"
+                                            rows={2}
+                                            value={decisionReason}
+                                            onChange={(e) =>
+                                                setDecisionReason(
+                                                    e.target.value,
+                                                )
+                                            }
+                                            placeholder="Jelaskan alasan pengajuan skema pembiayaan ini"
+                                        />
+                                        {errors.decision_reason && (
+                                            <p className="text-error text-xs">
+                                                {errors.decision_reason}
+                                            </p>
+                                        )}
+                                    </label>
+                                )}
+                                {errors.decision_kind && (
+                                    <p className="text-error text-xs">
+                                        {errors.decision_kind}
+                                    </p>
+                                )}
+                            </div>
+                        )}
 
                     {(r.amendments?.length ?? 0) > 0 && (
                         <div className="border-base-300 bg-base-200/40 space-y-1.5 rounded-lg border p-3 text-xs">
@@ -1746,31 +1760,31 @@ export function StudentRegistrationCard({
 
             {/* Single Unified Submit Action */}
             {(editableKinds.length > 0 || canChooseFinancing) && (
-                    <div className="border-base-300 bg-base-200/40 flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4">
-                        <div className="text-sm">
-                            <p className="font-semibold">
-                                Simpan Berkas & Pilihan Pembiayaan Sekaligus
-                            </p>
-                            <p className="text-muted text-xs">
-                                Pastikan seluruh file dan pilihan pembiayaan
-                                sudah sesuai karena data yang tersimpan tidak
-                                dapat diubah kembali.
-                            </p>
-                        </div>
-                        <Button
-                            type="button"
-                            onClick={handleOpenConfirm}
-                            disabled={submitting}
-                        >
-                            <Send className="size-4" aria-hidden="true" />
-                            {editableKinds.some(
-                                (k) => latestByKind.get(k)?.status === 'revision',
-                            )
-                                ? 'Kirim Berkas Revisi'
-                                : 'Simpan Permanen Berkas & Pembiayaan'}
-                        </Button>
+                <div className="border-base-300 bg-base-200/40 flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4">
+                    <div className="text-sm">
+                        <p className="font-semibold">
+                            Simpan Berkas & Pilihan Pembiayaan Sekaligus
+                        </p>
+                        <p className="text-muted text-xs">
+                            Pastikan seluruh file dan pilihan pembiayaan sudah
+                            sesuai karena data yang tersimpan tidak dapat diubah
+                            kembali.
+                        </p>
                     </div>
-                )}
+                    <Button
+                        type="button"
+                        onClick={handleOpenConfirm}
+                        disabled={submitting}
+                    >
+                        <Send className="size-4" aria-hidden="true" />
+                        {editableKinds.some(
+                            (k) => latestByKind.get(k)?.status === 'revision',
+                        )
+                            ? 'Kirim Berkas Revisi'
+                            : 'Simpan Permanen Berkas & Pembiayaan'}
+                    </Button>
+                </div>
+            )}
 
             <Modal
                 open={confirmOpen}

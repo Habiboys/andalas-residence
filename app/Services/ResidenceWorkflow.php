@@ -48,6 +48,48 @@ class ResidenceWorkflow
         return true;
     }
 
+    public function documentsUploaded(ResidenceRegistration $r): bool
+    {
+        if (in_array($r->status->value, ['draft', 'rejected', 'cancelled'], true) || ! $r->reserved_room_id) {
+            return false;
+        }
+        if ($r->workflow_version === 2 && ! in_array($r->stay_kind, ['summer_course', 'non_student'], true)) {
+            if (! $r->residence_application_id && $r->policy?->category !== 'international' && (empty($r->studentProfile->nik) || empty($r->studentProfile->alamat))) {
+                return false;
+            }
+            $latest = $r->documents()->orderByDesc('version')->get()->unique('kind');
+            foreach ($r->policy?->settings['documents'] ?? [] as $kind) {
+                $doc = $latest->firstWhere('kind', $kind);
+                if (! $doc || $doc->status === 'revision') {
+                    return false;
+                }
+            }
+            if ($r->decisions()->where('status', 'pending')->exists()) {
+                return false;
+            }
+            foreach ($r->decisions()->where('status', 'approved')->get() as $decision) {
+                if ($decision->terms['requires_configuration'] ?? false) {
+                    return false;
+                }
+                $kind = $decision->terms['agreement_kind'] ?? null;
+                if ($kind) {
+                    $agreementDoc = $latest->firstWhere('kind', $kind);
+                    if (! $agreementDoc || $agreementDoc->status === 'revision') {
+                        return false;
+                    }
+                }
+            }
+            if ($r->billing_basis === 'room' && ! $r->room_contract_id) {
+                return false;
+            }
+            if ($r->rate_unit === 'month' && ! $r->decisions()->where('kind', 'monthly')->where('status', 'approved')->exists()) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     public function documentsApproved(ResidenceRegistration $r): bool
     {
         if (in_array($r->status->value, ['draft', 'rejected', 'cancelled'], true) || ! $r->reserved_room_id) {
@@ -95,7 +137,7 @@ class ResidenceWorkflow
             return false;
         }
 
-        return $this->documentsApproved($r);
+        return $this->documentsUploaded($r);
     }
 
     /** @return list<string> */
@@ -114,8 +156,11 @@ class ResidenceWorkflow
             }
             $latest = $r->documents()->orderByDesc('version')->get()->unique('kind');
             foreach ($r->policy?->settings['documents'] ?? [] as $kind) {
-                if ($latest->firstWhere('kind', $kind)?->status !== 'valid') {
-                    $issues[] = 'Dokumen '.$kind.' belum disetujui fasilitator gedung.';
+                $doc = $latest->firstWhere('kind', $kind);
+                if (! $doc) {
+                    $issues[] = 'Dokumen '.$kind.' belum diunggah.';
+                } elseif ($doc->status === 'revision') {
+                    $issues[] = 'Dokumen '.$kind.' perlu diperbaiki dan diunggah ulang sesuai catatan revisi.';
                 }
             }
         }
@@ -124,8 +169,11 @@ class ResidenceWorkflow
                 $issues[] = 'Skema pembiayaan belum ditetapkan pengelola.';
             }
             $kind = $decision->terms['agreement_kind'] ?? null;
-            if ($kind && $r->documents()->where('kind', $kind)->latest('version')->first()?->status !== 'valid') {
-                $issues[] = 'Perjanjian pembiayaan sesuai keputusan belum valid.';
+            if ($kind) {
+                $agreementDoc = $r->documents()->where('kind', $kind)->latest('version')->first();
+                if (! $agreementDoc || $agreementDoc->status === 'revision') {
+                    $issues[] = 'Perjanjian pembiayaan sesuai keputusan belum diunggah atau perlu revisi.';
+                }
             }
         }
         if ($r->billing_basis === 'room' && ! $r->room_contract_id && $r->workflow_version === 2) {
@@ -144,6 +192,38 @@ class ResidenceWorkflow
         }
         if ($r->studentProfile->user->status !== 'aktif' && $r->studentProfile->user->inactive_reason !== 'letter_issued') {
             $issues[] = 'Akun diblokir administrator.';
+        }
+
+        return $issues;
+    }
+
+    /**
+     * Syarat fisik check-in: seluruh syarat dasar ditambah verifikasi berkas valid saat kedatangan.
+     *
+     * @return list<string>
+     */
+    public function checkInBlockers(ResidenceRegistration $r): array
+    {
+        $issues = $this->blockers($r);
+
+        if ($r->workflow_version === 2 && ! in_array($r->stay_kind, ['summer_course', 'non_student'], true)) {
+            $latest = $r->documents()->orderByDesc('version')->get()->unique('kind');
+            foreach ($r->policy?->settings['documents'] ?? [] as $kind) {
+                $doc = $latest->firstWhere('kind', $kind);
+                if ($doc && $doc->status !== 'valid' && $doc->status !== 'revision') {
+                    $issues[] = 'Dokumen '.$kind.' belum diverifikasi valid saat check-in.';
+                }
+            }
+        }
+
+        foreach ($r->decisions()->where('status', 'approved')->get() as $decision) {
+            $kind = $decision->terms['agreement_kind'] ?? null;
+            if ($kind) {
+                $agreementDoc = $r->documents()->where('kind', $kind)->latest('version')->first();
+                if ($agreementDoc && $agreementDoc->status !== 'valid' && $agreementDoc->status !== 'revision') {
+                    $issues[] = 'Perjanjian pembiayaan sesuai keputusan belum diverifikasi valid saat check-in.';
+                }
+            }
         }
 
         return $issues;
@@ -249,7 +329,7 @@ class ResidenceWorkflow
         }
         $r->update($updates);
         if ($ready && ! $wasReady) {
-            $this->notify($r, 'Siap check-in', 'Administrasi telah memenuhi syarat. Datang ke pengelola gedung dengan identitas dan berkas asli untuk pemeriksaan serta serah kunci.');
+            $this->notify($r, 'Siap check-in', 'Pembayaran dan administrasi telah memenuhi syarat. Datang ke pengelola/fasilitator gedung dengan identitas dan berkas asli untuk verifikasi berkas serta serah kunci saat check-in.');
         }
     }
 
@@ -346,7 +426,7 @@ class ResidenceWorkflow
             $fresh = $r->fresh();
             $this->evaluate($fresh);
             if ($uploadedFiles !== []) {
-                $this->notify($fresh, 'Dokumen pendaftaran baru diterima', 'Berkas pendaftaran baru telah diunggah dan menunggu pemeriksaan fasilitator gedung.', true);
+                $this->notify($fresh, 'Dokumen pendaftaran baru diterima', 'Berkas pendaftaran baru telah diunggah dan siap diverifikasi oleh fasilitator gedung saat check-in.', true);
             }
         });
     }

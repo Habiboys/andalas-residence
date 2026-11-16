@@ -118,7 +118,7 @@ class PembayaranController extends Controller
                     throw ValidationException::withMessages(['tagihan_id' => 'Pendaftaran terkait tagihan ini telah dibatalkan atau ditolak.']);
                 }
                 if ($registration->workflow_version === 2 && ! app(ResidenceWorkflow::class)->paymentUnlocked($registration)) {
-                    throw ValidationException::withMessages(['tagihan_id' => 'Pembayaran baru dapat dilakukan setelah seluruh berkas pendaftaran disetujui fasilitator gedung dan skema pembiayaan disetujui.']);
+                    throw ValidationException::withMessages(['tagihan_id' => 'Unggah seluruh berkas wajib pendaftaran dan tetapkan skema pembiayaan terlebih dahulu sebelum melakukan pembayaran.']);
                 }
                 if (! $registration->completed_at && $registration->reservation_expires_at?->isPast()) {
                     throw ValidationException::withMessages(['tagihan_id' => 'Reservasi sudah kedaluwarsa. Silakan mendaftar kembali.']);

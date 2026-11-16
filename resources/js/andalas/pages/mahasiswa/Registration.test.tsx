@@ -113,7 +113,7 @@ it('waits for room allocation before directing a personal KIPK applicant to paym
     expect(html).not.toContain('Lihat tagihan dan bayar');
 });
 
-it('embeds stage 4 verification and payment inline in the 4-step registration flow', () => {
+it('embeds the 5-step registration flow advancing directly to Pembayaran and Check-in without doc approval lock', () => {
     const html = renderToStaticMarkup(
         <Registration
             housingStatusUrl="/mahasiswa/registration/status"
@@ -123,16 +123,46 @@ it('embeds stage 4 verification and payment inline in the 4-step registration fl
                     status: 'submitted',
                     is_kipk: false,
                     funding: 'personal',
+                    payment_unlocked: true,
                     tagihan_id: 'inv-1',
                     periode: { nama_periode: '2026/2027' },
                 },
             ]}
         />,
     );
-    expect(html).toContain('Review &amp; Berkas');
-    expect(html).toContain('Verifikasi &amp; Pembayaran');
+    expect(html).toContain('Rencana hunian');
+    expect(html).toContain('Pilih kamar');
+    expect(html).toContain('Upload berkas');
+    expect(html).toContain('Pembayaran');
+    expect(html).toContain('Check-in (Verifikasi)');
     expect(html).toContain('Berkas Pendaftaran');
     expect(html).toContain('Pembiayaan &amp; Tagihan');
+    expect(html).not.toContain('Verifikasi &amp; Pembayaran');
+    expect(html).not.toContain('Lihat status dan dokumen pengajuan');
     expect(html).not.toContain('Lihat tagihan dan bayar');
     expect(html).not.toContain('Dokumen &amp; Pembiayaan →');
+});
+
+it('hides standalone status button and avoids promoting installment scheme information', () => {
+    const html = renderToStaticMarkup(
+        <Registration
+            housingStatusUrl="/mahasiswa/registration/status"
+            policy_open
+            periode={[
+                { id: 'active', nama_periode: '2026/2027', status: 'aktif' },
+            ]}
+            registration={[
+                {
+                    id: 'cancelled-1',
+                    status: 'cancelled',
+                    is_kipk: false,
+                    funding: 'personal',
+                    periode: { nama_periode: '2026/2027' },
+                },
+            ]}
+        />,
+    );
+
+    expect(html).not.toContain('Lihat status dan dokumen pengajuan');
+    expect(html).not.toContain('Pengajuan cicilan atau penundaan pembayaran');
 });

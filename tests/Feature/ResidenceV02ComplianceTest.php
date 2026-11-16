@@ -75,22 +75,40 @@ it('enforces canonical building gender and category rules and activates KIPK res
         ->assertRedirect()
         ->assertSessionHasNoErrors();
 
-    expect($f['profile']->fresh()->status_huni)->toBe('calon');
+    expect($f['profile']->fresh()->status_huni)->toBe('aktif')
+        ->and($registration->fresh()->ready_at)->not->toBeNull()
+        ->and($registration->fresh()->checked_in_at)->toBeNull()
+        ->and($registration->fresh()->kipk_disbursed_at)->toBeNull();
 
+    // Check-in is still gated on facilitator document verification when arriving at dorm
     $facilitatorA = toBeFacilitator($buildingA);
+    $this->actingAs($facilitatorA)
+        ->post(route('residence.checkin', $registration), [
+            'identity_checked' => 1,
+            'original_documents_checked' => 1,
+            'keys_handed' => 1,
+        ])
+        ->assertSessionHasErrors('checkin');
+
     $docKipk = $registration->fresh()->documents()->sole();
     $this->actingAs($facilitatorA)
         ->post(route('residence.documents.review', $docKipk), ['status' => 'valid'])
         ->assertRedirect()
         ->assertSessionHasNoErrors();
 
-    expect($f['profile']->fresh()->status_huni)->toBe('aktif')
-        ->and($registration->fresh()->ready_at)->not->toBeNull()
-        ->and($registration->fresh()->checked_in_at)->toBeNull()
-        ->and($registration->fresh()->kipk_disbursed_at)->toBeNull();
+    $this->actingAs($facilitatorA)
+        ->post(route('residence.checkin', $registration), [
+            'identity_checked' => 1,
+            'original_documents_checked' => 1,
+            'keys_handed' => 1,
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    expect($registration->fresh()->completed_at)->not->toBeNull();
 });
 
-it('gates payment until facilitator approves documents and activates resident only after manager verifies payment without digital checkin', function () {
+it('allows payment upload right after uploading documents and verifies documents at physical check-in', function () {
     $f = toBeFixture('local_non_kipk', 4);
     $facilitator = toBeFacilitator($f['building']);
     $registration = toBeSubmit($f, ['billing_basis' => 'person']);
@@ -99,7 +117,7 @@ it('gates payment until facilitator approves documents and activates resident on
         ->and($registration->reservation_expires_at)->not->toBeNull()
         ->and($f['profile']->fresh()->status_huni)->toBe('calon');
 
-    // Payment upload is locked before facilitator approves required documents
+    // Payment upload is locked before required documents are uploaded
     $this->actingAs($f['user'])
         ->post(route('andalas.pembayaran.store'), [
             'tagihan_id' => $registration->tagihan_id,
@@ -118,16 +136,7 @@ it('gates payment until facilitator approves documents and activates resident on
         ->assertRedirect()
         ->assertSessionHasNoErrors();
 
-    $doc = $registration->fresh()->documents()->sole();
-    $this->actingAs($f['manager'])
-        ->post(route('residence.documents.review', $doc), ['status' => 'valid'])
-        ->assertForbidden();
-
-    $this->actingAs($facilitator)
-        ->post(route('residence.documents.review', $doc), ['status' => 'valid'])
-        ->assertRedirect()
-        ->assertSessionHasNoErrors();
-
+    // Student CAN pay immediately after document upload without waiting for facilitator verification
     $this->actingAs($f['user'])
         ->post(route('andalas.pembayaran.store'), [
             'tagihan_id' => $registration->tagihan_id,
@@ -145,6 +154,34 @@ it('gates payment until facilitator approves documents and activates resident on
         ->and($f['profile']->fresh()->status_huni)->toBe('aktif')
         ->and((float) $registration->tagihan->fresh()->total_dibayar)->toBe(0.0);
 
+    // Check-in is blocked until facilitator verifies uploaded document at check-in
+    $doc = $registration->fresh()->documents()->sole();
+    $this->actingAs($facilitator)
+        ->post(route('residence.checkin', $registration), [
+            'identity_checked' => 1,
+            'original_documents_checked' => 1,
+            'keys_handed' => 1,
+        ])
+        ->assertSessionHasErrors('checkin');
+
+    $this->actingAs($f['manager'])
+        ->post(route('residence.documents.review', $doc), ['status' => 'valid'])
+        ->assertForbidden();
+
+    $this->actingAs($facilitator)
+        ->post(route('residence.documents.review', $doc), ['status' => 'valid'])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $this->actingAs($facilitator)
+        ->post(route('residence.checkin', $registration), [
+            'identity_checked' => 1,
+            'original_documents_checked' => 1,
+            'keys_handed' => 1,
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
     $this->actingAs($f['manager'])
         ->post(route('andalas.pembayaran.verify', $payment), [
             'status' => 'lunas',
@@ -154,7 +191,7 @@ it('gates payment until facilitator approves documents and activates resident on
         ->assertSessionHasNoErrors();
 
     expect($f['profile']->fresh()->status_huni)->toBe('aktif')
-        ->and($registration->fresh()->allocation_status)->toBe('admin_occupied')
+        ->and($registration->fresh()->completed_at)->not->toBeNull()
         ->and($payment->fresh()->status)->toBe('lunas')
         ->and((float) $registration->tagihan->fresh()->total_dibayar)->toBe((float) $registration->tagihan->total);
 });

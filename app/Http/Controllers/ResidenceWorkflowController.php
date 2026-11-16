@@ -202,6 +202,7 @@ class ResidenceWorkflowController extends Controller
         $workflow = app(ResidenceWorkflow::class);
         $r->loadMissing('cashRefunds.officer:id,nama');
         $r->setAttribute('blockers', $r->completed_at ? [] : $workflow->blockers($r));
+        $r->setAttribute('check_in_blockers', $r->completed_at ? [] : $workflow->checkInBlockers($r));
         $r->setAttribute('can_submit', ResidenceWorkflowAccess::manager($user) || $r->studentProfile->user_id === $user->id);
         $r->setAttribute('can_cancel', $workflow->canStudentCancel($r, $user));
         $r->setAttribute('payment_unlocked', $workflow->paymentUnlocked($r));
@@ -610,8 +611,8 @@ class ResidenceWorkflowController extends Controller
             $fresh = $r->fresh();
             if ($revisionNotes !== []) {
                 $workflow->notify($fresh, 'Dokumen perlu revisi', implode(' | ', $revisionNotes));
-            } elseif ($workflow->paymentUnlocked($fresh)) {
-                $workflow->notify($fresh, 'Berkas disetujui — lanjut ke pembayaran', 'Seluruh berkas pendaftaran Anda telah disetujui fasilitator gedung. Silakan buka detail tagihan atau tahap pembayaran untuk mengunggah bukti pembayaran.');
+            } elseif ($workflow->documentsApproved($fresh)) {
+                $workflow->notify($fresh, 'Berkas diverifikasi valid', 'Seluruh berkas pendaftaran Anda telah diverifikasi valid oleh fasilitator gedung dan siap untuk serah kunci.');
             }
             $workflow->evaluate($fresh);
         });

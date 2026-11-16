@@ -109,7 +109,7 @@ it('renders calm neutral surfaces without pastel box floods or bright multi-colo
 
     expect(html).toContain('Pendaftaran asrama Anda sudah tercatat di sistem');
     expect(html).toContain('Terdaftar · Dalam Proses Administrasi');
-    expect(html).toContain('Menunggu Pemeriksaan Petugas');
+    expect(html).toContain('Terunggah · Verifikasi Saat Check-in');
     expect(html).toContain('Menunggu pembayaran');
     expect(html).toContain('Menunggu persetujuan');
     expect(html).not.toContain('bg-success/10');
@@ -160,5 +160,41 @@ it('does not allow students to submit installment or deferral requests online in
     expect(html).not.toContain(
         'Ajukan penundaan pembayaran (persetujuan pimpinan)',
     );
-    expect(html).toContain('Pengajuan cicilan atau penundaan pembayaran');
+    expect(html).not.toContain('Pengajuan cicilan atau penundaan pembayaran');
+    expect(html).not.toContain('Skema Pembayaran');
+});
+
+it('shows payment upload immediately after document upload without blocker banner or waiting for check-in verification', () => {
+    const readyToPay = {
+        ...sampleRegistration,
+        payment_unlocked: true,
+        blockers: [
+            'Pembayaran awal atau verifikasi pembayaran oleh pengelola belum memenuhi syarat.',
+        ],
+        decisions: [
+            {
+                id: 'dec-full',
+                kind: 'full',
+                status: 'approved',
+                reason: 'Pembayaran penuh sesuai tagihan.',
+            },
+        ],
+    };
+
+    const html = renderToStaticMarkup(
+        <RegistrationStatus
+            registrations={{
+                data: [readyToPay],
+                last_page: 1,
+                links: [],
+            }}
+        />,
+    );
+
+    expect(html).toContain(
+        'Berkas terunggah! Silakan selesaikan pembayaran sesuai tagihan',
+    );
+    expect(html).toContain('Unggah Bukti Pembayaran');
+    expect(html).not.toContain('Syarat yang perlu dilengkapi');
+    expect(html).not.toContain('Tahap Pembayaran Belum Dibuka');
 });

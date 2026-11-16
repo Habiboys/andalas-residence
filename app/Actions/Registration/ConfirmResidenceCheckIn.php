@@ -27,7 +27,7 @@ class ConfirmResidenceCheckIn
             if ($r->starts_at?->isFuture() || $r->ends_at?->isBefore(today())) {
                 throw ValidationException::withMessages(['checkin' => 'Tanggal kehadiran berada di luar masa tinggal yang disetujui.']);
             }
-            $issues = app(ResidenceWorkflow::class)->blockers($r);
+            $issues = app(ResidenceWorkflow::class)->checkInBlockers($r);
             if ($issues) {
                 throw ValidationException::withMessages(['checkin' => implode(' ', $issues)]);
             }

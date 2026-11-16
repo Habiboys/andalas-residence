@@ -118,6 +118,7 @@ export type Registration = {
     documents: Document[];
     decisions: Decision[];
     blockers: string[];
+    check_in_blockers?: string[];
     can_operate: boolean;
     can_review_documents?: boolean;
     can_submit: boolean;
@@ -315,9 +316,7 @@ export function formatDocumentLabel(kind: string): string {
     if (kind.startsWith('pembiayaan_')) {
         return 'Perjanjian Pembiayaan / Cicilan';
     }
-    return kind
-        .replaceAll('_', ' ')
-        .replace(/\b\w/g, (ch) => ch.toUpperCase());
+    return kind.replaceAll('_', ' ').replace(/\b\w/g, (ch) => ch.toUpperCase());
 }
 
 export function newReference(): string {
