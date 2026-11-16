@@ -113,7 +113,7 @@ it('waits for room allocation before directing a personal KIPK applicant to paym
     expect(html).not.toContain('Lihat tagihan dan bayar');
 });
 
-it('embeds document upload and payment stage inline in the 5-step registration flow', () => {
+it('embeds stage 4 verification and payment inline in the 4-step registration flow', () => {
     const html = renderToStaticMarkup(
         <Registration
             housingStatusUrl="/mahasiswa/registration/status"
@@ -129,7 +129,7 @@ it('embeds document upload and payment stage inline in the 5-step registration f
             ]}
         />,
     );
-    expect(html).toContain('Berkas &amp; Pembiayaan');
+    expect(html).toContain('Review &amp; Berkas');
     expect(html).toContain('Verifikasi &amp; Pembayaran');
     expect(html).toContain('Berkas Pendaftaran');
     expect(html).toContain('Pembiayaan &amp; Tagihan');

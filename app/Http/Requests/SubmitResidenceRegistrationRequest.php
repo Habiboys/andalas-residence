@@ -45,6 +45,10 @@ class SubmitResidenceRegistrationRequest extends FormRequest
             'sponsor_name' => ['required_if:funding,sponsor', 'nullable', 'string', 'max:255'],
             'invitee_nims' => ['nullable', 'array', 'max:10'],
             'invitee_nims.*' => ['required', 'string', 'max:50', 'distinct'],
+            'files' => ['nullable', 'array'],
+            'files.*' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
+            'decision_kind' => ['nullable', 'in:full,installment,defer,monthly,transfer_permission'],
+            'decision_reason' => ['nullable', 'string', 'max:2000'],
         ];
     }
 

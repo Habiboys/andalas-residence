@@ -427,82 +427,13 @@ class ResidenceWorkflowController extends Controller
             ]);
         }
 
-        DB::transaction(function () use ($request, $registration, $data, $uploadedFiles): void {
-            $r = ResidenceRegistration::whereKey($registration->id)->lockForUpdate()->firstOrFail();
-            $approvedDecisions = $r->decisions()->where('status', 'approved')->get();
-            $allowedKinds = array_unique([
-                ...($r->policy?->settings['documents'] ?? []),
-                ...$approvedDecisions->filter(fn ($decision) => ! ($decision->terms['requires_configuration'] ?? false))->pluck('terms.agreement_kind')->filter()->all(),
-                'perjanjian',
-            ]);
-
-            foreach ($uploadedFiles as $kind => $file) {
-                $kind = (string) $kind;
-                $amendmentAllowed = $approvedDecisions->contains(
-                    fn ($d) => ! empty($d->terms['amendment_id']) && ($d->terms['agreement_kind'] ?? null) === $kind
-                );
-                if (($r->completed_at && ! $amendmentAllowed) || $r->keys_returned_at || $r->isClosed() || ! in_array($kind, $allowedKinds, true)) {
-                    throw ValidationException::withMessages(["files.{$kind}" => 'Jenis dokumen tidak berlaku atau pendaftaran sudah selesai.']);
-                }
-
-                $latest = $r->documents()->where('kind', $kind)->orderByDesc('version')->first();
-                if ($latest && $latest->status !== 'revision') {
-                    throw ValidationException::withMessages(["files.{$kind}" => "Dokumen {$kind} sudah tersimpan dan tidak dapat diubah."]);
-                }
-
-                $document = $r->documents()->create([
-                    'kind' => $kind,
-                    'version' => 1 + (int) ($latest?->version ?? 0),
-                    'path' => $file->store('documents/registration', 'local'),
-                    'checksum' => hash_file('sha256', $file->getRealPath()),
-                    'uploaded_by' => $request->user()->id,
-                    'status' => 'uploaded',
-                ]);
-                AuditLogService::log($request->user(), 'registration_document_uploaded', $document, null, ['kind' => $document->kind, 'version' => $document->version]);
-            }
-
-            if (! empty($data['decision_kind'])) {
-                if ($r->completed_at || ! $r->tagihan_id || $r->isClosed()) {
-                    throw ValidationException::withMessages(['decision_kind' => 'Keputusan membutuhkan pendaftaran berjalan dan tagihan.']);
-                }
-                if ($r->decisions()->whereIn('status', ['pending', 'approved'])->exists()) {
-                    throw ValidationException::withMessages(['decision_kind' => 'Pilihan pembiayaan sudah tersimpan dan tidak dapat diubah.']);
-                }
-
-                $kind = $data['decision_kind'];
-                if ($kind === 'full') {
-                    $decision = $r->decisions()->create([
-                        'kind' => 'full',
-                        'reason' => 'Pembayaran penuh sesuai tagihan.',
-                        'requested_by' => $request->user()->id,
-                        'decided_by' => $request->user()->id,
-                        'decided_at' => now(),
-                        'status' => 'approved',
-                    ]);
-                    AuditLogService::log($request->user(), 'residence_decision_requested', $decision, null, ['kind' => 'full']);
-                } else {
-                    $reason = trim((string) ($data['decision_reason'] ?? ''));
-                    if ($reason === '') {
-                        throw ValidationException::withMessages(['decision_reason' => 'Alasan permohonan wajib diisi.']);
-                    }
-                    if ($kind === 'monthly' && $r->rate_unit !== 'month') {
-                        throw ValidationException::withMessages(['decision_kind' => 'Pendaftaran ini bukan skema bulanan.']);
-                    }
-                    if ($kind === 'transfer_permission' && $r->stay_kind !== 'non_student') {
-                        throw ValidationException::withMessages(['decision_kind' => 'Izin berbasis bukti transfer hanya untuk umum.']);
-                    }
-                    $decision = $r->decisions()->create([
-                        'kind' => $kind,
-                        'reason' => $reason,
-                        'requested_by' => $request->user()->id,
-                        'status' => 'pending',
-                    ]);
-                    AuditLogService::log($request->user(), 'residence_decision_requested', $decision, null, ['kind' => $kind, 'reason' => $reason]);
-                }
-            }
-
-            app(ResidenceWorkflow::class)->evaluate($r->fresh());
-        });
+        app(ResidenceWorkflow::class)->storeSubmittedPackage(
+            $registration,
+            $request->user(),
+            $uploadedFiles,
+            $data['decision_kind'] ?? null,
+            $data['decision_reason'] ?? null,
+        );
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Dokumen kelengkapan dan pilihan pembiayaan tersimpan permanen.']);
     }

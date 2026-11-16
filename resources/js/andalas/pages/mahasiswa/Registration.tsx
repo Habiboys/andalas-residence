@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { Download, FileText, Upload } from 'lucide-react';
+import * as workflow from '@/actions/App/Http/Controllers/ResidenceWorkflowController';
 import RoomCatalog, { type CatalogRoom } from '../../components/RoomCatalog';
 import RoomInvitations, {
     InviteRoommateButton,
@@ -9,6 +11,9 @@ import type {
     VirtualAccountItem,
 } from '../../components/PaymentAccountsBox';
 import {
+    ALLOWED_UPLOAD_EXTENSIONS,
+    friendlyDocumentLabel,
+    MAX_UPLOAD_BYTES,
     StudentRegistrationCard,
     type Registration as WorkflowRegistration,
     type TemplateItem,
@@ -20,6 +25,7 @@ import {
     Modal,
     PageHeader,
     inputClass,
+    selectClass,
     StatusBadge,
 } from '../../components/ui';
 import { store } from '@/routes/andalas/registrations';
@@ -30,6 +36,8 @@ type Props = {
     housingProfileUrl?: string;
     housingStatusUrl?: string;
     policy_open?: boolean;
+    policy_category?: string;
+    required_documents?: string[];
     policy_monthly_allowed?: boolean;
     policy_month_days?: number;
     policy_day_basis?: string;
@@ -83,14 +91,13 @@ function LinearStepper({
     const labels = [
         'Rencana hunian',
         kipk ? 'Alokasi kamar' : 'Pilih kamar',
-        'Review & Teman',
-        'Berkas & Pembiayaan',
+        'Review & Berkas',
         'Verifikasi & Pembayaran',
     ];
 
     return (
         <ol
-            className="border-base-300 bg-base-100 grid grid-cols-1 gap-2 rounded-2xl border p-3 text-sm sm:grid-cols-2 lg:grid-cols-5"
+            className="border-base-300 bg-base-100 grid grid-cols-1 gap-2 rounded-2xl border p-3 text-sm sm:grid-cols-2 lg:grid-cols-4"
             aria-label="Tahapan pendaftaran"
         >
             {labels.map((label, index) => (
@@ -127,6 +134,8 @@ export default function Registration({
     housingProfileUrl,
     housingStatusUrl,
     policy_open = false,
+    policy_category = 'local_non_kipk',
+    required_documents = ['perjanjian'],
     policy_monthly_allowed = true,
     policy_month_days = 30,
     policy_day_basis = 'nights',
@@ -144,6 +153,12 @@ export default function Registration({
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [friendNim, setFriendNim] = useState('');
     const [friendError, setFriendError] = useState('');
+    const [selectedDocFiles, setSelectedDocFiles] = useState<
+        Record<string, File>
+    >({});
+    const [docFileErrors, setDocFileErrors] = useState<Record<string, string>>(
+        {},
+    );
     const [tab, setTab] = useState<'registration' | 'invitations'>(
         'registration',
     );
@@ -166,6 +181,8 @@ export default function Registration({
         sponsor_name: '',
         notes: '',
         invitee_nims: [] as string[],
+        decision_kind: 'full',
+        decision_reason: '',
     });
     const selectedPeriod =
         periods.find((p) => p.id === form.data.periode_id) ?? periods[0];
@@ -363,33 +380,16 @@ export default function Registration({
                                         latestDocs.set(doc.kind, doc);
                                     }
                                 }
-                                const allDocsUploaded = requiredDocs.every(
-                                    (kind) => {
-                                        const doc = latestDocs.get(kind);
-                                        return doc && doc.status !== 'revision';
-                                    },
+                                const hasRevisionDoc = requiredDocs.some(
+                                    (kind) =>
+                                        latestDocs.get(kind)?.status ===
+                                        'revision',
                                 );
-                                const hasFinancingDecision =
-                                    Boolean(
-                                        currentReg?.is_kipk &&
-                                            currentReg?.policy?.category ===
-                                                'local_kipk',
-                                    ) ||
-                                    !currentReg?.tagihan ||
-                                    (currentReg?.decisions ?? []).some(
-                                        (d) =>
-                                            d.status === 'pending' ||
-                                            d.status === 'approved',
-                                    );
-                                const activeLinearStep =
-                                    allDocsUploaded && hasFinancingDecision
-                                        ? 4
-                                        : 3;
 
                                 return (
                                     <div className="space-y-5">
                                         <LinearStepper
-                                            activeStep={activeLinearStep}
+                                            activeStep={3}
                                             kipk={kipk}
                                         />
                                         <div className="border-base-300 bg-base-200/40 rounded-xl border p-4 text-sm">
@@ -399,9 +399,11 @@ export default function Registration({
                                             <p className="text-base-content/75 mt-1">
                                                 {waitingKipkAllocation
                                                     ? 'Menunggu alokasi kamar sesuai prioritas dan kapasitas. Tagihan diterbitkan setelah kamar dialokasikan.'
-                                                    : activeLinearStep === 3
-                                                      ? 'Langkah 4: Lengkapi dokumen persyaratan dan pilih skema pembiayaan di bawah ini.'
-                                                      : 'Langkah 5: Pantau pemeriksaan berkas oleh Fasilitator gedung dan selesaikan pembayaran pada detail tagihan.'}
+                                                    : hasRevisionDoc
+                                                      ? 'Fasilitator gedung meminta revisi berkas. Unggah ulang dokumen yang diminta pada panel di bawah.'
+                                                      : currentReg?.payment_unlocked
+                                                        ? 'Tahap 4: Berkas Anda sudah disetujui Fasilitator gedung. Silakan lengkapi bukti pembayaran sesuai tagihan.'
+                                                        : 'Tahap 4: Pengajuan dan berkas Anda sedang diperiksa Fasilitator gedung. Setelah disetujui, menu dan form pembayaran akan otomatis terbuka di sini.'}
                                             </p>
                                         </div>
                                         {currentReg && (
@@ -780,12 +782,13 @@ export default function Registration({
                                                         </p>
                                                     )}
                                                     <p className="text-base-content/70 text-xs">
-                                                        Alokasi dipertahankan
+                                                        Alokasi kamar dipertahankan
                                                         selama proses
                                                         administrasi berjalan.
-                                                        Hunian belum aktif
-                                                        sampai check-in fisik
-                                                        dan serah kunci.
+                                                        Status hunian aktif
+                                                        otomatis tercatat
+                                                        setelah berkas valid dan
+                                                        pembayaran terverifikasi.
                                                     </p>
                                                     <div className="border-base-300 bg-base-200/30 space-y-3 rounded-xl border p-4">
                                                         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1010,7 +1013,276 @@ export default function Registration({
                                             ? 'Pendaftaran KIP-K menggunakan skema tahunan.'
                                             : step === 1
                                               ? 'Kamar dialokasikan otomatis sesuai prioritas gedung.'
-                                              : 'Periksa kategori KIP-K sebelum mengajukan pendaftaran.'}
+                                              : 'Periksa kategori KIP-K dan unggah berkas wajib di bawah sebelum mengajukan pendaftaran.'}
+                                    </div>
+                                )}
+                                {step === 2 && (
+                                    <div className="space-y-4">
+                                        <div className="border-base-300 bg-base-100 space-y-3 rounded-2xl border p-5 shadow-sm">
+                                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                                <div className="flex items-center gap-2">
+                                                    <FileText className="text-primary size-5" />
+                                                    <h3 className="text-base font-semibold">
+                                                        Unggah Berkas Wajib Pendaftaran
+                                                    </h3>
+                                                </div>
+                                                <span className="text-base-content/65 text-xs">
+                                                    PDF, JPG, JPEG, atau PNG (maks. 5 MB)
+                                                </span>
+                                            </div>
+                                            <div className="space-y-3">
+                                                {required_documents.map(
+                                                    (kind) => {
+                                                        const tpl =
+                                                            templates.find(
+                                                                (t) =>
+                                                                    t.category ===
+                                                                        policy_category &&
+                                                                    t.kind ===
+                                                                        kind,
+                                                            );
+                                                        const picked =
+                                                            selectedDocFiles[
+                                                                kind
+                                                            ];
+                                                        return (
+                                                            <div
+                                                                key={kind}
+                                                                className="border-base-300 bg-base-200/30 space-y-2 rounded-xl border p-3.5"
+                                                            >
+                                                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                                                    <span className="text-sm font-medium">
+                                                                        {friendlyDocumentLabel(
+                                                                            kind,
+                                                                        )}
+                                                                    </span>
+                                                                    {tpl && (
+                                                                        <a
+                                                                            href={workflow.downloadTemplate.url(
+                                                                                [
+                                                                                    policy_category,
+                                                                                    kind,
+                                                                                ],
+                                                                            )}
+                                                                            className="btn btn-outline btn-xs gap-1"
+                                                                        >
+                                                                            <Download className="size-3.5" />
+                                                                            Unduh
+                                                                            Template
+                                                                        </a>
+                                                                    )}
+                                                                </div>
+                                                                <input
+                                                                    type="file"
+                                                                    accept=".pdf,.jpg,.jpeg,.png"
+                                                                    aria-label={`Unggah ${friendlyDocumentLabel(kind)}`}
+                                                                    className="file-input file-input-bordered file-input-sm w-full"
+                                                                    onChange={(
+                                                                        e,
+                                                                    ) => {
+                                                                        const file =
+                                                                            e
+                                                                                .target
+                                                                                .files?.[0];
+                                                                        if (
+                                                                            !file
+                                                                        ) {
+                                                                            setSelectedDocFiles(
+                                                                                (
+                                                                                    prev,
+                                                                                ) => {
+                                                                                    const next =
+                                                                                        {
+                                                                                            ...prev,
+                                                                                        };
+                                                                                    delete next[
+                                                                                        kind
+                                                                                    ];
+                                                                                    return next;
+                                                                                },
+                                                                            );
+                                                                            setDocFileErrors(
+                                                                                (
+                                                                                    prev,
+                                                                                ) => {
+                                                                                    const next =
+                                                                                        {
+                                                                                            ...prev,
+                                                                                        };
+                                                                                    delete next[
+                                                                                        kind
+                                                                                    ];
+                                                                                    return next;
+                                                                                },
+                                                                            );
+                                                                            return;
+                                                                        }
+                                                                        const ext =
+                                                                            file.name
+                                                                                .split(
+                                                                                    '.',
+                                                                                )
+                                                                                .pop()
+                                                                                ?.toLowerCase() ??
+                                                                            '';
+                                                                        if (
+                                                                            !ALLOWED_UPLOAD_EXTENSIONS.has(
+                                                                                ext,
+                                                                            )
+                                                                        ) {
+                                                                            setDocFileErrors(
+                                                                                (
+                                                                                    prev,
+                                                                                ) => ({
+                                                                                    ...prev,
+                                                                                    [kind]: 'Format harus PDF, JPG, JPEG, atau PNG.',
+                                                                                }),
+                                                                            );
+                                                                            return;
+                                                                        }
+                                                                        if (
+                                                                            file.size >
+                                                                            MAX_UPLOAD_BYTES
+                                                                        ) {
+                                                                            setDocFileErrors(
+                                                                                (
+                                                                                    prev,
+                                                                                ) => ({
+                                                                                    ...prev,
+                                                                                    [kind]: 'Ukuran file maksimal 5 MB.',
+                                                                                }),
+                                                                            );
+                                                                            return;
+                                                                        }
+                                                                        setDocFileErrors(
+                                                                            (
+                                                                                prev,
+                                                                            ) => {
+                                                                                const next =
+                                                                                    {
+                                                                                        ...prev,
+                                                                                    };
+                                                                                delete next[
+                                                                                    kind
+                                                                                ];
+                                                                                return next;
+                                                                            },
+                                                                        );
+                                                                        setSelectedDocFiles(
+                                                                            (
+                                                                                prev,
+                                                                            ) => ({
+                                                                                ...prev,
+                                                                                [kind]: file,
+                                                                            }),
+                                                                        );
+                                                                    }}
+                                                                />
+                                                                {picked &&
+                                                                    !docFileErrors[
+                                                                        kind
+                                                                    ] && (
+                                                                        <p className="text-primary flex items-center gap-1.5 text-xs">
+                                                                            <Upload className="size-3.5" />
+                                                                            Siap
+                                                                            dikirim:{' '}
+                                                                            {
+                                                                                picked.name
+                                                                            }
+                                                                        </p>
+                                                                    )}
+                                                                {docFileErrors[
+                                                                    kind
+                                                                ] && (
+                                                                    <p className="text-error text-xs">
+                                                                        {
+                                                                            docFileErrors[
+                                                                                kind
+                                                                            ]
+                                                                        }
+                                                                    </p>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    },
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {!kipk &&
+                                            form.data.funding ===
+                                                'personal' && (
+                                                <div className="border-base-300 bg-base-100 space-y-3 rounded-2xl border p-5 shadow-sm">
+                                                    <h3 className="text-base font-semibold">
+                                                        Pilih Skema Pembiayaan
+                                                    </h3>
+                                                    <label className="block space-y-1 text-sm">
+                                                        <span>
+                                                            Jenis Pembiayaan
+                                                        </span>
+                                                        <select
+                                                            className={
+                                                                selectClass
+                                                            }
+                                                            value={
+                                                                form.data
+                                                                    .decision_kind
+                                                            }
+                                                            onChange={(e) =>
+                                                                form.setData(
+                                                                    'decision_kind',
+                                                                    e.target
+                                                                        .value,
+                                                                )
+                                                            }
+                                                        >
+                                                            <option value="full">
+                                                                Bayar penuh
+                                                                sesuai tagihan
+                                                            </option>
+                                                            <option value="installment">
+                                                                Pengajuan
+                                                                cicilan
+                                                            </option>
+                                                            {form.data
+                                                                .rate_unit ===
+                                                                'month' &&
+                                                                canSelectMonthly && (
+                                                                    <option value="monthly">
+                                                                        Pembayaran
+                                                                        bulanan
+                                                                    </option>
+                                                                )}
+                                                        </select>
+                                                    </label>
+                                                    {form.data.decision_kind !==
+                                                        'full' && (
+                                                        <label className="block space-y-1 text-sm">
+                                                            <span>
+                                                                Alasan pengajuan
+                                                                pembiayaan
+                                                            </span>
+                                                            <textarea
+                                                                className="textarea textarea-bordered w-full"
+                                                                rows={2}
+                                                                placeholder="Jelaskan alasan pengajuan cicilan/skema..."
+                                                                value={
+                                                                    form.data
+                                                                        .decision_reason
+                                                                }
+                                                                onChange={(e) =>
+                                                                    form.setData(
+                                                                        'decision_reason',
+                                                                        e.target
+                                                                            .value,
+                                                                    )
+                                                                }
+                                                                required
+                                                            />
+                                                        </label>
+                                                    )}
+                                                </div>
+                                            )}
                                     </div>
                                 )}
                                 {Object.values(form.errors).map((e, i) => (
@@ -1082,7 +1354,21 @@ export default function Registration({
                                                 form.processing ||
                                                 !policy_open ||
                                                 !form.data.periode_id ||
-                                                (!kipk && (!room || price <= 0))
+                                                (!kipk && (!room || price <= 0)) ||
+                                                required_documents.some(
+                                                    (kind) =>
+                                                        !selectedDocFiles[kind],
+                                                ) ||
+                                                Object.values(
+                                                    docFileErrors,
+                                                ).some(Boolean) ||
+                                                (!kipk &&
+                                                    form.data.funding ===
+                                                        'personal' &&
+                                                    form.data.decision_kind !==
+                                                        'full' &&
+                                                    form.data.decision_reason.trim() ===
+                                                        '')
                                             }
                                         >
                                             Ajukan pendaftaran
@@ -1116,9 +1402,14 @@ export default function Registration({
                                     {form.data.invitee_nims.length > 0
                                         ? ` · Mengundang teman (${form.data.invitee_nims.join(', ')})`
                                         : ''}
-                                    . Setelah dikirim, alokasi kamar akan segera
-                                    diproses dan Anda dapat melengkapi dokumen
-                                    resmi.
+                                    {' '}beserta{' '}
+                                    <strong>
+                                        {Object.keys(selectedDocFiles).length}{' '}
+                                        berkas pendaftaran
+                                    </strong>
+                                    . Setelah diajukan, pengajuan akan diperiksa
+                                    oleh Fasilitator gedung sebelum tahap
+                                    pembayaran dibuka.
                                 </p>
                                 <div className="flex justify-end gap-2">
                                     <Button
@@ -1140,8 +1431,24 @@ export default function Registration({
                                                 preferences: kipk
                                                     ? []
                                                     : d.preferences,
+                                                files: selectedDocFiles,
+                                                decision_kind:
+                                                    !kipk &&
+                                                    d.funding === 'personal'
+                                                        ? d.decision_kind
+                                                        : undefined,
+                                                decision_reason:
+                                                    !kipk &&
+                                                    d.funding === 'personal' &&
+                                                    d.decision_kind !== 'full'
+                                                        ? d.decision_reason.trim()
+                                                        : undefined,
                                             }));
                                             form.post(store.url(), {
+                                                forceFormData: true,
+                                                onSuccess: () => {
+                                                    setSelectedDocFiles({});
+                                                },
                                                 onFinish: () =>
                                                     setConfirmOpen(false),
                                             });

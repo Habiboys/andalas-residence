@@ -227,8 +227,13 @@ const DECISION_LABELS: Record<string, string> = {
     transfer_permission: 'Izin Tinggal Berbasis Bukti Transfer',
 };
 
-const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
-const ALLOWED_UPLOAD_EXTENSIONS = new Set(['pdf', 'jpg', 'jpeg', 'png']);
+export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+export const ALLOWED_UPLOAD_EXTENSIONS = new Set([
+    'pdf',
+    'jpg',
+    'jpeg',
+    'png',
+]);
 
 function formatFileSize(bytes: number): string {
     if (bytes < 1024) {
@@ -240,7 +245,7 @@ function formatFileSize(bytes: number): string {
     return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 }
 
-function friendlyDocumentLabel(kind: string): string {
+export function friendlyDocumentLabel(kind: string): string {
     if (kind.startsWith('pembiayaan_')) {
         return 'Surat Perjanjian Pembiayaan Disetujui';
     }

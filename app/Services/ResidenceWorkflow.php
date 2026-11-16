@@ -6,6 +6,9 @@ use App\Models\Pembayaran;
 use App\Models\ResidenceRegistration;
 use App\Models\User;
 use App\Notifications\ResidenceWorkflowNotification;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class ResidenceWorkflow
 {
@@ -211,7 +214,7 @@ class ResidenceWorkflow
         if ($r->reserved_room_id) {
             if (($financiallyReady || $hasSubmittedProof) && in_array($allocationStatus, ['waiting', 'held', 'allocated'], true)) {
                 $allocationStatus = 'admin_occupied';
-            } elseif (! $financiallyReady && ! $hasSubmittedProof && $allocationStatus === 'allocated') {
+            } elseif (! $financiallyReady && ! $hasSubmittedProof && ! $r->is_kipk && $r->funding === 'personal' && $r->stay_kind === 'regular' && in_array($allocationStatus, ['allocated', 'admin_occupied'], true)) {
                 $allocationStatus = 'held';
             }
         }
@@ -235,6 +238,101 @@ class ResidenceWorkflow
         if ($ready && ! $wasReady) {
             $this->notify($r, 'Siap check-in', 'Administrasi telah memenuhi syarat. Datang ke pengelola gedung dengan identitas dan berkas asli untuk pemeriksaan serta serah kunci.');
         }
+    }
+
+    /**
+     * @param  array<string, UploadedFile>  $uploadedFiles
+     */
+    public function storeSubmittedPackage(
+        ResidenceRegistration $registration,
+        User $actor,
+        array $uploadedFiles,
+        ?string $decisionKind = null,
+        ?string $decisionReason = null,
+    ): void {
+        if ($uploadedFiles === [] && empty($decisionKind)) {
+            return;
+        }
+
+        DB::transaction(function () use ($registration, $actor, $uploadedFiles, $decisionKind, $decisionReason): void {
+            $r = ResidenceRegistration::whereKey($registration->id)->lockForUpdate()->firstOrFail();
+            $approvedDecisions = $r->decisions()->where('status', 'approved')->get();
+            $allowedKinds = array_unique([
+                ...($r->policy?->settings['documents'] ?? []),
+                ...$approvedDecisions->filter(fn ($decision) => ! ($decision->terms['requires_configuration'] ?? false))->pluck('terms.agreement_kind')->filter()->all(),
+                'perjanjian',
+            ]);
+
+            foreach ($uploadedFiles as $kind => $file) {
+                $kind = (string) $kind;
+                $amendmentAllowed = $approvedDecisions->contains(
+                    fn ($d) => ! empty($d->terms['amendment_id']) && ($d->terms['agreement_kind'] ?? null) === $kind
+                );
+                if (($r->completed_at && ! $amendmentAllowed) || $r->keys_returned_at || $r->isClosed() || ! in_array($kind, $allowedKinds, true)) {
+                    throw ValidationException::withMessages(["files.{$kind}" => 'Jenis dokumen tidak berlaku atau pendaftaran sudah selesai.']);
+                }
+
+                $latest = $r->documents()->where('kind', $kind)->orderByDesc('version')->first();
+                if ($latest && $latest->status !== 'revision') {
+                    throw ValidationException::withMessages(["files.{$kind}" => "Dokumen {$kind} sudah tersimpan dan tidak dapat diubah."]);
+                }
+
+                $document = $r->documents()->create([
+                    'kind' => $kind,
+                    'version' => 1 + (int) ($latest?->version ?? 0),
+                    'path' => $file->store('documents/registration', 'local'),
+                    'checksum' => hash_file('sha256', $file->getRealPath()),
+                    'uploaded_by' => $actor->id,
+                    'status' => 'uploaded',
+                ]);
+                AuditLogService::log($actor, 'registration_document_uploaded', $document, null, ['kind' => $document->kind, 'version' => $document->version]);
+            }
+
+            if (! empty($decisionKind)) {
+                if ($r->completed_at || ! $r->tagihan_id || $r->isClosed()) {
+                    throw ValidationException::withMessages(['decision_kind' => 'Keputusan membutuhkan pendaftaran berjalan dan tagihan.']);
+                }
+                if ($r->decisions()->whereIn('status', ['pending', 'approved'])->exists()) {
+                    throw ValidationException::withMessages(['decision_kind' => 'Pilihan pembiayaan sudah tersimpan dan tidak dapat diubah.']);
+                }
+
+                if ($decisionKind === 'full') {
+                    $decision = $r->decisions()->create([
+                        'kind' => 'full',
+                        'reason' => 'Pembayaran penuh sesuai tagihan.',
+                        'requested_by' => $actor->id,
+                        'decided_by' => $actor->id,
+                        'decided_at' => now(),
+                        'status' => 'approved',
+                    ]);
+                    AuditLogService::log($actor, 'residence_decision_requested', $decision, null, ['kind' => 'full']);
+                } else {
+                    $reason = trim((string) ($decisionReason ?? ''));
+                    if ($reason === '') {
+                        throw ValidationException::withMessages(['decision_reason' => 'Alasan permohonan wajib diisi.']);
+                    }
+                    if ($decisionKind === 'monthly' && $r->rate_unit !== 'month') {
+                        throw ValidationException::withMessages(['decision_kind' => 'Pendaftaran ini bukan skema bulanan.']);
+                    }
+                    if ($decisionKind === 'transfer_permission' && $r->stay_kind !== 'non_student') {
+                        throw ValidationException::withMessages(['decision_kind' => 'Izin berbasis bukti transfer hanya untuk umum.']);
+                    }
+                    $decision = $r->decisions()->create([
+                        'kind' => $decisionKind,
+                        'reason' => $reason,
+                        'requested_by' => $actor->id,
+                        'status' => 'pending',
+                    ]);
+                    AuditLogService::log($actor, 'residence_decision_requested', $decision, null, ['kind' => $decisionKind, 'reason' => $reason]);
+                }
+            }
+
+            $fresh = $r->fresh();
+            $this->evaluate($fresh);
+            if ($uploadedFiles !== []) {
+                $this->notify($fresh, 'Dokumen pendaftaran baru diterima', 'Berkas pendaftaran baru telah diunggah dan menunggu pemeriksaan fasilitator gedung.', true);
+            }
+        });
     }
 
     public function notify(ResidenceRegistration $r, string $subject, string $message, bool $officers = false): void

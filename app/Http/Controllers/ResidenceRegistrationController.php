@@ -8,7 +8,9 @@ use App\Enums\ResidenceRegistrationStatus;
 use App\Http\Requests\ReviewResidenceRegistrationRequest;
 use App\Http\Requests\SubmitResidenceRegistrationRequest;
 use App\Models\ResidenceRegistration;
+use App\Services\ResidenceWorkflow;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class ResidenceRegistrationController extends Controller
@@ -20,9 +22,23 @@ class ResidenceRegistrationController extends Controller
             throw ValidationException::withMessages(['profile' => 'Lengkapi Data Hunian sebelum mengajukan pendaftaran.']);
         }
 
-        $submit->handle($student, $request->validated());
+        $validated = $request->validated();
+        $uploadedFiles = $request->file('files', []);
 
-        return back()->with('toast', ['type' => 'success', 'message' => 'Pendaftaran asrama berhasil diajukan.']);
+        DB::transaction(function () use ($request, $submit, $student, $validated, $uploadedFiles): void {
+            $registration = $submit->handle($student, $validated);
+            if ($uploadedFiles !== [] || ! empty($validated['decision_kind'])) {
+                app(ResidenceWorkflow::class)->storeSubmittedPackage(
+                    $registration,
+                    $request->user(),
+                    $uploadedFiles,
+                    $validated['decision_kind'] ?? null,
+                    $validated['decision_reason'] ?? null,
+                );
+            }
+        });
+
+        return back()->with('toast', ['type' => 'success', 'message' => 'Pendaftaran asrama dan berkas berhasil diajukan.']);
     }
 
     public function update(ReviewResidenceRegistrationRequest $request, ResidenceRegistration $registration, ReviewResidenceRegistration $review): RedirectResponse

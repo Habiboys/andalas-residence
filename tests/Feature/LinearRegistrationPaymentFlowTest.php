@@ -88,7 +88,7 @@ it('allows cancelling an unpaid registration so the student returns to step 1 an
 
     $this->actingAs($f['user'])
         ->post(route('residence.cancel', $reg2))
-        ->assertSessionHasErrors('cancel');
+        ->assertSessionHasErrors('registration');
 });
 
 it('restricts registration document review exclusively to assigned building facilitator and unlocks payment menu & detail page upon approval', function () {
@@ -239,4 +239,85 @@ it('lets pengelola manage official destination payment bank accounts in residenc
         ->assertSessionHasNoErrors();
 
     expect(PaymentBankAccount::count())->toBe(0);
+});
+
+it('stores mandatory documents and financing scheme atomically in stage 3 submission and lets students re-upload after payment proof rejection', function () {
+    $f = toBeFixture('local_non_kipk', 2);
+    $facilitator = toBeFacilitator($f['building']);
+
+    // Atomic submission: room + document + financing scheme in ONE request (Step 3 -> Step 4)
+    $this->actingAs($f['user'])
+        ->post(route('andalas.registrations.store'), [
+            'periode_id' => $f['period']->id,
+            'preferences' => [['kamar_id' => $f['room']->id]],
+            'files' => [
+                'perjanjian' => UploadedFile::fake()->create('perjanjian.pdf', 80, 'application/pdf'),
+            ],
+            'decision_kind' => 'full',
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $registration = ResidenceRegistration::where('student_profile_id', $f['profile']->id)->sole();
+    $doc = $registration->documents()->sole();
+    expect($doc->kind)->toBe('perjanjian')
+        ->and($doc->status)->toBe('uploaded')
+        ->and($registration->decisions()->sole()->kind)->toBe('full');
+
+    // Building facilitator approves document -> payment unlocked
+    $this->actingAs($facilitator)
+        ->post(route('residence.documents.review', $doc), ['status' => 'valid'])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    // Student uploads first payment proof
+    $this->actingAs($f['user'])
+        ->post(route('andalas.pembayaran.store'), [
+            'tagihan_id' => $registration->tagihan_id,
+            'jenis_pembayaran' => 'sewa_asrama',
+            'nominal' => (float) $registration->tagihan->total,
+            'nama_bank' => 'BRI',
+            'nomor_rekening_pengirim' => '000111222',
+            'atas_nama_pengirim' => 'Salah Nominal',
+            'tanggal_bayar' => '2026-11-16 05:05:00',
+            'bukti_transfer' => UploadedFile::fake()->create('bukti-blur.jpg', 80, 'image/jpeg'),
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $firstPayment = Pembayaran::where('tagihan_id', $registration->tagihan_id)->sole();
+
+    // Travel past original deadline to verify manager rejection refreshes expiry window safely
+    $registration->update(['reservation_expires_at' => now()->subMinute()]);
+
+    $this->actingAs($f['manager'])
+        ->post(route('andalas.pembayaran.verify', $firstPayment), [
+            'status' => 'ditolak',
+            'catatan_verifikasi' => 'Foto bukti buram, mohon unggah ulang yang jelas.',
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    expect($firstPayment->fresh()->status)->toBe('ditolak')
+        ->and($registration->fresh()->allocation_status)->toBe('held')
+        ->and($registration->fresh()->reservation_expires_at?->isFuture())->toBeTrue()
+        ->and($f['profile']->fresh()->status_huni)->toBe('calon');
+
+    // Student CAN upload a corrected payment proof right away
+    $this->actingAs($f['user'])
+        ->post(route('andalas.pembayaran.store'), [
+            'tagihan_id' => $registration->tagihan_id,
+            'jenis_pembayaran' => 'sewa_asrama',
+            'nominal' => (float) $registration->tagihan->total,
+            'nama_bank' => 'BNI',
+            'nomor_rekening_pengirim' => '999888777',
+            'atas_nama_pengirim' => 'Nama Benar',
+            'tanggal_bayar' => '2026-11-16 16:00:00',
+            'bukti_transfer' => UploadedFile::fake()->create('bukti-jelas.pdf', 90, 'application/pdf'),
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    expect(Pembayaran::where('tagihan_id', $registration->tagihan_id)->count())->toBe(2)
+        ->and(Pembayaran::where('tagihan_id', $registration->tagihan_id)->where('status', 'menunggu_verifikasi')->count())->toBe(1);
 });

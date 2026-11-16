@@ -205,8 +205,22 @@ class PembayaranController extends Controller
                 'tanggal_bayar' => $validated['status'] === 'lunas' ? now() : $pembayaran->tanggal_bayar,
             ]);
 
-            if ($pembayaran->tagihan?->registration) {
-                app(ResidenceWorkflow::class)->evaluate($pembayaran->tagihan->registration->fresh());
+            if ($registration = $pembayaran->tagihan?->registration) {
+                $workflow = app(ResidenceWorkflow::class);
+                $freshReg = $registration->fresh();
+                if ($validated['status'] === 'ditolak') {
+                    if (! $freshReg->completed_at && $freshReg->reservation_expires_at && $freshReg->reservation_expires_at->lt(now()->addHours(6))) {
+                        $hours = max(24, (int) ($freshReg->periode?->reservation_hours ?? 24));
+                        $freshReg->update(['reservation_expires_at' => now()->addHours($hours)]);
+                        $freshReg->refresh();
+                    }
+                    $workflow->notify(
+                        $freshReg,
+                        'Bukti pembayaran ditolak',
+                        trim((string) ($validated['catatan_verifikasi'] ?? '')) ?: 'Bukti pembayaran belum sesuai. Silakan periksa kembali dan unggah ulang bukti transfer yang valid.',
+                    );
+                }
+                $workflow->evaluate($freshReg);
             }
             if ($validated['status'] === 'lunas') {
                 $kategori = KategoriTransaksi::where('tipe', 'pemasukan')
