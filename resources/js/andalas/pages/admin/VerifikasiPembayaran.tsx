@@ -15,13 +15,18 @@ import { show as showWorkflowRegistration } from '@/routes/residence/registratio
 import { workflow as workflowPage } from '@/routes/residence';
 import { verifikasiPembayaran as adminPage } from '@/routes/admin';
 import { verifikasiPembayaran as adminLayananPage } from '@/routes/admin_layanan';
-import { formatRupiah } from '../../lib/format';
+import { formatDateTime, formatRupiah } from '../../lib/format';
 
 type Payment = {
     id: string;
     kode_transaksi?: string;
     nominal: number;
     status: string;
+    rekening_tujuan?: string | null;
+    nama_bank?: string | null;
+    nomor_rekening_pengirim?: string | null;
+    atas_nama_pengirim?: string | null;
+    tanggal_bayar?: string | null;
     catatan_verifikasi?: string;
     bukti_transfer_path?: string;
     mahasiswa?: { user?: { nama: string; nim_nip: string } };
@@ -248,6 +253,38 @@ export default function VerifikasiPembayaran({
                                 <span className="font-medium">Nominal:</span>{' '}
                                 {formatRupiah(selected.nominal)}
                             </p>
+                            {selected.rekening_tujuan && (
+                                <p>
+                                    <span className="font-medium">
+                                        Rekening Tujuan:
+                                    </span>{' '}
+                                    {selected.rekening_tujuan}
+                                </p>
+                            )}
+                            {(selected.nama_bank ||
+                                selected.nomor_rekening_pengirim ||
+                                selected.atas_nama_pengirim) && (
+                                <p>
+                                    <span className="font-medium">
+                                        Rekening Pengirim:
+                                    </span>{' '}
+                                    {selected.nama_bank || '-'}{' '}
+                                    {selected.nomor_rekening_pengirim
+                                        ? `· ${selected.nomor_rekening_pengirim}`
+                                        : ''}
+                                    {selected.atas_nama_pengirim
+                                        ? ` a.n. ${selected.atas_nama_pengirim}`
+                                        : ''}
+                                </p>
+                            )}
+                            {selected.tanggal_bayar && (
+                                <p>
+                                    <span className="font-medium">
+                                        Waktu Transfer:
+                                    </span>{' '}
+                                    {formatDateTime(selected.tanggal_bayar)}
+                                </p>
+                            )}
                             <p>
                                 <span className="font-medium">Status:</span>{' '}
                                 <StatusBadge status={selected.status} />

@@ -15,6 +15,19 @@ export function formatDate(value?: string | number | Date | null): string {
         : date.toLocaleDateString('id-ID');
 }
 
+export function formatDateTime(value?: string | number | Date | null): string {
+    if (!value) {
+        return '-';
+    }
+    const date = new Date(value);
+    return Number.isNaN(date.getTime())
+        ? '-'
+        : date.toLocaleString('id-ID', {
+              dateStyle: 'medium',
+              timeStyle: 'short',
+          });
+}
+
 export function mapPaymentStatus(status: string): string {
     const map: Record<string, string> = {
         menunggu_verifikasi: 'pending',

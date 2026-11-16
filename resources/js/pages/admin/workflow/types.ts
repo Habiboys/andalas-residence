@@ -173,10 +173,12 @@ export type PaymentProof = {
     tagihan_id?: string;
     nominal: string;
     jenis_pembayaran?: string;
+    rekening_tujuan?: string | null;
     nama_bank?: string | null;
     nomor_rekening_pengirim?: string | null;
     atas_nama_pengirim?: string | null;
     status?: string;
+    tanggal_bayar?: string | null;
     created_at?: string | null;
     mahasiswa: { user: { nama: string; nim_nip?: string } };
     tagihan?: {

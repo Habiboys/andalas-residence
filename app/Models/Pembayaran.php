@@ -10,9 +10,10 @@ class Pembayaran extends BaseModel
 
     protected $fillable = [
         'kode_transaksi', 'tagihan_id', 'mahasiswa_id', 'jenis_pembayaran',
-        'nominal', 'termin_ke', 'metode_pembayaran', 'nama_bank',
-        'nomor_rekening_pengirim', 'atas_nama_pengirim', 'bukti_transfer_path',
-        'status', 'diverifikasi_oleh', 'catatan_verifikasi', 'tanggal_bayar',
+        'nominal', 'termin_ke', 'metode_pembayaran', 'payment_bank_account_id',
+        'rekening_tujuan', 'nama_bank', 'nomor_rekening_pengirim',
+        'atas_nama_pengirim', 'bukti_transfer_path', 'status',
+        'diverifikasi_oleh', 'catatan_verifikasi', 'tanggal_bayar',
     ];
 
     protected function casts(): array
@@ -33,6 +34,12 @@ class Pembayaran extends BaseModel
     public function tagihan(): BelongsTo
     {
         return $this->belongsTo(Tagihan::class);
+    }
+
+    /** @return BelongsTo<PaymentBankAccount, $this> */
+    public function targetBankAccount(): BelongsTo
+    {
+        return $this->belongsTo(PaymentBankAccount::class, 'payment_bank_account_id');
     }
 
     /** @return BelongsTo<User, $this> */

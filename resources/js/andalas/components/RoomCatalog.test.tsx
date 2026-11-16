@@ -141,6 +141,21 @@ it('shows floor release status and priority without edit fields until requested'
     expect(html).not.toContain('<input');
 });
 
+it('renders a direct next-step button in the top selection bar when onReview is provided', () => {
+    const html = renderToStaticMarkup(
+        <RoomCatalog
+            rooms={[room]}
+            rates={[]}
+            selected={room.id}
+            onSelect={() => {}}
+            onReview={() => {}}
+            unit="year"
+            basis="person"
+        />,
+    );
+    expect(html).toContain('Lanjut ke Tahap Selanjutnya');
+});
+
 it('uses a submit action when saving room photos for the catalog', () => {
     const html = renderToStaticMarkup(
         <RoomPhotoEditor room={{ id: room.id, foto: room.foto }} initialOpen />,

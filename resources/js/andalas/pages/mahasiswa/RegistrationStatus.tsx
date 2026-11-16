@@ -22,6 +22,7 @@ import {
     type PaymentBankAccountItem,
     type VirtualAccountItem,
 } from '@/andalas/components/PaymentAccountsBox';
+import { PaymentProofForm } from '@/andalas/components/PaymentProofForm';
 import { ReservationCountdown } from '@/andalas/components/ReservationCountdown';
 import {
     Button,
@@ -30,7 +31,12 @@ import {
     Modal,
     PageHeader,
 } from '@/andalas/components/ui';
-import { formatDate, formatRupiah } from '@/andalas/lib/format';
+import {
+    formatDate,
+    formatDateTime,
+    formatRupiah,
+} from '@/andalas/lib/format';
+import { bukti as pembayaranBukti } from '@/routes/andalas/pembayaran';
 import { detailKamar as detailKamarRoute } from '@/routes/mahasiswa';
 import { show as tagihanShow } from '@/routes/mahasiswa/tagihan';
 
@@ -89,6 +95,28 @@ type RoomSummary = {
     } | null;
 } | null;
 
+type TagihanPaymentSummary = {
+    id: string;
+    kode_transaksi: string;
+    nominal: number | string;
+    rekening_tujuan?: string | null;
+    nama_bank?: string | null;
+    nomor_rekening_pengirim?: string | null;
+    atas_nama_pengirim?: string | null;
+    status: string;
+    catatan_verifikasi?: string | null;
+    tanggal_bayar?: string | null;
+    created_at?: string | null;
+};
+
+type TagihanInstallmentSummary = {
+    id: string;
+    termin_ke: number;
+    jatuh_tempo: string;
+    jumlah: number | string;
+    status: string;
+};
+
 type TagihanSummary = {
     id: string;
     nomor: string;
@@ -96,6 +124,8 @@ type TagihanSummary = {
     total_dibayar: number | string;
     status: string;
     jatuh_tempo?: string | null;
+    jadwal_cicilan?: TagihanInstallmentSummary[];
+    pembayaran?: TagihanPaymentSummary[];
 } | null;
 
 export type Registration = {
@@ -1241,49 +1271,223 @@ export function StudentRegistrationCard({
 
                             {paymentUnlocked &&
                                 !r.completed_at &&
-                                r.status !== 'cancelled' && (
-                                    <div className="border-base-300 bg-base-100 space-y-3 rounded-xl border p-4">
-                                        <ReservationCountdown
-                                            targetIso={
-                                                r.reservation_expires_at ??
-                                                r.tagihan.jatuh_tempo
-                                            }
-                                            label="Batas waktu penyelesaian pembayaran"
-                                        />
-                                        {remaining > 0 &&
-                                            (paymentAccounts.length > 0 ||
-                                                virtualAccounts.length > 0) && (
-                                                <PaymentAccountsBox
-                                                    paymentAccounts={
-                                                        paymentAccounts
-                                                    }
-                                                    virtualAccounts={
-                                                        virtualAccounts
-                                                    }
-                                                    compact
-                                                />
+                                r.status !== 'cancelled' &&
+                                (() => {
+                                    const invoicePayments =
+                                        r.tagihan?.pembayaran ?? [];
+                                    const pendingPayment = invoicePayments.find(
+                                        (p) =>
+                                            p.status === 'menunggu_verifikasi',
+                                    );
+                                    const latestRejected = !pendingPayment
+                                        ? invoicePayments.find(
+                                              (p) => p.status === 'ditolak',
+                                          )
+                                        : undefined;
+                                    const installments = (
+                                        r.tagihan?.jadwal_cicilan ?? []
+                                    )
+                                        .filter((t) => t.status !== 'diganti')
+                                        .sort(
+                                            (a, b) =>
+                                                a.termin_ke - b.termin_ke,
+                                        );
+                                    let cumulative = 0;
+                                    let nextTerm:
+                                        | TagihanInstallmentSummary
+                                        | undefined;
+                                    let nextDue = remaining;
+                                    for (const term of installments) {
+                                        cumulative += Number(term.jumlah);
+                                        if (cumulative > totalDibayar) {
+                                            nextTerm = term;
+                                            nextDue = Math.min(
+                                                remaining,
+                                                Math.max(
+                                                    cumulative - totalDibayar,
+                                                    0,
+                                                ),
+                                            );
+                                            break;
+                                        }
+                                    }
+
+                                    return (
+                                        <div className="border-base-300 bg-base-100 space-y-4 rounded-xl border p-4">
+                                            <ReservationCountdown
+                                                targetIso={
+                                                    r.reservation_expires_at ??
+                                                    r.tagihan?.jatuh_tempo
+                                                }
+                                                label="Batas waktu penyelesaian pembayaran"
+                                            />
+
+                                            {pendingPayment ? (
+                                                <div className="border-base-300 border-l-warning bg-base-200/40 space-y-2 rounded-lg border border-l-4 p-3.5 text-xs">
+                                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                                        <span className="text-sm font-semibold">
+                                                            Menunggu Verifikasi
+                                                            Pengelola
+                                                        </span>
+                                                        <StatusChip
+                                                            label="Menunggu Verifikasi"
+                                                            tone="warning"
+                                                        />
+                                                    </div>
+                                                    <p className="text-muted">
+                                                        Bukti transfer sebesar{' '}
+                                                        <strong>
+                                                            {formatRupiah(
+                                                                Number(
+                                                                    pendingPayment.nominal,
+                                                                ),
+                                                            )}
+                                                        </strong>{' '}
+                                                        (
+                                                        {
+                                                            pendingPayment.kode_transaksi
+                                                        }
+                                                        ) telah diterima sistem.
+                                                    </p>
+                                                    {pendingPayment.rekening_tujuan && (
+                                                        <p className="text-muted">
+                                                            Tujuan:{' '}
+                                                            {
+                                                                pendingPayment.rekening_tujuan
+                                                            }
+                                                        </p>
+                                                    )}
+                                                    {(pendingPayment.nama_bank ||
+                                                        pendingPayment.atas_nama_pengirim) && (
+                                                        <p className="text-muted">
+                                                            Pengirim:{' '}
+                                                            {pendingPayment.nama_bank ||
+                                                                '-'}{' '}
+                                                            {pendingPayment.nomor_rekening_pengirim
+                                                                ? `· ${pendingPayment.nomor_rekening_pengirim}`
+                                                                : ''}
+                                                            {pendingPayment.atas_nama_pengirim
+                                                                ? ` a.n. ${pendingPayment.atas_nama_pengirim}`
+                                                                : ''}
+                                                        </p>
+                                                    )}
+                                                    {(pendingPayment.tanggal_bayar ||
+                                                        pendingPayment.created_at) && (
+                                                        <p className="text-muted">
+                                                            Waktu transfer:{' '}
+                                                            {formatDateTime(
+                                                                pendingPayment.tanggal_bayar ??
+                                                                    pendingPayment.created_at,
+                                                            )}
+                                                        </p>
+                                                    )}
+                                                    <div className="flex flex-wrap gap-2 pt-1">
+                                                        <a
+                                                            href={pembayaranBukti.url(
+                                                                pendingPayment.id,
+                                                            )}
+                                                            className="btn btn-outline btn-xs gap-1"
+                                                        >
+                                                            <Download className="size-3.5" />
+                                                            Unduh Bukti
+                                                        </a>
+                                                        <Link
+                                                            href={tagihanShow.url(
+                                                                r.tagihan!.id,
+                                                            )}
+                                                            className="btn btn-primary btn-xs gap-1"
+                                                        >
+                                                            Lihat Detail Tagihan
+                                                            <ArrowRight className="size-3.5" />
+                                                        </Link>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <>
+                                                    {latestRejected && (
+                                                        <div className="alert alert-error text-xs">
+                                                            <AlertTriangle className="size-4 shrink-0" />
+                                                            <span>
+                                                                Bukti pembayaran
+                                                                sebelumnya
+                                                                ditolak:{' '}
+                                                                <strong>
+                                                                    {latestRejected.catatan_verifikasi ||
+                                                                        'Periksa kembali nominal atau lampiran bukti.'}
+                                                                </strong>
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                    {remaining > 0 &&
+                                                        (paymentAccounts.length >
+                                                            0 ||
+                                                            virtualAccounts.length >
+                                                                0) && (
+                                                            <PaymentAccountsBox
+                                                                paymentAccounts={
+                                                                    paymentAccounts
+                                                                }
+                                                                virtualAccounts={
+                                                                    virtualAccounts
+                                                                }
+                                                                compact
+                                                            />
+                                                        )}
+                                                    {remaining > 0 && (
+                                                        <div className="border-base-300 bg-base-200/30 space-y-3 rounded-xl border p-4">
+                                                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                                                <h4 className="text-sm font-semibold">
+                                                                    Unggah Bukti
+                                                                    Pembayaran
+                                                                </h4>
+                                                                <Link
+                                                                    href={tagihanShow.url(
+                                                                        r
+                                                                            .tagihan!
+                                                                            .id,
+                                                                    )}
+                                                                    className="link link-primary text-xs font-medium"
+                                                                >
+                                                                    Buka Halaman
+                                                                    Detail
+                                                                    Tagihan →
+                                                                </Link>
+                                                            </div>
+                                                            <PaymentProofForm
+                                                                key={
+                                                                    r.tagihan!
+                                                                        .id
+                                                                }
+                                                                tagihanId={
+                                                                    r.tagihan!
+                                                                        .id
+                                                                }
+                                                                totalRemaining={
+                                                                    remaining
+                                                                }
+                                                                dueAmount={
+                                                                    nextDue
+                                                                }
+                                                                terminKe={
+                                                                    nextTerm?.termin_ke ??
+                                                                    null
+                                                                }
+                                                                jenisPembayaran={
+                                                                    nextTerm
+                                                                        ? 'cicilan'
+                                                                        : 'sewa_asrama'
+                                                                }
+                                                                paymentAccounts={
+                                                                    paymentAccounts
+                                                                }
+                                                            />
+                                                        </div>
+                                                    )}
+                                                </>
                                             )}
-                                        <div className="flex flex-wrap items-center justify-between gap-2">
-                                            <span className="text-muted text-xs">
-                                                Lihat rincian tagihan, salin
-                                                rekening tujuan, atau unggah
-                                                bukti transfer.
-                                            </span>
-                                            <Link
-                                                href={tagihanShow.url(
-                                                    r.tagihan.id,
-                                                )}
-                                                className="btn btn-primary btn-sm gap-1.5"
-                                            >
-                                                <span>
-                                                    Buka Detail Tagihan &
-                                                    Pembayaran
-                                                </span>
-                                                <ArrowRight className="size-4" />
-                                            </Link>
                                         </div>
-                                    </div>
-                                )}
+                                    );
+                                })()}
 
                             {!paymentUnlocked &&
                                 !isKipkExempt &&

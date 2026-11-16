@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { Link, useForm } from '@inertiajs/react';
+import { Link } from '@inertiajs/react';
 import {
     AlertCircle,
     ArrowLeft,
@@ -9,34 +8,28 @@ import {
     FileCheck2,
     Receipt,
     ShieldAlert,
-    Upload,
 } from 'lucide-react';
-import {
-    Card,
-    FormField,
-    PageHeader,
-    StatusBadge,
-    inputClass,
-} from '../../components/ui';
+import { Card, PageHeader, StatusBadge } from '../../components/ui';
 import {
     PaymentAccountsBox,
     type PaymentBankAccountItem,
     type VirtualAccountItem,
 } from '../../components/PaymentAccountsBox';
+import { PaymentProofForm } from '../../components/PaymentProofForm';
 import { ReservationCountdown } from '../../components/ReservationCountdown';
-import { formatDate, formatRupiah, mapPaymentStatus } from '../../lib/format';
 import {
-    bukti as pembayaranBukti,
-    store as pembayaranStore,
-} from '@/routes/andalas/pembayaran';
+    formatDate,
+    formatDateTime,
+    formatRupiah,
+    mapPaymentStatus,
+} from '../../lib/format';
+import { bukti as pembayaranBukti } from '@/routes/andalas/pembayaran';
 import { document as billingDocument } from '@/routes/andalas/tagihan';
 import {
     detailKamar as detailKamarRoute,
     registration as registrationRoute,
     tagihan as tagihanListRoute,
 } from '@/routes/mahasiswa';
-
-const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 
 type InvoiceItemRow = {
     id: string;
@@ -66,6 +59,7 @@ type PaymentRow = {
     nominal: string | number;
     termin_ke?: number | null;
     metode_pembayaran?: string | null;
+    rekening_tujuan?: string | null;
     nama_bank?: string | null;
     nomor_rekening_pengirim?: string | null;
     atas_nama_pengirim?: string | null;
@@ -178,29 +172,6 @@ export default function TagihanDetail({
     const canUploadProof =
         paymentUnlocked && !pendingPayment && !isSettled && !isCancelled;
 
-    const [clientFileError, setClientFileError] = useState<string | null>(null);
-    const form = useForm<{
-        tagihan_id: string;
-        jenis_pembayaran: string;
-        nominal: string;
-        termin_ke: string;
-        metode_pembayaran: string;
-        nama_bank: string;
-        nomor_rekening_pengirim: string;
-        atas_nama_pengirim: string;
-        bukti_transfer: File | null;
-    }>({
-        tagihan_id: invoice.id,
-        jenis_pembayaran: nextTerm ? 'cicilan' : 'sewa_asrama',
-        nominal: String(Math.round(dueNow || remaining)),
-        termin_ke: nextTerm ? String(nextTerm.termin_ke) : '',
-        metode_pembayaran: 'transfer_bank',
-        nama_bank: '',
-        nomor_rekening_pengirim: '',
-        atas_nama_pengirim: '',
-        bukti_transfer: null,
-    });
-
     const resolvedRegUrl = registrationUrl ?? registrationRoute.url();
     const resolvedInvoicesUrl = invoicesUrl ?? tagihanListRoute.url();
 
@@ -208,38 +179,6 @@ export default function TagihanDetail({
         registration?.placement?.kamar ?? registration?.reserved_room ?? null;
     const deadlineTarget =
         registration?.reservation_expires_at ?? invoice.jatuh_tempo ?? null;
-
-    const submit = (event: React.FormEvent) => {
-        event.preventDefault();
-        setClientFileError(null);
-        if (!form.data.bukti_transfer) {
-            setClientFileError('Pilih file bukti transfer terlebih dahulu.');
-            return;
-        }
-        if (form.data.bukti_transfer.size > MAX_UPLOAD_BYTES) {
-            setClientFileError(
-                'Ukuran file melebihi 5 MB. Kompres atau pilih file yang lebih kecil.',
-            );
-            return;
-        }
-
-        form.post(pembayaranStore.url(), {
-            forceFormData: true,
-            preserveScroll: true,
-            onSuccess: () => {
-                form.reset(
-                    'nama_bank',
-                    'nomor_rekening_pengirim',
-                    'atas_nama_pengirim',
-                    'bukti_transfer',
-                );
-            },
-        });
-    };
-
-    const formErrors = form.errors as Record<string, string | undefined>;
-    const firstFormError =
-        clientFileError ?? Object.values(formErrors).find(Boolean);
 
     return (
         <div className="space-y-6">
@@ -327,7 +266,14 @@ export default function TagihanDetail({
                                     diterima sistem. Pengelola asrama sedang
                                     mencocokkan mutasi rekening.
                                 </p>
+                                {pendingPayment.rekening_tujuan && (
+                                    <p className="text-base-content/70 text-xs">
+                                        Rekening tujuan:{' '}
+                                        {pendingPayment.rekening_tujuan}
+                                    </p>
+                                )}
                                 {(pendingPayment.nama_bank ||
+                                    pendingPayment.nomor_rekening_pengirim ||
                                     pendingPayment.atas_nama_pengirim) && (
                                     <p className="text-base-content/70 text-xs">
                                         Pengirim:{' '}
@@ -338,6 +284,16 @@ export default function TagihanDetail({
                                         {pendingPayment.atas_nama_pengirim
                                             ? ` a.n. ${pendingPayment.atas_nama_pengirim}`
                                             : ''}
+                                    </p>
+                                )}
+                                {(pendingPayment.tanggal_bayar ||
+                                    pendingPayment.created_at) && (
+                                    <p className="text-base-content/70 text-xs">
+                                        Waktu transfer:{' '}
+                                        {formatDateTime(
+                                            pendingPayment.tanggal_bayar ??
+                                                pendingPayment.created_at,
+                                        )}
                                     </p>
                                 )}
                             </div>
@@ -457,140 +413,17 @@ export default function TagihanDetail({
                             <h2 className="text-base font-semibold">
                                 Unggah Bukti Pembayaran
                             </h2>
-                            <form onSubmit={submit} className="space-y-4">
-                                <p className="text-base-content/75 text-sm">
-                                    Setelah melakukan transfer ke salah satu
-                                    rekening di atas, lengkapi detail pengirim
-                                    dan unggah foto/PDF bukti transfer.
-                                </p>
-                                {firstFormError && (
-                                    <div className="alert alert-error text-sm">
-                                        <AlertCircle className="size-4 shrink-0" />
-                                        <span>{firstFormError}</span>
-                                    </div>
-                                )}
-                                <div className="grid gap-3 sm:grid-cols-2">
-                                    <FormField label="Nominal Transfer (Rp)">
-                                        <input
-                                            className={inputClass}
-                                            type="number"
-                                            min={1}
-                                            max={remaining}
-                                            step="1"
-                                            value={form.data.nominal}
-                                            onChange={(event) =>
-                                                form.setData(
-                                                    'nominal',
-                                                    event.target.value,
-                                                )
-                                            }
-                                            required
-                                        />
-                                    </FormField>
-                                    <FormField label="Bank Pengirim">
-                                        <input
-                                            className={inputClass}
-                                            placeholder="Contoh: BNI / BRI / Mandiri / BSI"
-                                            value={form.data.nama_bank}
-                                            onChange={(event) =>
-                                                form.setData(
-                                                    'nama_bank',
-                                                    event.target.value,
-                                                )
-                                            }
-                                            required
-                                        />
-                                    </FormField>
-                                    <FormField label="Nomor Rekening Pengirim">
-                                        <input
-                                            className={inputClass}
-                                            placeholder="Nomor rekening pengirim"
-                                            value={
-                                                form.data
-                                                    .nomor_rekening_pengirim
-                                            }
-                                            onChange={(event) =>
-                                                form.setData(
-                                                    'nomor_rekening_pengirim',
-                                                    event.target.value,
-                                                )
-                                            }
-                                            required
-                                        />
-                                    </FormField>
-                                    <FormField label="Atas Nama Pengirim">
-                                        <input
-                                            className={inputClass}
-                                            placeholder="Nama pemilik rekening"
-                                            value={form.data.atas_nama_pengirim}
-                                            onChange={(event) =>
-                                                form.setData(
-                                                    'atas_nama_pengirim',
-                                                    event.target.value,
-                                                )
-                                            }
-                                            required
-                                        />
-                                    </FormField>
-                                </div>
-                                <FormField label="Bukti Transfer (PDF, JPG, JPEG, PNG — maks. 5 MB)">
-                                    <input
-                                        className="file-input file-input-bordered w-full"
-                                        type="file"
-                                        accept=".pdf,.jpg,.jpeg,.png"
-                                        onChange={(event) => {
-                                            const file =
-                                                event.target.files?.[0] ?? null;
-                                            setClientFileError(null);
-                                            if (
-                                                file &&
-                                                file.size > MAX_UPLOAD_BYTES
-                                            ) {
-                                                setClientFileError(
-                                                    'Ukuran file melebihi batas 5 MB.',
-                                                );
-                                            }
-                                            form.setData(
-                                                'bukti_transfer',
-                                                file,
-                                            );
-                                        }}
-                                        required
-                                    />
-                                </FormField>
-                                {(clientFileError ??
-                                    form.errors.bukti_transfer) && (
-                                    <p className="text-error text-xs">
-                                        {clientFileError ??
-                                            form.errors.bukti_transfer}
-                                    </p>
-                                )}
-                                {form.progress && (
-                                    <div className="space-y-1">
-                                        <progress
-                                            className="progress progress-primary w-full"
-                                            value={form.progress.percentage ?? 0}
-                                            max={100}
-                                        />
-                                        <p className="text-base-content/70 text-xs">
-                                            Mengunggah bukti...{' '}
-                                            {form.progress.percentage ?? 0}%
-                                        </p>
-                                    </div>
-                                )}
-                                <div className="flex justify-end">
-                                    <button
-                                        type="submit"
-                                        className="btn btn-primary gap-2"
-                                        disabled={form.processing}
-                                    >
-                                        <Upload className="size-4" />
-                                        {form.processing
-                                            ? 'Mengunggah...'
-                                            : 'Kirim Bukti Pembayaran'}
-                                    </button>
-                                </div>
-                            </form>
+                            <PaymentProofForm
+                                key={invoice.id}
+                                tagihanId={invoice.id}
+                                totalRemaining={remaining}
+                                dueAmount={dueNow || remaining}
+                                terminKe={nextTerm?.termin_ke ?? null}
+                                jenisPembayaran={
+                                    nextTerm ? 'cicilan' : 'sewa_asrama'
+                                }
+                                paymentAccounts={payment_accounts}
+                            />
                         </Card>
                     )}
 
@@ -818,15 +651,23 @@ export default function TagihanDetail({
                                         </div>
                                         <div className="text-base-content/70 mt-1.5 space-y-0.5 text-xs">
                                             <div>
-                                                Dikirim:{' '}
-                                                {formatDate(
+                                                Waktu transfer:{' '}
+                                                {formatDateTime(
                                                     payment.tanggal_bayar ??
                                                         payment.created_at,
                                                 )}
                                             </div>
+                                            {payment.rekening_tujuan && (
+                                                <div>
+                                                    Tujuan:{' '}
+                                                    {payment.rekening_tujuan}
+                                                </div>
+                                            )}
                                             {(payment.nama_bank ||
+                                                payment.nomor_rekening_pengirim ||
                                                 payment.atas_nama_pengirim) && (
                                                 <div>
+                                                    Pengirim:{' '}
                                                     {payment.nama_bank || '-'}{' '}
                                                     {payment.nomor_rekening_pengirim
                                                         ? `· ${payment.nomor_rekening_pengirim}`

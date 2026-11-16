@@ -1,14 +1,11 @@
 import { useState } from 'react';
-import { Link, useForm } from '@inertiajs/react';
+import { Link } from '@inertiajs/react';
 import {
     PageHeader,
     Card,
     StatCard,
     StatusBadge,
     DataTable,
-    Button,
-    FormField,
-    inputClass,
     Modal,
     type DataColumn,
 } from '../../components/ui';
@@ -19,13 +16,13 @@ import {
     Receipt,
     Wallet,
 } from 'lucide-react';
-import { store as pembayaranStore } from '@/routes/andalas/pembayaran';
 import { document as billingDocument } from '@/routes/andalas/tagihan';
 import { show as tagihanShow } from '@/routes/mahasiswa/tagihan';
 import {
     PaymentAccountsBox,
     type PaymentBankAccountItem,
 } from '../../components/PaymentAccountsBox';
+import { PaymentProofForm } from '../../components/PaymentProofForm';
 import { formatRupiah, mapPaymentStatus } from '../../lib/format';
 
 type Invoice = {
@@ -98,13 +95,6 @@ export default function Tagihan({
     payment_accounts?: PaymentBankAccountItem[];
 }) {
     const [selected, setSelected] = useState<Invoice | null>(null);
-    const form = useForm({
-        tagihan_id: '',
-        jenis_pembayaran: 'sewa_asrama',
-        nominal: 0,
-        atas_nama_pengirim: '',
-        bukti_transfer: null as File | null,
-    });
     const invoices = billing.filter((invoice) => invoice.status !== 'batal');
     const total = invoices.reduce(
         (sum, invoice) => sum + Number(invoice.total),
@@ -116,16 +106,6 @@ export default function Tagihan({
     );
     function pay(invoice: Invoice) {
         setSelected(invoice);
-        form.clearErrors();
-        form.setData({
-            tagihan_id: invoice.id,
-            jenis_pembayaran: invoice.jadwal_cicilan.length
-                ? 'cicilan'
-                : 'sewa_asrama',
-            nominal: amountDue(invoice),
-            atas_nama_pengirim: '',
-            bukti_transfer: null,
-        });
     }
     const invoiceRows = billing.map((invoice) => ({
         id: invoice.id,
@@ -334,75 +314,43 @@ export default function Tagihan({
                                     ))}
                             </div>
                         )}
-                        <form
-                            className="space-y-4"
-                            onSubmit={(event) => {
-                                event.preventDefault();
-                                form.post(pembayaranStore.url(), {
-                                    onSuccess: () => {
-                                        setSelected(null);
-                                        form.reset();
-                                    },
-                                });
-                            }}
-                        >
-                            <p className="font-semibold">
-                                {formatRupiah(form.data.nominal)}
-                            </p>
-                            <FormField label="Atas nama pengirim">
-                                <input
-                                    required
-                                    className={inputClass}
-                                    value={form.data.atas_nama_pengirim}
-                                    onChange={(event) =>
-                                        form.setData(
-                                            'atas_nama_pengirim',
-                                            event.target.value,
-                                        )
-                                    }
-                                />
-                            </FormField>
-                            <FormField label="Bukti pembayaran">
-                                <input
-                                    type="file"
-                                    required
-                                    accept="image/jpeg,image/png,.pdf"
-                                    className="file-input w-full"
-                                    onChange={(event) =>
-                                        form.setData(
-                                            'bukti_transfer',
-                                            event.target.files?.[0] ?? null,
-                                        )
-                                    }
-                                />
-                            </FormField>
-                            {Object.entries(form.errors).map(([key, error]) => (
-                                <p
-                                    key={key}
-                                    role="alert"
-                                    className="text-error text-sm"
-                                >
-                                    {error}
-                                </p>
-                            ))}
-                            <div className="modal-action mt-0">
-                                <Button
-                                    type="button"
-                                    variant="secondary"
-                                    onClick={() => setSelected(null)}
-                                >
-                                    Batal
-                                </Button>
-                                <Button
-                                    disabled={form.processing}
-                                    type="submit"
-                                >
-                                    {form.processing
-                                        ? 'Mengirim...'
-                                        : 'Kirim bukti pembayaran'}
-                                </Button>
-                            </div>
-                        </form>
+                        <PaymentProofForm
+                            key={selected.id}
+                            tagihanId={selected.id}
+                            totalRemaining={Math.max(
+                                Number(selected.total) -
+                                    Number(selected.total_dibayar),
+                                0,
+                            )}
+                            dueAmount={amountDue(selected)}
+                            terminKe={
+                                selected.jadwal_cicilan
+                                    .slice()
+                                    .sort(
+                                        (a, b) => a.termin_ke - b.termin_ke,
+                                    )
+                                    .find((_, index, list) => {
+                                        const cum = list
+                                            .slice(0, index + 1)
+                                            .reduce(
+                                                (acc, row) =>
+                                                    acc + Number(row.jumlah),
+                                                0,
+                                            );
+                                        return (
+                                            cum > Number(selected.total_dibayar)
+                                        );
+                                    })?.termin_ke ?? null
+                            }
+                            jenisPembayaran={
+                                selected.jadwal_cicilan.length
+                                    ? 'cicilan'
+                                    : 'sewa_asrama'
+                            }
+                            paymentAccounts={payment_accounts}
+                            onCancel={() => setSelected(null)}
+                            onSuccess={() => setSelected(null)}
+                        />
                     </div>
                 </Modal>
             )}

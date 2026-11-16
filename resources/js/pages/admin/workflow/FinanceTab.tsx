@@ -3,7 +3,7 @@ import * as invoiceActions from '@/actions/App/Http/Controllers/InvoiceControlle
 import * as workflow from '@/actions/App/Http/Controllers/ResidenceWorkflowController';
 import { bukti as pembayaranBukti } from '@/routes/andalas/pembayaran';
 import { StatusBadge } from '@/andalas/components/ui';
-import { formatDate, formatRupiah } from '@/andalas/lib/format';
+import { formatDateTime, formatRupiah } from '@/andalas/lib/format';
 import { useMemo, useState } from 'react';
 import {
     ActionForm,
@@ -276,9 +276,10 @@ export default function FinanceTab({
                                     <th>Kode Transaksi</th>
                                     <th>Mahasiswa</th>
                                     <th>Invoice</th>
+                                    <th>Rekening Tujuan</th>
                                     <th>Pengirim</th>
                                     <th className="text-right">Nominal</th>
-                                    <th>Tanggal</th>
+                                    <th>Waktu Transfer</th>
                                     <th className="text-right">Bukti</th>
                                 </tr>
                             </thead>
@@ -305,6 +306,9 @@ export default function FinanceTab({
                                             {proof.tagihan?.nomor ?? '-'}
                                         </td>
                                         <td className="text-xs">
+                                            {proof.rekening_tujuan || '-'}
+                                        </td>
+                                        <td className="text-xs">
                                             {proof.nama_bank || '-'}{' '}
                                             {proof.nomor_rekening_pengirim
                                                 ? `· ${proof.nomor_rekening_pengirim}`
@@ -322,7 +326,10 @@ export default function FinanceTab({
                                             )}
                                         </td>
                                         <td className="text-xs">
-                                            {formatDate(proof.created_at)}
+                                            {formatDateTime(
+                                                proof.tanggal_bayar ??
+                                                    proof.created_at,
+                                            )}
                                         </td>
                                         <td className="text-right">
                                             <a

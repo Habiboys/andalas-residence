@@ -1,6 +1,7 @@
 import { useRoomTypeCatalog, roomTypeName } from '@/andalas/lib/room-types';
 import { useMemo, useState } from 'react';
 import {
+    ArrowRight,
     BedDouble,
     Building2,
     Check,
@@ -163,12 +164,25 @@ export default function RoomCatalog({
                     </p>
                 </div>
                 {selectedRoom && (
-                    <div className="bg-primary/10 border-primary/30 text-primary flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold">
-                        <Check className="size-3.5" />
-                        <span>
-                            Terpilih: {selectedRoom.lantai?.gedung?.nama_gedung}{' '}
-                            · Kamar {selectedRoom.nomor_kamar}
-                        </span>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <div className="bg-primary/10 border-primary/30 text-primary flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold">
+                            <Check className="size-3.5" />
+                            <span>
+                                Terpilih:{' '}
+                                {selectedRoom.lantai?.gedung?.nama_gedung} ·
+                                Kamar {selectedRoom.nomor_kamar}
+                            </span>
+                        </div>
+                        {onReview && (
+                            <button
+                                type="button"
+                                className="btn btn-primary btn-sm gap-1.5"
+                                onClick={onReview}
+                            >
+                                <span>Lanjut ke Tahap Selanjutnya</span>
+                                <ArrowRight className="size-3.5" />
+                            </button>
+                        )}
                     </div>
                 )}
             </div>
@@ -749,7 +763,7 @@ function RoomDetailModal({
                                 : 'Tarif belum tersedia'}
                         </strong>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
                         <button
                             type="button"
                             className="btn btn-outline"
@@ -757,17 +771,30 @@ function RoomDetailModal({
                         >
                             Tutup
                         </button>
+                        {onReview && !isSelected && (
+                            <button
+                                type="button"
+                                className="btn btn-outline btn-primary"
+                                disabled={disabled}
+                                onClick={onSelect}
+                            >
+                                Pilih kamar saja
+                            </button>
+                        )}
                         <button
                             type="button"
-                            className="btn btn-primary"
+                            className="btn btn-primary gap-1.5"
                             disabled={disabled}
                             onClick={onReview ?? onSelect}
                         >
-                            {onReview
-                                ? 'Review pengajuan'
-                                : isSelected
-                                  ? 'Kamar sudah dipilih'
-                                  : 'Pilih kamar ini'}
+                            <span>
+                                {onReview
+                                    ? 'Pilih & Lanjut ke Tahap Selanjutnya'
+                                    : isSelected
+                                      ? 'Kamar sudah dipilih'
+                                      : 'Pilih kamar ini'}
+                            </span>
+                            {onReview && <ArrowRight className="size-4" />}
                         </button>
                     </div>
                 </div>

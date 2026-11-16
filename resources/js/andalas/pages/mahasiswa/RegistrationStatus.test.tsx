@@ -22,6 +22,15 @@ vi.mock('@inertiajs/react', () => ({
         visit: vi.fn(),
         post: vi.fn(),
     },
+    useForm: (initial: Record<string, unknown>) => ({
+        data: initial,
+        errors: {},
+        processing: false,
+        progress: null,
+        setData: vi.fn(),
+        post: vi.fn(),
+        reset: vi.fn(),
+    }),
 }));
 
 const sampleRegistration = {

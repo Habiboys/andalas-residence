@@ -13,6 +13,7 @@ use App\Models\TransaksiKeuangan;
 use App\Models\VirtualAccount;
 use App\Services\AuditLogService;
 use App\Services\ResidenceWorkflow;
+use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -78,9 +79,12 @@ class PembayaranController extends Controller
             'nominal' => 'required|numeric|min:1',
             'termin_ke' => 'nullable|integer|min:1',
             'metode_pembayaran' => 'nullable|string|max:50',
+            'payment_bank_account_id' => ['nullable', 'uuid', Rule::exists('payment_bank_accounts', 'id')->where('is_active', true)],
+            'rekening_tujuan' => 'nullable|string|max:200',
             'nama_bank' => 'nullable|string|max:50',
             'nomor_rekening_pengirim' => 'nullable|string|max:50',
             'atas_nama_pengirim' => 'nullable|string|max:150',
+            'tanggal_bayar' => 'nullable|date',
             'bukti_transfer' => 'required|file|mimes:jpg,jpeg,png,pdf|max:5120',
         ]);
 
@@ -125,6 +129,13 @@ class PembayaranController extends Controller
                 $path = $request->file('bukti_transfer')->store('bukti-pembayaran', 'local');
             }
 
+            $targetAccount = ! empty($validated['payment_bank_account_id'])
+                ? PaymentBankAccount::find($validated['payment_bank_account_id'])
+                : null;
+            $rekeningTujuan = $targetAccount
+                ? "{$targetAccount->bank_name} · {$targetAccount->account_number} · a.n. {$targetAccount->account_name}"
+                : ($validated['rekening_tujuan'] ?? null);
+
             Pembayaran::create([
                 'kode_transaksi' => 'PAY-'.now()->format('YmdHis').'-'.strtoupper(Str::random(4)),
                 'mahasiswa_id' => $mhs->id,
@@ -133,10 +144,13 @@ class PembayaranController extends Controller
                 'nominal' => $validated['nominal'],
                 'termin_ke' => $validated['termin_ke'] ?? 1,
                 'metode_pembayaran' => $validated['metode_pembayaran'] ?? 'transfer_bank',
+                'payment_bank_account_id' => $targetAccount?->id,
+                'rekening_tujuan' => $rekeningTujuan,
                 'nama_bank' => $validated['nama_bank'] ?? null,
                 'nomor_rekening_pengirim' => $validated['nomor_rekening_pengirim'] ?? null,
                 'atas_nama_pengirim' => $validated['atas_nama_pengirim'] ?? null,
                 'bukti_transfer_path' => $path,
+                'tanggal_bayar' => isset($validated['tanggal_bayar']) ? Carbon::parse($validated['tanggal_bayar']) : now(),
                 'status' => 'menunggu_verifikasi',
             ]);
 

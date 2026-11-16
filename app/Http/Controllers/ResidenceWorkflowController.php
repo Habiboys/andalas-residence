@@ -34,6 +34,7 @@ use App\Models\RoomContract;
 use App\Models\RoomInvitation;
 use App\Models\Tagihan;
 use App\Models\User;
+use App\Models\VirtualAccount;
 use App\Notifications\ResidenceWorkflowNotification;
 use App\Services\AuditLogService;
 use App\Services\ResidenceBuildingAccess;
@@ -68,7 +69,7 @@ class ResidenceWorkflowController extends Controller
             return redirect()->route('mahasiswa.registration');
         }
         abort_unless($manager || $finance || $user->hasAnyRole(['mahasiswa', 'fasilitator', 'pimpinan']), 403);
-        $registrations = ResidenceRegistration::with(['studentProfile.user', 'reservedRoom.lantai.gedung', 'placement.kamar.lantai.gedung', 'policy', 'documents.reviewer:id,nama', 'decisions', 'tagihan', 'application', 'roomContract'])
+        $registrations = ResidenceRegistration::with(['studentProfile.user', 'reservedRoom.lantai.gedung', 'placement.kamar.lantai.gedung', 'policy', 'documents.reviewer:id,nama', 'decisions', 'tagihan.jadwalCicilan', 'tagihan.pembayaran' => fn ($q) => $q->latest(), 'application', 'roomContract'])
             ->when($studentView, fn ($q) => $q->where('student_profile_id', $user->mahasiswaProfil?->id))
             ->when(! $studentView && ! $manager && ! $finance && ! $user->hasRole('pimpinan'), function ($q) use ($user): void {
                 if ($user->hasRole('fasilitator')) {
@@ -124,6 +125,7 @@ class ResidenceWorkflowController extends Controller
             'registrations' => $page, 'summary' => $summary,
             'studentView' => $studentView,
             'payment_accounts' => $studentView ? PaymentBankAccount::where('is_active', true)->orderBy('bank_name')->orderBy('account_number')->get() : [],
+            'virtual_accounts' => $studentView ? VirtualAccount::where('mahasiswa_id', $user->mahasiswaProfil?->id)->where('aktif', true)->get() : [],
             'manager' => $manager, 'finance' => $finance, 'leader' => ! $studentView && $user->hasRole('pimpinan'),
             'profile' => $user->mahasiswaProfil?->load('prodi.departemen'), 'gender' => $user->gender,
             'no_hp' => $user->no_hp,

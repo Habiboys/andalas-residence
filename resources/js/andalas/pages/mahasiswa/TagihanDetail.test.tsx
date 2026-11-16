@@ -98,6 +98,13 @@ it('shows destination bank accounts, deadline countdown, and proof upload form w
     expect(html).toContain('Bank Nagari');
     expect(html).toContain('2100020199999');
     expect(html).toContain('Unggah Bukti Pembayaran');
+    expect(html).toContain('Rekening Tujuan Pengiriman');
+    expect(html).toContain('Bank Pengirim');
+    expect(html).toContain('Nomor Rekening Pengirim');
+    expect(html).toContain('Atas Nama Pengirim');
+    expect(html).toContain('Jumlah Pembayaran');
+    expect(html).toContain('Tanggal dan Jam Pembayaran');
+    expect(html).toContain('Upload Bukti Bayar');
     expect(html).toContain('Kirim Bukti Pembayaran');
 });
 
@@ -111,8 +118,11 @@ it('shows pending verification status and hides duplicate upload when proof is a
                     id: 'pay-1',
                     kode_transaksi: 'PUB-12345',
                     nominal: 2500000,
+                    rekening_tujuan: 'Bank Nagari · 2100020199999 · a.n. RPL 014 UNAND Asrama',
                     nama_bank: 'BNI',
+                    nomor_rekening_pengirim: '0987654321',
                     atas_nama_pengirim: 'Mahasiswa Uji',
+                    tanggal_bayar: '2026-11-16T05:05:00+07:00',
                     status: 'menunggu_verifikasi',
                 },
             ]}
@@ -126,5 +136,7 @@ it('shows pending verification status and hides duplicate upload when proof is a
 
     expect(html).toContain('Menunggu Verifikasi Pengelola');
     expect(html).toContain('PUB-12345');
+    expect(html).toContain('Rekening tujuan');
+    expect(html).toContain('0987654321');
     expect(html).not.toContain('Kirim Bukti Pembayaran');
 });

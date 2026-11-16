@@ -157,16 +157,21 @@ it('restricts registration document review exclusively to assigned building faci
             'tagihan_id' => $reg->tagihan_id,
             'jenis_pembayaran' => 'sewa_asrama',
             'nominal' => (float) $reg->tagihan->total,
+            'payment_bank_account_id' => $account->id,
             'nama_bank' => 'BNI',
             'nomor_rekening_pengirim' => '1234567890',
             'atas_nama_pengirim' => 'Mahasiswa Uji',
+            'tanggal_bayar' => '2026-11-16 05:05:00',
             'bukti_transfer' => UploadedFile::fake()->create('bukti.pdf', 90, 'application/pdf'),
         ])
         ->assertRedirect()
         ->assertSessionHasNoErrors();
 
     $payment = Pembayaran::where('tagihan_id', $reg->tagihan_id)->sole();
-    expect($f['profile']->fresh()->status_huni)->toBe('calon');
+    expect($payment->payment_bank_account_id)->toBe($account->id)
+        ->and($payment->rekening_tujuan)->toBe('Bank Nagari · 2100020188888 · a.n. RPL 014 UNAND Asrama')
+        ->and($payment->tanggal_bayar?->format('Y-m-d H:i'))->toBe('2026-11-16 05:05')
+        ->and($f['profile']->fresh()->status_huni)->toBe('calon');
 
     // Student can download own payment proof, while another student gets 403
     $this->actingAs($f['user'])
