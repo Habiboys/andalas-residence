@@ -799,6 +799,254 @@ function AmendmentsSection({
     );
 }
 
+function InstallmentScheduleFields({
+    remainingTotal,
+    initialAmount,
+    onInitialAmountChange,
+    terms,
+    onTermsChange,
+}: {
+    remainingTotal: number;
+    initialAmount: string;
+    onInitialAmountChange: (value: string) => void;
+    terms: Array<{ jatuh_tempo: string; jumlah: string }>;
+    onTermsChange: (
+        updater: (
+            prev: Array<{ jatuh_tempo: string; jumlah: string }>,
+        ) => Array<{ jatuh_tempo: string; jumlah: string }>,
+    ) => void;
+}) {
+    const scheduleSum = terms.reduce(
+        (sum, t) => sum + (Number(t.jumlah) || 0),
+        0,
+    );
+
+    const splitEqually = () => {
+        const count = Math.max(1, terms.length);
+        const perTerm = Math.floor(remainingTotal / count);
+        const remainder = remainingTotal - perTerm * count;
+        onTermsChange((prev) =>
+            prev.map((item, idx) => ({
+                ...item,
+                jumlah: String(perTerm + (idx === count - 1 ? remainder : 0)),
+            })),
+        );
+    };
+
+    return (
+        <div className="space-y-3 pt-1">
+            <Field
+                label="Pembayaran awal yang wajib dipenuhi (Rp)"
+                name="initial_amount"
+            >
+                <input
+                    name="initial_amount"
+                    type="number"
+                    className={fieldInputClass}
+                    value={initialAmount}
+                    onChange={(e) => onInitialAmountChange(e.target.value)}
+                />
+            </Field>
+
+            <div className="bg-base-100 flex flex-wrap items-center justify-between gap-2 rounded border px-3 py-2 text-xs">
+                <span>
+                    Sisa tagihan pribadi:{' '}
+                    <strong>{formatRupiah(remainingTotal)}</strong> · Terjadwal
+                    saat ini:{' '}
+                    <strong
+                        className={
+                            Math.abs(scheduleSum - remainingTotal) < 1
+                                ? 'text-success'
+                                : 'text-warning'
+                        }
+                    >
+                        {formatRupiah(scheduleSum)}
+                    </strong>
+                </span>
+                <button
+                    type="button"
+                    className="btn btn-xs btn-outline"
+                    onClick={splitEqually}
+                >
+                    Bagi rata ({terms.length} termin)
+                </button>
+            </div>
+
+            {terms.map((item, i) => (
+                <div className="grid gap-2 sm:grid-cols-2" key={i}>
+                    <Field
+                        name={`schedule[${i}][jatuh_tempo]`}
+                        label={`Jatuh tempo termin ${i + 1}`}
+                    >
+                        <input
+                            type="date"
+                            name={`schedule[${i}][jatuh_tempo]`}
+                            className={fieldInputClass}
+                            value={item.jatuh_tempo}
+                            onChange={(e) =>
+                                onTermsChange((prev) =>
+                                    prev.map((row, idx) =>
+                                        idx === i
+                                            ? {
+                                                  ...row,
+                                                  jatuh_tempo: e.target.value,
+                                              }
+                                            : row,
+                                    ),
+                                )
+                            }
+                        />
+                    </Field>
+
+                    <Field
+                        name={`schedule[${i}][jumlah]`}
+                        label={`Nominal termin ${i + 1} (Rp)`}
+                    >
+                        <input
+                            type="number"
+                            step="0.01"
+                            name={`schedule[${i}][jumlah]`}
+                            className={fieldInputClass}
+                            value={item.jumlah}
+                            onChange={(e) =>
+                                onTermsChange((prev) =>
+                                    prev.map((row, idx) =>
+                                        idx === i
+                                            ? { ...row, jumlah: e.target.value }
+                                            : row,
+                                    ),
+                                )
+                            }
+                        />
+                    </Field>
+                </div>
+            ))}
+
+            <div className="flex gap-2">
+                <button
+                    type="button"
+                    className="btn btn-xs btn-outline"
+                    onClick={() =>
+                        onTermsChange((prev) => [
+                            ...prev,
+                            { jatuh_tempo: '', jumlah: '' },
+                        ])
+                    }
+                >
+                    Tambah termin
+                </button>
+                <button
+                    type="button"
+                    className="btn btn-xs btn-ghost"
+                    disabled={terms.length === 0}
+                    onClick={() => onTermsChange((prev) => prev.slice(0, -1))}
+                >
+                    Kurangi termin
+                </button>
+            </div>
+        </div>
+    );
+}
+
+function OfflineFinancingSection({ r }: { r: Registration }) {
+    const [kind, setKind] = useState<'installment' | 'defer' | 'monthly'>(
+        'installment',
+    );
+    const [initialAmount, setInitialAmount] = useState('0');
+    const [terms, setTerms] = useState<
+        Array<{ jatuh_tempo: string; jumlah: string }>
+    >([
+        { jatuh_tempo: '', jumlah: '' },
+        { jatuh_tempo: '', jumlah: '' },
+    ]);
+
+    const remainingTotal = Math.max(
+        0,
+        Number(r.tagihan?.total ?? 0) - Number(r.tagihan?.total_dibayar ?? 0),
+    );
+    const hasCustomScheme = r.decisions.some(
+        (d) =>
+            ['installment', 'defer', 'monthly'].includes(d.kind) &&
+            ['pending', 'approved'].includes(d.status),
+    );
+
+    if (
+        !r.tagihan ||
+        r.completed_at ||
+        r.keys_returned_at ||
+        r.is_kipk ||
+        ['rejected', 'cancelled'].includes(r.status) ||
+        remainingTotal <= 0 ||
+        hasCustomScheme
+    ) {
+        return null;
+    }
+
+    return (
+        <details className="border-base-300 rounded-lg border p-3">
+            <summary className="cursor-pointer font-medium">
+                Ubah Skema Tagihan &amp; Jadwal Cicilan (ACC Offline Pimpinan)
+            </summary>
+            <div className="mt-3 space-y-3">
+                <p className="text-base-content/75 text-xs">
+                    Gunakan formulir ini bila calon penghuni sudah mengajukan
+                    dan mendapat persetujuan langsung dari Pimpinan secara
+                    offline untuk skema cicilan atau penundaan pembayaran.
+                </p>
+                <ActionForm
+                    url={workflow.requestDecision.url(r.id)}
+                    label="Simpan Skema & Jadwal Tagihan"
+                    confirmTitle="Ubah Skema Tagihan & Pembayaran?"
+                    confirmMessage="Jadwal termin tagihan mahasiswa akan diperbarui sesuai persetujuan Pimpinan (offline)."
+                >
+                    <input type="hidden" name="offline_approval" value="1" />
+                    <input type="hidden" name="status" value="approved" />
+                    <div className="grid gap-3 sm:grid-cols-2">
+                        <Field label="Skema Pembiayaan" name="kind">
+                            <select
+                                name="kind"
+                                className={fieldInputClass}
+                                value={kind}
+                                onChange={(e) => {
+                                    const nextKind = e.target.value as
+                                        | 'installment'
+                                        | 'defer'
+                                        | 'monthly';
+                                    setKind(nextKind);
+                                    if (nextKind === 'defer') {
+                                        setInitialAmount('0');
+                                    }
+                                }}
+                            >
+                                <option value="installment">
+                                    Cicilan (Termin Pembayaran)
+                                </option>
+                                <option value="defer">
+                                    Penundaan Pembayaran (0 DP)
+                                </option>
+                                {r.rate_unit === 'month' && (
+                                    <option value="monthly">Bulanan</option>
+                                )}
+                            </select>
+                        </Field>
+                        <Field
+                            label="Dasar persetujuan Pimpinan (offline)"
+                            name="approval_basis"
+                        />
+                    </div>
+                    <InstallmentScheduleFields
+                        remainingTotal={remainingTotal}
+                        initialAmount={initialAmount}
+                        onInitialAmountChange={setInitialAmount}
+                        terms={terms}
+                        onTermsChange={setTerms}
+                    />
+                </ActionForm>
+            </div>
+        </details>
+    );
+}
+
 function FinancingTermsForm({
     decision,
     tagihan,
@@ -833,23 +1081,6 @@ function FinancingTermsForm({
         { jatuh_tempo: '', jumlah: '' },
         { jatuh_tempo: '', jumlah: '' },
     ]);
-
-    const scheduleSum = terms.reduce(
-        (sum, t) => sum + (Number(t.jumlah) || 0),
-        0,
-    );
-
-    function splitEqually() {
-        const count = Math.max(1, terms.length);
-        const perTerm = Math.floor(remainingTotal / count);
-        const remainder = remainingTotal - perTerm * count;
-        setTerms((prev) =>
-            prev.map((item, idx) => ({
-                ...item,
-                jumlah: String(perTerm + (idx === count - 1 ? remainder : 0)),
-            })),
-        );
-    }
 
     return (
         <div className="border-base-200 bg-base-200/30 mt-3 rounded-lg border p-3">
@@ -916,138 +1147,16 @@ function FinancingTermsForm({
                     </p>
                 )}
 
-                {!conditional && (
-                    <Field
-                        label="Pembayaran awal yang wajib dipenuhi (Rp)"
-                        name="initial_amount"
-                    >
-                        <input
-                            name="initial_amount"
-                            type="number"
-                            className={fieldInputClass}
-                            value={initialAmount}
-                            onChange={(e) => setInitialAmount(e.target.value)}
-                        />
-                    </Field>
-                )}
-
                 {outcome === 'approved' &&
                     !conditional &&
                     decision.kind !== 'transfer_permission' && (
-                        <div className="space-y-3 pt-1">
-                            <div className="bg-base-100 flex flex-wrap items-center justify-between gap-2 rounded border px-3 py-2 text-xs">
-                                <span>
-                                    Sisa tagihan pribadi:{' '}
-                                    <strong>
-                                        {formatRupiah(remainingTotal)}
-                                    </strong>{' '}
-                                    · Terjadwal saat ini:{' '}
-                                    <strong
-                                        className={
-                                            Math.abs(
-                                                scheduleSum - remainingTotal,
-                                            ) < 1
-                                                ? 'text-success'
-                                                : 'text-warning'
-                                        }
-                                    >
-                                        {formatRupiah(scheduleSum)}
-                                    </strong>
-                                </span>
-                                <button
-                                    type="button"
-                                    className="btn btn-xs btn-outline"
-                                    onClick={splitEqually}
-                                >
-                                    Bagi rata ({terms.length} termin)
-                                </button>
-                            </div>
-
-                            {terms.map((item, i) => (
-                                <div
-                                    className="grid gap-2 sm:grid-cols-2"
-                                    key={i}
-                                >
-                                    <Field
-                                        name={`schedule[${i}][jatuh_tempo]`}
-                                        label={`Jatuh tempo termin ${i + 1}`}
-                                    >
-                                        <input
-                                            type="date"
-                                            name={`schedule[${i}][jatuh_tempo]`}
-                                            className={fieldInputClass}
-                                            value={item.jatuh_tempo}
-                                            onChange={(e) =>
-                                                setTerms((prev) =>
-                                                    prev.map((row, idx) =>
-                                                        idx === i
-                                                            ? {
-                                                                  ...row,
-                                                                  jatuh_tempo:
-                                                                      e.target
-                                                                          .value,
-                                                              }
-                                                            : row,
-                                                    ),
-                                                )
-                                            }
-                                        />
-                                    </Field>
-
-                                    <Field
-                                        name={`schedule[${i}][jumlah]`}
-                                        label={`Nominal termin ${i + 1} (Rp)`}
-                                    >
-                                        <input
-                                            type="number"
-                                            step="0.01"
-                                            name={`schedule[${i}][jumlah]`}
-                                            className={fieldInputClass}
-                                            value={item.jumlah}
-                                            onChange={(e) =>
-                                                setTerms((prev) =>
-                                                    prev.map((row, idx) =>
-                                                        idx === i
-                                                            ? {
-                                                                  ...row,
-                                                                  jumlah: e
-                                                                      .target
-                                                                      .value,
-                                                              }
-                                                            : row,
-                                                    ),
-                                                )
-                                            }
-                                        />
-                                    </Field>
-                                </div>
-                            ))}
-
-                            <div className="flex gap-2">
-                                <button
-                                    type="button"
-                                    className="btn btn-xs btn-outline"
-                                    onClick={() =>
-                                        setTerms((prev) => [
-                                            ...prev,
-                                            { jatuh_tempo: '', jumlah: '' },
-                                        ])
-                                    }
-                                >
-                                    Tambah termin
-                                </button>
-                                <button
-                                    type="button"
-                                    className="btn btn-xs btn-ghost"
-                                    disabled={terms.length === 0}
-                                    onClick={() =>
-                                        setTerms((prev) => prev.slice(0, -1))
-                                    }
-                                >
-                                    Kurangi termin
-                                </button>
-                            </div>
-                        </div>
+                        <InstallmentScheduleFields
+                            remainingTotal={remainingTotal}
+                            initialAmount={initialAmount}
+                            onInitialAmountChange={setInitialAmount}
+                            terms={terms}
+                            onTermsChange={setTerms}
+                        />
                     )}
             </ActionForm>
         </div>
@@ -1289,6 +1398,8 @@ export default function RegistrationDetailCard({
                     latestDocuments={latestDocuments}
                 />
             )}
+
+            {manager && <OfflineFinancingSection r={r} />}
 
             {r.decisions.length > 0 &&
                 (!r.completed_at ||

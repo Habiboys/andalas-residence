@@ -1214,58 +1214,73 @@ export default function Registration({
                                                 'personal' && (
                                                 <div className="border-base-300 bg-base-100 space-y-3 rounded-2xl border p-5 shadow-sm">
                                                     <h3 className="text-base font-semibold">
-                                                        Pilih Skema Pembiayaan
+                                                        Skema Pembayaran
                                                     </h3>
-                                                    <label className="block space-y-1 text-sm">
-                                                        <span>
-                                                            Jenis Pembiayaan
-                                                        </span>
-                                                        <select
-                                                            className={
-                                                                selectClass
-                                                            }
-                                                            value={
-                                                                form.data
-                                                                    .decision_kind
-                                                            }
-                                                            onChange={(e) =>
-                                                                form.setData(
-                                                                    'decision_kind',
-                                                                    e.target
-                                                                        .value,
-                                                                )
-                                                            }
-                                                        >
-                                                            <option value="full">
-                                                                Bayar penuh
-                                                                sesuai tagihan
-                                                            </option>
-                                                            <option value="installment">
-                                                                Pengajuan
-                                                                cicilan
-                                                            </option>
-                                                            {form.data
-                                                                .rate_unit ===
-                                                                'month' &&
-                                                                canSelectMonthly && (
-                                                                    <option value="monthly">
-                                                                        Pembayaran
-                                                                        bulanan
-                                                                    </option>
-                                                                )}
-                                                        </select>
-                                                    </label>
-                                                    {form.data.decision_kind !==
-                                                        'full' && (
+                                                    {form.data.rate_unit ===
+                                                        'month' &&
+                                                    canSelectMonthly ? (
                                                         <label className="block space-y-1 text-sm">
                                                             <span>
-                                                                Alasan pengajuan
-                                                                pembiayaan
+                                                                Jenis Pembayaran
+                                                            </span>
+                                                            <select
+                                                                className={
+                                                                    selectClass
+                                                                }
+                                                                value={
+                                                                    form.data
+                                                                        .decision_kind
+                                                                }
+                                                                onChange={(e) =>
+                                                                    form.setData(
+                                                                        'decision_kind',
+                                                                        e.target
+                                                                            .value,
+                                                                    )
+                                                                }
+                                                            >
+                                                                <option value="full">
+                                                                    Bayar penuh
+                                                                    sesuai
+                                                                    tagihan
+                                                                </option>
+                                                                <option value="monthly">
+                                                                    Pembayaran
+                                                                    bulanan
+                                                                </option>
+                                                            </select>
+                                                        </label>
+                                                    ) : (
+                                                        <p className="text-sm font-medium">
+                                                            Bayar penuh sesuai
+                                                            tagihan
+                                                        </p>
+                                                    )}
+                                                    <p className="text-muted text-xs">
+                                                        Pengajuan cicilan atau
+                                                        penundaan pembayaran
+                                                        tidak melalui sistem,
+                                                        melainkan diajukan
+                                                        langsung oleh calon
+                                                        penghuni kepada Pimpinan
+                                                        asrama. Setelah
+                                                        disetujui Pimpinan,
+                                                        Pengelola akan mengubah
+                                                        skema tagihan dan jadwal
+                                                        pembayaran Anda.
+                                                    </p>
+                                                    {form.data.decision_kind ===
+                                                        'monthly' && (
+                                                        <label className="block space-y-1 text-sm">
+                                                            <span>
+                                                                Catatan
+                                                                permohonan
+                                                                bulanan
                                                             </span>
                                                             <textarea
                                                                 className="textarea textarea-bordered w-full"
                                                                 rows={2}
-                                                                placeholder="Jelaskan alasan pengajuan cicilan/skema..."
+                                                                placeholder="Jelaskan keperluan pembayaran bulanan..."
                                                                 value={
                                                                     form.data
                                                                         .decision_reason

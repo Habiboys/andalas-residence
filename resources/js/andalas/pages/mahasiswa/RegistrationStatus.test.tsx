@@ -140,3 +140,25 @@ it('hides upload and financing inputs once saved permanently until revision is r
     expect(html).not.toContain('type="file"');
     expect(html).not.toContain('Pilih Skema Pembiayaan');
 });
+
+it('does not allow students to submit installment or deferral requests online inside the system', () => {
+    const regWithoutDecision = {
+        ...sampleRegistration,
+        decisions: [],
+    };
+    const html = renderToStaticMarkup(
+        <RegistrationStatus
+            registrations={{
+                data: [regWithoutDecision],
+                last_page: 1,
+                links: [],
+            }}
+        />,
+    );
+
+    expect(html).not.toContain('Ajukan cicilan (persetujuan pimpinan)');
+    expect(html).not.toContain(
+        'Ajukan penundaan pembayaran (persetujuan pimpinan)',
+    );
+    expect(html).toContain('Pengajuan cicilan atau penundaan pembayaran');
+});

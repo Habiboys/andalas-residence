@@ -1642,45 +1642,54 @@ export function StudentRegistrationCard({
                     {canChooseFinancing && (
                         <div className="border-base-300 bg-base-200/30 space-y-3 rounded-lg border p-3.5">
                             <p className="text-sm font-semibold">
-                                Pilih Skema Pembiayaan
+                                Skema Pembayaran
                             </p>
+                            {hasMonthlyOption || hasTransferOption ? (
+                                <>
+                                    <p className="text-muted text-xs">
+                                        Pilihan ini akan dikunci permanen setelah
+                                        Anda menekan tombol simpan di bawah.
+                                    </p>
+                                    <label className="block space-y-1">
+                                        <span className="text-xs font-medium">
+                                            Jenis Pembayaran
+                                        </span>
+                                        <select
+                                            className="select select-bordered select-sm w-full"
+                                            value={decisionKind}
+                                            onChange={(e) =>
+                                                setDecisionKind(e.target.value)
+                                            }
+                                        >
+                                            <option value="full">
+                                                Bayar penuh sesuai tagihan
+                                            </option>
+                                            {hasMonthlyOption && (
+                                                <option value="monthly">
+                                                    Ajukan skema bulanan
+                                                </option>
+                                            )}
+                                            {hasTransferOption && (
+                                                <option value="transfer_permission">
+                                                    Izin tinggal berbasis bukti
+                                                    transfer
+                                                </option>
+                                            )}
+                                        </select>
+                                    </label>
+                                </>
+                            ) : (
+                                <p className="text-xs font-medium">
+                                    Bayar penuh sesuai tagihan
+                                </p>
+                            )}
                             <p className="text-muted text-xs">
-                                Pilihan ini akan dikunci permanen setelah Anda
-                                menekan tombol simpan di bawah.
+                                Pengajuan cicilan atau penundaan pembayaran
+                                dilakukan langsung ke Pimpinan asrama (offline),
+                                bukan melalui sistem. Setelah disetujui Pimpinan,
+                                Pengelola akan memperbarui skema tagihan dan
+                                jadwal cicilan Anda.
                             </p>
-                            <label className="block space-y-1">
-                                <span className="text-xs font-medium">
-                                    Jenis Pembiayaan
-                                </span>
-                                <select
-                                    className="select select-bordered select-sm w-full"
-                                    value={decisionKind}
-                                    onChange={(e) =>
-                                        setDecisionKind(e.target.value)
-                                    }
-                                >
-                                    <option value="full">
-                                        Bayar penuh sesuai tagihan
-                                    </option>
-                                    <option value="installment">
-                                        Ajukan cicilan (persetujuan pimpinan)
-                                    </option>
-                                    <option value="defer">
-                                        Ajukan penundaan pembayaran (persetujuan
-                                        pimpinan)
-                                    </option>
-                                    {hasMonthlyOption && (
-                                        <option value="monthly">
-                                            Ajukan skema bulanan
-                                        </option>
-                                    )}
-                                    {hasTransferOption && (
-                                        <option value="transfer_permission">
-                                            Izin tinggal berbasis bukti transfer
-                                        </option>
-                                    )}
-                                </select>
-                            </label>
                             {decisionKind !== 'full' && (
                                 <label className="block space-y-1">
                                     <span className="text-xs font-medium">

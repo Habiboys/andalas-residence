@@ -508,3 +508,70 @@ it('blocks bank transfer submission with validation error when no active bank ac
             ->where('registrations.data.0.tagihan.pembayaran.0.status', 'menunggu_verifikasi')
         );
 });
+
+it('disallows student installment submission in the system while allowing pengelola to convert full billing into installment schedule after leader offline approval', function () {
+    $f = toBeFixture('local_non_kipk', 2);
+
+    // Student cannot request installment directly during Step 3 registration
+    $this->actingAs($f['user'])
+        ->post(route('andalas.registrations.store'), [
+            'periode_id' => $f['period']->id,
+            'preferences' => [['kamar_id' => $f['room']->id]],
+            'files' => [
+                'perjanjian' => UploadedFile::fake()->create('perjanjian.pdf', 80, 'application/pdf'),
+            ],
+            'decision_kind' => 'installment',
+            'decision_reason' => 'Minta cicil',
+        ])
+        ->assertSessionHasErrors('decision_kind');
+
+    // Standard full registration succeeds
+    $this->actingAs($f['user'])
+        ->post(route('andalas.registrations.store'), [
+            'periode_id' => $f['period']->id,
+            'preferences' => [['kamar_id' => $f['room']->id]],
+            'files' => [
+                'perjanjian' => UploadedFile::fake()->create('perjanjian.pdf', 80, 'application/pdf'),
+            ],
+            'decision_kind' => 'full',
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $registration = ResidenceRegistration::where('student_profile_id', $f['profile']->id)->sole();
+    expect($registration->decisions()->where('kind', 'full')->where('status', 'approved')->count())->toBe(1);
+
+    // Student cannot submit installment request via decisions.request endpoint either
+    $this->actingAs($f['user'])
+        ->post(route('residence.decisions.request', $registration), [
+            'kind' => 'installment',
+            'reason' => 'Minta cicil lewat sistem',
+        ])
+        ->assertForbidden();
+
+    // After student gets offline approval from Pimpinan, Pengelola converts the billing scheme & schedule
+    $total = (int) round((float) $registration->tagihan->total);
+    $firstTerm = intdiv($total, 2);
+    $secondTerm = $total - $firstTerm;
+
+    $this->actingAs($f['manager'])
+        ->post(route('residence.decisions.request', $registration), [
+            'kind' => 'installment',
+            'offline_approval' => true,
+            'status' => 'approved',
+            'approval_basis' => 'Surat Persetujuan Pimpinan Tatap Muka #01',
+            'initial_amount' => $firstTerm,
+            'schedule' => [
+                ['jatuh_tempo' => today()->addDays(7)->toDateString(), 'jumlah' => $firstTerm],
+                ['jatuh_tempo' => today()->addMonth()->toDateString(), 'jumlah' => $secondTerm],
+            ],
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $registration->refresh();
+    expect($registration->decisions()->where('kind', 'full')->sole()->status)->toBe('superseded')
+        ->and($registration->decisions()->where('kind', 'installment')->sole()->status)->toBe('approved')
+        ->and($registration->tagihan->jadwalCicilan()->count())->toBe(2)
+        ->and((float) $registration->tagihan->amount_due_now)->toBe((float) $firstTerm);
+});

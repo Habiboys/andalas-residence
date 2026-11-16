@@ -209,14 +209,15 @@ it('denies checkin to facilitators assigned to another building', function () {
     $this->assertDatabaseCount('penempatan_kamar', 0);
 });
 
-it('requires a leader for a zero-upfront deferral and preserves the debt after approval', function () {
+it('forbids student online installment/deferral requests and records leader-approved zero-upfront deferral via manager while preserving debt', function () {
     $f = toBeFixture();
     $r = toBeSubmit($f);
     toBeDocument($r, $f['manager']);
-    $this->actingAs($f['user'])->post(route('residence.decisions.request', $r), ['kind' => 'defer', 'reason' => 'Menunggu dana'])->assertRedirect()->assertSessionHasNoErrors();
-    $decision = $r->decisions()->sole();
+    $this->actingAs($f['user'])->post(route('residence.decisions.request', $r), ['kind' => 'defer', 'reason' => 'Menunggu dana'])->assertForbidden();
+    $this->actingAs($f['user'])->post(route('residence.decisions.request', $r), ['kind' => 'installment', 'reason' => 'Cicilan'])->assertForbidden();
+
+    $decision = ResidenceDecision::factory()->create(['residence_registration_id' => $r->id, 'kind' => 'defer', 'reason' => 'Menunggu dana']);
     $body = ['status' => 'approved', 'notes' => 'Disetujui sesuai perjanjian', 'initial_amount' => 0, 'schedule' => [['jumlah' => 1000000, 'jatuh_tempo' => '2026-12-01']]];
-    $this->actingAs($f['manager'])->post(route('residence.decisions.review', $decision), $body)->assertForbidden();
     $leader = toBeOfficer('pimpinan');
     $this->actingAs($leader)->post(route('residence.decisions.review', $decision), $body)->assertRedirect()->assertSessionHasNoErrors();
     $this->actingAs($f['manager'])->post(route('residence.decisions.review', $decision), $body)->assertRedirect()->assertSessionHasNoErrors();
@@ -527,7 +528,7 @@ it('renders a dedicated registration detail page without summary totals', functi
         );
 });
 
-it('submits documents and installment decision in one package and locks saved documents until revision', function () {
+it('submits documents and full payment choice in one package, blocks online student installment requests, and locks saved documents until revision', function () {
     Storage::fake('local');
     $f = toBeFixture();
     $r = toBeSubmit($f);
@@ -540,10 +541,20 @@ it('submits documents and installment decision in one package and locks saved do
             'decision_kind' => 'installment',
             'decision_reason' => 'Mengajukan cicilan 2 termin',
         ])
-        ->assertRedirect();
+        ->assertSessionHasErrors('decision_kind');
+
+    $this->actingAs($f['user'])
+        ->post(route('residence.package.submit', $r), [
+            'files' => [
+                'perjanjian' => UploadedFile::fake()->create('perjanjian.pdf', 100, 'application/pdf'),
+            ],
+            'decision_kind' => 'full',
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
 
     expect($r->documents()->where('kind', 'perjanjian')->count())->toBe(1)
-        ->and($r->decisions()->where('kind', 'installment')->where('status', 'pending')->count())->toBe(1);
+        ->and($r->decisions()->where('kind', 'full')->where('status', 'approved')->count())->toBe(1);
 
     $this->actingAs($f['user'])
         ->post(route('residence.package.submit', $r), [

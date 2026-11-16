@@ -234,6 +234,9 @@ it('shows payment verification shortcut on detail page for finance/pengelola', (
     );
     expect(htmlPengelola).toContain('Verifikasi Pembayaran');
     expect(htmlPengelola).toContain(
+        'Ubah Skema Tagihan &amp; Jadwal Cicilan (ACC Offline Pimpinan)',
+    );
+    expect(htmlPengelola).toContain(
         'href="/admin_layanan/verifikasi-pembayaran?search=2310990001"',
     );
     expect(htmlPengelola).not.toContain('Rekonsiliasi DPUB');
@@ -249,4 +252,7 @@ it('shows payment verification shortcut on detail page for finance/pengelola', (
         />,
     );
     expect(htmlFacilitator).not.toContain('Verifikasi Pembayaran');
+    expect(htmlFacilitator).not.toContain(
+        'Ubah Skema Tagihan &amp; Jadwal Cicilan (ACC Offline Pimpinan)',
+    );
 });
