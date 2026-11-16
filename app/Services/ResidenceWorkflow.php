@@ -324,6 +324,9 @@ class ResidenceWorkflow
                     if ($reason === '') {
                         throw ValidationException::withMessages(['decision_reason' => 'Alasan permohonan wajib diisi.']);
                     }
+                    if (in_array($decisionKind, ['installment', 'defer'], true) && ! ResidenceWorkflowAccess::manager($actor)) {
+                        throw ValidationException::withMessages(['decision_kind' => 'Pengajuan cicilan atau penundaan pembayaran diajukan langsung kepada Pimpinan, bukan melalui sistem.']);
+                    }
                     if ($decisionKind === 'monthly' && $r->rate_unit !== 'month') {
                         throw ValidationException::withMessages(['decision_kind' => 'Pendaftaran ini bukan skema bulanan.']);
                     }

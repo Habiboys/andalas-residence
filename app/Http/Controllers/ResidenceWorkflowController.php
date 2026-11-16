@@ -625,6 +625,9 @@ class ResidenceWorkflowController extends Controller
             'reason' => ['required_without:approval_basis', 'nullable', 'string', 'max:2000'],
             'approval_basis' => ['nullable', 'string', 'max:2000'],
         ]);
+        if (in_array($data['kind'], ['installment', 'defer'], true) && ! ResidenceWorkflowAccess::manager($request->user())) {
+            abort(403, 'Pengajuan cicilan atau penundaan pembayaran dilakukan langsung kepada Pimpinan dan dicatat oleh Pengelola setelah disetujui.');
+        }
         $reason = trim((string) ($data['reason'] ?? $data['approval_basis'] ?? ''));
         if ($reason === '') {
             throw ValidationException::withMessages(['reason' => 'Alasan atau dasar persetujuan wajib diisi.']);
@@ -758,6 +761,7 @@ class ResidenceWorkflowController extends Controller
                     'amount_due_now' => $data['initial_amount'],
                     'jatuh_tempo' => $decision->kind === 'defer' && isset($schedule[0]['jatuh_tempo']) ? $schedule[0]['jatuh_tempo'] : $invoice->jatuh_tempo,
                 ]);
+                $r->decisions()->where('kind', 'full')->where('status', 'approved')->where('id', '!=', $decision->id)->update(['status' => 'superseded']);
             }
             if ($data['status'] === 'approved' && $decision->kind === 'transfer_permission' && ! Pembayaran::where('tagihan_id', $invoice->id)->where('status', 'menunggu_verifikasi')->whereNotNull('bukti_transfer_path')->where('nominal', '>=', (float) $invoice->total - (float) $invoice->total_dibayar)->exists()) {
                 throw ValidationException::withMessages(['decision' => 'Bukti transfer belum tersedia.']);

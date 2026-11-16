@@ -34,6 +34,7 @@ function catalogRegistrationFixture(): array
     $input = ['periode_id' => $period->id, 'preferences' => [['kamar_id' => $room->id]], 'rate_unit' => 'year'];
 
     withHousingIdentity($profile);
+
     return compact('user', 'profile', 'period', 'building', 'room', 'input');
 }
 
@@ -156,10 +157,8 @@ it('charges the selected annual basis and protects an exclusive room before and 
     $this->actingAs($f['user'])->post(route('andalas.registrations.store'), [...$f['input'], 'billing_basis' => $basis])->assertSessionHasNoErrors();
     $registration = ResidenceRegistration::sole();
     if ($basis === 'room') {
-        expect($registration->tagihan_id)->toBeNull();
-        $manager = User::factory()->create()->assignRole('admin_layanan');
-        $this->actingAs($manager)->post(route('residence.contracts'), ['registration_ids' => [$registration->id]])->assertRedirect()->assertSessionHasNoErrors();
-        $registration->refresh();
+        expect($registration->tagihan_id)->not->toBeNull()
+            ->and($registration->room_contract_id)->not->toBeNull();
     }
     expect((float) $registration->tagihan->total)->toBe($amount)
         ->and($registration->tagihan->residence_snapshot['billing_basis'])->toBe($basis)

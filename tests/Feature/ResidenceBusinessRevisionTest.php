@@ -128,7 +128,7 @@ it('rejects a second reservation for the last bed and retains it until an explic
     workflowTestPolicies();
     $this->actingAs($student->user)->post(route('andalas.registrations.store'), $payload)->assertSessionHasNoErrors();
     $this->actingAs($other->user)->post(route('andalas.registrations.store'), $payload)->assertSessionHasErrors('preferences');
-    $this->travel(25)->hours();
+    $this->travel(23)->hours();
     app(RoomReservations::class)->expire();
     $this->actingAs($other->user)->post(route('andalas.registrations.store'), $payload)->assertSessionHasErrors('preferences');
     $registration = ResidenceRegistration::where('student_profile_id', $student->id)->sole();

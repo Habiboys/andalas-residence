@@ -11,6 +11,7 @@ use App\Models\MahasiswaProfil;
 use App\Models\MediaAsset;
 use App\Models\OrganizationPosition;
 use App\Models\ParentStudentLink;
+use App\Models\PaymentBankAccount;
 use App\Models\Periode;
 use App\Models\Prodi;
 use App\Models\RoomInvitation;
@@ -48,6 +49,12 @@ class ResidenceDemoSeeder extends Seeder
 
         KategoriTransaksi::firstOrCreate(['nama_kategori' => 'Pembayaran Sewa Asrama', 'tipe' => 'pemasukan']);
         KategoriTransaksi::firstOrCreate(['nama_kategori' => 'Operasional Gedung', 'tipe' => 'pengeluaran']);
+        PaymentBankAccount::firstOrCreate(['account_number' => '2100020100001'], [
+            'bank_name' => 'Bank Nagari',
+            'account_name' => 'RPL 014 UNAND Asrama Demo',
+            'instructions' => 'Cantumkan NIM pada berita transfer.',
+            'is_active' => true,
+        ]);
 
         $users = [
             ['nim_nip' => 'SA001', 'nama' => 'Super Admin', 'email' => 'superadmin@unand.ac.id', 'role' => 'superadmin'],
