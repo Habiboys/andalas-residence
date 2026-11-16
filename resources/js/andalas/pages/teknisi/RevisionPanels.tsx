@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { useForm } from '@inertiajs/react';
-import { Button, Card, inputClass } from '../../components/ui';
+import { Plus } from 'lucide-react';
+import { Button, Card, Modal, inputClass } from '../../components/ui';
 import { newDamageRequestKey } from '../../lib/damage-reports';
 
 type ItemInput = {
@@ -64,6 +66,8 @@ export function MultiItemForm({
     }[];
     facilities: { id: string; nama_fasilitas: string }[];
 }) {
+    const [open, setOpen] = useState(false);
+    const [formKey, setFormKey] = useState(0);
     const form = useForm<{
         request_key: string;
         fasilitas_umum_id: string;
@@ -80,6 +84,13 @@ export function MultiItemForm({
               ? a.kamar_id === room.id
               : !a.fasilitas_umum_id,
     );
+    const roomLocation = [
+        room?.lantai?.gedung?.nama_gedung,
+        room?.nomor_kamar ? `Kamar ${room.nomor_kamar}` : null,
+    ]
+        .filter(Boolean)
+        .join(' · ');
+
     function edit(index: number, values: Partial<ItemInput>) {
         form.setData(
             'items',
@@ -88,140 +99,256 @@ export function MultiItemForm({
             ),
         );
     }
+
+    function closeModal() {
+        if (form.processing) {
+            return;
+        }
+        setOpen(false);
+        form.clearErrors();
+    }
+
     return (
-        <details>
-            <summary className="cursor-pointer font-semibold">
-                Buat laporan / tambah item kamar
-            </summary>
-            <form
-                className="mt-3 space-y-3"
-                onSubmit={(e) => {
-                    e.preventDefault();
-                    form.post('/andalas/laporan-kerusakan', {
-                        forceFormData: true,
-                        onSuccess: () =>
-                            form.setData({
-                                request_key: newDamageRequestKey(),
-                                fasilitas_umum_id: '',
-                                items: [emptyItem()],
-                            }),
-                    });
-                }}
+        <>
+            <Card className="p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="min-w-0 space-y-0.5">
+                        <h2 className="text-base-content text-sm font-semibold">
+                            Buat laporan / tambah item kamar
+                        </h2>
+                        <p className="text-muted text-xs md:text-sm">
+                            Penghuni:{' '}
+                            <strong className="text-base-content">
+                                {name}
+                            </strong>
+                            {roomLocation ? ` · ${roomLocation}` : ''}
+                        </p>
+                    </div>
+                    <Button
+                        type="button"
+                        onClick={() => setOpen(true)}
+                        className="shrink-0 gap-1.5"
+                    >
+                        <Plus className="size-4" aria-hidden="true" />
+                        Buat laporan / tambah item kamar
+                    </Button>
+                </div>
+            </Card>
+
+            <Modal
+                open={open}
+                onClose={closeModal}
+                title="Buat Laporan / Tambah Item Kamar"
+                width="max-w-2xl"
             >
-                <p>
-                    Penghuni: <strong>{name}</strong> /{' '}
-                    {room?.lantai?.gedung?.nama_gedung} / Kamar{' '}
-                    {room?.nomor_kamar}
-                </p>
-                <p className="text-muted text-sm">
-                    Item otomatis ditambahkan ke laporan kamar yang masih Belum
-                    Dikerjakan. Bila pekerjaan sebelumnya sudah dimulai,
-                    pengiriman ini menjadi laporan baru tanpa mengubah pekerjaan
-                    lama.
-                </p>
-                <select
-                    aria-label="Lokasi laporan"
-                    className={inputClass}
-                    value={form.data.fasilitas_umum_id}
-                    onChange={(e) => {
-                        form.setData('fasilitas_umum_id', e.target.value);
-                        form.setData('items', [emptyItem()]);
+                <form
+                    key={formKey}
+                    className="space-y-4"
+                    onSubmit={(e) => {
+                        e.preventDefault();
+                        form.post('/andalas/laporan-kerusakan', {
+                            forceFormData: true,
+                            onSuccess: () => {
+                                form.setData({
+                                    request_key: newDamageRequestKey(),
+                                    fasilitas_umum_id: '',
+                                    items: [emptyItem()],
+                                });
+                                setFormKey((prev) => prev + 1);
+                                setOpen(false);
+                            },
+                        });
                     }}
                 >
-                    <option value="">Kamar saya</option>
-                    {facilities.map((f) => (
-                        <option key={f.id} value={f.id}>
-                            {f.nama_fasilitas}
-                        </option>
-                    ))}
-                </select>
-                {form.data.items.map((item, index) => (
-                    <Card className="space-y-2 p-4" key={index}>
-                        <h3 className="font-medium">Item {index + 1}</h3>
+                    <div className="border-base-300 bg-base-200/50 space-y-1 rounded-lg border p-3 text-sm">
+                        <p>
+                            Penghuni: <strong>{name}</strong>
+                            {roomLocation ? ` · ${roomLocation}` : ''}
+                        </p>
+                        <p className="text-muted text-xs">
+                            Item otomatis ditambahkan ke laporan kamar yang
+                            masih Belum Dikerjakan. Bila pekerjaan sebelumnya
+                            sudah dimulai, pengiriman ini menjadi laporan baru
+                            tanpa mengubah pekerjaan lama.
+                        </p>
+                    </div>
+
+                    <div className="space-y-1">
+                        <label className="text-base-content block text-xs font-medium">
+                            Lokasi laporan
+                        </label>
                         <select
-                            aria-label={`Aset item ${index + 1}`}
+                            aria-label="Lokasi laporan"
                             className={inputClass}
-                            value={item.aset_id}
+                            value={form.data.fasilitas_umum_id}
                             onChange={(e) =>
-                                edit(index, { aset_id: e.target.value })
+                                form.setData({
+                                    ...form.data,
+                                    fasilitas_umum_id: e.target.value,
+                                    items: [emptyItem()],
+                                })
                             }
                         >
-                            <option value="">Tanpa inventaris</option>
-                            {filteredAssets.map((a) => (
-                                <option key={a.id} value={a.id}>
-                                    {a.nama_aset}
+                            <option value="">Kamar saya</option>
+                            {facilities.map((f) => (
+                                <option key={f.id} value={f.id}>
+                                    {f.nama_fasilitas}
                                 </option>
                             ))}
                         </select>
-                        <input
-                            aria-label={`Lokasi item ${index + 1}`}
-                            className={inputClass}
-                            value={item.location_label}
-                            onChange={(e) =>
-                                edit(index, { location_label: e.target.value })
-                            }
-                            placeholder="Rincian lokasi dalam kamar/fasilitas"
-                        />
-                        <textarea
-                            aria-label={`Deskripsi item ${index + 1}`}
-                            className={inputClass}
-                            required
-                            value={item.description}
-                            onChange={(e) =>
-                                edit(index, { description: e.target.value })
-                            }
-                            placeholder="Kerusakan item ini"
-                        />
-                        <label className="block">
-                            Foto awal item (opsional)
-                            <input
-                                type="file"
-                                className="file-input w-full"
-                                multiple
-                                accept="image/jpeg,image/png"
-                                onChange={(e) =>
-                                    edit(index, {
-                                        photos: Array.from(
-                                            e.target.files ?? [],
-                                        ),
-                                    })
-                                }
-                            />
-                        </label>
-                        {form.data.items.length > 1 && (
-                            <button
-                                type="button"
-                                className="btn btn-ghost btn-sm"
-                                onClick={() =>
-                                    form.setData(
-                                        'items',
-                                        form.data.items.filter(
-                                            (_, i) => i !== index,
-                                        ),
-                                    )
-                                }
+                    </div>
+
+                    <div className="space-y-3">
+                        {form.data.items.map((item, index) => (
+                            <div
+                                key={index}
+                                className="border-base-300 bg-base-100 space-y-3 rounded-lg border p-4"
                             >
-                                Hapus item dari formulir
-                            </button>
-                        )}
-                    </Card>
-                ))}
-                <button
-                    className="btn btn-outline btn-sm"
-                    type="button"
-                    disabled={form.data.items.length >= 30}
-                    onClick={() =>
-                        form.setData('items', [...form.data.items, emptyItem()])
-                    }
-                >
-                    Tambah item lain
-                </button>
-                <ErrorList errors={form.errors} />
-                <Button type="submit" disabled={form.processing}>
-                    Simpan item laporan
-                </Button>
-            </form>
-        </details>
+                                <div className="flex items-center justify-between gap-2">
+                                    <h3 className="text-sm font-semibold">
+                                        Item {index + 1}
+                                    </h3>
+                                    {form.data.items.length > 1 && (
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            className="text-error hover:bg-error/10"
+                                            onClick={() =>
+                                                form.setData(
+                                                    'items',
+                                                    form.data.items.filter(
+                                                        (_, i) => i !== index,
+                                                    ),
+                                                )
+                                            }
+                                        >
+                                            Hapus item dari formulir
+                                        </Button>
+                                    )}
+                                </div>
+
+                                <div className="space-y-1">
+                                    <label className="text-base-content block text-xs font-medium">
+                                        Aset inventaris
+                                    </label>
+                                    <select
+                                        aria-label={`Aset item ${index + 1}`}
+                                        className={inputClass}
+                                        value={item.aset_id}
+                                        onChange={(e) =>
+                                            edit(index, {
+                                                aset_id: e.target.value,
+                                            })
+                                        }
+                                    >
+                                        <option value="">Tanpa inventaris</option>
+                                        {filteredAssets.map((a) => (
+                                            <option key={a.id} value={a.id}>
+                                                {a.nama_aset}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div className="space-y-1">
+                                    <label className="text-base-content block text-xs font-medium">
+                                        Rincian lokasi
+                                    </label>
+                                    <input
+                                        aria-label={`Lokasi item ${index + 1}`}
+                                        className={inputClass}
+                                        value={item.location_label}
+                                        onChange={(e) =>
+                                            edit(index, {
+                                                location_label: e.target.value,
+                                            })
+                                        }
+                                        placeholder="Rincian lokasi dalam kamar/fasilitas"
+                                    />
+                                </div>
+
+                                <div className="space-y-1">
+                                    <label className="text-base-content block text-xs font-medium">
+                                        Deskripsi kerusakan{' '}
+                                        <span className="text-error">*</span>
+                                    </label>
+                                    <textarea
+                                        aria-label={`Deskripsi item ${index + 1}`}
+                                        className={inputClass}
+                                        rows={3}
+                                        required
+                                        value={item.description}
+                                        onChange={(e) =>
+                                            edit(index, {
+                                                description: e.target.value,
+                                            })
+                                        }
+                                        placeholder="Kerusakan item ini"
+                                    />
+                                </div>
+
+                                <div className="space-y-1">
+                                    <label className="text-base-content block text-xs font-medium">
+                                        Foto awal item (opsional)
+                                    </label>
+                                    <input
+                                        type="file"
+                                        className="file-input file-input-sm w-full"
+                                        multiple
+                                        accept="image/jpeg,image/png"
+                                        onChange={(e) =>
+                                            edit(index, {
+                                                photos: Array.from(
+                                                    e.target.files ?? [],
+                                                ),
+                                            })
+                                        }
+                                    />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div>
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            type="button"
+                            disabled={form.data.items.length >= 30}
+                            onClick={() =>
+                                form.setData('items', [
+                                    ...form.data.items,
+                                    emptyItem(),
+                                ])
+                            }
+                            className="gap-1.5"
+                        >
+                            <Plus className="size-3.5" aria-hidden="true" />
+                            Tambah item lain
+                        </Button>
+                    </div>
+
+                    <ErrorList errors={form.errors} />
+
+                    <div className="border-base-200 flex flex-wrap items-center justify-end gap-2 border-t pt-3">
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            disabled={form.processing}
+                            onClick={closeModal}
+                        >
+                            Batal
+                        </Button>
+                        <Button type="submit" disabled={form.processing}>
+                            {form.processing
+                                ? 'Menyimpan...'
+                                : 'Simpan item laporan'}
+                        </Button>
+                    </div>
+                </form>
+            </Modal>
+        </>
     );
 }
 

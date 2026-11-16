@@ -46,3 +46,42 @@ it.each([0, 1, 2])(
         }
     },
 );
+
+it('renders create damage report form inside a modal rather than an inline details toggle', () => {
+    const emptyPage = { data: [], total: 0, last_page: 1, links: [] };
+    const html = renderToStaticMarkup(
+        <Pelaporan
+            reports={emptyPage}
+            daily={emptyPage}
+            logbooks={emptyPage}
+            summary={{}}
+            blocked_count={0}
+            technicians={[]}
+            buildings={[]}
+            filters={{ date: '2026-11-12' }}
+            today="2026-11-12"
+            can_order={false}
+            can_logbook={false}
+            can_complain={false}
+            can_report
+            resident_name="MUHAMMAD NOUVAL HABIBIE"
+            room={{
+                id: 'room-1',
+                nomor_kamar: '2A.05',
+                lantai: { gedung: { nama_gedung: 'Hijau (G)' } },
+            }}
+            assets={[]}
+            facilities={[]}
+            notifications={[]}
+        />,
+    );
+
+    expect(html).not.toContain(
+        '<details><summary class="cursor-pointer font-semibold">Buat laporan / tambah item kamar</summary>',
+    );
+    expect(html).toContain('Buat laporan / tambah item kamar');
+    expect(html).toContain('Buat Laporan / Tambah Item Kamar');
+    expect(html).toContain('<dialog class="modal');
+    expect(html).toContain('Simpan item laporan');
+    expect(html).toContain('Batal');
+});
