@@ -1,7 +1,6 @@
 <?php
 
 use App\Actions\Billing\PostPayment;
-use App\Actions\Billing\ReconcileResidencePayment;
 use App\Actions\Registration\CreateResidenceBilling;
 use App\Actions\Registration\ReviewResidenceRegistration;
 use App\Actions\Registration\SubmitResidenceRegistration;
@@ -18,7 +17,6 @@ use App\Models\MahasiswaProfil;
 use App\Models\Pembayaran;
 use App\Models\PenempatanKamar;
 use App\Models\Periode;
-use App\Models\ResidencePaymentReference;
 use App\Models\ResidenceRate;
 use App\Models\ResidenceRegistration;
 use App\Models\User;
@@ -331,15 +329,13 @@ it('verifies invoice evidence once and rejects payment against another residents
 
     $reviewer = User::factory()->create();
     $reviewer->givePermissionTo(Permission::findOrCreate('pembayaran.verify'));
-    $this->actingAs($reviewer)->post(route('andalas.pembayaran.verify', $payment), ['status' => 'lunas'])->assertSessionHasErrors('status');
-    $reference = ResidencePaymentReference::factory()->create(['amount' => 1500000]);
-    $allocation = [['tagihan_id' => $invoice->id, 'jumlah' => 1500000, 'payment_proof_id' => $payment->id]];
-    app(ReconcileResidencePayment::class)->handle($reference, $allocation, $reviewer);
-    app(ReconcileResidencePayment::class)->handle($reference, $allocation, $reviewer);
+    $this->actingAs($reviewer)->post(route('andalas.pembayaran.verify', $payment), ['status' => 'lunas'])->assertRedirect()->assertSessionHasNoErrors();
+    $this->actingAs($reviewer)->post(route('andalas.pembayaran.verify', $payment), ['status' => 'lunas'])->assertRedirect()->assertSessionHasNoErrors();
 
     expect($invoice->fresh()->total_dibayar)->toBe('1500000.00')
         ->and($invoice->fresh()->status)->toBe(TagihanStatus::Lunas)
         ->and($payment->fresh()->status)->toBe('lunas');
+    $this->assertDatabaseCount('pembayaran_tagihan', 1);
     $this->actingAs($reviewer)->post(route('andalas.pembayaran.verify', $payment), ['status' => 'ditolak'])->assertSessionHasErrors('status');
 });
 
@@ -363,9 +359,10 @@ it('allocates a combined invoice payment to the original invoice without duplica
 
     $this->actingAs($admin)->post(route('andalas.invoice-groups.pay', $group), [
         'reference' => 'BANK-TRANSFER-1', 'allocations' => [['tagihan_id' => $invoice->id, 'jumlah' => 1500000]],
-    ])->assertSessionHasErrors('reference');
-    $reference = ResidencePaymentReference::factory()->create(['amount' => 1500000]);
-    app(ReconcileResidencePayment::class)->handle($reference, [['tagihan_id' => $invoice->id, 'jumlah' => 1500000]], $admin);
+    ])->assertRedirect()->assertSessionHasNoErrors();
+    $this->actingAs($admin)->post(route('andalas.invoice-groups.pay', $group), [
+        'reference' => 'BANK-TRANSFER-1', 'allocations' => [['tagihan_id' => $invoice->id, 'jumlah' => 1500000]],
+    ])->assertRedirect()->assertSessionHasNoErrors();
 
     expect($invoice->fresh()->total_dibayar)->toBe('1500000.00')
         ->and($invoice->fresh()->status)->toBe(TagihanStatus::Lunas)

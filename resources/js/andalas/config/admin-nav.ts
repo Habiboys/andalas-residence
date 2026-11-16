@@ -118,7 +118,7 @@ export const ANDALAS_ADMIN_NAV: AndalasAdminNavItem[] = [
         title: 'Akun & Role',
         page: 'akun-internal',
         icon: KeyRound,
-        group: 'Superadmin',
+        group: 'Data Master',
         superadminOnly: true,
     },
     {

@@ -1,16 +1,26 @@
-import { Link, usePage } from '@inertiajs/react';
+import { Link, router, usePage } from '@inertiajs/react';
 import * as applications from '@/actions/App/Http/Controllers/ResidenceApplicationController';
 import * as invoiceActions from '@/actions/App/Http/Controllers/InvoiceController';
 import * as workflow from '@/actions/App/Http/Controllers/ResidenceWorkflowController';
 import { bukti as pembayaranBukti } from '@/routes/andalas/pembayaran';
-import { residenceManagement as adminResMgmt } from '@/routes/admin';
-import { residenceManagement as adminLayananResMgmt } from '@/routes/admin_layanan';
-import { StatusBadge } from '@/andalas/components/ui';
+import {
+    residenceManagement as adminResMgmt,
+    verifikasiPembayaran as adminVerifikasiPembayaran,
+} from '@/routes/admin';
+import {
+    residenceManagement as adminLayananResMgmt,
+    verifikasiPembayaran as adminLayananVerifikasiPembayaran,
+} from '@/routes/admin_layanan';
+import {
+    ConfirmDialog,
+    Modal,
+    StatusBadge,
+} from '@/andalas/components/ui';
 import { formatDateTime, formatRupiah } from '@/andalas/lib/format';
+import { ArrowRight, Download, Eye, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import {
     ActionForm,
-    ConfirmCheckbox,
     Field,
     WorkflowPanel,
     fieldInputClass,
@@ -29,190 +39,15 @@ function remainingForInvoice(inv: Invoice, payerType: string): number {
         : Math.max(0, Number(inv.total) - Number(inv.total_dibayar));
 }
 
-function ReferenceReconcileCard({
-    referenceItem,
-    invoices,
-    proofs,
-}: {
-    referenceItem: Reference;
-    invoices: Invoice[];
-    proofs: PaymentProof[];
-}) {
-    const [allocationCount, setAllocationCount] = useState(1);
-
-    const eligibleInvoices = useMemo(
-        () =>
-            invoices.filter(
-                (inv) =>
-                    remainingForInvoice(inv, referenceItem.payer_type) > 0,
-            ),
-        [invoices, referenceItem.payer_type],
-    );
-
-    return (
-        <WorkflowPanel
-            title={`${referenceItem.reference} · ${formatRupiah(Number(referenceItem.amount))}`}
-        >
-            <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                <p className="text-base-content/80">
-                    Sumber: <strong>{referenceItem.source}</strong> ·{' '}
-                    {referenceItem.payer_type === 'sponsor'
-                        ? 'Institusi / Sponsor'
-                        : 'Pribadi'}
-                </p>
-                <div className="flex items-center gap-2">
-                    <StatusBadge
-                        status={
-                            referenceItem.status === 'matched'
-                                ? 'lunas'
-                                : 'menunggu'
-                        }
-                        label={
-                            referenceItem.status === 'matched'
-                                ? 'Sudah dibukukan'
-                                : 'Belum dicocokkan'
-                        }
-                    />
-                    <a
-                        className="btn btn-xs btn-outline"
-                        href={workflow.paymentEvidence.url(referenceItem.id)}
-                        target="_blank"
-                        rel="noreferrer"
-                    >
-                        Lihat catatan resmi
-                    </a>
-                </div>
-            </div>
-
-            {referenceItem.status === 'unmatched' && (
-                <ActionForm
-                    url={workflow.reconcile.url(referenceItem.id)}
-                    label="Cocokkan dan bukukan"
-                    confirmTitle="Bukukan Rekonsiliasi Dana?"
-                    confirmMessage="Dana akan dibukukan satu kali ke tagihan terpilih dan status pembayaran diperbarui secara permanen."
-                    disabled={eligibleInvoices.length === 0}
-                >
-                    <p className="text-base-content/70 text-xs">
-                        Total alokasi harus tepat sebesar{' '}
-                        <strong>
-                            {formatRupiah(Number(referenceItem.amount))}
-                        </strong>
-                        . Tersedia {eligibleInvoices.length} tagihan{' '}
-                        {referenceItem.payer_type === 'sponsor'
-                            ? 'sponsor'
-                            : 'pribadi'}{' '}
-                        yang belum lunas.
-                    </p>
-
-                    {eligibleInvoices.length === 0 ? (
-                        <p className="alert alert-warning py-2 text-xs">
-                            Tidak ada tagihan{' '}
-                            {referenceItem.payer_type === 'sponsor'
-                                ? 'institusi'
-                                : 'pribadi'}{' '}
-                            dengan sisa tunggakan untuk dicocokkan.
-                        </p>
-                    ) : (
-                        Array.from({ length: allocationCount }, (_, i) => (
-                            <div
-                                key={i}
-                                className="bg-base-200/40 border-base-300 grid gap-3 rounded-lg border p-3 sm:grid-cols-3"
-                            >
-                                <Field
-                                    name={`allocations[${i}][tagihan_id]`}
-                                    label={`Tagihan #${i + 1}`}
-                                >
-                                    <select
-                                        className={fieldInputClass}
-                                        name={`allocations[${i}][tagihan_id]`}
-                                        required
-                                    >
-                                        <option value="">Pilih tagihan</option>
-                                        {eligibleInvoices.map((inv) => (
-                                            <option key={inv.id} value={inv.id}>
-                                                {inv.mahasiswa?.user.nama ??
-                                                    '-'}{' '}
-                                                / {inv.nomor} / sisa{' '}
-                                                {formatRupiah(
-                                                    remainingForInvoice(
-                                                        inv,
-                                                        referenceItem.payer_type,
-                                                    ),
-                                                )}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </Field>
-
-                                <Field
-                                    name={`allocations[${i}][jumlah]`}
-                                    label="Alokasi dana (Rp)"
-                                    type="number"
-                                    value={
-                                        allocationCount === 1
-                                            ? String(
-                                                  Number(referenceItem.amount),
-                                              )
-                                            : undefined
-                                    }
-                                />
-
-                                <Field
-                                    name={`allocations[${i}][payment_proof_id]`}
-                                    label="Bukti transfer (opsional)"
-                                >
-                                    <select
-                                        name={`allocations[${i}][payment_proof_id]`}
-                                        className={fieldInputClass}
-                                    >
-                                        <option value="">
-                                            Tanpa bukti unggahan
-                                        </option>
-                                        {proofs.map((proof) => (
-                                            <option
-                                                key={proof.id}
-                                                value={proof.id}
-                                            >
-                                                {proof.mahasiswa.user.nama} —{' '}
-                                                {proof.kode_transaksi} —{' '}
-                                                {formatRupiah(
-                                                    Number(proof.nominal),
-                                                )}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </Field>
-                            </div>
-                        ))
-                    )}
-
-                    <div className="flex gap-2">
-                        <button
-                            className="btn btn-xs btn-outline"
-                            type="button"
-                            onClick={() =>
-                                setAllocationCount((count) => count + 1)
-                            }
-                        >
-                            Tambah alokasi
-                        </button>
-                        <button
-                            className="btn btn-xs btn-ghost"
-                            type="button"
-                            disabled={allocationCount <= 1}
-                            onClick={() =>
-                                setAllocationCount((count) =>
-                                    Math.max(1, count - 1),
-                                )
-                            }
-                        >
-                            Kurangi alokasi
-                        </button>
-                    </div>
-                </ActionForm>
-            )}
-        </WorkflowPanel>
-    );
+function statementPreviewKind(path?: string | null): 'image' | 'pdf' | 'other' {
+    const ext = (path?.split('.').pop() ?? '').toLowerCase();
+    if (['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext)) {
+        return 'image';
+    }
+    if (ext === 'pdf') {
+        return 'pdf';
+    }
+    return 'other';
 }
 
 export default function FinanceTab({
@@ -228,26 +63,24 @@ export default function FinanceTab({
     groups: InvoiceGroupItem[];
     applicationItems: Application[];
 }) {
-    const [statusFilter, setStatusFilter] = useState<'all' | 'unmatched' | 'matched'>('unmatched');
     const [searchRef, setSearchRef] = useState('');
+    const [previewRef, setPreviewRef] = useState<Reference | null>(null);
+    const [deletingRef, setDeletingRef] = useState<Reference | null>(null);
+    const [deletingBusy, setDeletingBusy] = useState(false);
     const [selectedAppId, setSelectedAppId] = useState('');
-    const [payerFilter, setPayerFilter] = useState<'sponsor' | 'personal'>('sponsor');
+    const [payerFilter, setPayerFilter] = useState<'sponsor' | 'personal'>(
+        'sponsor',
+    );
 
     const visibleReferences = useMemo(() => {
         const q = searchRef.trim().toLowerCase();
-        return references.filter((ref) => {
-            if (statusFilter !== 'all' && ref.status !== statusFilter) {
-                return false;
-            }
-            if (
-                q &&
-                !`${ref.reference} ${ref.source}`.toLowerCase().includes(q)
-            ) {
-                return false;
-            }
-            return true;
-        });
-    }, [references, statusFilter, searchRef]);
+        if (!q) {
+            return references;
+        }
+        return references.filter((ref) =>
+            `${ref.reference} ${ref.source}`.toLowerCase().includes(q),
+        );
+    }, [references, searchRef]);
 
     const applicationInvoices = useMemo(() => {
         if (!selectedAppId) {
@@ -267,15 +100,37 @@ export default function FinanceTab({
             ? adminLayananResMgmt.url({ query: { tab: 'payment-account' } })
             : adminResMgmt.url({ query: { tab: 'payment-account' } });
 
+    const verifikasiUrlFor = (querySearch: string) =>
+        role === 'admin_layanan'
+            ? adminLayananVerifikasiPembayaran.url({
+                  query: { search: querySearch },
+              })
+            : adminVerifikasiPembayaran.url({
+                  query: { search: querySearch },
+              });
+
+    const handleDeleteStatement = () => {
+        if (!deletingRef) {
+            return;
+        }
+        setDeletingBusy(true);
+        router.delete(workflow.destroyPaymentEvidence.url(deletingRef.id), {
+            preserveScroll: true,
+            onSuccess: () => setDeletingRef(null),
+            onFinish: () => setDeletingBusy(false),
+        });
+    };
+
     return (
         <div className="space-y-5">
             <div className="border-primary/25 bg-primary/5 flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3 text-sm">
                 <div>
-                    <p className="font-semibold text-base-content">
+                    <p className="text-base-content font-semibold">
                         Rekening Resmi Tujuan Transfer Asrama
                     </p>
                     <p className="text-base-content/75 text-xs">
-                        Tambah atau perbarui nomor rekening bank resmi asrama agar tampil otomatis di halaman pembayaran mahasiswa (mahasiswa tidak mengetik rekening tujuan secara manual).
+                        Tambah atau perbarui nomor rekening bank resmi asrama
+                        agar tampil otomatis di halaman pembayaran mahasiswa.
                     </p>
                 </div>
                 <Link
@@ -285,9 +140,10 @@ export default function FinanceTab({
                     Kelola Rekening Pembayaran →
                 </Link>
             </div>
+
             <WorkflowPanel
-                title={`Bukti transfer menunggu rekonsiliasi (${proofs.length})`}
-                subtitle="Periksa lampiran bukti transfer mahasiswa, catat transaksi resmi DPUB di bawah, lalu pasangkan bukti pembayaran dengan mutasi rekening agar tagihan lunas dan status penghuni aktif."
+                title={`Bukti transfer menunggu verifikasi (${proofs.length})`}
+                subtitle="Periksa lampiran bukti transfer mahasiswa lalu buka Verifikasi Pembayaran untuk mengesahkan (Lunas) atau menolak bukti. Arsip rekening koran DPUB di bawah dapat digunakan sebagai acuan cek manual."
             >
                 {proofs.length === 0 ? (
                     <p className="text-base-content/70 text-sm">
@@ -306,7 +162,7 @@ export default function FinanceTab({
                                     <th>Pengirim</th>
                                     <th className="text-right">Nominal</th>
                                     <th>Waktu Transfer</th>
-                                    <th className="text-right">Bukti</th>
+                                    <th className="text-right">Aksi</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -358,14 +214,29 @@ export default function FinanceTab({
                                             )}
                                         </td>
                                         <td className="text-right">
-                                            <a
-                                                href={pembayaranBukti.url(
-                                                    proof.id,
-                                                )}
-                                                className="btn btn-outline btn-xs"
-                                            >
-                                                Unduh Bukti
-                                            </a>
+                                            <div className="flex justify-end gap-1.5">
+                                                <a
+                                                    href={pembayaranBukti.url(
+                                                        proof.id,
+                                                    )}
+                                                    className="btn btn-outline btn-xs"
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                >
+                                                    Unduh Bukti
+                                                </a>
+                                                <Link
+                                                    href={verifikasiUrlFor(
+                                                        proof.mahasiswa.user
+                                                            .nim_nip ??
+                                                            proof.kode_transaksi,
+                                                    )}
+                                                    className="btn btn-primary btn-xs gap-1"
+                                                >
+                                                    Verifikasi / ACC
+                                                    <ArrowRight className="size-3" />
+                                                </Link>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}
@@ -376,107 +247,121 @@ export default function FinanceTab({
             </WorkflowPanel>
 
             <WorkflowPanel
-                title="Catat transaksi resmi DPUB"
-                subtitle="Bukti transfer penghuni tetap dicocokkan dengan rekening koran resmi. Dana baru terbukukan setelah alokasinya disahkan."
+                title="Upload Rekening Koran DPUB"
+                subtitle="File rekening koran DPUB hanya disimpan sebagai arsip agar admin dapat melihat dan mencocokkan mutasi bank secara manual (tidak dicatat sebagai transaksi atau mengubah saldo di sistem)."
             >
                 <ActionForm
                     url={workflow.recordPayment.url()}
-                    label="Simpan transaksi untuk dicocokkan"
+                    label="Unggah rekening koran DPUB"
                 >
                     <div className="grid gap-3 sm:grid-cols-2">
                         <Field
                             name="reference"
-                            label="Referensi unik transaksi bank"
+                            label="Judul / Nomor Referensi Rekening Koran"
                         />
                         <Field
                             name="source"
-                            label="Nomor rekening koran / daftar resmi DPUB"
+                            label="Nama Bank / Rekening Sumber"
                         />
                         <Field
                             name="paid_at"
-                            label="Tanggal transaksi"
+                            label="Tanggal Rekening Koran"
                             type="date"
                         />
                         <Field
-                            name="amount"
-                            label="Jumlah dana (Rp)"
-                            type="number"
-                        />
-                        <Field name="payer_type" label="Pembayar">
-                            <select
-                                name="payer_type"
-                                className={fieldInputClass}
-                            >
-                                <option value="personal">Pribadi</option>
-                                <option value="sponsor">
-                                    Institusi / sponsor
-                                </option>
-                            </select>
-                        </Field>
-                        <Field
                             name="evidence"
-                            label="Catatan resmi DPUB"
+                            label="File Rekening Koran (PDF, Excel, CSV, Gambar)"
                             type="file"
                         />
                     </div>
-
-                    <ConfirmCheckbox name="official_source_confirmed">
-                        Saya telah memeriksa sumber resmi DPUB, termasuk
-                        referensi, tanggal, dan nominal.
-                    </ConfirmCheckbox>
                 </ActionForm>
             </WorkflowPanel>
 
-            <section className="space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                    <h2 className="text-lg font-semibold">
-                        Antrean Rekonsiliasi DPUB ({visibleReferences.length})
-                    </h2>
-                    <div className="flex flex-wrap items-center gap-2">
-                        <div className="join">
-                            {(
-                                [
-                                    ['unmatched', 'Belum dicocokkan'],
-                                    ['matched', 'Sudah dibukukan'],
-                                    ['all', 'Semua'],
-                                ] as const
-                            ).map(([key, label]) => (
-                                <button
-                                    key={key}
-                                    type="button"
-                                    className={`btn btn-xs join-item ${statusFilter === key ? 'btn-primary' : 'btn-outline'}`}
-                                    onClick={() => setStatusFilter(key)}
-                                >
-                                    {label}
-                                </button>
-                            ))}
-                        </div>
-                        <input
-                            type="search"
-                            className="input input-bordered input-xs w-56"
-                            placeholder="Cari referensi atau sumber..."
-                            value={searchRef}
-                            onChange={(e) => setSearchRef(e.target.value)}
-                        />
-                    </div>
+            <WorkflowPanel
+                title={`Arsip Rekening Koran DPUB (${visibleReferences.length})`}
+                subtitle="Klik Preview untuk membuka berkas gambar/PDF langsung di layar atau Unduh file aslinya sebagai pembanding saat memverifikasi pembayaran mahasiswa."
+            >
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                    <input
+                        type="search"
+                        className="input input-bordered input-xs w-64"
+                        placeholder="Cari judul atau bank sumber..."
+                        value={searchRef}
+                        onChange={(e) => setSearchRef(e.target.value)}
+                    />
                 </div>
 
-                {visibleReferences.length === 0 && (
-                    <p className="bg-base-100 border-base-300 text-base-content/70 rounded-xl border p-5 text-sm">
-                        Tidak ada catatan transaksi DPUB yang cocok dengan filter
-                        saat ini.
+                {visibleReferences.length === 0 ? (
+                    <p className="text-base-content/70 text-sm">
+                        Belum ada arsip rekening koran DPUB yang diunggah.
                     </p>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="table-sm table">
+                            <thead>
+                                <tr>
+                                    <th>Judul / Referensi</th>
+                                    <th>Bank / Sumber</th>
+                                    <th>Tanggal</th>
+                                    <th className="text-right">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {visibleReferences.map((ref) => (
+                                    <tr key={ref.id}>
+                                        <td className="font-medium">
+                                            {ref.reference}
+                                        </td>
+                                        <td>{ref.source}</td>
+                                        <td>
+                                            {ref.paid_at?.slice(0, 10) ?? '-'}
+                                        </td>
+                                        <td className="text-right">
+                                            <div className="flex justify-end gap-1.5">
+                                                {statementPreviewKind(
+                                                    ref.evidence_path,
+                                                ) !== 'other' && (
+                                                    <button
+                                                        type="button"
+                                                        className="btn btn-xs btn-outline btn-primary gap-1"
+                                                        onClick={() =>
+                                                            setPreviewRef(ref)
+                                                        }
+                                                    >
+                                                        <Eye className="size-3.5" />
+                                                        Preview
+                                                    </button>
+                                                )}
+                                                <a
+                                                    className="btn btn-xs btn-outline gap-1"
+                                                    href={workflow.paymentEvidence.url(
+                                                        ref.id,
+                                                    )}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                >
+                                                    <Download className="size-3.5" />
+                                                    Unduh
+                                                </a>
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-xs btn-ghost text-error gap-1"
+                                                    onClick={() =>
+                                                        setDeletingRef(ref)
+                                                    }
+                                                >
+                                                    <Trash2 className="size-3.5" />
+                                                    Hapus
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 )}
-
-                {visibleReferences.map((ref) => (
-                    <ReferenceReconcileCard
-                        key={ref.id}
-                        referenceItem={ref}
-                        invoices={invoices}
-                        proofs={proofs}
-                    />
-                ))}
-            </section>
+            </WorkflowPanel>
 
             <WorkflowPanel
                 title="Invoice gabungan institusi"
@@ -564,8 +449,12 @@ export default function FinanceTab({
                             </p>
                         ) : applicationInvoices.length === 0 ? (
                             <p className="text-warning text-xs">
-                                Tidak ada tagihan {payerFilter === 'sponsor' ? 'institusi' : 'pribadi'} yang
-                                masih memiliki tunggakan pada permohonan ini.
+                                Tidak ada tagihan{' '}
+                                {payerFilter === 'sponsor'
+                                    ? 'institusi'
+                                    : 'pribadi'}{' '}
+                                yang masih memiliki tunggakan pada permohonan
+                                ini.
                             </p>
                         ) : (
                             <div className="grid gap-1.5 sm:grid-cols-2">
@@ -649,6 +538,73 @@ export default function FinanceTab({
                     </div>
                 )}
             </WorkflowPanel>
+
+            <Modal
+                open={Boolean(previewRef)}
+                onClose={() => setPreviewRef(null)}
+                title={
+                    previewRef
+                        ? `Preview Rekening Koran: ${previewRef.reference}`
+                        : 'Preview Rekening Koran'
+                }
+                width="max-w-4xl"
+            >
+                {previewRef && (
+                    <div className="space-y-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                            <span className="text-base-content/75">
+                                {previewRef.source} ·{' '}
+                                {previewRef.paid_at?.slice(0, 10) ?? '-'}
+                            </span>
+                            <a
+                                href={workflow.paymentEvidence.url(previewRef.id)}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="btn btn-outline btn-xs gap-1"
+                            >
+                                <Download className="size-3.5" />
+                                Unduh File Asli
+                            </a>
+                        </div>
+                        {statementPreviewKind(previewRef.evidence_path) ===
+                        'image' ? (
+                            <div className="border-base-300 bg-base-200/40 flex max-h-[70vh] justify-center overflow-auto rounded-lg border p-2">
+                                <img
+                                    src={workflow.paymentEvidence.url(
+                                        previewRef.id,
+                                        { query: { inline: 1 } },
+                                    )}
+                                    alt={previewRef.reference}
+                                    className="max-h-[66vh] w-auto rounded object-contain"
+                                />
+                            </div>
+                        ) : (
+                            <iframe
+                                src={workflow.paymentEvidence.url(
+                                    previewRef.id,
+                                    { query: { inline: 1 } },
+                                )}
+                                title={previewRef.reference}
+                                className="border-base-300 h-[70vh] w-full rounded-lg border"
+                            />
+                        )}
+                    </div>
+                )}
+            </Modal>
+
+            <ConfirmDialog
+                open={Boolean(deletingRef)}
+                onClose={() => setDeletingRef(null)}
+                onConfirm={handleDeleteStatement}
+                loading={deletingBusy}
+                title="Hapus Arsip Rekening Koran?"
+                message={
+                    deletingRef
+                        ? `Hapus file arsip rekening koran "${deletingRef.reference}" (${deletingRef.source})? Data transaksi atau tagihan mahasiswa tidak akan terpengaruh.`
+                        : ''
+                }
+                confirmLabel="Ya, Hapus Arsip"
+            />
         </div>
     );
 }

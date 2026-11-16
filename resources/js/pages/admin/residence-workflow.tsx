@@ -68,9 +68,9 @@ export default function ResidenceWorkflowPage(props: WorkflowProps) {
                 'Pencatatan, daftar hunian aktif, dan alokasi kamar untuk penyewa umum non-mahasiswa.',
         },
         finance: {
-            title: 'Rekonsiliasi DPUB & Invoice Institusi',
+            title: 'Rekening Koran DPUB & Invoice Institusi',
             subtitle:
-                'Pencocokan bukti pembayaran resmi DPUB dan penerbitan invoice gabungan institusi.',
+                'Unggah arsip rekening koran DPUB sebagai referensi pengecekan manual admin serta kelola invoice gabungan institusi.',
         },
         contracts: {
             title: 'Penerbitan Tagihan Kamar Bersama',

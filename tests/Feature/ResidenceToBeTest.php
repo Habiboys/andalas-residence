@@ -1,20 +1,20 @@
 <?php
 
-use App\Actions\Billing\ReconcileResidencePayment;
 use App\Actions\Checkout\EndTemporaryStays;
 use App\Actions\Registration\AllocateResidenceRoom;
 use App\Actions\Registration\ConfirmResidenceCheckIn;
 use App\Actions\Registration\SubmitResidenceRegistration;
 use App\Models\City;
 use App\Models\FasilitatorWilayah;
+use App\Models\InvoiceGroup;
 use App\Models\MahasiswaProfil;
+use App\Models\Pembayaran;
 use App\Models\Periode;
 use App\Models\Province;
 use App\Models\RegistrationDocument;
 use App\Models\ResidenceApplication;
 use App\Models\ResidenceDecision;
 use App\Models\ResidenceDocumentTemplate;
-use App\Models\ResidencePaymentReference;
 use App\Models\ResidencePolicy;
 use App\Models\ResidenceRate;
 use App\Models\ResidenceRegistration;
@@ -300,25 +300,44 @@ it('splits a ten million room contract into two five million invoices after cons
     $this->assertDatabaseCount('room_contracts', 1);
 });
 
-it('posts a DPUB receipt once and rejects reused references with different allocations', function () {
+it('approves personal transfer proofs directly once verified and stores DPUB bank statements solely for manual review', function () {
     $f = toBeFixture();
     $r = toBeSubmit($f);
-    $reference = toBePay($r, $f['manager']);
-    $this->actingAs($f['manager'])->post(route('residence.payments.match', $reference), ['allocations' => [['tagihan_id' => $r->tagihan_id, 'jumlah' => 1000000]]])->assertRedirect()->assertSessionHasNoErrors();
-    $this->post(route('residence.payments.match', $reference), ['allocations' => [['tagihan_id' => $r->tagihan_id, 'jumlah' => 1]]])->assertSessionHasErrors('reference');
-    $this->assertDatabaseCount('transaksi_keuangan', 1);
-    $this->assertDatabaseCount('pembayaran_tagihan', 1);
-    expect((float) TransaksiKeuangan::sole()->nominal)->toBe(1000000.0);
-});
+    toBeDocument($r, $f['manager']);
 
-it('keeps mismatched DPUB transactions in the exception queue without posting money', function () {
-    $f = toBeFixture();
-    $r = toBeSubmit($f);
-    $reference = ResidencePaymentReference::factory()->create(['amount' => 900000]);
-    $this->actingAs($f['manager'])->post(route('residence.payments.match', $reference), ['allocations' => [['tagihan_id' => $r->tagihan_id, 'jumlah' => 1000000]]])->assertSessionHasErrors('allocations');
-    expect($reference->fresh()->status)->toBe('unmatched');
+    // Uploading a DPUB bank statement does NOT create any ledger or billing payment
+    $this->actingAs($f['manager'])->post(route('residence.payments.record'), [
+        'reference' => 'RK-DPUB-01',
+        'source' => 'Bank Nagari / DPUB',
+        'paid_at' => today()->toDateString(),
+        'evidence' => UploadedFile::fake()->create('rekening-koran.pdf', 30, 'application/pdf'),
+    ])->assertRedirect()->assertSessionHasNoErrors();
+    $this->post(route('residence.payments.record'), [
+        'reference' => 'RK-DPUB-01',
+        'source' => 'Bank Nagari / DPUB',
+        'paid_at' => today()->toDateString(),
+        'evidence' => UploadedFile::fake()->create('dup.pdf', 30, 'application/pdf'),
+    ])->assertSessionHasErrors('reference');
     $this->assertDatabaseCount('transaksi_keuangan', 0);
     $this->assertDatabaseCount('pembayaran_tagihan', 0);
+
+    // Student submits proof -> Pengelola approves directly without DPUB allocation matching
+    $proof = Pembayaran::create([
+        'kode_transaksi' => 'PAY-TOBE-01',
+        'mahasiswa_id' => $f['profile']->id,
+        'tagihan_id' => $r->tagihan_id,
+        'jenis_pembayaran' => 'sewa_asrama',
+        'nominal' => 1000000,
+        'termin_ke' => 1,
+        'metode_pembayaran' => 'transfer_bank',
+        'status' => 'menunggu_verifikasi',
+    ]);
+    $this->actingAs($f['manager'])->post(route('andalas.pembayaran.verify', $proof), ['status' => 'lunas'])->assertRedirect()->assertSessionHasNoErrors();
+    $this->post(route('andalas.pembayaran.verify', $proof), ['status' => 'lunas'])->assertRedirect()->assertSessionHasNoErrors();
+    $this->assertDatabaseCount('transaksi_keuangan', 1);
+    $this->assertDatabaseCount('pembayaran_tagihan', 1);
+    expect((float) TransaksiKeuangan::sole()->nominal)->toBe(1000000.0)
+        ->and($f['profile']->fresh()->status_huni)->toBe('aktif');
 });
 
 it('leaves a room occupied after contract expiry until keys are physically returned', function () {
@@ -363,9 +382,18 @@ it('links summer course participants and sponsor receivables without pretending 
     $this->post(route('residence.applications.approve', $application), ['support_verified' => 1])->assertRedirect()->assertSessionHasNoErrors();
     app(ConfirmResidenceCheckIn::class)->handle($r->fresh(), $f['manager']);
     expect((float) $r->tagihan->fresh()->sponsor_paid)->toBe(0.0);
-    $reference = ResidencePaymentReference::factory()->create(['payer_type' => 'sponsor', 'amount' => 300000]);
-    app(ReconcileResidencePayment::class)->handle($reference, [['tagihan_id' => $r->tagihan_id, 'jumlah' => 300000]], $f['manager']);
+    $this->travel(4)->days();
+    $this->actingAs($f['manager'])->post(route('andalas.invoice-groups.store'), [
+        'residence_application_id' => $application->id, 'payer_type' => 'sponsor', 'nomor' => 'INV-SC-001', 'invoice_ids' => [$r->tagihan_id],
+        'recipient' => 'Universitas Mitra', 'institution' => 'Universitas Mitra', 'subject' => 'Sewa Summer Course',
+        'bank' => 'BSI', 'account_number' => '700112233', 'account_name' => 'RPL Asrama', 'due_date' => today()->addDays(7)->toDateString(), 'signer' => 'Pimpinan',
+    ])->assertRedirect()->assertSessionHasNoErrors();
+    $group = InvoiceGroup::sole();
+    $this->actingAs($f['manager'])->post(route('andalas.invoice-groups.pay', $group), [
+        'reference' => 'SC-SPONSOR-01', 'allocations' => [['tagihan_id' => $r->tagihan_id, 'jumlah' => 300000]],
+    ])->assertRedirect()->assertSessionHasNoErrors();
     expect((float) TransaksiKeuangan::sole()->nominal)->toBe(300000.0);
+    expect((float) $r->tagihan->fresh()->sponsor_paid)->toBe(300000.0);
 });
 
 it('preserves historical occupancy and requires evidence instead of inventing a checkin timestamp', function () {
@@ -567,10 +595,7 @@ it('allows building facilitator to review documents for assigned building while 
             'reference' => 'DPUB-FORBIDDEN',
             'source' => 'DPUB',
             'paid_at' => now()->toDateString(),
-            'amount' => 2500000,
-            'payer_type' => 'personal',
             'evidence' => UploadedFile::fake()->create('dpub.pdf', 50, 'application/pdf'),
-            'official_source_confirmed' => '1',
         ])
         ->assertForbidden();
 });

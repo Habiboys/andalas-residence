@@ -1,22 +1,25 @@
 <?php
 
-use App\Actions\Billing\ReconcileResidencePayment;
+use App\Actions\Billing\PostPayment;
 use App\Actions\Registration\SubmitResidenceRegistration;
 use App\Models\Departemen;
 use App\Models\Faculty;
 use App\Models\FasilitatorWilayah;
 use App\Models\Gedung;
 use App\Models\Kamar;
+use App\Models\KategoriTransaksi;
 use App\Models\KipkRecipient;
 use App\Models\Lantai;
 use App\Models\MahasiswaProfil;
+use App\Models\PembayaranTagihan;
 use App\Models\Periode;
 use App\Models\Prodi;
 use App\Models\RegistrationDocument;
-use App\Models\ResidencePaymentReference;
 use App\Models\ResidencePolicy;
 use App\Models\ResidenceRegistration;
+use App\Models\TransaksiKeuangan;
 use App\Models\User;
+use Illuminate\Support\Str;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
@@ -78,10 +81,26 @@ function toBeDocument(ResidenceRegistration $r, User $manager): RegistrationDocu
     return RegistrationDocument::factory()->create(['residence_registration_id' => $r->id, 'status' => 'valid', 'reviewed_by' => $manager->id, 'reviewed_at' => now()]);
 }
 
-function toBePay(ResidenceRegistration $r, User $manager, ?int $amount = null): ResidencePaymentReference
+function toBePay(ResidenceRegistration $r, User $manager, ?int $amount = null): PembayaranTagihan
 {
-    $reference = ResidencePaymentReference::factory()->create(['recorded_by' => $manager->id, 'amount' => $amount ?? $r->tagihan->total]);
-    app(ReconcileResidencePayment::class)->handle($reference, [['tagihan_id' => $r->tagihan_id, 'jumlah' => $reference->amount]], $manager);
+    $invoice = $r->tagihan()->lockForUpdate()->firstOrFail();
+    $paidAmount = $amount ?? (int) round((float) $invoice->total);
+    $posted = app(PostPayment::class)->handle(
+        'PAY-'.Str::uuid(),
+        $invoice->mahasiswa_id,
+        now()->toDateTimeString(),
+        [['tagihan_id' => $invoice->id, 'jumlah' => $paidAmount]],
+    );
+    $category = KategoriTransaksi::firstOrCreate(['nama_kategori' => 'Penerimaan Sewa Asrama', 'tipe' => 'pemasukan']);
+    TransaksiKeuangan::create([
+        'nomor_bukti' => 'TRX-'.Str::uuid(),
+        'kategori_id' => $category->id,
+        'tipe' => 'pemasukan',
+        'nominal' => $paidAmount,
+        'tanggal_transaksi' => today(),
+        'deskripsi' => 'Pembayaran tagihan '.$invoice->nomor,
+        'dicatat_oleh' => $manager->id,
+    ]);
 
-    return $reference;
+    return $posted;
 }

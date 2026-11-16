@@ -3,6 +3,7 @@
 use App\Actions\Registration\ConfirmResidenceCheckIn;
 use App\Models\FasilitatorWilayah;
 use App\Models\MahasiswaProfil;
+use App\Models\Pembayaran;
 use App\Models\PenempatanKamar;
 use App\Models\ResidenceApplication;
 use App\Models\ResidenceDecision;
@@ -193,14 +194,25 @@ it('revises shared members without deleting paid money and allocates all cents e
     $this->get(route('residence.amendments.document', $body['reference']))->assertOk();
 });
 
-it('accepts replay when MySQL returns JSON object keys in a different order', function () {
+it('keeps direct payment verification idempotent without duplicating ledger entries', function () {
     $f = toBeFixture();
     $registration = toBeSubmit($f);
-    $reference = toBePay($registration, $f['manager']);
-    $reference->update(['allocations' => [['jumlah' => '1000000.00', 'payment_proof_id' => null, 'tagihan_id' => $registration->tagihan_id]]]);
-    $this->actingAs($f['manager'])->post(route('residence.payments.match', $reference), ['allocations' => [['tagihan_id' => $registration->tagihan_id, 'jumlah' => 1000000]]])->assertRedirect()->assertSessionHasNoErrors();
+    toBeDocument($registration, $f['manager']);
+    $payment = Pembayaran::create([
+        'kode_transaksi' => 'PAY-IDEMP-01',
+        'mahasiswa_id' => $f['profile']->id,
+        'tagihan_id' => $registration->tagihan_id,
+        'jenis_pembayaran' => 'sewa_asrama',
+        'nominal' => 1000000,
+        'termin_ke' => 1,
+        'metode_pembayaran' => 'transfer_bank',
+        'status' => 'menunggu_verifikasi',
+    ]);
+    $this->actingAs($f['manager'])->post(route('andalas.pembayaran.verify', $payment), ['status' => 'lunas'])->assertRedirect()->assertSessionHasNoErrors();
+    $this->actingAs($f['manager'])->post(route('andalas.pembayaran.verify', $payment), ['status' => 'lunas'])->assertRedirect()->assertSessionHasNoErrors();
     $this->assertDatabaseCount('pembayaran_tagihan', 1);
     $this->assertDatabaseCount('transaksi_keuangan', 1);
+    expect($f['profile']->fresh()->status_huni)->toBe('aktif');
 });
 
 it('reopens financing approval after a paid shared contract changes without deleting its old schedule', function () {

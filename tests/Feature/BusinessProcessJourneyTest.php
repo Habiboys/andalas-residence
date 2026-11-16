@@ -1,6 +1,5 @@
 <?php
 
-use App\Actions\Billing\ReconcileResidencePayment;
 use App\Enums\CheckoutRequestStatus;
 use App\Enums\FreeResidenceLetterStatus;
 use App\Enums\LaporanKerusakanStatus;
@@ -20,7 +19,6 @@ use App\Models\PembayaranTagihan;
 use App\Models\PengajuanBebasAsrama;
 use App\Models\Periode;
 use App\Models\Prodi;
-use App\Models\ResidencePaymentReference;
 use App\Models\ResidenceRegistration;
 use App\Models\User;
 use App\Notifications\DocumentReadyNotification;
@@ -76,11 +74,9 @@ it('connects account registration payment damage reporting checkout and the mode
         'tagihan_id' => $invoice->id, 'jenis_pembayaran' => 'sewa_asrama', 'nominal' => 1500000,
         'bukti_transfer' => UploadedFile::fake()->image('bukti.jpg'),
     ])->assertSessionHasNoErrors();
-    expect($student->fresh()->status_huni)->toBe('calon');
+    expect($student->fresh()->status_huni)->toBe('aktif');
     $payment = Pembayaran::where('tagihan_id', $invoice->id)->sole();
-    $this->actingAs($admin)->post(route('andalas.pembayaran.verify', $payment), ['status' => 'lunas'])->assertSessionHasErrors();
-    $reference = ResidencePaymentReference::factory()->create(['recorded_by' => $admin->id, 'amount' => 1500000]);
-    app(ReconcileResidencePayment::class)->handle($reference, [['tagihan_id' => $invoice->id, 'jumlah' => 1500000, 'payment_proof_id' => $payment->id]], $admin);
+    $this->actingAs($admin)->post(route('andalas.pembayaran.verify', $payment), ['status' => 'lunas'])->assertSessionHasNoErrors();
     expect($student->fresh()->status_huni)->toBe('aktif');
     $this->actingAs($facilitator)->post(route('residence.checkin', $registration), ['identity_checked' => 1, 'original_documents_checked' => 1, 'keys_handed' => 1])->assertSessionHasNoErrors();
     expect($student->fresh()->status_huni)->toBe('aktif')

@@ -296,6 +296,7 @@ const ADMIN_NAV: NavGroup[] = [
                 page: 'master-data/kategori',
                 icon: Wallet,
             },
+            { label: 'Akun Internal', page: 'akun-internal', icon: KeyRound },
         ],
     },
     {
@@ -414,7 +415,6 @@ const ADMIN_NAV: NavGroup[] = [
                 page: 'penilaian-teknisi',
                 icon: Star,
             },
-            { label: 'Akun Internal', page: 'akun-internal', icon: KeyRound },
             { label: 'Audit Log', page: 'audit-log', icon: FileText },
         ],
     },
@@ -477,7 +477,7 @@ const registrationAdminNav: NavGroup = {
         { label: 'Buka / Tutup Pendaftaran', page: 'residence-workflow/opening', icon: KeyRound },
         { label: 'Permohonan Institusi & Kegiatan', page: 'residence-workflow/applications', icon: FileText },
         { label: 'Penyewa Umum', page: 'residence-workflow/public', icon: Users },
-        { label: 'Rekonsiliasi & Invoice', page: 'residence-workflow/finance', icon: Landmark },
+        { label: 'Rekening Koran & Invoice', page: 'residence-workflow/finance', icon: Landmark },
         { label: 'Pengaturan Layanan', page: 'residence-management', icon: Database },
     ],
 };

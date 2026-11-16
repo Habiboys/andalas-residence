@@ -1,7 +1,6 @@
 <?php
 
 use App\Actions\Billing\PostPayment;
-use App\Actions\Billing\ReconcileResidencePayment;
 use App\Actions\Registration\ConfirmResidenceCheckIn;
 use App\Jobs\GenerateBillingDocument;
 use App\Jobs\SendInstitutionInvoice;
@@ -10,7 +9,6 @@ use App\Models\InvoiceGroup;
 use App\Models\Pembayaran;
 use App\Models\ResidenceApplication;
 use App\Models\ResidenceDecision;
-use App\Models\ResidencePaymentReference;
 use App\Models\ResidenceRegistration;
 use App\Models\TransaksiKeuangan;
 use Illuminate\Http\UploadedFile;
@@ -54,13 +52,12 @@ it('allows a public guest with approved transfer evidence to check in before off
     expect($r->fresh()->tagihan->total_dibayar)->toBe('0.00');
     $this->assertDatabaseCount('transaksi_keuangan', 0);
     $proof = Pembayaran::sole();
-    $reference = ResidencePaymentReference::factory()->create(['amount' => 200000]);
-    $allocations = [['tagihan_id' => $r->tagihan_id, 'jumlah' => 200000, 'payment_proof_id' => $proof->id]];
-    app(ReconcileResidencePayment::class)->handle($reference, $allocations, $f['manager']);
-    app(ReconcileResidencePayment::class)->handle($reference, $allocations, $f['manager']);
+    $this->actingAs($f['manager'])->post(route('andalas.pembayaran.verify', $proof), ['status' => 'lunas'])->assertRedirect()->assertSessionHasNoErrors();
+    $this->post(route('andalas.pembayaran.verify', $proof), ['status' => 'lunas'])->assertRedirect()->assertSessionHasNoErrors();
     expect($proof->fresh()->status)->toBe('lunas');
     expect($r->fresh()->tagihan->total_dibayar)->toBe('200000.00');
     $this->assertDatabaseCount('transaksi_keuangan', 1);
+    $this->assertDatabaseCount('pembayaran_tagihan', 1);
     $this->assertDatabaseCount('penempatan_kamar', 1);
 });
 
@@ -116,10 +113,9 @@ it('issues one final Summer Course invoice after the rental and reconciles every
     $group = InvoiceGroup::sole();
     expect((float) $group->snapshot['total'])->toBe(600000.0);
     expect($group->invoice_ids)->toHaveCount(2);
-    $reference = ResidencePaymentReference::factory()->create(['payer_type' => 'sponsor', 'amount' => 600000]);
     $allocations = $registrations->map(fn ($r) => ['tagihan_id' => $r->tagihan_id, 'jumlah' => 300000])->all();
-    app(ReconcileResidencePayment::class)->handle($reference, $allocations, $f['manager']);
-    app(ReconcileResidencePayment::class)->handle($reference, $allocations, $f['manager']);
+    $this->actingAs($f['manager'])->post(route('andalas.invoice-groups.pay', $group), ['reference' => 'SC-BANK-001', 'allocations' => $allocations])->assertRedirect()->assertSessionHasNoErrors();
+    $this->actingAs($f['manager'])->post(route('andalas.invoice-groups.pay', $group), ['reference' => 'SC-BANK-001', 'allocations' => $allocations])->assertRedirect()->assertSessionHasNoErrors();
     expect((float) TransaksiKeuangan::sole()->nominal)->toBe(600000.0);
     foreach ($registrations as $r) {
         expect($r->fresh()->tagihan->sponsor_paid)->toBe('300000.00');

@@ -163,9 +163,9 @@ export type Reference = {
     id: string;
     reference: string;
     source: string;
-    amount: string;
-    status: string;
-    payer_type: string;
+    evidence_path?: string | null;
+    paid_at?: string | null;
+    created_at?: string | null;
 };
 
 export type TemplateItem = {

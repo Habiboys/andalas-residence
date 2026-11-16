@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Actions\Billing\ReconcileResidencePayment;
 use App\Actions\Checkout\CreateCheckoutRequest;
 use App\Actions\Checkout\ReturnResidenceKeys;
 use App\Actions\Registration\AllocateResidenceRoom;
@@ -943,33 +942,49 @@ class ResidenceWorkflowController extends Controller
     {
         abort_unless($request->user()->can('pembayaran.verify'), 403);
         $request->merge(['reference' => trim((string) $request->input('reference'))]);
-        $data = $request->validate(['reference' => ['required', 'string', 'max:150', 'unique:residence_payment_references,reference'],
-            'source' => ['required', 'string', 'max:100'], 'paid_at' => ['required', 'date', 'before_or_equal:today'],
-            'amount' => ['required', 'numeric', 'decimal:0,2', 'min:1', 'max:100000000000'], 'payer_type' => ['required', 'in:personal,sponsor'],
-            'evidence' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png,csv,txt,xlsx', 'max:10240'], 'official_source_confirmed' => ['accepted']]);
-        $reference = ResidencePaymentReference::create([
-            'reference' => trim($data['reference']), 'source' => $data['source'], 'paid_at' => $data['paid_at'], 'amount' => $data['amount'],
-            'payer_type' => $data['payer_type'], 'evidence_path' => $request->file('evidence')->store('documents/dpub', 'local'),
-            'recorded_by' => $request->user()->id, 'status' => 'unmatched',
+        $data = $request->validate([
+            'reference' => ['required', 'string', 'max:150', 'unique:residence_payment_references,reference'],
+            'source' => ['required', 'string', 'max:100'],
+            'paid_at' => ['required', 'date', 'before_or_equal:today'],
+            'evidence' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png,csv,txt,xlsx,xls', 'max:10240'],
         ]);
-        AuditLogService::log($request->user(), 'dpub_transaction_recorded', $reference, null, ['reference' => $reference->reference, 'source' => $reference->source]);
+        $reference = ResidencePaymentReference::create([
+            'reference' => trim($data['reference']),
+            'source' => $data['source'],
+            'paid_at' => $data['paid_at'],
+            'amount' => 0,
+            'payer_type' => 'statement',
+            'evidence_path' => $request->file('evidence')->store('documents/dpub', 'local'),
+            'recorded_by' => $request->user()->id,
+            'status' => 'uploaded',
+        ]);
+        AuditLogService::log($request->user(), 'dpub_statement_uploaded', $reference, null, ['reference' => $reference->reference, 'source' => $reference->source]);
 
-        return back()->with('toast', ['type' => 'success', 'message' => 'Transaksi DPUB dicatat ke antrean rekonsiliasi.']);
-    }
-
-    public function reconcile(Request $request, ResidencePaymentReference $reference, ReconcileResidencePayment $reconcile): RedirectResponse
-    {
-        $data = $request->validate(['allocations' => ['required', 'array', 'min:1', 'max:200'], 'allocations.*.tagihan_id' => ['required', 'uuid', 'distinct', 'exists:tagihan,id'], 'allocations.*.payment_proof_id' => ['nullable', 'uuid', 'distinct', 'exists:pembayaran,id'], 'allocations.*.jumlah' => ['required', 'numeric', 'decimal:0,2', 'min:1']]);
-        $reconcile->handle($reference, $data['allocations'], $request->user());
-
-        return back()->with('toast', ['type' => 'success', 'message' => 'Dana dicocokkan dan dibukukan satu kali.']);
+        return back()->with('toast', ['type' => 'success', 'message' => 'Rekening koran DPUB diunggah untuk referensi pencocokan manual admin.']);
     }
 
     public function paymentEvidence(Request $request, ResidencePaymentReference $reference): StreamedResponse
     {
         abort_unless($request->user()->can('pembayaran.verify'), 403);
+        abort_unless(Storage::disk('local')->exists($reference->evidence_path), 404);
+
+        if ($request->boolean('inline')) {
+            return Storage::disk('local')->response($reference->evidence_path);
+        }
 
         return Storage::disk('local')->download($reference->evidence_path);
+    }
+
+    public function destroyPaymentEvidence(Request $request, ResidencePaymentReference $reference): RedirectResponse
+    {
+        abort_unless($request->user()->can('pembayaran.verify'), 403);
+        if ($reference->evidence_path && Storage::disk('local')->exists($reference->evidence_path)) {
+            Storage::disk('local')->delete($reference->evidence_path);
+        }
+        AuditLogService::log($request->user(), 'dpub_statement_deleted', $reference, $reference->toArray());
+        $reference->delete();
+
+        return back()->with('toast', ['type' => 'success', 'message' => 'Arsip rekening koran DPUB dihapus.']);
     }
 
     public function transferProof(Request $request, ResidenceRegistration $registration): RedirectResponse

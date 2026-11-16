@@ -188,7 +188,7 @@ class ResidenceWorkflow
             $requiredAmount = (float) ($invoice->amount_due_now ?? $invoice->total);
         }
 
-        $proofAmount = $r->stay_kind === 'non_student'
+        $proofAmount = $r->workflow_version === 2
             ? (float) Pembayaran::where('tagihan_id', $invoice->id)
                 ->whereIn('status', ['menunggu_verifikasi', 'lunas'])
                 ->whereNotNull('bukti_transfer_path')
@@ -233,6 +233,19 @@ class ResidenceWorkflow
                     'tanggal_masuk' => $r->studentProfile->tanggal_masuk ?? today(),
                 ]);
             }
+        } elseif (! $ready
+            && ! $hasSubmittedProof
+            && ! $r->completed_at
+            && ! $r->penempatan_kamar_id
+            && ! $r->is_kipk
+            && $r->funding === 'personal'
+            && $r->stay_kind === 'regular'
+            && $r->residence_policy_id !== null
+            && $r->studentProfile->status_huni === 'aktif') {
+            // Suspend active resident status back to calon when unverified proof is rejected
+            $r->studentProfile->update([
+                'status_huni' => 'calon',
+            ]);
         }
         $r->update($updates);
         if ($ready && ! $wasReady) {

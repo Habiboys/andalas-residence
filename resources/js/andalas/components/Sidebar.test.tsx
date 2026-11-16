@@ -70,3 +70,21 @@ it('always displays Tagihan & Pembayaran in mahasiswa sidebar even while initial
     expect(html).toContain('Tagihan &amp; Pembayaran');
 });
 
+it('places Akun Internal under Data Master for superadmin and keeps it hidden from staff_admin', () => {
+    const superadminHtml = renderToStaticMarkup(
+        <Sidebar role="superadmin" currentPage="akun-internal" setPage={() => {}} />,
+    );
+    expect(superadminHtml).toContain('Akun Internal');
+    expect(superadminHtml.indexOf('Data Master')).toBeLessThan(
+        superadminHtml.indexOf('Akun Internal'),
+    );
+    expect(superadminHtml.indexOf('Akun Internal')).toBeLessThan(
+        superadminHtml.indexOf('Operasional'),
+    );
+
+    const staffHtml = renderToStaticMarkup(
+        <Sidebar role="staff_admin" currentPage="dashboard" setPage={() => {}} />,
+    );
+    expect(staffHtml).not.toContain('Akun Internal');
+});
+

@@ -23,8 +23,8 @@ Route::prefix('residence-process')->name('residence.')->group(function (): void 
     Route::get('/templates/{category}/{kind}', [Workflow::class, 'downloadTemplate'])->name('templates.download');
     Route::post('/contracts', [Workflow::class, 'contract'])->name('contracts');
     Route::post('/payments', [Workflow::class, 'recordPayment'])->name('payments.record');
-    Route::post('/payments/{reference}/match', [Workflow::class, 'reconcile'])->name('payments.match');
     Route::get('/payments/{reference}/evidence', [Workflow::class, 'paymentEvidence'])->name('payments.evidence');
+    Route::delete('/payments/{reference}', [Workflow::class, 'destroyPaymentEvidence'])->name('payments.destroy');
     Route::post('/applications', [Applications::class, 'store'])->name('applications.store');
     Route::post('/applications/{application}/approve', [Applications::class, 'approve'])->name('applications.approve');
     Route::get('/applications/{application}/letter', [Applications::class, 'letter'])->name('applications.letter');

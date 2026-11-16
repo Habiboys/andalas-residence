@@ -196,15 +196,12 @@ class PembayaranController extends Controller
             if ($pembayaran->status !== 'menunggu_verifikasi') {
                 throw ValidationException::withMessages(['status' => 'Pembayaran ini sudah selesai diverifikasi.']);
             }
-            if ($validated['status'] === 'lunas' && $pembayaran->tagihan?->registration?->workflow_version === 2) {
-                throw ValidationException::withMessages(['status' => 'Cocokkan dana dengan catatan resmi DPUB melalui menu Proses Pendaftaran. Bukti transfer saja tidak mengesahkan dana.']);
-            }
             if ($validated['status'] === 'lunas' && $pembayaran->tagihan_id) {
                 $invoice = Tagihan::query()->lockForUpdate()->findOrFail($pembayaran->tagihan_id);
                 if ($invoice->status === TagihanStatus::Batal || (float) $pembayaran->nominal > (float) $invoice->total - (float) $invoice->total_dibayar) {
                     throw ValidationException::withMessages(['status' => 'Nominal pembayaran melebihi sisa tagihan atau invoice sudah dibatalkan.']);
                 }
-                $postPayment->handle($pembayaran->kode_transaksi, $pembayaran->mahasiswa_id, now()->toDateTimeString(), [
+                $postPayment->handle($pembayaran->kode_transaksi, $pembayaran->mahasiswa_id, ($pembayaran->tanggal_bayar ?? now())->toDateTimeString(), [
                     ['tagihan_id' => $invoice->id, 'jumlah' => $pembayaran->nominal],
                 ]);
             }
@@ -212,7 +209,7 @@ class PembayaranController extends Controller
                 'status' => $validated['status'],
                 'catatan_verifikasi' => $validated['catatan_verifikasi'] ?? null,
                 'diverifikasi_oleh' => $request->user()->id,
-                'tanggal_bayar' => $validated['status'] === 'lunas' ? now() : $pembayaran->tanggal_bayar,
+                'tanggal_bayar' => $validated['status'] === 'lunas' ? ($pembayaran->tanggal_bayar ?? now()) : $pembayaran->tanggal_bayar,
             ]);
 
             if ($registration = $pembayaran->tagihan?->registration) {
@@ -229,15 +226,22 @@ class PembayaranController extends Controller
                         'Bukti pembayaran ditolak',
                         trim((string) ($validated['catatan_verifikasi'] ?? '')) ?: 'Bukti pembayaran belum sesuai. Silakan periksa kembali dan unggah ulang bukti transfer yang valid.',
                     );
+                } elseif ($validated['status'] === 'lunas') {
+                    $workflow->notify(
+                        $freshReg,
+                        'Pembayaran diverifikasi (Lunas)',
+                        'Pembayaran Anda sebesar Rp '.number_format((float) $pembayaran->nominal, 0, ',', '.').' telah disetujui oleh pengelola.',
+                    );
                 }
                 $workflow->evaluate($freshReg);
             }
             if ($validated['status'] === 'lunas') {
                 $kategori = KategoriTransaksi::where('tipe', 'pemasukan')
                     ->where('nama_kategori', 'like', '%Sewa%')
-                    ->first();
+                    ->first()
+                    ?? KategoriTransaksi::firstOrCreate(['nama_kategori' => 'Penerimaan Sewa Asrama', 'tipe' => 'pemasukan']);
 
-                if ($kategori && ! TransaksiKeuangan::where('pembayaran_mahasiswa_id', $pembayaran->id)->exists()) {
+                if (! TransaksiKeuangan::where('pembayaran_mahasiswa_id', $pembayaran->id)->exists()) {
                     TransaksiKeuangan::create([
                         'nomor_bukti' => 'TRX-PAY-'.$pembayaran->kode_transaksi,
                         'kategori_id' => $kategori->id,
@@ -245,11 +249,10 @@ class PembayaranController extends Controller
                         'tipe' => 'pemasukan',
                         'nominal' => $pembayaran->nominal,
                         'deskripsi' => 'Pembayaran '.$pembayaran->jenis_pembayaran.' — '.$pembayaran->kode_transaksi,
-                        'tanggal_transaksi' => now()->toDateString(),
+                        'tanggal_transaksi' => ($pembayaran->tanggal_bayar ?? now())->toDateString(),
                         'dicatat_oleh' => $request->user()->id,
                     ]);
                 }
-
             }
 
         });

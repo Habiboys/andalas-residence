@@ -1,6 +1,5 @@
 <?php
 
-use App\Actions\Billing\ReconcileResidencePayment;
 use App\Models\FasilitatorWilayah;
 use App\Models\Gedung;
 use App\Models\Kamar;
@@ -8,7 +7,6 @@ use App\Models\Lantai;
 use App\Models\MahasiswaProfil;
 use App\Models\Pembayaran;
 use App\Models\ResidenceCashRefund;
-use App\Models\ResidencePaymentReference;
 use App\Models\ResidencePolicy;
 use App\Models\ResidenceRate;
 use App\Models\ResidenceRegistration;
@@ -144,18 +142,16 @@ it('gates payment until facilitator approves documents and activates resident on
     $payment = Pembayaran::where('tagihan_id', $registration->tagihan_id)->sole();
     expect($payment->status)->toBe('menunggu_verifikasi')
         ->and($registration->fresh()->allocation_status)->toBe('admin_occupied')
-        ->and($f['profile']->fresh()->status_huni)->toBe('calon')
+        ->and($f['profile']->fresh()->status_huni)->toBe('aktif')
         ->and((float) $registration->tagihan->fresh()->total_dibayar)->toBe(0.0);
 
-    $reference = ResidencePaymentReference::factory()->create([
-        'recorded_by' => $f['manager']->id,
-        'amount' => $registration->tagihan->total,
-    ]);
-    app(ReconcileResidencePayment::class)->handle(
-        $reference,
-        [['tagihan_id' => $registration->tagihan_id, 'jumlah' => $reference->amount, 'payment_proof_id' => $payment->id]],
-        $f['manager'],
-    );
+    $this->actingAs($f['manager'])
+        ->post(route('andalas.pembayaran.verify', $payment), [
+            'status' => 'lunas',
+            'catatan_verifikasi' => 'Cocok mutasi bank',
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
 
     expect($f['profile']->fresh()->status_huni)->toBe('aktif')
         ->and($registration->fresh()->allocation_status)->toBe('admin_occupied')

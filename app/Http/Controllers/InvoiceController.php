@@ -10,6 +10,7 @@ use App\Models\SponsorPayment;
 use App\Models\Tagihan;
 use App\Models\TransaksiKeuangan;
 use App\Models\VirtualAccount;
+use App\Services\ResidenceWorkflow;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -110,9 +111,6 @@ class InvoiceController extends Controller
     public function pay(Request $request, InvoiceGroup $group): RedirectResponse
     {
         $this->authorizePermission($request, 'pembayaran.verify');
-        if (Tagihan::whereIn('id', $group->invoice_ids)->whereHas('registration', fn ($q) => $q->where('workflow_version', 2))->exists()) {
-            throw ValidationException::withMessages(['reference' => 'Gunakan rekonsiliasi DPUB pada menu Proses Pendaftaran untuk invoice alur baru.']);
-        }
         $data = $request->validate(['reference' => ['required', 'string', 'max:100'], 'allocations' => ['required', 'array', 'min:1'], 'allocations.*.tagihan_id' => ['required', 'uuid', 'distinct', Rule::in($group->invoice_ids)], 'allocations.*.jumlah' => ['required', 'numeric', 'min:1']]);
         DB::transaction(function () use ($request, $group, $data): void {
             $group = InvoiceGroup::query()->lockForUpdate()->findOrFail($group->id);
@@ -139,6 +137,9 @@ class InvoiceController extends Controller
                 }
                 if ($group->payer_type === 'sponsor') {
                     $invoice->update(['sponsor_paid' => (float) $invoice->sponsor_paid + (float) $allocation['jumlah']]);
+                    if ($invoice->registration) {
+                        app(ResidenceWorkflow::class)->evaluate($invoice->registration->fresh());
+                    }
                 } else {
                     app(PostPayment::class)->handle('GROUP-'.hash('sha256', $data['reference'].$invoice->id), $invoice->mahasiswa_id, now()->toDateTimeString(), [$allocation]);
                 }

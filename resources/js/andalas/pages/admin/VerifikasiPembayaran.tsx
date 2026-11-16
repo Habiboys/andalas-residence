@@ -1,4 +1,5 @@
 import { Link, router, useForm, usePoll } from '@inertiajs/react';
+import { Download, Eye, Landmark } from 'lucide-react';
 import { useState } from 'react';
 import {
     ConfirmDialog,
@@ -13,9 +14,30 @@ import { Modal } from '../../components/atoms/Modal';
 import { verify, bukti } from '@/routes/andalas/pembayaran';
 import { show as showWorkflowRegistration } from '@/routes/residence/registrations';
 import { workflow as workflowPage } from '@/routes/residence';
+import { evidence as paymentEvidence } from '@/routes/residence/payments';
 import { verifikasiPembayaran as adminPage } from '@/routes/admin';
 import { verifikasiPembayaran as adminLayananPage } from '@/routes/admin_layanan';
 import { formatDateTime, formatRupiah } from '../../lib/format';
+
+type BankStatement = {
+    id: string;
+    reference: string;
+    source: string;
+    evidence_path: string;
+    paid_at?: string | null;
+    created_at?: string | null;
+};
+
+function statementFileKind(path?: string): 'image' | 'pdf' | 'other' {
+    const ext = (path?.split('.').pop() ?? '').toLowerCase();
+    if (['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext)) {
+        return 'image';
+    }
+    if (ext === 'pdf') {
+        return 'pdf';
+    }
+    return 'other';
+}
 
 type Payment = {
     id: string;
@@ -58,14 +80,18 @@ export default function VerifikasiPembayaran({
         sort_by: 'created_at',
         sort_direction: 'desc',
     },
+    bank_statements = [],
     role = 'staff_admin',
 }: {
     pembayaran?: PaginatedPayments;
     table_state?: TableState;
+    bank_statements?: BankStatement[];
     role?: string;
 }) {
     usePoll(5000, { only: ['pembayaran', 'table_state'] });
     const [selected, setSelected] = useState<Payment | null>(null);
+    const [previewStatement, setPreviewStatement] =
+        useState<BankStatement | null>(null);
     const [confirmVerify, setConfirmVerify] = useState(false);
     const [loading, setLoading] = useState(false);
     const [requestError, setRequestError] = useState<string | null>(null);
@@ -214,6 +240,83 @@ export default function VerifikasiPembayaran({
                     {requestError ?? table_state.error}
                 </p>
             )}
+            <details className="bg-base-100 border-base-300 rounded-xl border p-3.5 text-sm shadow-xs">
+                <summary className="flex cursor-pointer flex-wrap items-center justify-between gap-2 font-medium">
+                    <span className="flex items-center gap-2">
+                        <Landmark className="text-primary size-4" />
+                        Arsip Rekening Koran DPUB untuk Pencocokan Manual (
+                        {bank_statements.length})
+                    </span>
+                    <Link
+                        href={workflowPage.url({ query: { section: 'finance' } })}
+                        className="link link-primary text-xs font-normal"
+                    >
+                        Kelola / Upload Rekening Koran →
+                    </Link>
+                </summary>
+                {bank_statements.length === 0 ? (
+                    <p className="text-base-content/70 mt-2.5 text-xs">
+                        Belum ada file rekening koran DPUB yang diunggah. Anda
+                        tetap dapat memverifikasi bukti pembayaran langsung
+                        setelah memeriksa mutasi bank.
+                    </p>
+                ) : (
+                    <div className="mt-3 overflow-x-auto">
+                        <table className="table-xs table">
+                            <thead>
+                                <tr>
+                                    <th>Referensi / Judul</th>
+                                    <th>Bank / Sumber</th>
+                                    <th>Tanggal</th>
+                                    <th className="text-right">Berkas</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {bank_statements.map((stmt) => (
+                                    <tr key={stmt.id}>
+                                        <td className="font-medium">
+                                            {stmt.reference}
+                                        </td>
+                                        <td>{stmt.source}</td>
+                                        <td>
+                                            {stmt.paid_at?.slice(0, 10) ?? '-'}
+                                        </td>
+                                        <td className="flex justify-end gap-1.5">
+                                            {statementFileKind(
+                                                stmt.evidence_path,
+                                            ) !== 'other' && (
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-xs btn-outline btn-primary gap-1"
+                                                    onClick={() =>
+                                                        setPreviewStatement(
+                                                            stmt,
+                                                        )
+                                                    }
+                                                >
+                                                    <Eye className="size-3" />
+                                                    Preview
+                                                </button>
+                                            )}
+                                            <a
+                                                href={paymentEvidence.url(
+                                                    stmt.id,
+                                                )}
+                                                className="btn btn-xs btn-outline gap-1"
+                                                target="_blank"
+                                                rel="noreferrer"
+                                            >
+                                                <Download className="size-3" />
+                                                Unduh
+                                            </a>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </details>
             <DataTable
                 columns={columns}
                 data={rows}
@@ -320,41 +423,26 @@ export default function VerifikasiPembayaran({
                             >
                                 {selected.tagihan?.registration
                                     ?.workflow_version === 2 && (
-                                    <div className="alert alert-info text-sm">
-                                        <div className="space-y-1.5">
-                                            <p>
-                                                Tagihan pendaftaran asrama
-                                                memerlukan pencocokan mutasi
-                                                bank DPUB untuk mengesahkan{' '}
-                                                <strong>Lunas</strong> agar
-                                                status penghuni mahasiswa
-                                                otomatis aktif. Anda tetap dapat
-                                                menolak bukti yang tidak sesuai
-                                                di sini, atau melihat{' '}
-                                                <Link
-                                                    href={showWorkflowRegistration.url(
-                                                        selected.tagihan
-                                                            .registration.id,
-                                                    )}
-                                                    className="link font-medium"
-                                                >
-                                                    detail pendaftaran
-                                                </Link>
-                                                .
-                                            </p>
-                                            {form.data.status === 'lunas' && (
-                                                <Link
-                                                    href={workflowPage.url({
-                                                        query: {
-                                                            section: 'finance',
-                                                        },
-                                                    })}
-                                                    className="btn btn-primary btn-xs"
-                                                >
-                                                    Buka Rekonsiliasi DPUB →
-                                                </Link>
-                                            )}
-                                        </div>
+                                    <div className="border-base-300 bg-base-200/40 rounded-lg border p-3 text-xs">
+                                        <p className="text-base-content/80">
+                                            Pastikan dana transfer telah cocok
+                                            dengan mutasi / rekening koran DPUB
+                                            sebelum mengesahkan{' '}
+                                            <strong>Pembayaran valid</strong>{' '}
+                                            (status mahasiswa akan otomatis aktif).
+                                            Buka{' '}
+                                            <Link
+                                                href={showWorkflowRegistration.url(
+                                                    selected.tagihan
+                                                        .registration.id,
+                                                )}
+                                                className="link link-primary font-medium"
+                                            >
+                                                detail pendaftaran
+                                            </Link>{' '}
+                                            atau cek arsip rekening koran DPUB di
+                                            atas bila diperlukan.
+                                        </p>
                                     </div>
                                 )}
                                 <label className="block space-y-1 text-sm">
@@ -417,12 +505,7 @@ export default function VerifikasiPembayaran({
                                     </button>
                                     <button
                                         className="btn btn-primary"
-                                        disabled={
-                                            form.processing ||
-                                            (selected.tagihan?.registration
-                                                ?.workflow_version === 2 &&
-                                                form.data.status === 'lunas')
-                                        }
+                                        disabled={form.processing}
                                     >
                                         {form.processing
                                             ? 'Menyimpan...'
@@ -465,6 +548,58 @@ export default function VerifikasiPembayaran({
                                     />
                                 )}
                             </form>
+                        )}
+                    </div>
+                )}
+            </Modal>
+
+            <Modal
+                open={Boolean(previewStatement)}
+                onClose={() => setPreviewStatement(null)}
+                title={
+                    previewStatement
+                        ? `Preview Rekening Koran: ${previewStatement.reference}`
+                        : 'Preview Rekening Koran DPUB'
+                }
+                width="max-w-4xl"
+            >
+                {previewStatement && (
+                    <div className="space-y-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                            <span className="text-base-content/75">
+                                {previewStatement.source} ·{' '}
+                                {previewStatement.paid_at?.slice(0, 10) ?? '-'}
+                            </span>
+                            <a
+                                href={paymentEvidence.url(previewStatement.id)}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="btn btn-outline btn-xs gap-1"
+                            >
+                                <Download className="size-3.5" />
+                                Unduh File Asli
+                            </a>
+                        </div>
+                        {statementFileKind(previewStatement.evidence_path) ===
+                        'image' ? (
+                            <div className="border-base-300 bg-base-200/40 flex max-h-[70vh] justify-center overflow-auto rounded-lg border p-2">
+                                <img
+                                    src={paymentEvidence.url(
+                                        previewStatement.id,
+                                        { query: { inline: 1 } },
+                                    )}
+                                    alt={previewStatement.reference}
+                                    className="max-h-[66vh] w-auto rounded object-contain"
+                                />
+                            </div>
+                        ) : (
+                            <iframe
+                                src={paymentEvidence.url(previewStatement.id, {
+                                    query: { inline: 1 },
+                                })}
+                                title={previewStatement.reference}
+                                className="border-base-300 h-[70vh] w-full rounded-lg border"
+                            />
                         )}
                     </div>
                 )}

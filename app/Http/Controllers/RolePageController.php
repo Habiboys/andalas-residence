@@ -37,6 +37,7 @@ use App\Models\Periode;
 use App\Models\Prodi;
 use App\Models\Province;
 use App\Models\ResidenceDocumentTemplate;
+use App\Models\ResidencePaymentReference;
 use App\Models\ResidenceRate;
 use App\Models\ResidenceRegistration;
 use App\Models\RoomInvitation;
@@ -384,6 +385,9 @@ class RolePageController extends Controller
                 'sort_direction' => $sortDirection,
                 'error' => $validator->errors()->first() ?: null,
             ],
+            'bank_statements' => ResidencePaymentReference::latest()
+                ->limit(30)
+                ->get(['id', 'reference', 'source', 'evidence_path', 'paid_at', 'created_at']),
         ];
     }
 
@@ -447,6 +451,9 @@ class RolePageController extends Controller
                 'sort_direction' => $sortDirection,
                 'error' => $validator->errors()->first() ?: null,
             ],
+            'bank_statements' => ResidencePaymentReference::latest()
+                ->limit(30)
+                ->get(['id', 'reference', 'source', 'evidence_path', 'paid_at', 'created_at']),
         ];
     }
 

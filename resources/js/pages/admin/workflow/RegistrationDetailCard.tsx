@@ -3,7 +3,6 @@ import * as amendments from '@/actions/App/Http/Controllers/ResidenceAmendmentCo
 import * as workflow from '@/actions/App/Http/Controllers/ResidenceWorkflowController';
 import { verifikasiPembayaran as adminVerifikasiPembayaran } from '@/routes/admin';
 import { verifikasiPembayaran as adminLayananVerifikasiPembayaran } from '@/routes/admin_layanan';
-import { workflow as workflowPage } from '@/routes/residence';
 import { Modal, StatusBadge } from '@/andalas/components/ui';
 import { formatDateTime, formatRupiah } from '@/andalas/lib/format';
 import {
@@ -1141,9 +1140,6 @@ export default function RegistrationDetailCard({
             : adminVerifikasiPembayaran.url({
                   query: { search: r.student_profile.user.nim_nip },
               });
-    const rekonsiliasiDpubUrl = workflowPage.url({
-        query: { section: 'finance' },
-    });
 
     return (
         <WorkflowPanel
@@ -1224,7 +1220,7 @@ export default function RegistrationDetailCard({
                                 {pendingPayments.length > 0 ? (
                                     <span className="text-primary font-semibold">
                                         {pendingPayments.length} bukti transfer
-                                        menunggu verifikasi / rekonsiliasi
+                                        menunggu verifikasi
                                         {pendingPayments[0]?.kode_transaksi
                                             ? ` (${pendingPayments[0].kode_transaksi})`
                                             : ''}
@@ -1232,7 +1228,7 @@ export default function RegistrationDetailCard({
                                     </span>
                                 ) : (
                                     <span className="text-base-content/75">
-                                        Menunggu pembayaran / pencocokan dana oleh
+                                        Menunggu pembayaran / verifikasi oleh
                                         pengelola.
                                     </span>
                                 )}
@@ -1244,13 +1240,6 @@ export default function RegistrationDetailCard({
                                 >
                                     <CreditCard className="size-3.5" />
                                     Verifikasi Pembayaran
-                                    <ArrowRight className="size-3.5" />
-                                </Link>
-                                <Link
-                                    href={rekonsiliasiDpubUrl}
-                                    className="btn btn-outline btn-xs gap-1"
-                                >
-                                    Rekonsiliasi DPUB (ACC Lunas)
                                     <ArrowRight className="size-3.5" />
                                 </Link>
                             </div>

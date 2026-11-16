@@ -36,3 +36,32 @@ it('shows payments in a table and opens verification only on demand', () => {
     expect(html).toContain('Verifikasi');
     expect(html).not.toContain('Simpan verifikasi');
 });
+
+it('displays DPUB bank statement archives without blocking verification', () => {
+    const html = renderToStaticMarkup(
+        <VerifikasiPembayaran
+            bank_statements={[
+                {
+                    id: 'stmt-1',
+                    reference: 'RK-BSI-2026-11',
+                    source: 'BSI RPL 014',
+                    evidence_path: 'documents/dpub/rk.pdf',
+                    paid_at: '2026-11-16',
+                },
+            ]}
+            pembayaran={{
+                data: [],
+                current_page: 1,
+                per_page: 10,
+                last_page: 1,
+                total: 0,
+            }}
+        />,
+    );
+
+    expect(html).toContain('Arsip Rekening Koran DPUB untuk Pencocokan Manual');
+    expect(html).toContain('RK-BSI-2026-11');
+    expect(html).toContain('BSI RPL 014');
+    expect(html).toContain('Preview');
+    expect(html).toContain('Unduh');
+});

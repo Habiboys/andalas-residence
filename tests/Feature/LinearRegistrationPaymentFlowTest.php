@@ -1,6 +1,5 @@
 <?php
 
-use App\Actions\Billing\ReconcileResidencePayment;
 use App\Enums\TagihanStatus;
 use App\Models\Gedung;
 use App\Models\Kamar;
@@ -182,7 +181,10 @@ it('restricts registration document review exclusively to assigned building faci
     expect($payment->payment_bank_account_id)->toBe($account->id)
         ->and($payment->rekening_tujuan)->toBe('Bank Nagari · 2100020188888 · a.n. RPL 014 UNAND Asrama')
         ->and($payment->tanggal_bayar?->format('Y-m-d H:i'))->toBe('2026-11-16 05:05')
-        ->and($f['profile']->fresh()->status_huni)->toBe('calon');
+        ->and($payment->status)->toBe('menunggu_verifikasi')
+        ->and($reg->fresh()->allocation_status)->toBe('admin_occupied')
+        ->and($f['profile']->fresh()->status_huni)->toBe('aktif')
+        ->and((float) $reg->tagihan->fresh()->total_dibayar)->toBe(0.0);
 
     // Student can download own payment proof, while another student gets 403
     $this->actingAs($f['user'])
@@ -197,19 +199,59 @@ it('restricts registration document review exclusively to assigned building faci
         ->get(route('mahasiswa.tagihan.show', $reg->tagihan_id))
         ->assertForbidden();
 
-    // Pengelola reconciles DPUB bank reference -> status_huni becomes aktif automatically
-    $ref = ResidencePaymentReference::factory()->create([
-        'recorded_by' => $f['manager']->id,
-        'amount' => (float) $reg->tagihan->total,
-    ]);
-    app(ReconcileResidencePayment::class)->handle(
-        $ref,
-        [['tagihan_id' => $reg->tagihan_id, 'jumlah' => (float) $reg->tagihan->total, 'payment_proof_id' => $payment->id]],
-        $f['manager'],
-    );
+    // Pengelola approves payment proof directly in Verifikasi Pembayaran -> status_huni becomes aktif automatically
+    $this->actingAs($f['manager'])
+        ->post(route('andalas.pembayaran.verify', $payment), [
+            'status' => 'lunas',
+            'catatan_verifikasi' => 'Cocok dengan rekening koran BSI.',
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
 
     expect($f['profile']->fresh()->status_huni)->toBe('aktif')
-        ->and($reg->fresh()->ready_at)->not->toBeNull();
+        ->and($reg->fresh()->ready_at)->not->toBeNull()
+        ->and($payment->fresh()->status)->toBe('lunas')
+        ->and($reg->tagihan->fresh()->status)->toBe(TagihanStatus::Lunas);
+});
+
+it('stores DPUB bank statements solely as viewable archives without creating ledger transactions', function () {
+    $manager = toBeOfficer('admin_layanan');
+
+    $this->actingAs($manager)
+        ->post(route('residence.payments.record'), [
+            'reference' => 'RK-BSI-2026-11',
+            'source' => 'Bank Syariah Indonesia RPL 014',
+            'paid_at' => '2026-11-16',
+            'evidence' => UploadedFile::fake()->create('rekening-koran.pdf', 120, 'application/pdf'),
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $statement = ResidencePaymentReference::where('reference', 'RK-BSI-2026-11')->sole();
+
+    $this->assertDatabaseCount('transaksi_keuangan', 0);
+    $this->assertDatabaseCount('pembayaran_tagihan', 0);
+
+    $inline = $this->actingAs($manager)
+        ->get(route('residence.payments.evidence', $statement).'?inline=1')
+        ->assertOk();
+    expect(strtolower((string) $inline->headers->get('content-disposition')))
+        ->toStartWith('inline');
+
+    $this->actingAs($manager)
+        ->get(route('admin_layanan.verifikasi-pembayaran'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('bank_statements', 1)
+            ->where('bank_statements.0.reference', 'RK-BSI-2026-11')
+        );
+
+    $this->actingAs($manager)
+        ->delete(route('residence.payments.destroy', $statement))
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    expect(ResidencePaymentReference::whereKey($statement->id)->exists())->toBeFalse();
 });
 
 it('lets pengelola manage official destination payment bank accounts in residence management', function () {
@@ -297,8 +339,11 @@ it('stores mandatory documents and financing scheme atomically in stage 3 submis
         ->assertSessionHasNoErrors();
 
     $firstPayment = Pembayaran::where('tagihan_id', $registration->tagihan_id)->sole();
+    expect($firstPayment->status)->toBe('menunggu_verifikasi')
+        ->and($f['profile']->fresh()->status_huni)->toBe('aktif')
+        ->and($registration->fresh()->allocation_status)->toBe('admin_occupied');
 
-    // Travel past original deadline to verify manager rejection refreshes expiry window safely
+    // Travel past original deadline to verify manager rejection refreshes expiry window safely and suspends status_huni back to calon
     $registration->update(['reservation_expires_at' => now()->subMinute()]);
 
     $this->actingAs($f['manager'])
@@ -314,7 +359,7 @@ it('stores mandatory documents and financing scheme atomically in stage 3 submis
         ->and($registration->fresh()->reservation_expires_at?->isFuture())->toBeTrue()
         ->and($f['profile']->fresh()->status_huni)->toBe('calon');
 
-    // Student CAN upload a corrected payment proof right away
+    // Student CAN upload a corrected payment proof right away -> immediately active resident again while awaiting DPUB check
     $this->actingAs($f['user'])
         ->post(route('andalas.pembayaran.store'), [
             'tagihan_id' => $registration->tagihan_id,
@@ -330,7 +375,8 @@ it('stores mandatory documents and financing scheme atomically in stage 3 submis
         ->assertSessionHasNoErrors();
 
     expect(Pembayaran::where('tagihan_id', $registration->tagihan_id)->count())->toBe(2)
-        ->and(Pembayaran::where('tagihan_id', $registration->tagihan_id)->where('status', 'menunggu_verifikasi')->count())->toBe(1);
+        ->and(Pembayaran::where('tagihan_id', $registration->tagihan_id)->where('status', 'menunggu_verifikasi')->count())->toBe(1)
+        ->and($f['profile']->fresh()->status_huni)->toBe('aktif');
 });
 
 it('serves inline document previews and lets building facilitators batch-review multiple documents atomically', function () {
