@@ -515,7 +515,6 @@ interface SidebarProps {
     role: UserRole;
     attendanceEligible?: boolean;
     activeResident?: boolean;
-    paymentMenuVisible?: boolean;
     currentPage: string;
     setPage: (p: string) => void;
     onClose?: () => void;
@@ -528,11 +527,9 @@ export function canAccessNavItem(
     {
         attendanceEligible = false,
         activeResident = false,
-        paymentMenuVisible = true,
     }: {
         attendanceEligible?: boolean;
         activeResident?: boolean;
-        paymentMenuVisible?: boolean;
     } = {},
 ): boolean {
     if (
@@ -554,9 +551,6 @@ export function canAccessNavItem(
         if (['pelaporan', 'checkout'].includes(page) && !activeResident) {
             return false;
         }
-        if (page === 'tagihan' && !paymentMenuVisible) {
-            return false;
-        }
     }
     return true;
 }
@@ -569,7 +563,6 @@ export default function Sidebar({
     collapsed = false,
     attendanceEligible = false,
     activeResident = false,
-    paymentMenuVisible = true,
 }: SidebarProps) {
     const groups = (NAV_MAP[role] ?? [])
         .map((group) => ({
@@ -578,7 +571,6 @@ export default function Sidebar({
                 canAccessNavItem(role, item.page, {
                     attendanceEligible,
                     activeResident,
-                    paymentMenuVisible,
                 }),
             ),
         }))

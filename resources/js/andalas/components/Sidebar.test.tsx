@@ -57,25 +57,16 @@ it.each(['staff_admin', 'admin_layanan', 'superadmin'] as UserRole[])(
     },
 );
 
-it('hides Tagihan & Pembayaran from mahasiswa sidebar until payment is unlocked', () => {
-    const hidden = renderToStaticMarkup(
+it('always displays Tagihan & Pembayaran in mahasiswa sidebar even while initial onboarding or waiting verification', () => {
+    const html = renderToStaticMarkup(
         <Sidebar
             role="mahasiswa"
             currentPage="registration"
             setPage={() => {}}
-            paymentMenuVisible={false}
+            attendanceEligible={false}
+            activeResident={false}
         />,
     );
-    expect(hidden).not.toContain('Tagihan &amp; Pembayaran');
-
-    const visible = renderToStaticMarkup(
-        <Sidebar
-            role="mahasiswa"
-            currentPage="registration"
-            setPage={() => {}}
-            paymentMenuVisible={true}
-        />,
-    );
-    expect(visible).toContain('Tagihan &amp; Pembayaran');
+    expect(html).toContain('Tagihan &amp; Pembayaran');
 });
 

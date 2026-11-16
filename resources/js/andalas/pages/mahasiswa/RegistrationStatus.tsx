@@ -1936,9 +1936,6 @@ export default function RegistrationStatus({
     detailMode = false,
 }: Props) {
     const items = registrations?.data ?? [];
-    const hasPaymentMenuAccess = items.some(
-        (item) => Boolean(item.payment_unlocked) || Boolean(item.completed_at),
-    );
 
     return (
         <div className="space-y-6">
@@ -1955,14 +1952,12 @@ export default function RegistrationStatus({
                         >
                             ← Halaman Pendaftaran
                         </Link>
-                        {hasPaymentMenuAccess && (
-                            <Link
-                                href="/mahasiswa/tagihan"
-                                className="btn btn-primary btn-sm"
-                            >
-                                Tagihan & Pembayaran
-                            </Link>
-                        )}
+                        <Link
+                            href="/mahasiswa/tagihan"
+                            className="btn btn-primary btn-sm"
+                        >
+                            Tagihan & Pembayaran
+                        </Link>
                     </div>
                 }
             />

@@ -44,9 +44,15 @@ it('allows cancelling an unpaid registration so the student returns to step 1 an
         ->get(route('mahasiswa.registration'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->where('initialUser.payment_menu_visible', false)
             ->where('registration.0.can_cancel', true)
             ->where('registration.0.payment_unlocked', false)
+        );
+
+    $this->actingAs($f['user'])
+        ->get(route('mahasiswa.tagihan'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('billing.0.payment_unlocked', false)
         );
 
     $this->actingAs($f['user'])
@@ -125,13 +131,19 @@ it('restricts registration document review exclusively to assigned building faci
             ->assertForbidden();
     }
 
-    // Before doc review: payment detail renders locked state and sidebar payment menu is hidden
+    // Before doc review: invoice overview & detail stay accessible to view total, while payment upload remains locked
+    $this->actingAs($f['user'])
+        ->get(route('mahasiswa.tagihan'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('billing.0.payment_unlocked', false)
+        );
+
     $this->actingAs($f['user'])
         ->get(route('mahasiswa.tagihan.show', $reg->tagihan_id))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('mahasiswa/tagihan-detail')
-            ->where('initialUser.payment_menu_visible', false)
             ->where('registration.payment_unlocked', false)
             ->where('payment_accounts.0.account_number', $account->account_number)
         );
@@ -142,12 +154,11 @@ it('restricts registration document review exclusively to assigned building faci
         ->assertRedirect()
         ->assertSessionHasNoErrors();
 
-    // Now payment menu & payment detail upload are unlocked
+    // Now payment detail upload & invoice overview payment flag are unlocked
     $this->actingAs($f['user'])
         ->get(route('mahasiswa.tagihan.show', $reg->tagihan_id))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->where('initialUser.payment_menu_visible', true)
             ->where('registration.payment_unlocked', true)
         );
 

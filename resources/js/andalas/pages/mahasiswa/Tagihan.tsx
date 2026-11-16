@@ -32,6 +32,7 @@ type Invoice = {
     total: string;
     total_dibayar: string;
     amount_due_now?: string;
+    payment_unlocked?: boolean;
     jadwal_cicilan: Array<{
         termin_ke: number;
         jumlah: string;
@@ -187,29 +188,38 @@ export default function Tagihan({
                     <Link
                         href={tagihanShow.url(invoice.id)}
                         className={`btn btn-xs gap-1 ${
-                            balance > 0 && invoice.status !== 'batal'
+                            balance > 0 &&
+                            invoice.status !== 'batal' &&
+                            invoice.payment_unlocked !== false
                                 ? 'btn-primary'
                                 : 'btn-ghost'
                         }`}
                     >
                         <span>
-                            {balance > 0 && invoice.status !== 'batal'
+                            {balance > 0 &&
+                            invoice.status !== 'batal' &&
+                            invoice.payment_unlocked !== false
                                 ? 'Detail & Bayar'
                                 : 'Detail'}
                         </span>
                         <ArrowRight className="size-3.5" aria-hidden="true" />
                     </Link>
-                    {balance > 0 && invoice.status !== 'batal' && (
-                        <button
-                            type="button"
-                            className="btn btn-ghost btn-xs btn-square"
-                            onClick={() => pay(invoice)}
-                            aria-label={`Bayar cepat ${invoice.nomor}`}
-                            title="Unggah bukti cepat"
-                        >
-                            <CreditCard className="size-4" aria-hidden="true" />
-                        </button>
-                    )}
+                    {balance > 0 &&
+                        invoice.status !== 'batal' &&
+                        invoice.payment_unlocked !== false && (
+                            <button
+                                type="button"
+                                className="btn btn-ghost btn-xs btn-square"
+                                onClick={() => pay(invoice)}
+                                aria-label={`Bayar cepat ${invoice.nomor}`}
+                                title="Unggah bukti cepat"
+                            >
+                                <CreditCard
+                                    className="size-4"
+                                    aria-hidden="true"
+                                />
+                            </button>
+                        )}
                 </div>
             ),
         },

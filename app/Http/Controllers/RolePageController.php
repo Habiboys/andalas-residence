@@ -200,9 +200,24 @@ class RolePageController extends Controller
                 'virtual_accounts' => VirtualAccount::where('mahasiswa_id', $request->user()->mahasiswaProfil?->id)->where('aktif', true)->get(),
                 'payment_accounts' => PaymentBankAccount::where('is_active', true)->orderBy('bank_name')->orderBy('account_number')->get(),
                 'pembayaran' => $this->payments($request),
-                'billing' => Tagihan::with(['mahasiswa.user', 'mahasiswa.prodi', 'jadwalCicilan', 'dokumen'])
+                'billing' => Tagihan::with([
+                    'mahasiswa.user',
+                    'mahasiswa.prodi',
+                    'jadwalCicilan',
+                    'dokumen',
+                    'registration.reservedRoom.lantai.gedung',
+                    'registration.placement.kamar.lantai.gedung',
+                    'registration.policy',
+                    'registration.documents',
+                    'registration.decisions',
+                    'registration.studentProfile',
+                ])
                     ->when($request->user()->hasRole('mahasiswa'), fn ($query) => $query->where('mahasiswa_id', $request->user()->mahasiswaProfil?->id))
-                    ->latest()->get(),
+                    ->latest()
+                    ->get()
+                    ->each(function (Tagihan $invoice): void {
+                        $invoice->setAttribute('payment_unlocked', $invoice->registration ? app(ResidenceWorkflow::class)->paymentUnlocked($invoice->registration) : true);
+                    }),
             ],
             'detail-kamar' => ['penempatan' => PenempatanKamar::with('kamar.lantai.gedung')->whereHas('mahasiswa', fn ($q) => $q->where('user_id', $request->user()->id))->orderByRaw("CASE WHEN status = 'aktif' THEN 0 ELSE 1 END")->latest()->get()],
             'checkout' => ['checkout' => CheckoutRequest::with(['inspection', 'placement.kamar.lantai.gedung'])->where('mahasiswa_id', $request->user()->mahasiswaProfil?->id)->latest()->get()],
@@ -839,41 +854,6 @@ class RolePageController extends Controller
             'status_huni' => $user->mahasiswaProfil?->status_huni,
             'client_profile_category' => $user->client_profile_category?->value,
             'attendance_eligible' => $user->mahasiswaProfil && app(AttendanceEligibility::class)->isEligible($user->mahasiswaProfil, now()),
-            'payment_menu_visible' => $this->studentPaymentMenuVisible($user),
         ];
-    }
-
-    private function studentPaymentMenuVisible(User $user): bool
-    {
-        if (! $user->hasRole('mahasiswa') || ! $user->mahasiswaProfil) {
-            return true;
-        }
-        $student = $user->mahasiswaProfil;
-        if ($student->status_huni === 'aktif') {
-            return true;
-        }
-        $workflow = app(ResidenceWorkflow::class);
-        $invoices = Tagihan::with(['registration.reservedRoom.lantai.gedung', 'registration.placement.kamar.lantai.gedung', 'registration.policy', 'registration.documents', 'registration.decisions', 'registration.studentProfile'])
-            ->where('mahasiswa_id', $student->id)
-            ->where('status', '!=', 'batal')
-            ->get();
-
-        if ($invoices->isEmpty()) {
-            return false;
-        }
-
-        foreach ($invoices as $invoice) {
-            if ((float) $invoice->total_dibayar > 0 || Pembayaran::where('tagihan_id', $invoice->id)->exists()) {
-                return true;
-            }
-            if (! $invoice->registration) {
-                return true;
-            }
-            if ($workflow->paymentUnlocked($invoice->registration)) {
-                return true;
-            }
-        }
-
-        return false;
     }
 }

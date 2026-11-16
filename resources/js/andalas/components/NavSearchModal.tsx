@@ -27,7 +27,6 @@ type Props = {
     role: UserRole;
     attendanceEligible?: boolean;
     activeResident?: boolean;
-    paymentMenuVisible?: boolean;
     onNavigate: (page: string) => void;
 };
 
@@ -42,7 +41,6 @@ export function NavSearchModal({
     role,
     attendanceEligible = false,
     activeResident = false,
-    paymentMenuVisible = true,
     onNavigate,
 }: Props) {
     const dialogRef = useRef<HTMLDialogElement>(null);
@@ -78,10 +76,9 @@ export function NavSearchModal({
                 canAccessNavItem(role, item.page, {
                     attendanceEligible,
                     activeResident,
-                    paymentMenuVisible,
                 }),
             ),
-        [role, attendanceEligible, activeResident, paymentMenuVisible],
+        [role, attendanceEligible, activeResident],
     );
 
     const results = useMemo(() => {
