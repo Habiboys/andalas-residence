@@ -7,13 +7,16 @@ use App\Models\Lantai;
 use App\Models\PaymentBankAccount;
 use App\Models\Pembayaran;
 use App\Models\ResidencePaymentReference;
+use App\Models\ResidencePolicy;
 use App\Models\ResidenceRate;
 use App\Models\ResidenceRegistration;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
+use Inertia\Testing\AssertableInertia;
 use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(function () {
@@ -703,4 +706,64 @@ it('aligns registration and invoice payment deadline to the track registration d
         ->assertSessionHasErrors();
 
     expect(ResidenceRegistration::where('student_profile_id', $f['profile']->id)->where('status', 'submitted')->count())->toBe(0);
+});
+
+it('parses naive datetime-local policy deadlines in WIB and exposes exact closed reason and resolved category on student registration', function () {
+    $f = toBeFixture('local_non_kipk', 2);
+    ResidenceRate::updateOrCreate([
+        'gedung_id' => $f['building']->id,
+        'tipe_kamar' => $f['room']->tipe_kamar,
+        'unit' => 'year',
+    ], ['amount' => 1000000]);
+
+    $this->travelTo(Carbon::parse('2026-11-17 07:30:00', 'Asia/Jakarta'));
+
+    $settings = $f['policy']->settings;
+    unset($settings['rates']);
+    $settings['registration_deadline'] = '2026-11-17T08:00';
+
+    // 08:00 WIB is still in the future at 07:30 WIB even though app.timezone is UTC (00:30 UTC)
+    $this->actingAs($f['manager'])
+        ->post(route('residence.policies'), [
+            'category' => 'local_non_kipk',
+            'settings' => $settings,
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $latestPolicy = ResidencePolicy::where('category', 'local_non_kipk')->latest('version')->firstOrFail();
+    expect($latestPolicy->settings['registration_deadline'])->toBe('2026-11-17T08:00:00+07:00');
+
+    // Open at 07:59 WIB
+    $this->travelTo(Carbon::parse('2026-11-17 07:59:00', 'Asia/Jakarta'));
+    $this->actingAs($f['user'])
+        ->get(route('mahasiswa.registration'))
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->where('policy_open', true)
+            ->where('policy_category', 'local_non_kipk')
+            ->where('policy_closed_reason', null));
+
+    // Expired at 08:01 WIB: surfaces exact reason instead of hiding why
+    $this->travelTo(Carbon::parse('2026-11-17 08:01:00', 'Asia/Jakarta'));
+    $this->actingAs($f['user'])
+        ->get(route('mahasiswa.registration'))
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->where('policy_open', false)
+            ->where('policy_category', 'local_non_kipk')
+            ->where('policy_closed_reason', 'Batas waktu pendaftaran jalur ini telah berakhir.'));
+});
+
+it('exposes international/S2/S3 policy_category when an S2 local student opens registration while international policy is closed', function () {
+    $f = toBeFixture('local_non_kipk', 2);
+    $f['program']->update(['jenjang' => 'S2']);
+
+    $this->actingAs($f['user'])
+        ->get(route('mahasiswa.registration'))
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->where('policy_open', false)
+            ->where('policy_category', 'international')
+            ->where('policy_closed_reason', 'Pendaftaran kategori ini belum dibuka. Pengelola perlu menerbitkan konfigurasi tarif, dokumen, dan gedung yang lengkap.'));
 });

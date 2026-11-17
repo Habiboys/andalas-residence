@@ -30,10 +30,14 @@ export default function AcademicFields({
     value,
     onChange,
     errors = {},
+    disabled = false,
+    required = true,
 }: AcademicOptions & {
     value: AcademicSelection;
     onChange: (value: AcademicSelection) => void;
     errors?: Partial<Record<keyof AcademicSelection, string>>;
+    disabled?: boolean;
+    required?: boolean;
 }) {
     return (
         <>
@@ -41,7 +45,8 @@ export default function AcademicFields({
                 <select
                     aria-label="Fakultas"
                     className={authInputClass}
-                    required
+                    required={required}
+                    disabled={disabled}
                     value={value.faculty_id}
                     onChange={(e) =>
                         onChange({
@@ -63,8 +68,8 @@ export default function AcademicFields({
                 <select
                     aria-label="Departemen"
                     className={authInputClass}
-                    required
-                    disabled={!value.faculty_id}
+                    required={required}
+                    disabled={disabled || !value.faculty_id}
                     value={value.departemen_id}
                     onChange={(e) =>
                         onChange({
@@ -88,8 +93,8 @@ export default function AcademicFields({
                 <select
                     aria-label="Program studi / jenjang"
                     className={authInputClass}
-                    required
-                    disabled={!value.departemen_id}
+                    required={required}
+                    disabled={disabled || !value.departemen_id}
                     value={value.prodi_id}
                     onChange={(e) =>
                         onChange({ ...value, prodi_id: e.target.value })

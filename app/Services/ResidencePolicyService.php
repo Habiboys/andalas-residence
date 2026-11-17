@@ -100,14 +100,21 @@ class ResidencePolicyService
         return app(ResidenceLifecycle::class)->isKipk($student) ? 'local_kipk' : 'local_non_kipk';
     }
 
-    public function registrationDeadline(ResidencePolicy $policy): ?Carbon
+    public function parseDeadline(?string $raw): ?Carbon
     {
-        $raw = $policy->settings['registration_deadline'] ?? null;
         if (! is_string($raw) || trim($raw) === '') {
             return null;
         }
 
-        return Carbon::parse($raw);
+        return Carbon::parse($raw, config('residence.timezone', 'Asia/Jakarta'))
+            ->timezone(config('app.timezone', 'UTC'));
+    }
+
+    public function registrationDeadline(ResidencePolicy $policy): ?Carbon
+    {
+        $raw = $policy->settings['registration_deadline'] ?? null;
+
+        return is_string($raw) ? $this->parseDeadline($raw) : null;
     }
 
     public function current(string $category): ResidencePolicy

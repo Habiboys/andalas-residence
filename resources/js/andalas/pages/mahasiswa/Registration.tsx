@@ -12,6 +12,7 @@ import type {
 } from '../../components/PaymentAccountsBox';
 import {
     ALLOWED_UPLOAD_EXTENSIONS,
+    CATEGORY_LABELS,
     friendlyDocumentLabel,
     MAX_UPLOAD_BYTES,
     StudentRegistrationCard,
@@ -37,6 +38,7 @@ type Props = {
     housingStatusUrl?: string;
     policy_open?: boolean;
     policy_category?: string;
+    policy_closed_reason?: string | null;
     required_documents?: string[];
     policy_monthly_allowed?: boolean;
     policy_month_days?: number;
@@ -135,6 +137,7 @@ export default function Registration({
     housingProfileUrl,
     policy_open = false,
     policy_category = 'local_non_kipk',
+    policy_closed_reason = null,
     required_documents = ['perjanjian'],
     policy_monthly_allowed = true,
     policy_month_days = 30,
@@ -269,10 +272,23 @@ export default function Registration({
                 subtitle="Pilih kamar, unggah berkas, selesaikan pembayaran, dan lakukan verifikasi berkas saat check-in dalam satu alur."
             />
             {!policy_open && (
-                <p className="alert alert-warning">
-                    Pendaftaran belum dibuka untuk kategori Anda. Pengelola
-                    perlu melengkapi kebijakan terlebih dahulu.
-                </p>
+                <div className="alert alert-warning block space-y-1 text-sm">
+                    <p className="font-semibold">
+                        Pendaftaran belum dibuka untuk kategori{' '}
+                        {CATEGORY_LABELS[policy_category] ?? policy_category}.
+                    </p>
+                    <p>
+                        {policy_closed_reason ??
+                            'Pengelola perlu melengkapi kebijakan terlebih dahulu.'}
+                    </p>
+                    {policy_category === 'international' && (
+                        <p className="text-xs opacity-90">
+                            Catatan: Program studi jenjang S2/S3 dan mahasiswa
+                            internasional mengikuti jalur Internasional / S2 /
+                            S3 melalui pengelola asrama.
+                        </p>
+                    )}
+                </div>
             )}
             {policy_open && periods.length === 0 && (
                 <p className="alert alert-warning">
@@ -723,73 +739,6 @@ export default function Registration({
                                                     }
                                                 />
                                             )}
-                                            {step === 0 &&
-                                                initialUser?.can_use_sponsor && (
-                                                    <>
-                                                        <label>
-                                                            Penanggung biaya
-                                                            <select
-                                                                className={
-                                                                    inputClass
-                                                                }
-                                                                value={
-                                                                    form.data
-                                                                        .funding
-                                                                }
-                                                                onChange={(e) =>
-                                                                    form.setData(
-                                                                        'funding',
-                                                                        e.target
-                                                                            .value,
-                                                                    )
-                                                                }
-                                                            >
-                                                                <option value="personal">
-                                                                    Bayar
-                                                                    pribadi
-                                                                </option>
-                                                                <option value="sponsor">
-                                                                    Beasiswa /
-                                                                    kampus
-                                                                </option>
-                                                            </select>
-                                                        </label>
-                                                        {form.data.funding ===
-                                                            'sponsor' && (
-                                                            <label>
-                                                                Nama penanggung
-                                                                biaya
-                                                                <input
-                                                                    className={
-                                                                        inputClass
-                                                                    }
-                                                                    required
-                                                                    value={
-                                                                        form
-                                                                            .data
-                                                                            .sponsor_name
-                                                                    }
-                                                                    onChange={(
-                                                                        e,
-                                                                    ) =>
-                                                                        form.setData(
-                                                                            'sponsor_name',
-                                                                            e
-                                                                                .target
-                                                                                .value,
-                                                                        )
-                                                                    }
-                                                                />
-                                                                <span className="text-sm">
-                                                                    Perlu
-                                                                    pengesahan
-                                                                    Admin
-                                                                    Layanan.
-                                                                </span>
-                                                            </label>
-                                                        )}
-                                                    </>
-                                                )}
                                             {step === 2 && (
                                                 <div className="grid gap-4 lg:grid-cols-3">
                                                     <div className="border-base-300 bg-base-100 space-y-4 rounded-2xl border p-5 shadow-sm lg:col-span-2">
@@ -1473,9 +1422,6 @@ export default function Registration({
                                                 disabled={
                                                     !policy_open ||
                                                     !form.data.periode_id ||
-                                                    (form.data.funding ===
-                                                        'sponsor' &&
-                                                        !form.data.sponsor_name.trim()) ||
                                                     (!kipk &&
                                                         (step === 1
                                                             ? !room ||

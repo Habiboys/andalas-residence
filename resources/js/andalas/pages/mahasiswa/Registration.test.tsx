@@ -57,12 +57,12 @@ it('skips room choice for a server verified KIPK recipient', () => {
     expect(html).not.toContain('Katalog kamar');
     expect(html).not.toContain('Dasar tarif');
 });
-it('requires sponsor verification instead of claiming free residence from account category', () => {
+it('does not render sponsor funding selector on student registration even when can_use_sponsor flag is set', () => {
     const html = renderToStaticMarkup(
         <Registration initialUser={{ can_use_sponsor: true }} />,
     );
-    expect(html).toContain('Penanggung biaya');
-    expect(html).toContain('Beasiswa / kampus');
+    expect(html).not.toContain('Penanggung biaya');
+    expect(html).not.toContain('Beasiswa / kampus');
 });
 it('requires checkout before an active resident can register again', () => {
     const html = renderToStaticMarkup(
@@ -285,4 +285,30 @@ it('hides standalone status button and avoids promoting installment scheme infor
 
     expect(html).not.toContain('Lihat status dan dokumen pengajuan');
     expect(html).not.toContain('Pengajuan cicilan atau penundaan pembayaran');
+});
+
+it('displays exact category and closed reason when registration deadline has expired or student belongs to S2/S3 track', () => {
+    const expiredHtml = renderToStaticMarkup(
+        <Registration
+            policy_open={false}
+            policy_category="local_non_kipk"
+            policy_closed_reason="Batas waktu pendaftaran jalur ini telah berakhir."
+        />,
+    );
+
+    expect(expiredHtml).toContain('Mahasiswa Lokal Non-KIP-K');
+    expect(expiredHtml).toContain(
+        'Batas waktu pendaftaran jalur ini telah berakhir.',
+    );
+
+    const s2Html = renderToStaticMarkup(
+        <Registration
+            policy_open={false}
+            policy_category="international"
+            policy_closed_reason="Pendaftaran kategori ini belum dibuka."
+        />,
+    );
+
+    expect(s2Html).toContain('Mahasiswa Internasional / S2 / S3');
+    expect(s2Html).toContain('Program studi jenjang S2/S3');
 });

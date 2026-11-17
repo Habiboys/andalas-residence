@@ -15,8 +15,6 @@ use App\Models\Faculty;
 use App\Models\Gedung;
 use App\Models\InvoiceGroup;
 use App\Models\Kamar;
-use App\Models\KipkRecipient;
-use App\Models\LegacyResident;
 use App\Models\PaymentBankAccount;
 use App\Models\Pembayaran;
 use App\Models\Periode;
@@ -37,6 +35,7 @@ use App\Models\VirtualAccount;
 use App\Notifications\ResidenceWorkflowNotification;
 use App\Services\AuditLogService;
 use App\Services\ResidenceBuildingAccess;
+use App\Services\ResidenceLifecycle;
 use App\Services\ResidencePolicyService;
 use App\Services\ResidenceWorkflow;
 use App\Services\ResidenceWorkflowAccess;
@@ -253,12 +252,7 @@ class ResidenceWorkflowController extends Controller
             if ($categoryInput === 'international_student') {
                 $resolvedCategory = 'international_student';
             } else {
-                $activeMabaYear = Periode::where('status', 'aktif')->value('angkatan_maba') ?? (int) now()->format('Y');
-                $isKipk = KipkRecipient::where('nim', $user->nim_nip)->where('angkatan', $year)->exists()
-                    && (int) $activeMabaYear === (int) $year
-                    && ! LegacyResident::where('nim', $user->nim_nip)->exists()
-                    && ! in_array(Prodi::whereKey($data['prodi_id'])->value('jenjang'), ['S2', 'S3'], true);
-                $resolvedCategory = $isKipk ? 'local_kipk' : 'local_non_kipk';
+                $resolvedCategory = app(ResidenceLifecycle::class)->resolveLocalCategory($user->nim_nip, $data['prodi_id'], $year);
             }
 
             $user->update([
@@ -317,6 +311,9 @@ class ResidenceWorkflowController extends Controller
                     $period->update(['status' => 'aktif']);
                 }
             }
+            $settings['registration_deadline'] = isset($settings['registration_deadline']) && is_string($settings['registration_deadline'])
+                ? $service->parseDeadline($settings['registration_deadline'])?->timezone(config('residence.timezone', 'Asia/Jakarta'))->toIso8601String()
+                : null;
             $settings['rates'] = $settings['open'] ? $service->snapshotRates($category, $settings['building_ids']) : [];
             $policy = ResidencePolicy::create(['category' => $request->validated('category'), 'version' => $version, 'settings' => $settings, 'published_at' => now(), 'created_by' => $request->user()->id]);
             AuditLogService::log($request->user(), 'residence_policy_published', $policy, null, $policy->toArray());

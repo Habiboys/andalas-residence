@@ -5,7 +5,6 @@ namespace App\Http\Requests;
 use App\Services\ResidencePolicyService;
 use App\Services\ResidenceWorkflowAccess;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 
 class PublishResidencePolicyRequest extends FormRequest
@@ -58,7 +57,8 @@ class PublishResidencePolicyRequest extends FormRequest
                 $validator->errors()->add('settings.documents', 'KIP-K wajib memiliki dokumen perjanjian pembayaran setelah pencairan.');
             }
             $deadline = $this->input('settings.registration_deadline');
-            if ($validator->errors()->isEmpty() && $this->boolean('settings.open') && ! empty($deadline) && Carbon::parse((string) $deadline)->isPast()) {
+            if ($validator->errors()->isEmpty() && $this->boolean('settings.open') && ! empty($deadline)
+                && app(ResidencePolicyService::class)->parseDeadline((string) $deadline)?->isPast()) {
                 $validator->errors()->add('settings.registration_deadline', 'Batas waktu pendaftaran jalur ini harus di masa mendatang.');
             }
         }];

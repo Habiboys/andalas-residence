@@ -15,6 +15,37 @@ import {
     type TemplateItem,
 } from './types';
 
+const WIB_OFFSET_MS = 7 * 60 * 60 * 1000;
+
+function toWibDate(raw?: string | null): Date | null {
+    const trimmed = raw?.trim();
+    if (!trimmed) {
+        return null;
+    }
+    const hasTz = /([zZ]|[+-]\d{2}(:\d{2})?)$/.test(trimmed);
+    const normalized = hasTz
+        ? trimmed
+        : `${trimmed.replace(' ', 'T').slice(0, 16)}:00+07:00`;
+    const parsed = new Date(normalized);
+
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function toWibInputValue(raw?: string | null): string {
+    const date = toWibDate(raw);
+    if (!date) {
+        return '';
+    }
+
+    return new Date(date.getTime() + WIB_OFFSET_MS).toISOString().slice(0, 16);
+}
+
+function isDeadlineExpired(raw?: string | null): boolean {
+    const date = toWibDate(raw);
+
+    return date !== null && date.getTime() <= Date.now();
+}
+
 export default function PoliciesTab({
     buildings,
     policyCatalog,
@@ -57,7 +88,11 @@ export default function PoliciesTab({
     const active = policies.find(
         (policy) => policy.category === form.data.category,
     );
-    const isOpen = Boolean(active?.published_at && active.settings.open);
+    const hasOpenFlag = Boolean(active?.published_at && active.settings.open);
+    const activeExpired =
+        hasOpenFlag &&
+        isDeadlineExpired(active?.settings.registration_deadline);
+    const isOpen = hasOpenFlag && !activeExpired;
     const catalog = policyCatalog[form.data.category] ?? [];
     const ready = catalog.filter((building) => !building.issue);
     const blocked = catalog.filter((building) => building.issue);
@@ -140,9 +175,15 @@ export default function PoliciesTab({
                     const catPolicy = policies.find(
                         (p) => p.category === catKey,
                     );
-                    const catOpen = Boolean(
+                    const catHasOpenFlag = Boolean(
                         catPolicy?.published_at && catPolicy.settings.open,
                     );
+                    const catExpired =
+                        catHasOpenFlag &&
+                        isDeadlineExpired(
+                            catPolicy?.settings.registration_deadline,
+                        );
+                    const catOpen = catHasOpenFlag && !catExpired;
                     const catReadyCount = (policyCatalog[catKey] ?? []).filter(
                         (b) => !b.issue,
                     ).length;
@@ -164,10 +205,16 @@ export default function PoliciesTab({
                                     className={`badge badge-xs ${
                                         catOpen
                                             ? 'badge-success'
-                                            : 'badge-ghost'
+                                            : catExpired
+                                              ? 'badge-warning'
+                                              : 'badge-ghost'
                                     }`}
                                 >
-                                    {catOpen ? 'Dibuka' : 'Ditutup'}
+                                    {catOpen
+                                        ? 'Dibuka'
+                                        : catExpired
+                                          ? 'Kedaluwarsa'
+                                          : 'Ditutup'}
                                 </span>
                                 {catPolicy?.version ? (
                                     <span className="text-base-content/50 text-xs">
@@ -206,32 +253,55 @@ export default function PoliciesTab({
                         Status{' '}
                         <strong
                             className={
-                                isOpen ? 'text-success' : 'text-base-content'
+                                isOpen
+                                    ? 'text-success'
+                                    : activeExpired
+                                      ? 'text-warning'
+                                      : 'text-base-content'
                             }
                         >
-                            {isOpen ? 'Dibuka' : 'Ditutup'}
+                            {isOpen
+                                ? 'Dibuka'
+                                : activeExpired
+                                  ? 'Ditutup (Batas Waktu Berakhir)'
+                                  : 'Ditutup'}
                         </strong>
-                        {isOpen && active?.settings.registration_deadline && (
-                            <span className="text-base-content/70 block text-xs">
-                                Batas akhir:{' '}
-                                {active.settings.registration_deadline
-                                    .replace('T', ' ')
-                                    .slice(0, 16)}
-                            </span>
-                        )}
+                        {hasOpenFlag &&
+                            active?.settings.registration_deadline && (
+                                <span className="text-base-content/70 block text-xs">
+                                    Batas akhir:{' '}
+                                    {toWibInputValue(
+                                        active.settings.registration_deadline,
+                                    ).replace('T', ' ')}{' '}
+                                    WIB
+                                </span>
+                            )}
                     </div>
                 </div>
+
+                {activeExpired && (
+                    <p
+                        role="alert"
+                        className="alert alert-warning py-2 text-sm"
+                    >
+                        Batas waktu pendaftaran jalur ini sudah berakhir
+                        sehingga mahasiswa tidak dapat mendaftar. Perbarui
+                        tanggal batas waktu di bawah lalu klik Perbarui
+                        konfigurasi pembukaan.
+                    </p>
+                )}
 
                 <label className="block max-w-sm space-y-1 text-sm font-medium">
                     <span>
                         Batas Waktu Pendaftaran &amp; Penyelesaian Pembayaran
+                        (WIB)
                     </span>
                     <input
                         type="datetime-local"
                         className={fieldInputClass}
-                        value={(
-                            form.data.settings.registration_deadline ?? ''
-                        ).slice(0, 16)}
+                        value={toWibInputValue(
+                            form.data.settings.registration_deadline,
+                        )}
                         onChange={(event) =>
                             form.setData('settings', {
                                 ...form.data.settings,
@@ -241,7 +311,8 @@ export default function PoliciesTab({
                     />
                     <span className="text-base-content/65 block text-xs font-normal">
                         Batas waktu penyelesaian pembayaran pendaftar pada jalur
-                        ini otomatis mengikuti batas waktu pendaftaran ini.
+                        ini otomatis mengikuti batas waktu pendaftaran ini
+                        (WIB).
                     </span>
                 </label>
 
@@ -555,7 +626,7 @@ export default function PoliciesTab({
                             ? 'Perbarui konfigurasi pembukaan'
                             : 'Buka Pendaftaran'}
                     </button>
-                    {isOpen && (
+                    {hasOpenFlag && (
                         <button
                             type="button"
                             className="btn btn-outline"

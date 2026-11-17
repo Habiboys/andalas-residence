@@ -7,6 +7,7 @@ use App\Models\KipkRecipient;
 use App\Models\LegacyResident;
 use App\Models\MahasiswaProfil;
 use App\Models\Periode;
+use App\Models\Prodi;
 use App\Models\Tagihan;
 
 class ResidenceLifecycle
@@ -33,6 +34,18 @@ class ResidenceLifecycle
     {
         return in_array($student->user->client_profile_category, [ClientProfileCategory::Student, ClientProfileCategory::LocalKipk, ClientProfileCategory::LocalNonKipk], true)
             && ! in_array($student->prodi?->jenjang, ['S2', 'S3'], true);
+    }
+
+    public function resolveLocalCategory(string $nim, ?string $prodiId, ?int $cohort): string
+    {
+        $activeMabaYear = Periode::where('status', 'aktif')->value('angkatan_maba') ?? (int) now()->format('Y');
+        $isKipk = $cohort !== null
+            && KipkRecipient::where('nim', $nim)->where('angkatan', $cohort)->exists()
+            && (int) $activeMabaYear === (int) $cohort
+            && ! LegacyResident::where('nim', $nim)->exists()
+            && ! in_array(Prodi::whereKey($prodiId)->value('jenjang'), ['S2', 'S3'], true);
+
+        return $isKipk ? ClientProfileCategory::LocalKipk->value : ClientProfileCategory::LocalNonKipk->value;
     }
 
     public function isBinaan(MahasiswaProfil $student): bool

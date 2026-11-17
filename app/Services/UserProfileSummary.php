@@ -57,6 +57,9 @@ class UserProfileSummary
                 'Departemen' => $student->prodi?->departemen?->name,
                 'Program studi' => $student->prodi?->name,
                 'Jenjang' => $student->prodi?->jenjang,
+                ...($student->prodi && in_array($student->prodi->jenjang, ['S2', 'S3'], true) ? [
+                    'Jalur pendaftaran asrama' => 'Internasional / S2 / S3 (melalui permohonan pengelola)',
+                ] : []),
                 'NIK' => $student->nik,
                 'Alamat lengkap' => $student->alamat,
                 'Kota / kabupaten' => $student->city?->name,

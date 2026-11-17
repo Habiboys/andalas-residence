@@ -645,10 +645,14 @@ class RolePageController extends Controller
     {
         $student = $request->user()->mahasiswaProfil;
         $policy = null;
+        $policyService = app(ResidencePolicyService::class);
+        $resolvedCategory = $student ? $policyService->category($student) : 'local_non_kipk';
+        $policyClosedReason = $student ? null : 'Profil mahasiswa belum ditemukan. Hubungi admin layanan.';
         if ($student) {
             try {
-                $policy = app(ResidencePolicyService::class)->current(app(ResidencePolicyService::class)->category($student));
-            } catch (ValidationException) {
+                $policy = $policyService->current($resolvedCategory);
+            } catch (ValidationException $exception) {
+                $policyClosedReason = collect($exception->errors())->flatten()->first();
             }
         }
         $rooms = $policy && $student ? app(ResidencePolicyService::class)->catalog($policy, $student) : collect();
@@ -689,7 +693,7 @@ class RolePageController extends Controller
             ->with(['sender:id,nama', 'invitee:id,nama', 'room.lantai.gedung', 'registration'])->latest()->get()->map(fn (RoomInvitation $invitation): array => $this->invitationPayload($invitation, $request->user(), $rates));
 
         return [
-            'policy_open' => $policy !== null, 'policy_category' => $policy?->category ?? 'local_non_kipk', 'required_documents' => $policy?->settings['documents'] ?? ['perjanjian'], 'policy_monthly_allowed' => (bool) ($policy?->settings['monthly_allowed'] ?? false), 'policy_month_days' => $policy?->settings['month_days'] ?? 30, 'policy_day_basis' => $policy?->settings['day_basis'] ?? 'nights',
+            'policy_open' => $policy !== null, 'policy_category' => $policy?->category ?? $resolvedCategory, 'policy_closed_reason' => $policy === null ? $policyClosedReason : null, 'required_documents' => $policy?->settings['documents'] ?? ['perjanjian'], 'policy_monthly_allowed' => (bool) ($policy?->settings['monthly_allowed'] ?? false), 'policy_month_days' => $policy?->settings['month_days'] ?? 30, 'policy_day_basis' => $policy?->settings['day_basis'] ?? 'nights',
             'rates' => $rates, 'periode' => Periode::where('status', 'aktif')->get(),
             'billing' => Tagihan::with(['items', 'jadwalCicilan', 'dokumen'])->where('mahasiswa_id', $student?->id)->latest()->get(),
             'rooms' => $rooms,

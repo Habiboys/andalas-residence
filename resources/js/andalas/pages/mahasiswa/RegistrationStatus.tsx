@@ -210,10 +210,10 @@ type Props = {
     detailMode?: boolean;
 };
 
-const CATEGORY_LABELS: Record<string, string> = {
+export const CATEGORY_LABELS: Record<string, string> = {
     local_non_kipk: 'Mahasiswa Lokal Non-KIP-K',
     local_kipk: 'Mahasiswa Lokal KIP-K',
-    international: 'Mahasiswa Internasional',
+    international: 'Mahasiswa Internasional / S2 / S3',
     postgraduate: 'Pascasarjana (S2/S3)',
     summer_course: 'Summer Course',
     non_student: 'Tamu / Umum',
