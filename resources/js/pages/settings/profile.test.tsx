@@ -1,5 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { expect, it, vi } from 'vite-plus/test';
+import type { ProfileSummary } from '@/andalas/components/UserProfileDetails';
 import Profile from './profile';
 
 vi.mock('@inertiajs/react', () => ({
@@ -26,6 +27,7 @@ vi.mock('@inertiajs/react', () => ({
         processing: false,
         setData: vi.fn(),
         patch: vi.fn(),
+        clearErrors: vi.fn(),
     }),
 }));
 
@@ -41,18 +43,59 @@ vi.mock('@/andalas/components/SettingsNav', () => ({
     default: () => null,
 }));
 
-it('renders full editable profile form for students and shows lock notice when academicLocked', () => {
+const baseSummary: ProfileSummary = {
+    category: 'Mahasiswa lokal non-KIP-K',
+    residence: 'Belum pernah tinggal',
+    account: 'Aktif',
+    sections: [
+        {
+            title: 'Identitas dan akun',
+            fields: {
+                'Nama lengkap': 'Putri Aja',
+                'NIM / NIP / Nomor identitas': '263434341',
+                Email: 'putri@example.com',
+                'Email pribadi': 'putri@example.com',
+                'Nomor telepon': '08131231234',
+                'Jenis kelamin': 'Laki laki',
+                'Peran akses': 'Mahasiswa',
+                'Status akun': 'Aktif',
+                'Kategori akun': 'Mahasiswa lokal non-KIP-K',
+            },
+        },
+        {
+            title: 'Data akademik dan asal',
+            fields: {
+                Angkatan: '2026',
+                Jenjang: 'S3',
+            },
+        },
+    ],
+};
+
+it('shows unified profile view with Edit Profil button by default without a separate duplicate form section', () => {
     const html = renderToStaticMarkup(
         <Profile
             mustVerifyEmail={false}
-            profileSummary={{
-                category: 'Mahasiswa lokal non-KIP-K',
-                residence: 'Belum pernah tinggal',
-                account: 'Aktif',
-                sections: [],
-            }}
+            profileSummary={baseSummary}
+            hasStudentProfile
+        />,
+    );
+
+    expect(html).toContain('Ringkasan akun');
+    expect(html).toContain('Edit Profil');
+    expect(html).toContain('263434341');
+    expect(html).not.toContain('<form');
+    expect(html).not.toContain('Edit data profil');
+});
+
+it('switches rows into inline editable fields when editing is active and keeps read-only constraints clear', () => {
+    const html = renderToStaticMarkup(
+        <Profile
+            mustVerifyEmail={false}
+            profileSummary={baseSummary}
             hasStudentProfile
             academicLocked
+            defaultEditing
             editableProfile={{
                 name: 'Putri Aja',
                 email: 'putri@example.com',
@@ -94,34 +137,15 @@ it('renders full editable profile form for students and shows lock notice when a
         />,
     );
 
-    expect(html).toContain('Edit data profil');
+    expect(html).toContain('<form');
+    expect(html).toContain('Simpan perubahan');
+    expect(html).toContain('Batal');
     expect(html).toContain('Nomor telepon');
     expect(html).toContain('Jenis kelamin');
     expect(html).toContain('Email pribadi');
-    expect(html).toContain('NIK (16 digit)');
-    expect(html).toContain('Program studi / jenjang');
+    expect(html).toContain('NIK');
+    expect(html).toContain('Program studi');
     expect(html).toContain('Kota / kabupaten');
     expect(html).toContain('Alamat lengkap');
     expect(html).toContain('Jenis kelamin dan program studi dikunci');
-});
-
-it('renders only account fields without student sections for non-student users', () => {
-    const html = renderToStaticMarkup(
-        <Profile
-            mustVerifyEmail={false}
-            profileSummary={{
-                category: 'Petugas internal',
-                residence: 'Tidak berlaku',
-                account: 'Aktif',
-                sections: [],
-            }}
-            hasStudentProfile={false}
-        />,
-    );
-
-    expect(html).toContain('Edit data profil');
-    expect(html).toContain('Nomor telepon');
-    expect(html).toContain('Jenis kelamin');
-    expect(html).not.toContain('NIK (16 digit)');
-    expect(html).not.toContain('Alamat lengkap');
 });

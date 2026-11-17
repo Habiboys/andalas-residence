@@ -1,17 +1,17 @@
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
+import { Pencil, X } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
 import ProfileController from '@/actions/App/Http/Controllers/Settings/ProfileController';
-import Heading from '@/components/heading';
-import InputError from '@/components/input-error';
-import type { Auth } from '@/types';
-import { send } from '@/routes/verification';
-import AcademicFields, {
-    type AcademicOptions,
-} from '@/andalas/components/AcademicFields';
+import type { AcademicOptions } from '@/andalas/components/AcademicFields';
+import SettingsNav from '@/andalas/components/SettingsNav';
+import { Card } from '@/andalas/components/ui';
 import UserProfileDetails, {
     type ProfileSummary,
 } from '@/andalas/components/UserProfileDetails';
-import SettingsNav from '@/andalas/components/SettingsNav';
-import { Card } from '@/andalas/components/ui';
+import Heading from '@/components/heading';
+import InputError from '@/components/input-error';
+import { send } from '@/routes/verification';
+import type { Auth } from '@/types';
 
 type PageProps = {
     auth: Auth;
@@ -37,6 +37,57 @@ type LocationOptions = {
     cities?: Array<{ id: string; name: string; province_id: string }>;
 };
 
+const EDIT_ROW_CLASS =
+    'grid min-w-0 gap-1.5 py-3 sm:grid-cols-[minmax(0,12rem)_minmax(0,1fr)] sm:items-start sm:gap-4';
+
+function ProfileFieldRow({
+    label,
+    htmlFor,
+    error,
+    children,
+}: {
+    label: string;
+    htmlFor?: string;
+    error?: string;
+    children: ReactNode;
+}) {
+    return (
+        <div className={EDIT_ROW_CLASS}>
+            <label
+                htmlFor={htmlFor}
+                className="text-base-content/70 pt-2 text-sm leading-relaxed font-medium"
+            >
+                {label}
+            </label>
+            <div className="min-w-0 space-y-1">
+                {children}
+                <InputError message={error} />
+            </div>
+        </div>
+    );
+}
+
+function ReadonlyRow({
+    label,
+    value,
+}: {
+    label: string;
+    value?: string | null;
+}) {
+    return (
+        <div className={EDIT_ROW_CLASS}>
+            <dt className="text-base-content/60 text-sm leading-relaxed">
+                {label}
+            </dt>
+            <dd
+                className={`min-w-0 text-sm leading-relaxed break-words ${value ? 'font-medium' : 'text-base-content/40'}`}
+            >
+                {value || 'Belum tersedia'}
+            </dd>
+        </div>
+    );
+}
+
 export default function Profile({
     mustVerifyEmail,
     status,
@@ -46,6 +97,7 @@ export default function Profile({
     editableProfile,
     academicOptions,
     locationOptions,
+    defaultEditing = false,
 }: {
     mustVerifyEmail: boolean;
     status?: string;
@@ -55,9 +107,12 @@ export default function Profile({
     editableProfile?: EditableProfile;
     academicOptions?: AcademicOptions | null;
     locationOptions?: LocationOptions | null;
+    defaultEditing?: boolean;
 }) {
     const { auth } = usePage<PageProps>().props;
-    const form = useForm({
+    const [editing, setEditing] = useState(defaultEditing);
+
+    const buildInitialValues = () => ({
         name: editableProfile?.name ?? auth.user.name ?? '',
         email: editableProfile?.email ?? auth.user.email ?? '',
         no_hp: editableProfile?.no_hp ?? '',
@@ -72,6 +127,36 @@ export default function Profile({
         alamat: editableProfile?.alamat ?? '',
     });
 
+    const form = useForm(buildInitialValues());
+
+    const startEditing = () => {
+        form.setData(buildInitialValues());
+        form.clearErrors();
+        setEditing(true);
+    };
+
+    const cancelEditing = () => {
+        form.setData(buildInitialValues());
+        form.clearErrors();
+        setEditing(false);
+    };
+
+    const identityFields = profileSummary.sections[0]?.fields ?? {};
+    const academicFields = profileSummary.sections[1]?.fields ?? {};
+    const residenceSection = profileSummary.sections[2];
+
+    const filteredDepartments = (academicOptions?.departemen ?? []).filter(
+        (item) =>
+            !form.data.faculty_id || item.faculty_id === form.data.faculty_id,
+    );
+    const filteredPrograms = (academicOptions?.prodi ?? []).filter(
+        (item) =>
+            !form.data.departemen_id ||
+            item.departemen_id === form.data.departemen_id,
+    );
+    const selectedProgram = (academicOptions?.prodi ?? []).find(
+        (item) => item.id === form.data.prodi_id,
+    );
     const filteredCities = (locationOptions?.cities ?? []).filter(
         (city) =>
             !form.data.province_id ||
@@ -85,24 +170,69 @@ export default function Profile({
 
             <SettingsNav />
 
-            <div className="grid items-start gap-4 xl:grid-cols-5">
-                <Card className="space-y-4 p-4 md:p-5 xl:col-span-3">
+            <Card className="space-y-5 p-4 md:p-6">
+                <div className="flex flex-wrap items-start justify-between gap-3">
                     <Heading
                         variant="small"
                         title="Ringkasan akun"
                         description="Identitas, kategori, dan kondisi akun Anda."
                     />
+                    {!editing ? (
+                        <button
+                            type="button"
+                            className="btn btn-outline btn-sm gap-1.5"
+                            onClick={startEditing}
+                            data-test="start-edit-profile-button"
+                        >
+                            <Pencil className="size-3.5" />
+                            Edit Profil
+                        </button>
+                    ) : (
+                        <button
+                            type="button"
+                            className="btn btn-ghost btn-sm gap-1.5"
+                            onClick={cancelEditing}
+                            disabled={form.processing}
+                        >
+                            <X className="size-3.5" />
+                            Batal
+                        </button>
+                    )}
+                </div>
+
+                {mustVerifyEmail && auth.user.email_verified_at === null && (
+                    <p className="text-base-content/70 bg-base-200/50 rounded-lg px-3 py-2 text-sm">
+                        Email Anda belum diverifikasi.{' '}
+                        <Link
+                            href={send()}
+                            method="post"
+                            as="button"
+                            className="link font-medium"
+                        >
+                            Kirim ulang email verifikasi.
+                        </Link>
+                    </p>
+                )}
+
+                {status === 'verification-link-sent' && (
+                    <p className="text-success text-sm font-medium">
+                        Tautan verifikasi baru telah dikirim ke email Anda.
+                    </p>
+                )}
+
+                {!editing ? (
                     <UserProfileDetails summary={profileSummary} />
-                </Card>
-
-                <div className="space-y-4 xl:col-span-2">
-                    <Card className="space-y-4 p-4 md:p-5">
-                        <Heading
-                            variant="small"
-                            title="Edit data profil"
-                            description="Perbarui data yang dapat diedit pada akun Anda. NIM/NIP, peran akses, dan kategori akun dikelola sistem/admin."
-                        />
-
+                ) : (
+                    <form
+                        onSubmit={(event) => {
+                            event.preventDefault();
+                            form.patch(ProfileController.update.url(), {
+                                preserveScroll: true,
+                                onSuccess: () => setEditing(false),
+                            });
+                        }}
+                        className="space-y-6"
+                    >
                         {hasStudentProfile && academicLocked && (
                             <p
                                 role="status"
@@ -114,66 +244,92 @@ export default function Profile({
                             </p>
                         )}
 
-                        <form
-                            onSubmit={(event) => {
-                                event.preventDefault();
-                                form.patch(ProfileController.update.url(), {
-                                    preserveScroll: true,
-                                });
-                            }}
-                            className="space-y-4"
-                        >
-                            <div className="grid gap-1.5">
-                                <label className="label" htmlFor="name">
-                                    Nama lengkap
-                                </label>
+                        <section className="space-y-2">
+                            <h2 className="text-base-content/60 text-xs font-semibold tracking-wide uppercase">
+                                Identitas dan akun
+                            </h2>
+                            <div className="divide-base-300 divide-y">
+                                <ProfileFieldRow
+                                    label="Nama lengkap"
+                                    htmlFor="name"
+                                    error={form.errors.name}
+                                >
+                                    <input
+                                        id="name"
+                                        name="name"
+                                        className="input input-bordered w-full max-w-md"
+                                        value={form.data.name}
+                                        onChange={(e) =>
+                                            form.setData('name', e.target.value)
+                                        }
+                                        required
+                                        autoComplete="name"
+                                    />
+                                </ProfileFieldRow>
 
-                                <input
-                                    id="name"
-                                    className="input w-full"
-                                    value={form.data.name}
-                                    onChange={(e) =>
-                                        form.setData('name', e.target.value)
+                                <ReadonlyRow
+                                    label="NIM / NIP / Nomor identitas"
+                                    value={
+                                        identityFields[
+                                            'NIM / NIP / Nomor identitas'
+                                        ]
                                     }
-                                    name="name"
-                                    required
-                                    autoComplete="name"
-                                    placeholder="Nama lengkap"
                                 />
 
-                                <InputError message={form.errors.name} />
-                            </div>
+                                <ProfileFieldRow
+                                    label="Email"
+                                    htmlFor="email"
+                                    error={form.errors.email}
+                                >
+                                    <input
+                                        id="email"
+                                        name="email"
+                                        type="email"
+                                        className="input input-bordered w-full max-w-md"
+                                        value={form.data.email}
+                                        onChange={(e) =>
+                                            form.setData(
+                                                'email',
+                                                e.target.value,
+                                            )
+                                        }
+                                        required
+                                        autoComplete="username"
+                                    />
+                                </ProfileFieldRow>
 
-                            <div className="grid gap-1.5">
-                                <label className="label" htmlFor="email">
-                                    Email
-                                </label>
+                                {hasStudentProfile && (
+                                    <ProfileFieldRow
+                                        label="Email pribadi"
+                                        htmlFor="email_pribadi"
+                                        error={form.errors.email_pribadi}
+                                    >
+                                        <input
+                                            id="email_pribadi"
+                                            name="email_pribadi"
+                                            type="email"
+                                            className="input input-bordered w-full max-w-md"
+                                            value={form.data.email_pribadi}
+                                            onChange={(e) =>
+                                                form.setData(
+                                                    'email_pribadi',
+                                                    e.target.value,
+                                                )
+                                            }
+                                            placeholder="Email pribadi aktif"
+                                        />
+                                    </ProfileFieldRow>
+                                )}
 
-                                <input
-                                    id="email"
-                                    type="email"
-                                    className="input w-full"
-                                    value={form.data.email}
-                                    onChange={(e) =>
-                                        form.setData('email', e.target.value)
-                                    }
-                                    name="email"
-                                    required
-                                    autoComplete="username"
-                                    placeholder="Email"
-                                />
-
-                                <InputError message={form.errors.email} />
-                            </div>
-
-                            <div className="grid gap-3 sm:grid-cols-2">
-                                <div className="grid gap-1.5">
-                                    <label className="label" htmlFor="no_hp">
-                                        Nomor telepon
-                                    </label>
+                                <ProfileFieldRow
+                                    label="Nomor telepon"
+                                    htmlFor="no_hp"
+                                    error={form.errors.no_hp}
+                                >
                                     <input
                                         id="no_hp"
-                                        className="input w-full"
+                                        name="no_hp"
+                                        className="input input-bordered w-full max-w-md"
                                         value={form.data.no_hp}
                                         onChange={(e) =>
                                             form.setData(
@@ -181,20 +337,19 @@ export default function Profile({
                                                 e.target.value,
                                             )
                                         }
-                                        name="no_hp"
                                         placeholder="Contoh: 081234567890"
                                     />
-                                    <InputError message={form.errors.no_hp} />
-                                </div>
+                                </ProfileFieldRow>
 
-                                <div className="grid gap-1.5">
-                                    <label className="label" htmlFor="gender">
-                                        Jenis kelamin
-                                    </label>
+                                <ProfileFieldRow
+                                    label="Jenis kelamin"
+                                    htmlFor="gender"
+                                    error={form.errors.gender}
+                                >
                                     <select
                                         id="gender"
                                         name="gender"
-                                        className="select select-bordered w-full"
+                                        className="select select-bordered w-full max-w-md"
                                         disabled={academicLocked}
                                         value={form.data.gender}
                                         onChange={(e) =>
@@ -214,108 +369,210 @@ export default function Profile({
                                             Perempuan
                                         </option>
                                     </select>
-                                    <InputError message={form.errors.gender} />
-                                </div>
+                                </ProfileFieldRow>
+
+                                <ReadonlyRow
+                                    label="Peran akses"
+                                    value={identityFields['Peran akses']}
+                                />
+                                <ReadonlyRow
+                                    label="Status akun"
+                                    value={identityFields['Status akun']}
+                                />
+                                <ReadonlyRow
+                                    label="Kategori akun"
+                                    value={identityFields['Kategori akun']}
+                                />
                             </div>
+                        </section>
 
-                            {hasStudentProfile && (
-                                <div className="border-base-200 space-y-4 border-t pt-4">
-                                    <div className="grid gap-3 sm:grid-cols-2">
-                                        <div className="grid gap-1.5">
-                                            <label
-                                                className="label"
-                                                htmlFor="email_pribadi"
-                                            >
-                                                Email pribadi
-                                            </label>
-                                            <input
-                                                id="email_pribadi"
-                                                type="email"
-                                                className="input w-full"
-                                                value={form.data.email_pribadi}
-                                                onChange={(e) =>
-                                                    form.setData(
-                                                        'email_pribadi',
-                                                        e.target.value,
-                                                    )
-                                                }
-                                                name="email_pribadi"
-                                                placeholder="Email pribadi aktif"
-                                            />
-                                            <InputError
-                                                message={
-                                                    form.errors.email_pribadi
-                                                }
-                                            />
-                                        </div>
-
-                                        <div className="grid gap-1.5">
-                                            <label
-                                                className="label"
-                                                htmlFor="nik"
-                                            >
-                                                NIK (16 digit)
-                                            </label>
-                                            <input
-                                                id="nik"
-                                                className="input w-full"
-                                                value={form.data.nik}
-                                                onChange={(e) =>
-                                                    form.setData(
-                                                        'nik',
-                                                        e.target.value,
-                                                    )
-                                                }
-                                                name="nik"
-                                                maxLength={16}
-                                                placeholder="16 digit NIK"
-                                            />
-                                            <InputError
-                                                message={form.errors.nik}
-                                            />
-                                        </div>
-                                    </div>
+                        {hasStudentProfile && (
+                            <section className="space-y-2">
+                                <h2 className="text-base-content/60 text-xs font-semibold tracking-wide uppercase">
+                                    Data akademik dan asal
+                                </h2>
+                                <div className="divide-base-300 divide-y">
+                                    <ReadonlyRow
+                                        label="Angkatan"
+                                        value={academicFields['Angkatan']}
+                                    />
 
                                     {academicOptions && (
-                                        <div className="grid gap-3">
-                                            <AcademicFields
-                                                {...academicOptions}
-                                                disabled={academicLocked}
-                                                required={false}
-                                                value={{
-                                                    faculty_id:
-                                                        form.data.faculty_id,
-                                                    departemen_id:
-                                                        form.data.departemen_id,
-                                                    prodi_id:
-                                                        form.data.prodi_id,
-                                                }}
-                                                errors={{
-                                                    prodi_id:
-                                                        form.errors.prodi_id,
-                                                }}
-                                                onChange={(selection) =>
-                                                    form.setData({
-                                                        ...form.data,
-                                                        ...selection,
-                                                    })
+                                        <>
+                                            <ProfileFieldRow
+                                                label="Fakultas"
+                                                htmlFor="faculty_id"
+                                            >
+                                                <select
+                                                    id="faculty_id"
+                                                    className="select select-bordered w-full max-w-md"
+                                                    disabled={academicLocked}
+                                                    value={form.data.faculty_id}
+                                                    onChange={(e) =>
+                                                        form.setData({
+                                                            ...form.data,
+                                                            faculty_id:
+                                                                e.target.value,
+                                                            departemen_id: '',
+                                                            prodi_id: '',
+                                                        })
+                                                    }
+                                                >
+                                                    <option value="">
+                                                        Pilih fakultas
+                                                    </option>
+                                                    {(
+                                                        academicOptions.fakultas ??
+                                                        []
+                                                    ).map((item) => (
+                                                        <option
+                                                            key={item.id}
+                                                            value={item.id}
+                                                        >
+                                                            {item.name}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </ProfileFieldRow>
+
+                                            <ProfileFieldRow
+                                                label="Departemen"
+                                                htmlFor="departemen_id"
+                                            >
+                                                <select
+                                                    id="departemen_id"
+                                                    className="select select-bordered w-full max-w-md"
+                                                    disabled={
+                                                        academicLocked ||
+                                                        !form.data.faculty_id
+                                                    }
+                                                    value={
+                                                        form.data.departemen_id
+                                                    }
+                                                    onChange={(e) =>
+                                                        form.setData({
+                                                            ...form.data,
+                                                            departemen_id:
+                                                                e.target.value,
+                                                            prodi_id: '',
+                                                        })
+                                                    }
+                                                >
+                                                    <option value="">
+                                                        Pilih departemen
+                                                    </option>
+                                                    {filteredDepartments.map(
+                                                        (item) => (
+                                                            <option
+                                                                key={item.id}
+                                                                value={item.id}
+                                                            >
+                                                                {item.name}
+                                                            </option>
+                                                        ),
+                                                    )}
+                                                </select>
+                                            </ProfileFieldRow>
+
+                                            <ProfileFieldRow
+                                                label="Program studi"
+                                                htmlFor="prodi_id"
+                                                error={form.errors.prodi_id}
+                                            >
+                                                <select
+                                                    id="prodi_id"
+                                                    name="prodi_id"
+                                                    className="select select-bordered w-full max-w-md"
+                                                    disabled={
+                                                        academicLocked ||
+                                                        !form.data.departemen_id
+                                                    }
+                                                    value={form.data.prodi_id}
+                                                    onChange={(e) =>
+                                                        form.setData(
+                                                            'prodi_id',
+                                                            e.target.value,
+                                                        )
+                                                    }
+                                                >
+                                                    <option value="">
+                                                        Pilih program studi
+                                                    </option>
+                                                    {filteredPrograms.map(
+                                                        (item) => (
+                                                            <option
+                                                                key={item.id}
+                                                                value={item.id}
+                                                            >
+                                                                {item.name} (
+                                                                {item.jenjang})
+                                                            </option>
+                                                        ),
+                                                    )}
+                                                </select>
+                                            </ProfileFieldRow>
+
+                                            <ReadonlyRow
+                                                label="Jenjang"
+                                                value={
+                                                    selectedProgram?.jenjang ??
+                                                    academicFields['Jenjang']
                                                 }
                                             />
-                                        </div>
+                                        </>
                                     )}
 
+                                    <ProfileFieldRow
+                                        label="NIK"
+                                        htmlFor="nik"
+                                        error={form.errors.nik}
+                                    >
+                                        <input
+                                            id="nik"
+                                            name="nik"
+                                            maxLength={16}
+                                            className="input input-bordered w-full max-w-md"
+                                            value={form.data.nik}
+                                            onChange={(e) =>
+                                                form.setData(
+                                                    'nik',
+                                                    e.target.value,
+                                                )
+                                            }
+                                            placeholder="16 digit NIK"
+                                        />
+                                    </ProfileFieldRow>
+
+                                    <ProfileFieldRow
+                                        label="Alamat lengkap"
+                                        htmlFor="alamat"
+                                        error={form.errors.alamat}
+                                    >
+                                        <textarea
+                                            id="alamat"
+                                            name="alamat"
+                                            rows={3}
+                                            className="textarea textarea-bordered w-full max-w-md"
+                                            value={form.data.alamat}
+                                            onChange={(e) =>
+                                                form.setData(
+                                                    'alamat',
+                                                    e.target.value,
+                                                )
+                                            }
+                                            placeholder="Alamat asal lengkap"
+                                        />
+                                    </ProfileFieldRow>
+
                                     {locationOptions && (
-                                        <div className="grid gap-3 sm:grid-cols-2">
-                                            <div className="grid gap-1.5">
-                                                <label
-                                                    className="label"
-                                                    htmlFor="province_id"
-                                                >
-                                                    Provinsi asal
-                                                </label>
+                                        <>
+                                            <ProfileFieldRow
+                                                label="Provinsi"
+                                                htmlFor="province_id"
+                                            >
                                                 <select
                                                     id="province_id"
-                                                    className="select select-bordered w-full"
+                                                    className="select select-bordered w-full max-w-md"
                                                     value={
                                                         form.data.province_id
                                                     }
@@ -343,19 +600,17 @@ export default function Profile({
                                                         </option>
                                                     ))}
                                                 </select>
-                                            </div>
+                                            </ProfileFieldRow>
 
-                                            <div className="grid gap-1.5">
-                                                <label
-                                                    className="label"
-                                                    htmlFor="city_id"
-                                                >
-                                                    Kota / kabupaten
-                                                </label>
+                                            <ProfileFieldRow
+                                                label="Kota / kabupaten"
+                                                htmlFor="city_id"
+                                                error={form.errors.city_id}
+                                            >
                                                 <select
                                                     id="city_id"
                                                     name="city_id"
-                                                    className="select select-bordered w-full"
+                                                    className="select select-bordered w-full max-w-md"
                                                     disabled={
                                                         !form.data.province_id
                                                     }
@@ -381,76 +636,53 @@ export default function Profile({
                                                         ),
                                                     )}
                                                 </select>
-                                                <InputError
-                                                    message={
-                                                        form.errors.city_id
-                                                    }
-                                                />
-                                            </div>
-                                        </div>
+                                            </ProfileFieldRow>
+                                        </>
                                     )}
-
-                                    <div className="grid gap-1.5">
-                                        <label
-                                            className="label"
-                                            htmlFor="alamat"
-                                        >
-                                            Alamat lengkap
-                                        </label>
-                                        <textarea
-                                            id="alamat"
-                                            name="alamat"
-                                            rows={3}
-                                            className="textarea textarea-bordered w-full"
-                                            value={form.data.alamat}
-                                            onChange={(e) =>
-                                                form.setData(
-                                                    'alamat',
-                                                    e.target.value,
-                                                )
-                                            }
-                                            placeholder="Alamat asal lengkap"
-                                        />
-                                        <InputError
-                                            message={form.errors.alamat}
-                                        />
-                                    </div>
                                 </div>
-                            )}
+                            </section>
+                        )}
 
-                            {mustVerifyEmail &&
-                                auth.user.email_verified_at === null && (
-                                    <p className="text-base-content/60 text-sm">
-                                        Email Anda belum diverifikasi.{' '}
-                                        <Link
-                                            href={send()}
-                                            method="post"
-                                            as="button"
-                                            className="link"
-                                        >
-                                            Kirim ulang email verifikasi.
-                                        </Link>
-                                    </p>
-                                )}
+                        {residenceSection && (
+                            <section className="space-y-2">
+                                <h2 className="text-base-content/60 text-xs font-semibold tracking-wide uppercase">
+                                    {residenceSection.title}
+                                </h2>
+                                <dl className="divide-base-300 divide-y">
+                                    {Object.entries(
+                                        residenceSection.fields,
+                                    ).map(([label, value]) => (
+                                        <ReadonlyRow
+                                            key={label}
+                                            label={label}
+                                            value={value}
+                                        />
+                                    ))}
+                                </dl>
+                            </section>
+                        )}
 
-                            {status === 'verification-link-sent' && (
-                                <p className="text-success text-sm font-medium">
-                                    Tautan verifikasi baru telah dikirim ke
-                                    email Anda.
-                                </p>
-                            )}
-
+                        <div className="border-base-300 flex flex-wrap justify-end gap-2 border-t pt-4">
                             <button
-                                className="btn btn-primary btn-sm self-start"
+                                type="button"
+                                className="btn btn-outline btn-sm"
+                                onClick={cancelEditing}
+                                disabled={form.processing}
+                            >
+                                Batal
+                            </button>
+                            <button
+                                type="submit"
+                                className="btn btn-primary btn-sm"
                                 disabled={form.processing}
                                 data-test="update-profile-button"
                             >
                                 Simpan perubahan
                             </button>
-                        </form>
-                    </Card>
-                </div>
-            </div>
+                        </div>
+                    </form>
+                )}
+            </Card>
         </div>
     );
 }
