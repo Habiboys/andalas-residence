@@ -3,7 +3,6 @@ import { BedDouble, Download, FileText, Upload } from 'lucide-react';
 import * as workflow from '@/actions/App/Http/Controllers/ResidenceWorkflowController';
 import RoomCatalog, { type CatalogRoom } from '../../components/RoomCatalog';
 import RoomInvitations, {
-    InviteRoommateButton,
     type RoomInvitation,
 } from '../../components/RoomInvitations';
 import type {
@@ -19,7 +18,8 @@ import {
     type Registration as WorkflowRegistration,
     type TemplateItem,
 } from './RegistrationStatus';
-import { Link, useForm } from '@inertiajs/react';
+import { Link, router, useForm } from '@inertiajs/react';
+import { update as updateRoomInvitation } from '@/routes/andalas/room-invitations';
 import {
     Button,
     Card,
@@ -27,7 +27,6 @@ import {
     PageHeader,
     inputClass,
     selectClass,
-    StatusBadge,
 } from '../../components/ui';
 import { store } from '@/routes/andalas/registrations';
 import { formatRupiah } from '../../lib/format';
@@ -82,6 +81,20 @@ type Props = {
         }
     >;
 };
+
+function calculateStudentDailyTotal(days: number, dailyRate: number): number {
+    const totalDays = Math.max(1, days);
+    const effectiveDailyRate = dailyRate > 0 ? dailyRate : 75000;
+    const fullMonths = Math.floor(totalDays / 30);
+    const remDays = totalDays % 30;
+    let total = fullMonths * 250000;
+    if (remDays >= 1 && remDays <= 3) {
+        total += remDays * effectiveDailyRate;
+    } else if (remDays >= 4) {
+        total += 250000;
+    }
+    return total;
+}
 
 function LinearStepper({
     activeStep,
@@ -219,16 +232,29 @@ export default function Registration({
     const price = Number(
         (form.data.billing_basis === 'room'
             ? rate?.room_amount
-            : rateUnit === 'day' &&
-                initialUser?.client_profile_category !== 'non_student' &&
-                rate?.student_amount != null
-              ? rate.student_amount
-              : rate?.amount) ??
+            : form.data.billing_basis === 'group'
+              ? Number(rate?.room_amount ?? 0) > 0
+                  ? rate?.room_amount
+                  : Number(
+                        rate?.amount ??
+                            (form.data.rate_unit === 'period'
+                                ? room?.tarif_per_periode
+                                : 0) ??
+                            0,
+                    ) * Math.max(1, Number(room?.kapasitas ?? 1))
+              : rateUnit === 'day' &&
+                  initialUser?.client_profile_category !== 'non_student' &&
+                  rate?.student_amount != null
+                ? rate.student_amount
+                : rate?.amount) ??
             (form.data.billing_basis === 'person' &&
             form.data.rate_unit === 'period'
                 ? room?.tarif_per_periode
                 : 0) ??
             0,
+    );
+    const pendingIncomingInvitations = room_invitations.filter(
+        (item) => item.incoming && item.status === 'pending',
     );
     const days =
         form.data.starts_at && form.data.ends_at
@@ -323,18 +349,9 @@ export default function Registration({
                     <Card className="space-y-4 p-5">
                         {!pending && (
                             <p>
-                                {initialUser?.student_stage}.{' '}
                                 {kipk
-                                    ? 'Terdaftar sebagai penerima KIP-K. Sistem mengalokasikan kamar sesuai prioritas dan kapasitas.'
-                                    : 'Pilih kamar yang tersedia sesuai kategori Anda.'}
-                            </p>
-                        )}
-                        {kipk && initialUser?.kipk_personal_payment && (
-                            <p className="text-sm">
-                                Kewajiban pribadi dibayar setelah pencairan
-                                KIP-K. Check-in diperbolehkan setelah alokasi,
-                                dokumen, dan perjanjian valid. Pembayaran tetap
-                                tercatat terutang sampai dana diterima.
+                                    ? 'Terdaftar sebagai pendaftar KIP-K. Sistem menempatkan kamar sesuai prioritas dan kapasitas.'
+                                    : `${initialUser?.student_stage ? `${initialUser.student_stage}. ` : ''}Pilih kamar yang tersedia sesuai kategori Anda.`}
                             </p>
                         )}
                         {initialUser?.inactive_reason === 'letter_issued' && (
@@ -392,16 +409,23 @@ export default function Registration({
                                         latestDocs.set(doc.kind, doc);
                                     }
                                 }
-                                const allDocsUploaded = requiredDocs.every(
-                                    (kind) => {
+                                const requiresDocs =
+                                    activeDisplayReg.rate_unit !== 'day';
+                                const allDocsUploaded =
+                                    !requiresDocs ||
+                                    requiredDocs.every((kind) => {
                                         const doc = latestDocs.get(kind);
                                         return doc && doc.status !== 'revision';
-                                    },
-                                );
-                                const hasRevisionDoc = requiredDocs.some(
-                                    (kind) =>
-                                        latestDocs.get(kind)?.status ===
-                                        'revision',
+                                    });
+                                const hasRevisionDoc =
+                                    requiresDocs &&
+                                    requiredDocs.some(
+                                        (kind) =>
+                                            latestDocs.get(kind)?.status ===
+                                            'revision',
+                                    );
+                                const hasPendingGroupInvites = Boolean(
+                                    activeDisplayReg.has_pending_group_invitations,
                                 );
                                 const paymentSubmittedOrSettled =
                                     Boolean(activeDisplayReg.completed_at) ||
@@ -422,7 +446,9 @@ export default function Registration({
                                         ? 5
                                         : waitingKipkAllocation
                                           ? 1
-                                          : !allDocsUploaded || hasRevisionDoc
+                                          : !allDocsUploaded ||
+                                              hasRevisionDoc ||
+                                              hasPendingGroupInvites
                                             ? 2
                                             : activeDisplayReg.is_kipk ||
                                                 paymentSubmittedOrSettled
@@ -449,17 +475,28 @@ export default function Registration({
                                                     ? 'Menunggu alokasi kamar sesuai prioritas dan kapasitas. Tagihan diterbitkan setelah kamar dialokasikan.'
                                                     : hasRevisionDoc
                                                       ? 'Petugas meminta revisi berkas. Unggah ulang dokumen yang diminta pada panel di bawah.'
-                                                      : stepPreview === 2 ||
-                                                          !allDocsUploaded
-                                                        ? 'Tahap 3: Periksa atau unggah seluruh berkas wajib pada panel di bawah sebelum melanjutkan ke pembayaran.'
-                                                        : activeDisplayReg.completed_at
-                                                          ? 'Tahap 5: Verifikasi berkas dan check-in telah dinyatakan selesai oleh petugas. Untuk mengakhiri masa huni, ajukan Check-out pada menu Check-out.'
-                                                          : paymentSubmittedOrSettled ||
-                                                              activeDisplayReg.ready_at
-                                                            ? 'Tahap 5 (Belum Check-in): Pembayaran sudah tercatat. Periksa ringkasan data dan berkas Anda di bawah, lalu bawa berkas asli ke petugas gedung untuk verifikasi saat check-in.'
-                                                            : activeDisplayReg.payment_unlocked
-                                                              ? 'Tahap 4: Berkas sudah terunggah. Silakan langsung selesaikan pembayaran dan unggah bukti transfer tanpa menunggu verifikasi berkas.'
-                                                              : 'Tahap pembiayaan sedang diproses sesuai ketentuan kategori Anda.'}
+                                                      : hasPendingGroupInvites
+                                                        ? 'Tahap 3 (Per Grup): Menunggu seluruh teman kamar yang diundang menerima undangan sebelum tahap pembayaran dibuka.'
+                                                        : stepPreview === 2 ||
+                                                            !allDocsUploaded
+                                                          ? 'Tahap 3: Periksa atau unggah seluruh berkas wajib pada panel di bawah sebelum melanjutkan ke pembayaran.'
+                                                          : activeDisplayReg.completed_at
+                                                            ? 'Tahap 5: Verifikasi dan check-in telah dinyatakan selesai oleh petugas. Untuk mengakhiri masa huni, ajukan Check-out pada menu Check-out.'
+                                                            : paymentSubmittedOrSettled ||
+                                                                activeDisplayReg.ready_at ||
+                                                                activeDisplayReg.is_kipk
+                                                              ? activeDisplayReg.is_kipk
+                                                                  ? 'Tahap 5 (Belum Check-in): Berkas pendaftaran Anda sudah tercatat. Silakan datang ke asrama untuk melakukan check-in pada jadwal yang ditentukan fasilitator asrama.'
+                                                                  : activeDisplayReg.rate_unit ===
+                                                                      'day'
+                                                                    ? 'Tahap 5 (Belum Check-in): Pembayaran sewa harian sudah tercatat. Silakan datang ke asrama untuk melakukan check-in pada jadwal yang ditentukan fasilitator asrama.'
+                                                                    : 'Tahap 5 (Belum Check-in): Pembayaran sudah tercatat. Silakan datang ke asrama untuk melakukan check-in pada jadwal yang ditentukan fasilitator asrama.'
+                                                              : activeDisplayReg.payment_unlocked
+                                                                ? activeDisplayReg.rate_unit ===
+                                                                  'day'
+                                                                    ? 'Tahap 4 (Sewa Harian): Kamar berhasil dipesan. Silakan langsung selesaikan pembayaran dan unggah bukti transfer sebelum batas waktu pembayaran (H-1 masa sewa).'
+                                                                    : 'Tahap 4: Berkas sudah terunggah. Silakan langsung selesaikan pembayaran dan unggah bukti transfer tanpa menunggu verifikasi berkas.'
+                                                                : 'Tahap pembiayaan sedang diproses sesuai ketentuan kategori Anda.'}
                                             </p>
                                         </div>
                                         <StudentRegistrationCard
@@ -524,6 +561,122 @@ export default function Registration({
                                         activeStep={step}
                                         kipk={kipk}
                                     />
+                                    {step === 0 &&
+                                        pendingIncomingInvitations.length >
+                                            0 && (
+                                            <div className="border-primary/40 bg-primary/5 space-y-3 rounded-xl border p-4 text-sm">
+                                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                                    <p className="text-primary font-semibold">
+                                                        Undangan Teman Kamar
+                                                        Masuk (
+                                                        {
+                                                            pendingIncomingInvitations.length
+                                                        }
+                                                        )
+                                                    </p>
+                                                    <button
+                                                        type="button"
+                                                        className="btn btn-ghost btn-xs text-primary"
+                                                        onClick={() =>
+                                                            setTab(
+                                                                'invitations',
+                                                            )
+                                                        }
+                                                    >
+                                                        Lihat Semua Undangan
+                                                    </button>
+                                                </div>
+                                                <div className="space-y-2.5">
+                                                    {pendingIncomingInvitations.map(
+                                                        (inv) => (
+                                                            <div
+                                                                key={inv.id}
+                                                                className="border-base-300 bg-base-100 flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3"
+                                                            >
+                                                                <div className="space-y-0.5">
+                                                                    <p className="font-semibold">
+                                                                        Anda
+                                                                        diundang
+                                                                        pada
+                                                                        kamar{' '}
+                                                                        {
+                                                                            inv.building_name
+                                                                        }{' '}
+                                                                        ·{' '}
+                                                                        {
+                                                                            inv.floor_name
+                                                                        }{' '}
+                                                                        · Kamar{' '}
+                                                                        {
+                                                                            inv.room_number
+                                                                        }
+                                                                    </p>
+                                                                    <p className="text-base-content/70 text-xs">
+                                                                        Diundang
+                                                                        oleh{' '}
+                                                                        <strong>
+                                                                            {
+                                                                                inv.sender_name
+                                                                            }
+                                                                        </strong>
+                                                                        {inv.estimated_total !=
+                                                                        null
+                                                                            ? ` · Estimasi tagihan Anda: ${formatRupiah(inv.estimated_total)}`
+                                                                            : ''}
+                                                                    </p>
+                                                                </div>
+                                                                <div className="flex flex-wrap items-center gap-2">
+                                                                    <Button
+                                                                        type="button"
+                                                                        size="sm"
+                                                                        onClick={() =>
+                                                                            router.put(
+                                                                                updateRoomInvitation.url(
+                                                                                    inv.id,
+                                                                                ),
+                                                                                {
+                                                                                    accept: true,
+                                                                                },
+                                                                                {
+                                                                                    preserveScroll: true,
+                                                                                },
+                                                                            )
+                                                                        }
+                                                                    >
+                                                                        Terima
+                                                                        Undangan
+                                                                        &amp;
+                                                                        Lanjut
+                                                                        ke Tahap
+                                                                        3
+                                                                    </Button>
+                                                                    <Button
+                                                                        type="button"
+                                                                        size="sm"
+                                                                        variant="secondary"
+                                                                        onClick={() =>
+                                                                            router.put(
+                                                                                updateRoomInvitation.url(
+                                                                                    inv.id,
+                                                                                ),
+                                                                                {
+                                                                                    accept: false,
+                                                                                },
+                                                                                {
+                                                                                    preserveScroll: true,
+                                                                                },
+                                                                            )
+                                                                        }
+                                                                    >
+                                                                        Tolak
+                                                                    </Button>
+                                                                </div>
+                                                            </div>
+                                                        ),
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
                                     {step === 0 && periods[0] && (
                                         <div className="bg-primary/5 border-primary/20 flex flex-wrap items-center justify-between gap-2 rounded-xl border px-4 py-2.5 text-sm">
                                             <span className="font-medium">
@@ -594,7 +747,15 @@ export default function Registration({
                                                                     form.data
                                                                         .billing_basis
                                                                 }
-                                                                onChange={(e) =>
+                                                                onChange={(
+                                                                    e,
+                                                                ) => {
+                                                                    setFriendNim(
+                                                                        '',
+                                                                    );
+                                                                    setFriendError(
+                                                                        '',
+                                                                    );
                                                                     form.setData(
                                                                         {
                                                                             ...form.data,
@@ -602,6 +763,8 @@ export default function Registration({
                                                                                 e
                                                                                     .target
                                                                                     .value,
+                                                                            invitee_nims:
+                                                                                [],
                                                                             preferences:
                                                                                 [
                                                                                     {
@@ -611,24 +774,40 @@ export default function Registration({
                                                                                     },
                                                                                 ],
                                                                         },
-                                                                    )
-                                                                }
+                                                                    );
+                                                                }}
                                                             >
                                                                 <option value="person">
-                                                                    Per orang
+                                                                    Per Penghuni
+                                                                    (Harga
+                                                                    dibagi
+                                                                    jumlah
+                                                                    kapasitas
+                                                                    kamar)
                                                                 </option>
                                                                 <option value="room">
-                                                                    Per kamar
-                                                                    (seluruh
+                                                                    Per Kamar
+                                                                    (booking
+                                                                    full 1
                                                                     kamar)
+                                                                </option>
+                                                                <option value="group">
+                                                                    Per Grup,
+                                                                    (bisa
+                                                                    mengundang
+                                                                    teman kamar
+                                                                    yang
+                                                                    diinginkan,
+                                                                    Harga dibagi
+                                                                    jumlah
+                                                                    penghuni)
                                                                 </option>
                                                             </select>
                                                             <span className="text-sm">
-                                                                Sewa per kamar
-                                                                memerlukan kamar
-                                                                kosong dan tarif
-                                                                tahunan per
-                                                                kamar.
+                                                                Sewa Per Kamar
+                                                                dan Per Grup
+                                                                mengunci 1 kamar
+                                                                kosong penuh.
                                                             </span>
                                                         </label>
                                                     )}
@@ -793,8 +972,13 @@ export default function Registration({
                                                                     {form.data
                                                                         .billing_basis ===
                                                                     'room'
-                                                                        ? 'Per kamar'
-                                                                        : 'Per orang'}
+                                                                        ? 'Per Kamar'
+                                                                        : form
+                                                                                .data
+                                                                                .billing_basis ===
+                                                                            'group'
+                                                                          ? 'Per Grup'
+                                                                          : 'Per Penghuni'}
                                                                 </strong>
                                                             </div>
                                                             <div>
@@ -825,163 +1009,194 @@ export default function Registration({
                                                             </p>
                                                         )}
                                                         <p className="text-base-content/70 text-xs">
-                                                            Alokasi kamar
-                                                            dipertahankan selama
-                                                            proses administrasi
-                                                            berjalan. Status
-                                                            hunian aktif
-                                                            tercatat setelah
-                                                            pembayaran diunggah,
-                                                            dan verifikasi
-                                                            berkas asli
-                                                            dilakukan saat
-                                                            check-in.
+                                                            {form.data
+                                                                .rate_unit ===
+                                                            'day'
+                                                                ? 'Alokasi kamar sewa harian dipertahankan hingga batas waktu pembayaran (H-1 masa sewa). Pemeriksaan bukti bayar dilakukan petugas gedung saat check-in.'
+                                                                : 'Alokasi kamar dipertahankan selama proses administrasi berjalan. Status hunian aktif tercatat setelah pembayaran diunggah, dan verifikasi berkas asli dilakukan saat check-in.'}
                                                         </p>
-                                                        <div className="border-base-300 bg-base-200/30 space-y-3 rounded-xl border p-4">
-                                                            <div className="flex flex-wrap items-center justify-between gap-2">
-                                                                <div>
-                                                                    <h3 className="text-sm font-semibold">
-                                                                        Undang
-                                                                        Teman
-                                                                        Sekamar
-                                                                        (Opsional)
-                                                                    </h3>
-                                                                    <p className="text-base-content/70 text-xs">
-                                                                        {maxInvites >
-                                                                        0
-                                                                            ? 'Masukkan NIM calon teman kamar yang ingin diajukan, Teman kamar harus sudah membuat akun Andalas Residence terlebih dahulu'
-                                                                            : 'Kamar ini hanya menyisakan 1 tempat untuk Anda.'}
-                                                                    </p>
+                                                        {form.data
+                                                            .billing_basis ===
+                                                            'group' && (
+                                                            <div className="border-base-300 bg-base-200/30 space-y-3 rounded-xl border p-4">
+                                                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                                                    <div>
+                                                                        <h3 className="text-sm font-semibold">
+                                                                            Undang
+                                                                            Teman
+                                                                            Sekamar
+                                                                            (Wajib
+                                                                            untuk
+                                                                            Per
+                                                                            Grup)
+                                                                        </h3>
+                                                                        <p className="text-base-content/70 text-xs">
+                                                                            {maxInvites >
+                                                                            0
+                                                                                ? 'Masukkan NIM calon teman kamar yang ingin diajukan, Teman kamar harus sudah membuat akun Andalas Residence terlebih dahulu'
+                                                                                : 'Kamar ini hanya menyisakan 1 tempat untuk Anda.'}
+                                                                        </p>
+                                                                        <p className="text-base-content/60 mt-1 text-xs">
+                                                                            Syarat:
+                                                                            satu
+                                                                            jenis
+                                                                            kelamin,
+                                                                            bukan
+                                                                            mahasiswa
+                                                                            KIP-K,
+                                                                            jenjang
+                                                                            sama
+                                                                            (S1/S2/S3),
+                                                                            dan
+                                                                            belum
+                                                                            memilih
+                                                                            kamar.
+                                                                            Semua
+                                                                            teman
+                                                                            yang
+                                                                            diundang
+                                                                            wajib
+                                                                            menerima
+                                                                            undangan
+                                                                            sebelum
+                                                                            lanjut
+                                                                            ke
+                                                                            tahap
+                                                                            pembayaran.
+                                                                        </p>
+                                                                    </div>
+                                                                    {maxInvites >
+                                                                        0 && (
+                                                                        <span className="badge badge-outline text-xs">
+                                                                            {
+                                                                                form
+                                                                                    .data
+                                                                                    .invitee_nims
+                                                                                    .length
+                                                                            }{' '}
+                                                                            /{' '}
+                                                                            {
+                                                                                maxInvites
+                                                                            }{' '}
+                                                                            teman
+                                                                        </span>
+                                                                    )}
                                                                 </div>
                                                                 {maxInvites >
                                                                     0 && (
-                                                                    <span className="badge badge-outline text-xs">
-                                                                        {
-                                                                            form
-                                                                                .data
-                                                                                .invitee_nims
-                                                                                .length
-                                                                        }{' '}
-                                                                        /{' '}
-                                                                        {
-                                                                            maxInvites
-                                                                        }{' '}
-                                                                        teman
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                            {maxInvites > 0 && (
-                                                                <div className="flex flex-col gap-2 sm:flex-row">
-                                                                    <input
-                                                                        type="text"
-                                                                        className={
-                                                                            inputClass
-                                                                        }
-                                                                        maxLength={
-                                                                            50
-                                                                        }
-                                                                        value={
-                                                                            friendNim
-                                                                        }
-                                                                        onChange={(
-                                                                            e,
-                                                                        ) => {
-                                                                            setFriendNim(
-                                                                                e
-                                                                                    .target
-                                                                                    .value,
-                                                                            );
-                                                                            if (
-                                                                                friendError
-                                                                            ) {
-                                                                                setFriendError(
-                                                                                    '',
-                                                                                );
+                                                                    <div className="flex flex-col gap-2 sm:flex-row">
+                                                                        <input
+                                                                            type="text"
+                                                                            className={
+                                                                                inputClass
                                                                             }
-                                                                        }}
-                                                                        onKeyDown={(
-                                                                            e,
-                                                                        ) => {
-                                                                            if (
-                                                                                e.key ===
-                                                                                'Enter'
-                                                                            ) {
-                                                                                e.preventDefault();
+                                                                            maxLength={
+                                                                                50
+                                                                            }
+                                                                            value={
+                                                                                friendNim
+                                                                            }
+                                                                            onChange={(
+                                                                                e,
+                                                                            ) => {
+                                                                                setFriendNim(
+                                                                                    e
+                                                                                        .target
+                                                                                        .value,
+                                                                                );
+                                                                                if (
+                                                                                    friendError
+                                                                                ) {
+                                                                                    setFriendError(
+                                                                                        '',
+                                                                                    );
+                                                                                }
+                                                                            }}
+                                                                            onKeyDown={(
+                                                                                e,
+                                                                            ) => {
+                                                                                if (
+                                                                                    e.key ===
+                                                                                    'Enter'
+                                                                                ) {
+                                                                                    e.preventDefault();
+                                                                                    addFriendNim(
+                                                                                        friendNim,
+                                                                                    );
+                                                                                }
+                                                                            }}
+                                                                            placeholder="Masukkan NIM calon teman kamar"
+                                                                        />
+                                                                        <Button
+                                                                            type="button"
+                                                                            variant="secondary"
+                                                                            onClick={() =>
                                                                                 addFriendNim(
                                                                                     friendNim,
-                                                                                );
+                                                                                )
                                                                             }
-                                                                        }}
-                                                                        placeholder="Masukkan NIM calon teman kamar"
-                                                                    />
-                                                                    <Button
-                                                                        type="button"
-                                                                        variant="secondary"
-                                                                        onClick={() =>
-                                                                            addFriendNim(
-                                                                                friendNim,
-                                                                            )
-                                                                        }
+                                                                        >
+                                                                            Tambah
+                                                                            teman
+                                                                        </Button>
+                                                                    </div>
+                                                                )}
+                                                                {friendError && (
+                                                                    <p
+                                                                        role="alert"
+                                                                        className="text-error text-xs"
                                                                     >
-                                                                        Tambah
-                                                                        teman
-                                                                    </Button>
-                                                                </div>
-                                                            )}
-                                                            {friendError && (
-                                                                <p
-                                                                    role="alert"
-                                                                    className="text-error text-xs"
-                                                                >
-                                                                    {
-                                                                        friendError
-                                                                    }
-                                                                </p>
-                                                            )}
-                                                            {form.data
-                                                                .invitee_nims
-                                                                .length > 0 && (
-                                                                <div className="flex flex-wrap gap-2">
-                                                                    {form.data.invitee_nims.map(
-                                                                        (
-                                                                            nim,
-                                                                        ) => (
-                                                                            <span
-                                                                                key={
-                                                                                    nim
-                                                                                }
-                                                                                className="border-base-300 bg-base-100 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium"
-                                                                            >
-                                                                                <span>
-                                                                                    {
+                                                                        {
+                                                                            friendError
+                                                                        }
+                                                                    </p>
+                                                                )}
+                                                                {form.data
+                                                                    .invitee_nims
+                                                                    .length >
+                                                                    0 && (
+                                                                    <div className="flex flex-wrap gap-2">
+                                                                        {form.data.invitee_nims.map(
+                                                                            (
+                                                                                nim,
+                                                                            ) => (
+                                                                                <span
+                                                                                    key={
                                                                                         nim
                                                                                     }
-                                                                                </span>
-                                                                                <button
-                                                                                    type="button"
-                                                                                    aria-label={`Hapus teman ${nim}`}
-                                                                                    className="text-base-content/60 hover:text-error"
-                                                                                    onClick={() =>
-                                                                                        form.setData(
-                                                                                            'invitee_nims',
-                                                                                            form.data.invitee_nims.filter(
-                                                                                                (
-                                                                                                    item,
-                                                                                                ) =>
-                                                                                                    item !==
-                                                                                                    nim,
-                                                                                            ),
-                                                                                        )
-                                                                                    }
+                                                                                    className="border-base-300 bg-base-100 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium"
                                                                                 >
-                                                                                    ×
-                                                                                </button>
-                                                                            </span>
-                                                                        ),
-                                                                    )}
-                                                                </div>
-                                                            )}
-                                                        </div>
+                                                                                    <span>
+                                                                                        {
+                                                                                            nim
+                                                                                        }
+                                                                                    </span>
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        aria-label={`Hapus teman ${nim}`}
+                                                                                        className="text-base-content/60 hover:text-error"
+                                                                                        onClick={() =>
+                                                                                            form.setData(
+                                                                                                'invitee_nims',
+                                                                                                form.data.invitee_nims.filter(
+                                                                                                    (
+                                                                                                        item,
+                                                                                                    ) =>
+                                                                                                        item !==
+                                                                                                        nim,
+                                                                                                ),
+                                                                                            )
+                                                                                        }
+                                                                                    >
+                                                                                        ×
+                                                                                    </button>
+                                                                                </span>
+                                                                            ),
+                                                                        )}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        )}
                                                     </div>
 
                                                     <div className="border-base-300 bg-base-200/40 flex flex-col justify-between space-y-4 rounded-2xl border p-5 shadow-sm">
@@ -1068,43 +1283,83 @@ export default function Registration({
                                                                 Perkiraan biaya
                                                                 hunian
                                                             </span>
-                                                            <p className="text-primary mt-0.5 text-2xl font-bold">
-                                                                {formatRupiah(
-                                                                    price *
-                                                                        (form
-                                                                            .data
-                                                                            .rate_unit ===
-                                                                        'day'
-                                                                            ? days +
-                                                                              (policy_day_basis ===
-                                                                              'inclusive_days'
-                                                                                  ? 1
-                                                                                  : 0)
-                                                                            : form
-                                                                                    .data
-                                                                                    .rate_unit ===
-                                                                                'month'
-                                                                              ? Math.max(
-                                                                                    1,
-                                                                                    Math.ceil(
-                                                                                        days /
-                                                                                            policy_month_days,
-                                                                                    ),
-                                                                                )
-                                                                              : 1),
-                                                                )}
-                                                            </p>
-                                                            <span className="text-base-content/60 text-xs">
-                                                                {form.data
-                                                                    .rate_unit ===
-                                                                'day'
-                                                                    ? `untuk ${days} hari`
-                                                                    : form.data
-                                                                            .rate_unit ===
-                                                                        'month'
-                                                                      ? `untuk ${Math.max(1, Math.ceil(days / policy_month_days))} bulan`
-                                                                      : 'per tahun'}
-                                                            </span>
+                                                            {(() => {
+                                                                const effectiveDays =
+                                                                    days +
+                                                                    (policy_day_basis ===
+                                                                    'inclusive_days'
+                                                                        ? 1
+                                                                        : 0);
+                                                                const groupSize =
+                                                                    Math.max(
+                                                                        1,
+                                                                        1 +
+                                                                            form
+                                                                                .data
+                                                                                .invitee_nims
+                                                                                .length,
+                                                                    );
+                                                                const estimatedTotal =
+                                                                    form.data
+                                                                        .rate_unit ===
+                                                                    'day'
+                                                                        ? initialUser?.client_profile_category !==
+                                                                          'non_student'
+                                                                            ? calculateStudentDailyTotal(
+                                                                                  effectiveDays,
+                                                                                  price,
+                                                                              )
+                                                                            : price *
+                                                                              effectiveDays
+                                                                        : form
+                                                                                .data
+                                                                                .rate_unit ===
+                                                                            'month'
+                                                                          ? price *
+                                                                            Math.max(
+                                                                                1,
+                                                                                Math.ceil(
+                                                                                    days /
+                                                                                        policy_month_days,
+                                                                                ),
+                                                                            )
+                                                                          : form
+                                                                                  .data
+                                                                                  .billing_basis ===
+                                                                              'group'
+                                                                            ? Math.ceil(
+                                                                                  price /
+                                                                                      groupSize,
+                                                                              )
+                                                                            : price;
+                                                                return (
+                                                                    <>
+                                                                        <p className="text-primary mt-0.5 text-2xl font-bold">
+                                                                            {formatRupiah(
+                                                                                estimatedTotal,
+                                                                            )}
+                                                                        </p>
+                                                                        <span className="text-base-content/60 text-xs">
+                                                                            {form
+                                                                                .data
+                                                                                .rate_unit ===
+                                                                            'day'
+                                                                                ? `untuk ${effectiveDays} hari (1–3 hari × ${formatRupiah(price > 0 ? price : 75000)}, 4–30 hari Rp250.000)`
+                                                                                : form
+                                                                                        .data
+                                                                                        .rate_unit ===
+                                                                                    'month'
+                                                                                  ? `untuk ${Math.max(1, Math.ceil(days / policy_month_days))} bulan`
+                                                                                  : form
+                                                                                          .data
+                                                                                          .billing_basis ===
+                                                                                      'group'
+                                                                                    ? `estimasi per penghuni (${formatRupiah(price)} ÷ ${groupSize} orang)`
+                                                                                    : 'per tahun'}
+                                                                        </span>
+                                                                    </>
+                                                                );
+                                                            })()}
                                                         </div>
                                                     </div>
                                                 </div>
@@ -1122,198 +1377,223 @@ export default function Registration({
                                     )}
                                     {step === 2 && (
                                         <div className="space-y-4">
-                                            <div className="border-base-300 bg-base-100 space-y-3 rounded-2xl border p-5 shadow-sm">
-                                                <div className="flex flex-wrap items-center justify-between gap-2">
-                                                    <div className="flex items-center gap-2">
-                                                        <FileText className="text-primary size-5" />
-                                                        <h3 className="text-base font-semibold">
-                                                            Unggah Berkas Wajib
-                                                            Pendaftaran
-                                                        </h3>
-                                                    </div>
-                                                    <span className="text-base-content/65 text-xs">
-                                                        PDF, JPG, JPEG, atau PNG
-                                                        (maks. 5 MB)
-                                                    </span>
+                                            {form.data.rate_unit === 'day' ? (
+                                                <div className="border-base-300 bg-base-100 space-y-2 rounded-2xl border p-5 text-sm shadow-sm">
+                                                    <h3 className="text-base font-semibold">
+                                                        Ketentuan Sewa Per Hari
+                                                    </h3>
+                                                    <p className="text-base-content/75">
+                                                        Kategori sewa per hari
+                                                        tidak memerlukan unggah
+                                                        berkas pendaftaran
+                                                        karena bukan penghuni
+                                                        tetap. Setelah
+                                                        mengajukan pendaftaran,
+                                                        Anda langsung
+                                                        melanjutkan ke tahap
+                                                        pembayaran dengan batas
+                                                        waktu penyelesaian
+                                                        pembayaran H-1 sebelum
+                                                        mulai masa sewa.
+                                                    </p>
                                                 </div>
-                                                <div className="space-y-3">
-                                                    {required_documents.map(
-                                                        (kind) => {
-                                                            const tpl =
-                                                                templates.find(
-                                                                    (t) =>
-                                                                        t.category ===
-                                                                            policy_category &&
-                                                                        t.kind ===
-                                                                            kind,
-                                                                );
-                                                            const picked =
-                                                                selectedDocFiles[
-                                                                    kind
-                                                                ];
-                                                            return (
-                                                                <div
-                                                                    key={kind}
-                                                                    className="border-base-300 bg-base-200/30 space-y-2 rounded-xl border p-3.5"
-                                                                >
-                                                                    <div className="flex flex-wrap items-center justify-between gap-2">
-                                                                        <span className="text-sm font-medium">
-                                                                            {friendlyDocumentLabel(
+                                            ) : (
+                                                <div className="border-base-300 bg-base-100 space-y-3 rounded-2xl border p-5 shadow-sm">
+                                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                                        <div className="flex items-center gap-2">
+                                                            <FileText className="text-primary size-5" />
+                                                            <h3 className="text-base font-semibold">
+                                                                Unggah Berkas
+                                                                Wajib
+                                                                Pendaftaran
+                                                            </h3>
+                                                        </div>
+                                                        <span className="text-base-content/65 text-xs">
+                                                            PDF, JPG, JPEG, atau
+                                                            PNG (maks. 5 MB)
+                                                        </span>
+                                                    </div>
+                                                    <div className="space-y-3">
+                                                        {required_documents.map(
+                                                            (kind) => {
+                                                                const tpl =
+                                                                    templates.find(
+                                                                        (t) =>
+                                                                            t.category ===
+                                                                                policy_category &&
+                                                                            t.kind ===
                                                                                 kind,
-                                                                            )}
-                                                                        </span>
-                                                                        {tpl && (
-                                                                            <a
-                                                                                href={workflow.downloadTemplate.url(
-                                                                                    [
-                                                                                        policy_category,
-                                                                                        kind,
-                                                                                    ],
+                                                                    );
+                                                                const picked =
+                                                                    selectedDocFiles[
+                                                                        kind
+                                                                    ];
+                                                                return (
+                                                                    <div
+                                                                        key={
+                                                                            kind
+                                                                        }
+                                                                        className="border-base-300 bg-base-200/30 space-y-2 rounded-xl border p-3.5"
+                                                                    >
+                                                                        <div className="flex flex-wrap items-center justify-between gap-2">
+                                                                            <span className="text-sm font-medium">
+                                                                                {friendlyDocumentLabel(
+                                                                                    kind,
                                                                                 )}
-                                                                                className="btn btn-outline btn-xs gap-1"
-                                                                            >
-                                                                                <Download className="size-3.5" />
-                                                                                Unduh
-                                                                                Template
-                                                                            </a>
-                                                                        )}
-                                                                    </div>
-                                                                    <input
-                                                                        type="file"
-                                                                        accept=".pdf,.jpg,.jpeg,.png"
-                                                                        aria-label={`Unggah ${friendlyDocumentLabel(kind)}`}
-                                                                        className="file-input file-input-bordered file-input-sm w-full"
-                                                                        onChange={(
-                                                                            e,
-                                                                        ) => {
-                                                                            const file =
-                                                                                e
-                                                                                    .target
-                                                                                    .files?.[0];
-                                                                            if (
-                                                                                !file
-                                                                            ) {
+                                                                            </span>
+                                                                            {tpl && (
+                                                                                <a
+                                                                                    href={workflow.downloadTemplate.url(
+                                                                                        [
+                                                                                            policy_category,
+                                                                                            kind,
+                                                                                        ],
+                                                                                    )}
+                                                                                    className="btn btn-outline btn-xs gap-1"
+                                                                                >
+                                                                                    <Download className="size-3.5" />
+                                                                                    Unduh
+                                                                                    Template
+                                                                                </a>
+                                                                            )}
+                                                                        </div>
+                                                                        <input
+                                                                            type="file"
+                                                                            accept=".pdf,.jpg,.jpeg,.png"
+                                                                            aria-label={`Unggah ${friendlyDocumentLabel(kind)}`}
+                                                                            className="file-input file-input-bordered file-input-sm w-full"
+                                                                            onChange={(
+                                                                                e,
+                                                                            ) => {
+                                                                                const file =
+                                                                                    e
+                                                                                        .target
+                                                                                        .files?.[0];
+                                                                                if (
+                                                                                    !file
+                                                                                ) {
+                                                                                    setSelectedDocFiles(
+                                                                                        (
+                                                                                            prev,
+                                                                                        ) => {
+                                                                                            const next =
+                                                                                                {
+                                                                                                    ...prev,
+                                                                                                };
+                                                                                            delete next[
+                                                                                                kind
+                                                                                            ];
+                                                                                            return next;
+                                                                                        },
+                                                                                    );
+                                                                                    setDocFileErrors(
+                                                                                        (
+                                                                                            prev,
+                                                                                        ) => {
+                                                                                            const next =
+                                                                                                {
+                                                                                                    ...prev,
+                                                                                                };
+                                                                                            delete next[
+                                                                                                kind
+                                                                                            ];
+                                                                                            return next;
+                                                                                        },
+                                                                                    );
+                                                                                    return;
+                                                                                }
+                                                                                const ext =
+                                                                                    file.name
+                                                                                        .split(
+                                                                                            '.',
+                                                                                        )
+                                                                                        .pop()
+                                                                                        ?.toLowerCase() ??
+                                                                                    '';
+                                                                                if (
+                                                                                    !ALLOWED_UPLOAD_EXTENSIONS.has(
+                                                                                        ext,
+                                                                                    )
+                                                                                ) {
+                                                                                    setDocFileErrors(
+                                                                                        (
+                                                                                            prev,
+                                                                                        ) => ({
+                                                                                            ...prev,
+                                                                                            [kind]: 'Format harus PDF, JPG, JPEG, atau PNG.',
+                                                                                        }),
+                                                                                    );
+                                                                                    return;
+                                                                                }
+                                                                                if (
+                                                                                    file.size >
+                                                                                    MAX_UPLOAD_BYTES
+                                                                                ) {
+                                                                                    setDocFileErrors(
+                                                                                        (
+                                                                                            prev,
+                                                                                        ) => ({
+                                                                                            ...prev,
+                                                                                            [kind]: 'Ukuran file maksimal 5 MB.',
+                                                                                        }),
+                                                                                    );
+                                                                                    return;
+                                                                                }
+                                                                                setDocFileErrors(
+                                                                                    (
+                                                                                        prev,
+                                                                                    ) => {
+                                                                                        const next =
+                                                                                            {
+                                                                                                ...prev,
+                                                                                            };
+                                                                                        delete next[
+                                                                                            kind
+                                                                                        ];
+                                                                                        return next;
+                                                                                    },
+                                                                                );
                                                                                 setSelectedDocFiles(
                                                                                     (
                                                                                         prev,
-                                                                                    ) => {
-                                                                                        const next =
-                                                                                            {
-                                                                                                ...prev,
-                                                                                            };
-                                                                                        delete next[
-                                                                                            kind
-                                                                                        ];
-                                                                                        return next;
-                                                                                    },
-                                                                                );
-                                                                                setDocFileErrors(
-                                                                                    (
-                                                                                        prev,
-                                                                                    ) => {
-                                                                                        const next =
-                                                                                            {
-                                                                                                ...prev,
-                                                                                            };
-                                                                                        delete next[
-                                                                                            kind
-                                                                                        ];
-                                                                                        return next;
-                                                                                    },
-                                                                                );
-                                                                                return;
-                                                                            }
-                                                                            const ext =
-                                                                                file.name
-                                                                                    .split(
-                                                                                        '.',
-                                                                                    )
-                                                                                    .pop()
-                                                                                    ?.toLowerCase() ??
-                                                                                '';
-                                                                            if (
-                                                                                !ALLOWED_UPLOAD_EXTENSIONS.has(
-                                                                                    ext,
-                                                                                )
-                                                                            ) {
-                                                                                setDocFileErrors(
-                                                                                    (
-                                                                                        prev,
                                                                                     ) => ({
                                                                                         ...prev,
-                                                                                        [kind]: 'Format harus PDF, JPG, JPEG, atau PNG.',
+                                                                                        [kind]: file,
                                                                                     }),
                                                                                 );
-                                                                                return;
-                                                                            }
-                                                                            if (
-                                                                                file.size >
-                                                                                MAX_UPLOAD_BYTES
-                                                                            ) {
-                                                                                setDocFileErrors(
-                                                                                    (
-                                                                                        prev,
-                                                                                    ) => ({
-                                                                                        ...prev,
-                                                                                        [kind]: 'Ukuran file maksimal 5 MB.',
-                                                                                    }),
-                                                                                );
-                                                                                return;
-                                                                            }
-                                                                            setDocFileErrors(
-                                                                                (
-                                                                                    prev,
-                                                                                ) => {
-                                                                                    const next =
-                                                                                        {
-                                                                                            ...prev,
-                                                                                        };
-                                                                                    delete next[
-                                                                                        kind
-                                                                                    ];
-                                                                                    return next;
-                                                                                },
-                                                                            );
-                                                                            setSelectedDocFiles(
-                                                                                (
-                                                                                    prev,
-                                                                                ) => ({
-                                                                                    ...prev,
-                                                                                    [kind]: file,
-                                                                                }),
-                                                                            );
-                                                                        }}
-                                                                    />
-                                                                    {picked &&
-                                                                        !docFileErrors[
+                                                                            }}
+                                                                        />
+                                                                        {picked &&
+                                                                            !docFileErrors[
+                                                                                kind
+                                                                            ] && (
+                                                                                <p className="text-primary flex items-center gap-1.5 text-xs">
+                                                                                    <Upload className="size-3.5" />
+                                                                                    Siap
+                                                                                    dikirim:{' '}
+                                                                                    {
+                                                                                        picked.name
+                                                                                    }
+                                                                                </p>
+                                                                            )}
+                                                                        {docFileErrors[
                                                                             kind
                                                                         ] && (
-                                                                            <p className="text-primary flex items-center gap-1.5 text-xs">
-                                                                                <Upload className="size-3.5" />
-                                                                                Siap
-                                                                                dikirim:{' '}
+                                                                            <p className="text-error text-xs">
                                                                                 {
-                                                                                    picked.name
+                                                                                    docFileErrors[
+                                                                                        kind
+                                                                                    ]
                                                                                 }
                                                                             </p>
                                                                         )}
-                                                                    {docFileErrors[
-                                                                        kind
-                                                                    ] && (
-                                                                        <p className="text-error text-xs">
-                                                                            {
-                                                                                docFileErrors[
-                                                                                    kind
-                                                                                ]
-                                                                            }
-                                                                        </p>
-                                                                    )}
-                                                                </div>
-                                                            );
-                                                        },
-                                                    )}
+                                                                    </div>
+                                                                );
+                                                            },
+                                                        )}
+                                                    </div>
                                                 </div>
-                                            </div>
+                                            )}
 
                                             {!kipk &&
                                                 form.data.funding ===
@@ -1465,12 +1745,22 @@ export default function Registration({
                                                     (!kipk &&
                                                         (!room ||
                                                             price <= 0)) ||
-                                                    required_documents.some(
-                                                        (kind) =>
-                                                            !selectedDocFiles[
-                                                                kind
-                                                            ],
-                                                    ) ||
+                                                    (!kipk &&
+                                                        form.data
+                                                            .billing_basis ===
+                                                            'group' &&
+                                                        form.data.invitee_nims
+                                                            .length === 0 &&
+                                                        friendNim.trim() ===
+                                                            '') ||
+                                                    (form.data.rate_unit !==
+                                                        'day' &&
+                                                        required_documents.some(
+                                                            (kind) =>
+                                                                !selectedDocFiles[
+                                                                    kind
+                                                                ],
+                                                        )) ||
                                                     Object.values(
                                                         docFileErrors,
                                                     ).some(Boolean) ||
@@ -1514,16 +1804,41 @@ export default function Registration({
                                         : ''}
                                     {form.data.invitee_nims.length > 0
                                         ? ` · Mengundang teman (${form.data.invitee_nims.join(', ')})`
-                                        : ''}{' '}
-                                    beserta{' '}
-                                    <strong>
-                                        {Object.keys(selectedDocFiles).length}{' '}
-                                        berkas pendaftaran
-                                    </strong>
-                                    .{' '}
-                                    {kipk
-                                        ? 'Setelah diajukan, alokasi kamar dan berkas Anda akan diproses. Verifikasi berkas asli dilakukan petugas saat check-in.'
-                                        : 'Setelah diajukan, Anda dapat langsung melanjutkan ke tahap pembayaran tanpa menunggu verifikasi berkas. Verifikasi berkas asli dilakukan petugas saat check-in.'}
+                                        : ''}
+                                    {form.data.rate_unit === 'day' ? (
+                                        <>
+                                            {' '}
+                                            untuk sewa harian (
+                                            <strong>
+                                                {form.data.starts_at} s/d{' '}
+                                                {form.data.ends_at}
+                                            </strong>
+                                            ). Setelah diajukan, Anda dapat
+                                            langsung melanjutkan ke tahap
+                                            pembayaran (batas waktu H-1 masa
+                                            sewa).
+                                        </>
+                                    ) : (
+                                        <>
+                                            {' '}
+                                            beserta{' '}
+                                            <strong>
+                                                {
+                                                    Object.keys(
+                                                        selectedDocFiles,
+                                                    ).length
+                                                }{' '}
+                                                berkas pendaftaran
+                                            </strong>
+                                            .{' '}
+                                            {kipk
+                                                ? 'Setelah diajukan, alokasi kamar dan berkas Anda akan diproses. Verifikasi berkas asli dilakukan petugas saat check-in.'
+                                                : form.data.billing_basis ===
+                                                    'group'
+                                                  ? 'Setelah seluruh teman kamar yang diundang menerima undangan, tahap pembayaran akan otomatis terbuka dengan harga kamar dibagi rata.'
+                                                  : 'Setelah diajukan, Anda dapat langsung melanjutkan ke tahap pembayaran tanpa menunggu verifikasi berkas. Verifikasi berkas asli dilakukan petugas saat check-in.'}
+                                        </>
+                                    )}
                                 </p>
                                 <div className="flex justify-end gap-2">
                                     <Button
@@ -1576,70 +1891,6 @@ export default function Registration({
                             </div>
                         </Modal>
                     )}
-                    <Card className="space-y-3 p-5">
-                        <h2 className="font-semibold">Riwayat pendaftaran</h2>
-                        {registration.length === 0 ? (
-                            <p className="text-base-content/70 text-sm">
-                                Belum ada pendaftaran.
-                            </p>
-                        ) : (
-                            <div className="space-y-3">
-                                {registration.map((r) => (
-                                    <div
-                                        className="border-base-300 bg-base-100 flex flex-wrap items-start justify-between gap-3 rounded-lg border p-4"
-                                        key={r.id}
-                                    >
-                                        <div className="space-y-1">
-                                            <p className="font-medium">
-                                                {r.periode?.nama_periode}
-                                            </p>
-                                            {r.reserved_room && (
-                                                <p className="text-base-content/70 text-sm">
-                                                    {
-                                                        r.reserved_room.lantai
-                                                            ?.gedung
-                                                            ?.nama_gedung
-                                                    }{' '}
-                                                    / Kamar{' '}
-                                                    {
-                                                        r.reserved_room
-                                                            .nomor_kamar
-                                                    }
-                                                </p>
-                                            )}
-                                            {r.can_invite && (
-                                                <div className="pt-1.5">
-                                                    <InviteRoommateButton
-                                                        registrationId={r.id}
-                                                    />
-                                                </div>
-                                            )}
-                                            {r.reservation_expires_at &&
-                                                !r.completed_at && (
-                                                    <p className="text-base-content/60 text-xs">
-                                                        Batas reservasi:{' '}
-                                                        {new Date(
-                                                            r.reservation_expires_at,
-                                                        ).toLocaleString(
-                                                            'id-ID',
-                                                        )}
-                                                    </p>
-                                                )}
-                                        </div>
-                                        <div className="flex flex-col items-end gap-2">
-                                            <StatusBadge
-                                                status={
-                                                    r.completed_at
-                                                        ? 'aktif'
-                                                        : r.status
-                                                }
-                                            />
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </Card>
                 </>
             )}
         </div>

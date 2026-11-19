@@ -25,7 +25,7 @@ class RoomInvitationService
 
         if (
             $registration->is_kipk
-            || ($registration->billing_basis === 'room' && $registration->workflow_version !== 2)
+            || (in_array($registration->billing_basis, ['room', 'group'], true) && $registration->workflow_version !== 2)
             || ! $hasPlace
             || $registration->ended_at
             || $registration->isClosed()
@@ -40,19 +40,37 @@ class RoomInvitationService
     {
         $this->assertCanInvite($registration);
         $trimmedNim = trim($nim);
-        $invitee = User::where('nim_nip', $trimmedNim)->first();
-        if (! $invitee || $invitee->id === $sender->id || ! $this->isEligibleStudent($invitee)) {
+        $invitee = User::with('mahasiswaProfil.prodi')->where('nim_nip', $trimmedNim)->first();
+        if (! $invitee || $invitee->id === $sender->id || $invitee->status !== 'aktif' || ! $invitee->mahasiswaProfil) {
+            throw ValidationException::withMessages([$errorKey => 'NIM harus milik mahasiswa non-KIP-K lain dengan akun aktif.']);
+        }
+        if (
+            app(ResidenceLifecycle::class)->isKipk($invitee->mahasiswaProfil)
+            || $invitee->client_profile_category?->value === 'local_kipk'
+        ) {
+            throw ValidationException::withMessages([$errorKey => "Teman yang diundang ({$trimmedNim}) tidak boleh mahasiswa KIP-K. NIM harus milik mahasiswa non-KIP-K lain dengan akun aktif."]);
+        }
+        if ($sender->gender && $invitee->gender && $invitee->gender !== $sender->gender) {
+            throw ValidationException::withMessages([$errorKey => "Teman yang diundang ({$trimmedNim}) harus berjenis kelamin sama dengan Anda."]);
+        }
+        $sender->loadMissing('mahasiswaProfil.prodi');
+        $senderJenjang = $sender->mahasiswaProfil?->prodi?->jenjang;
+        $inviteeJenjang = $invitee->mahasiswaProfil?->prodi?->jenjang;
+        if ($senderJenjang && $inviteeJenjang && strtoupper($senderJenjang) !== strtoupper($inviteeJenjang)) {
+            throw ValidationException::withMessages([$errorKey => "Teman yang diundang ({$trimmedNim}) harus memiliki jenjang pendidikan yang sama ({$senderJenjang})."]);
+        }
+        if (! app(ResidenceLifecycle::class)->isLocal($invitee->mahasiswaProfil) && app(ResidenceLifecycle::class)->isLocal($sender->mahasiswaProfil)) {
             throw ValidationException::withMessages([$errorKey => 'NIM harus milik mahasiswa non-KIP-K lain dengan akun aktif.']);
         }
         if (
             $invitee->mahasiswaProfil->penempatanKamar()->where('status', 'aktif')->exists()
             || ResidenceRegistration::where('student_profile_id', $invitee->mahasiswaProfil->id)->whereNull('completed_at')->whereNotIn('status', ['draft', 'rejected', 'cancelled'])->exists()
         ) {
-            throw ValidationException::withMessages([$errorKey => 'Calon penghuni sudah memiliki hunian atau pendaftaran berjalan.']);
+            throw ValidationException::withMessages([$errorKey => "Teman yang diundang ({$trimmedNim}) sudah memilih kamar (sudah memiliki hunian atau pendaftaran berjalan)."]);
         }
 
         $room = Kamar::query()->lockForUpdate()->findOrFail($registration->reserved_room_id ?? $registration->placement?->kamar_id);
-        if ($registration->workflow_version === 2 && $registration->billing_basis === 'room') {
+        if ($registration->workflow_version === 2 && in_array($registration->billing_basis, ['room', 'group'], true)) {
             try {
                 app(ResidencePolicyService::class)->assertProfile($invitee->mahasiswaProfil);
                 app(ResidencePolicyService::class)->validateRoom($registration->policy, $room, $invitee->mahasiswaProfil);

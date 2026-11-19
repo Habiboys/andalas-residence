@@ -63,6 +63,17 @@ export function roomPrice(
               )
             : undefined);
     if (basis === 'room') return Number(rate?.room_amount ?? 0);
+    if (basis === 'group') {
+        const roomAmt = Number(rate?.room_amount ?? 0);
+        if (roomAmt > 0) return roomAmt;
+        return (
+            Number(
+                rate?.amount ??
+                    (unit === 'year' ? room.tarif_per_periode : 0) ??
+                    0,
+            ) * Math.max(1, Number(room.kapasitas ?? 1))
+        );
+    }
     return Number(
         (unit === 'day' && isStudent
             ? (rate?.student_amount ?? rate?.amount)
@@ -149,7 +160,8 @@ export default function RoomCatalog({
 
     const selectedRoom = rooms.find((r) => r.id === selected);
     const unitLabel = unitLabelMap[unit] ?? unit;
-    const basisLabel = basis === 'room' ? 'kamar' : 'orang';
+    const basisLabel =
+        basis === 'room' ? 'kamar' : basis === 'group' ? 'grup' : 'orang';
 
     return (
         <section className="space-y-4" aria-label="Katalog kamar">
@@ -283,7 +295,7 @@ export default function RoomCatalog({
                         );
                         const disabled =
                             price <= 0 ||
-                            (basis === 'room' &&
+                            ((basis === 'room' || basis === 'group') &&
                                 room.available_places != null &&
                                 room.available_places < (room.kapasitas ?? 0));
                         const photo = room.foto ?? room.lantai?.gedung?.foto;
@@ -316,7 +328,7 @@ export default function RoomCatalog({
                                         </div>
                                     )}
                                     <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
-                                        <span className="badge bg-base-100/90 text-base-content border-0 text-xs font-semibold shadow-sm backdrop-blur-xs capitalize">
+                                        <span className="badge bg-base-100/90 text-base-content border-0 text-xs font-semibold capitalize shadow-sm backdrop-blur-xs">
                                             {roomTypeName(
                                                 catalog,
                                                 room.tipe_kamar,
@@ -367,8 +379,8 @@ export default function RoomCatalog({
                                         <p className="text-base-content/80 flex items-center gap-1.5 text-xs">
                                             <Users className="size-3.5 shrink-0" />
                                             <span>
-                                                Kapasitas {room.kapasitas ?? '—'}{' '}
-                                                orang ·{' '}
+                                                Kapasitas{' '}
+                                                {room.kapasitas ?? '—'} orang ·{' '}
                                                 {room.available_places ?? '—'}{' '}
                                                 tersedia
                                             </span>
@@ -734,7 +746,8 @@ function RoomDetailModal({
                                                 / orang
                                             </span>
                                             {rate.room_amount &&
-                                                Number(rate.room_amount) > 0 && (
+                                                Number(rate.room_amount) >
+                                                    0 && (
                                                     <span className="text-base-content/70 block text-xs font-normal">
                                                         {formatRupiah(
                                                             Number(
@@ -755,7 +768,9 @@ function RoomDetailModal({
                 <div className="border-base-300 bg-base-100 flex flex-wrap items-center justify-between gap-3 border-t p-4">
                     <div>
                         <span className="text-base-content/60 block text-xs">
-                            Tarif pilihan Anda ({basis === 'room' ? 'per kamar' : 'per orang'} / {unitLabelMap[unit] ?? unit})
+                            Tarif pilihan Anda (
+                            {basis === 'room' ? 'per kamar' : 'per orang'} /{' '}
+                            {unitLabelMap[unit] ?? unit})
                         </span>
                         <strong className="text-primary text-xl font-bold">
                             {activePrice > 0

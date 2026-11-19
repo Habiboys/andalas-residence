@@ -33,9 +33,42 @@ it('offers room selection and daily or period pricing for personal registration'
     expect(html).not.toContain('Katalog kamar');
     expect(html).toContain('Per hari');
     expect(html).toContain('Per tahun');
-    expect(html).toContain('Per orang');
-    expect(html).toContain('Per kamar (seluruh kamar)');
+    expect(html).toContain(
+        'Per Penghuni (Harga dibagi jumlah kapasitas kamar)',
+    );
+    expect(html).toContain('Per Kamar (booking full 1 kamar)');
+    expect(html).toContain(
+        'Per Grup, (bisa mengundang teman kamar yang diinginkan, Harga dibagi jumlah penghuni)',
+    );
     expect(html).not.toContain('type="checkbox"');
+});
+
+it('displays incoming room invitation alert directly in Step 1 when invited by a friend', () => {
+    const html = renderToStaticMarkup(
+        <Registration
+            initialUser={{ is_kipk: false }}
+            room_invitations={[
+                {
+                    id: 'inv-room-1',
+                    incoming: true,
+                    status: 'pending',
+                    expires_at: '2026-12-01T12:00:00Z',
+                    sender_name: 'Budi Santoso',
+                    invitee_name: 'Syauqi',
+                    room_number: '2A.08',
+                    building_name: 'Hijau (G)',
+                    floor_name: 'Lantai 2',
+                    rate_unit: 'year',
+                    estimated_total: 2500000,
+                },
+            ]}
+        />,
+    );
+    expect(html).toContain(
+        'Anda diundang pada kamar Hijau (G) · Lantai 2 · Kamar 2A.08',
+    );
+    expect(html).toContain('Budi Santoso');
+    expect(html).toContain('Terima Undangan &amp; Lanjut ke Tahap 3');
 });
 it('blocks another application while a submitted registration is pending and ignores cancelled registrations', () => {
     for (const status of ['draft', 'rejected', 'cancelled', 'submitted']) {
@@ -52,10 +85,11 @@ it('skips room choice for a server verified KIPK recipient', () => {
         <Registration initialUser={{ is_kipk: true }} />,
     );
     expect(html).toContain(
-        'Sistem mengalokasikan kamar sesuai prioritas dan kapasitas.',
+        'Terdaftar sebagai pendaftar KIP-K. Sistem menempatkan kamar sesuai prioritas dan kapasitas.',
     );
     expect(html).not.toContain('Katalog kamar');
     expect(html).not.toContain('Dasar tarif');
+    expect(html).not.toContain('Riwayat pendaftaran');
 });
 it('does not render sponsor funding selector on student registration even when can_use_sponsor flag is set', () => {
     const html = renderToStaticMarkup(
@@ -79,19 +113,21 @@ it('allows a letter inactive account to start a new residence application', () =
     expect(html).toContain('<form');
 });
 
-it('explains KIPK eligibility before disbursement without marking its debt paid', () => {
+it('displays clean KIP-K header without personal debt after disbursement notice', () => {
     const html = renderToStaticMarkup(
         <Registration
-            initialUser={{ is_kipk: true, kipk_personal_payment: true }}
+            initialUser={{
+                is_kipk: true,
+                kipk_personal_payment: true,
+                student_stage: 'Mahasiswa binaan',
+            }}
         />,
     );
-    expect(html).toContain('Check-in diperbolehkan setelah alokasi');
     expect(html).toContain(
-        'Pembayaran tetap tercatat terutang sampai dana diterima.',
+        'Terdaftar sebagai pendaftar KIP-K. Sistem menempatkan kamar sesuai prioritas dan kapasitas.',
     );
-    expect(html).toContain(
-        'Sistem mengalokasikan kamar sesuai prioritas dan kapasitas.',
-    );
+    expect(html).not.toContain('Kewajiban pribadi dibayar setelah pencairan');
+    expect(html).not.toContain('Mahasiswa binaan.');
     expect(html).not.toContain('Katalog kamar');
 });
 it('waits for room allocation before directing a personal KIPK applicant to payment', () => {

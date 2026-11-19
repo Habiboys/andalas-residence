@@ -8,6 +8,7 @@ use App\Models\Periode;
 use App\Models\ResidenceRegistration;
 use App\Services\ResidenceLifecycle;
 use App\Services\ResidencePolicyService;
+use App\Services\ResidenceWorkflow;
 use App\Services\RoomInvitationService;
 use App\Services\RoomReservations;
 use Illuminate\Support\Carbon;
@@ -52,15 +53,36 @@ class SubmitResidenceRegistration
             }
             $student->user->update(['client_profile_category' => $kipk ? 'local_kipk' : 'local_non_kipk']);
             $reservationHours = max(1, (int) ($policy->settings['reservation_hours'] ?? $period->reservation_hours ?? 168));
+            if ($unit === 'day') {
+                $tz = config('residence.timezone', 'Asia/Jakarta');
+                $appTz = config('app.timezone', 'UTC');
+                $hMinusOne = Carbon::parse($startsAt->toDateString().' 23:59:59', $tz)->subDay()->timezone($appTz);
+                $expiresAt = $hMinusOne->isFuture()
+                    ? $hMinusOne
+                    : Carbon::parse($startsAt->toDateString().' 23:59:59', $tz)->timezone($appTz)->max(now()->addHours(2));
+            } else {
+                $expiresAt = $deadline ?? now()->addHours($reservationHours);
+            }
+
+            $billingBasis = $kipk ? 'person' : ($data['billing_basis'] ?? 'person');
+            $inviteeNims = array_values(array_filter(array_map(
+                fn (mixed $nim): string => trim((string) $nim),
+                is_array($data['invitee_nims'] ?? null) ? $data['invitee_nims'] : [],
+            ), fn (string $nim): bool => $nim !== ''));
+
+            if ($billingBasis === 'group' && $inviteeNims === []) {
+                throw ValidationException::withMessages(['invitee_nims' => 'Kategori Per Grup wajib mengundang minimal 1 teman sekamar.']);
+            }
+
             $r = ResidenceRegistration::create([
                 'workflow_version' => 2, 'residence_policy_id' => $policy->id,
                 'student_profile_id' => $student->id, 'periode_id' => $period->id,
                 'status' => 'submitted', 'is_kipk' => $kipk, 'submitted_at' => now(), 'notes' => $data['notes'] ?? null,
-                'billing_basis' => $kipk ? 'person' : ($data['billing_basis'] ?? 'person'),
+                'billing_basis' => $billingBasis,
                 'starts_at' => $data['starts_at'] ?? $period->tanggal_mulai,
                 'ends_at' => $data['ends_at'] ?? $period->tanggal_selesai,
                 'rate_unit' => $unit, 'funding' => 'personal', 'allocation_status' => 'waiting',
-                'reservation_expires_at' => $kipk ? null : ($deadline ?? now()->addHours($reservationHours)),
+                'reservation_expires_at' => $kipk ? null : $expiresAt,
             ]);
             if (! $kipk) {
                 $roomId = $data['preferences'][0]['kamar_id'] ?? null;
@@ -71,11 +93,6 @@ class SubmitResidenceRegistration
             }
             $r->statusHistories()->create(['from_status' => 'draft', 'to_status' => 'submitted', 'changed_by' => $student->user_id]);
             app(AllocateResidenceRoom::class)->handle($r, $kipk ? null : $roomId);
-
-            $inviteeNims = array_values(array_filter(array_map(
-                fn (mixed $nim): string => trim((string) $nim),
-                is_array($data['invitee_nims'] ?? null) ? $data['invitee_nims'] : [],
-            ), fn (string $nim): bool => $nim !== ''));
 
             if ($inviteeNims !== []) {
                 if ($kipk) {
@@ -97,6 +114,7 @@ class SubmitResidenceRegistration
                 foreach ($inviteeNims as $index => $nim) {
                     $invitations->invite($r, $student->user, $nim, "invitee_nims.{$index}");
                 }
+                app(ResidenceWorkflow::class)->evaluate($r->fresh());
             }
 
             return $r->fresh(['roomPreferences', 'statusHistories']);

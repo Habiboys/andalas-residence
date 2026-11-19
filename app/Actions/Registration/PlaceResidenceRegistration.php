@@ -48,7 +48,8 @@ class PlaceResidenceRegistration
         if ($occupancy >= $room->kapasitas) {
             throw ValidationException::withMessages(['kamar_id' => 'Kamar sudah penuh.']);
         }
-        if ($registration->billing_basis === 'room' && ! $registration->room_contract_id && ($occupancy > 0 || app(RoomReservations::class)->count($room, $registration->id) > 0)) {
+        $isFullRoomBasis = in_array($registration->billing_basis, ['room', 'group'], true);
+        if ($isFullRoomBasis && ! $registration->room_contract_id && ($occupancy > 0 || app(RoomReservations::class)->count($room, $registration->id) > 0)) {
             throw ValidationException::withMessages(['kamar_id' => 'Sewa per kamar membutuhkan seluruh kamar yang kosong.']);
         }
 
@@ -61,7 +62,7 @@ class PlaceResidenceRegistration
             'diproses_oleh' => $officerId,
         ]);
 
-        $room->update(['status' => $registration->billing_basis === 'room' || $occupancy + 1 >= $room->kapasitas ? 'penuh' : 'terisi_sebagian']);
+        $room->update(['status' => $isFullRoomBasis || $occupancy + 1 >= $room->kapasitas ? 'penuh' : 'terisi_sebagian']);
         $registration->studentProfile()->update(['periode_id' => $registration->periode_id]);
 
         return $placement;

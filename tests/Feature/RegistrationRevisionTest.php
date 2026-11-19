@@ -23,7 +23,7 @@ function revisionAccountInput(): array
     $program = Prodi::create(['name' => 'Informatika', 'jenjang' => 'S1', 'departemen_id' => $department->id]);
 
     return [
-        'nama' => 'Mahasiswa Revisi', 'nim_nip' => '2599001111', 'email' => 'revision@example.test',
+        'nama' => 'Mahasiswa Revisi', 'nim_nip' => '2599001111', 'email' => 'revision@unand.ac.id',
         'password' => 'password123', 'password_confirmation' => 'password123',
         'client_profile_category' => 'local_non_kipk', 'gender' => 'perempuan',
         'faculty_id' => $faculty->id, 'departemen_id' => $department->id, 'prodi_id' => $program->id,

@@ -129,15 +129,24 @@ export default function Register(options: AcademicOptions) {
                         <option value="perempuan">Perempuan</option>
                     </select>
                 </AuthField>
-                <AuthField label="Email" error={form.errors.email}>
+                <AuthField
+                    label="Email (@unand.ac.id)"
+                    error={form.errors.email}
+                >
                     <input
                         required
                         type="email"
                         autoComplete="email"
+                        placeholder="nama@unand.ac.id"
+                        pattern="^[^@\s]+@([a-zA-Z0-9-]+\.)*unand\.ac\.id$"
+                        title="Gunakan email dengan domain @unand.ac.id"
                         className={authInputClass}
                         value={form.data.email}
                         onChange={(e) => form.setData('email', e.target.value)}
                     />
+                    <p className="text-muted mt-1 text-xs">
+                        Wajib menggunakan email berdomain @unand.ac.id.
+                    </p>
                 </AuthField>
                 <AuthField label="Nomor telepon" error={form.errors.no_hp}>
                     <input

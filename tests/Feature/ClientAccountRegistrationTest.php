@@ -24,7 +24,7 @@ it('derives the client category without granting self declared sponsorship', fun
         KipkRecipient::create(['nim' => '2599000099', 'angkatan' => 2025, 'nama' => 'Client Uji']);
     }
     $this->post(route('register.store'), [
-        'nama' => 'Client Uji', 'nim_nip' => $category === 'non_student' ? 'PASPOR-UJI' : '2599000099', 'email' => 'client@example.test',
+        'nama' => 'Client Uji', 'nim_nip' => $category === 'non_student' ? 'PASPOR-UJI' : '2599000099', 'email' => 'client@unand.ac.id',
         'password' => 'password123', 'password_confirmation' => 'password123',
         'client_profile_category' => $category, 'angkatan' => 1999,
         'faculty_id' => $faculty->id, 'departemen_id' => $department->id, 'prodi_id' => $program->id,
@@ -32,7 +32,7 @@ it('derives the client category without granting self declared sponsorship', fun
         'role' => 'superadmin',
     ])->assertSessionHasNoErrors()->assertRedirect();
 
-    $user = User::where('email', 'client@example.test')->sole();
+    $user = User::where('email', 'client@unand.ac.id')->sole();
     expect($user->client_profile_category)->toBe(ClientProfileCategory::from(match ($category) {
         'international_free_facility' => 'international_student',
         'local_student' => 'local_non_kipk',
@@ -55,10 +55,10 @@ it('uses the KIPK register for every local choice and excludes postgraduate stud
         KipkRecipient::create(['nim' => '2612345678', 'angkatan' => 2026, 'nama' => 'Uji']);
     }
     $this->post(route('register.store'), [
-        'nama' => 'Uji', 'nim_nip' => '2612345678', 'email' => 'uji@example.test', 'password' => 'password123', 'password_confirmation' => 'password123',
+        'nama' => 'Uji', 'nim_nip' => '2612345678', 'email' => 'uji@unand.ac.id', 'password' => 'password123', 'password_confirmation' => 'password123',
         'client_profile_category' => $choice, 'gender' => 'perempuan', 'faculty_id' => $faculty->id, 'departemen_id' => $department->id, 'prodi_id' => $program->id,
     ])->assertSessionHasNoErrors();
-    expect(User::where('email', 'uji@example.test')->sole()->client_profile_category->value)->toBe($expected);
+    expect(User::where('email', 'uji@unand.ac.id')->sole()->client_profile_category->value)->toBe($expected);
 })->with([
     ['local_student', 'S1', true, 'local_kipk'],
     ['local_non_kipk', 'S1', true, 'local_kipk'],
@@ -66,6 +66,27 @@ it('uses the KIPK register for every local choice and excludes postgraduate stud
     ['local_student', 'S2', true, 'local_non_kipk'],
     ['local_student', 'S3', true, 'local_non_kipk'],
 ]);
+
+it('rejects non-unand.ac.id email addresses such as gmail.com during account registration', function () {
+    $faculty = Faculty::create(['name' => 'Fakultas Uji']);
+    $department = Departemen::create(['name' => 'Departemen Uji', 'faculty_id' => $faculty->id]);
+    $program = Prodi::create(['name' => 'Program Uji', 'jenjang' => 'S1', 'departemen_id' => $department->id]);
+
+    $this->post(route('register.store'), [
+        'nama' => 'Syauqi Nabiih Marwa',
+        'nim_nip' => '26112342323',
+        'email' => 'syauqinabiihmarwa@gmail.com',
+        'password' => 'password123',
+        'password_confirmation' => 'password123',
+        'client_profile_category' => 'local_student',
+        'gender' => 'perempuan',
+        'faculty_id' => $faculty->id,
+        'departemen_id' => $department->id,
+        'prodi_id' => $program->id,
+    ])->assertSessionHasErrors(['email']);
+
+    $this->assertDatabaseCount('users', 0);
+});
 
 it('rejects unknown categories without creating an account', function () {
     $this->post(route('register.store'), [

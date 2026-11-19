@@ -11,6 +11,7 @@ use App\Models\RoomInvitation;
 use App\Models\Tagihan;
 use App\Models\User;
 use App\Services\ResidencePolicyService;
+use App\Services\ResidenceWorkflow;
 use App\Services\RoomInvitationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -55,7 +56,7 @@ class RoomInvitationController extends Controller
             if (($host->reserved_room_id ?? $host->placement?->kamar_id) !== $invitation->kamar_id) {
                 throw ValidationException::withMessages(['invitation' => 'Kamar pengundang sudah berubah. Minta undangan baru.']);
             }
-            if ($host->workflow_version === 2 && $host->billing_basis === 'room') {
+            if ($host->workflow_version === 2 && in_array($host->billing_basis, ['room', 'group'], true)) {
                 $registration = $this->joinRoomContract($host, $request->user());
             } else {
                 $registration = $submit->handle($request->user()->mahasiswaProfil, [
@@ -66,9 +67,16 @@ class RoomInvitationController extends Controller
                 ]);
             }
             $invitation->update(['status' => 'accepted', 'responded_at' => now(), 'accepted_registration_id' => $registration->id]);
+
+            if ($host->room_contract_id) {
+                $contractMemberIds = RoomContract::whereKey($host->room_contract_id)->value('members') ?? [$host->id];
+                foreach (ResidenceRegistration::whereIn('id', $contractMemberIds)->get() as $memberRegistration) {
+                    app(ResidenceWorkflow::class)->evaluate($memberRegistration);
+                }
+            }
         });
 
-        return back()->with('toast', ['type' => 'success', 'message' => $data['accept'] ? 'Undangan diterima. Kamar ditahan dan tagihan dibuat; lengkapi administrasi lalu lakukan check-in fisik bersama petugas.' : 'Undangan ditolak.']);
+        return back()->with('toast', ['type' => 'success', 'message' => $data['accept'] ? 'Undangan diterima. Kamar ditahan dan tagihan dibuat; lengkapi unggah berkas pendaftaran Anda pada Tahap 3.' : 'Undangan ditolak.']);
     }
 
     public function destroy(Request $request, RoomInvitation $invitation): RedirectResponse
@@ -109,6 +117,14 @@ class RoomInvitationController extends Controller
         ]);
         $r->roomPreferences()->create(['kamar_id' => $room->id, 'priority' => 1]);
         $r->statusHistories()->create(['from_status' => 'draft', 'to_status' => 'submitted', 'changed_by' => $user->id]);
+        $r->decisions()->create([
+            'kind' => 'full',
+            'reason' => 'Pembayaran penuh sesuai tagihan.',
+            'requested_by' => $user->id,
+            'decided_by' => $user->id,
+            'decided_at' => now(),
+            'status' => 'approved',
+        ]);
 
         if ($host->room_contract_id) {
             $contract = RoomContract::whereKey($host->room_contract_id)->lockForUpdate()->first();

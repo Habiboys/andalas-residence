@@ -162,6 +162,7 @@ export type Registration = {
     can_submit?: boolean;
     can_cancel?: boolean;
     payment_unlocked?: boolean;
+    has_pending_group_invitations?: boolean;
     blockers?: string[];
     submitted_at?: string | null;
     periode?: { nama_periode?: string } | null;
@@ -226,7 +227,8 @@ const DOCUMENT_LABELS: Record<string, string> = {
     surat_pernyataan: 'Surat Pernyataan Penghuni',
     ktm: 'Kartu Tanda Mahasiswa (KTM)',
     identitas: 'Identitas Resmi (KTP / Paspor)',
-    kipk: 'Surat Keterangan / Kartu KIP-K',
+    kipk: 'Kartu Peserta KIP-K',
+    kipk_rekomendasi: 'Kartu Peserta KIP-K',
     sk_kipk: 'Surat Keputusan Penerima KIP-K',
     loa: 'Letter of Acceptance (LoA)',
     paspor: 'Halaman Identitas Paspor',
@@ -239,6 +241,8 @@ const DECISION_LABELS: Record<string, string> = {
     installment: 'Pengajuan Cicilan',
     defer: 'Pengajuan Penundaan Pembayaran',
     monthly: 'Skema Pembayaran Bulanan',
+    scholarship_receivable: 'Piutang Beasiswa (Internasional / S2 / S3)',
+    period_scheme: 'Skema Pembayaran Berdasarkan Periode',
     transfer_permission: 'Izin Tinggal Berbasis Bukti Transfer',
 };
 
@@ -404,10 +408,14 @@ function buildStepState(r: Registration) {
             latestDocs.set(d.kind, d);
         }
     }
-    const allDocsUploaded = requiredDocs.every((k) => {
-        const doc = latestDocs.get(k);
-        return doc && doc.status !== 'revision';
-    });
+    const requiresDocs = r.rate_unit !== 'day';
+    const allDocsUploaded =
+        !requiresDocs ||
+        requiredDocs.every((k) => {
+            const doc = latestDocs.get(k);
+            return doc && doc.status !== 'revision';
+        });
+    const hasPendingGroupInvites = Boolean(r.has_pending_group_invitations);
     const hasDecisionOrExempt =
         (r.is_kipk && r.policy?.category === 'local_kipk') ||
         (r.decisions ?? []).some(
@@ -416,7 +424,8 @@ function buildStepState(r: Registration) {
     const isKipkExempt = Boolean(
         r.is_kipk && r.policy?.category === 'local_kipk',
     );
-    const docsStepDone = allDocsUploaded && hasDecisionOrExempt;
+    const docsStepDone =
+        allDocsUploaded && hasDecisionOrExempt && !hasPendingGroupInvites;
     const isCheckedIn = isRegistrationCheckedIn(r);
     const hasPaymentSubmittedOrSettled = hasSubmittedOrSettledPayment(r);
     const paymentUnlocked = Boolean(r.payment_unlocked);
@@ -446,9 +455,13 @@ function buildStepState(r: Registration) {
         {
             number: 3,
             title: 'Upload berkas',
-            description: docsStepDone
-                ? 'Berkas & pembiayaan terunggah'
-                : 'Unggah berkas & pilih pembiayaan',
+            description: !requiresDocs
+                ? 'Sewa harian (tanpa unggah berkas)'
+                : hasPendingGroupInvites
+                  ? 'Menunggu teman grup menerima undangan'
+                  : docsStepDone
+                    ? 'Berkas & pembiayaan terunggah'
+                    : 'Unggah berkas & pilih pembiayaan',
             done: !isRejected && docsStepDone,
             active: !isRejected && hasRoom && !docsStepDone,
         },
@@ -473,10 +486,16 @@ function buildStepState(r: Registration) {
             description: r.keys_returned_at
                 ? 'Kunci telah dikembalikan'
                 : isCheckedIn
-                  ? 'Verifikasi berkas & check-in selesai'
+                  ? !requiresDocs
+                      ? 'Pemeriksaan bukti bayar & check-in selesai'
+                      : 'Verifikasi berkas & check-in selesai'
                   : paymentDone
-                    ? 'Menunggu verifikasi berkas saat check-in'
-                    : 'Verifikasi berkas dilakukan saat check-in',
+                    ? !requiresDocs
+                        ? 'Menunggu pemeriksaan bukti bayar saat check-in'
+                        : 'Menunggu verifikasi berkas saat check-in'
+                    : !requiresDocs
+                      ? 'Pemeriksaan bukti bayar saat check-in'
+                      : 'Verifikasi berkas dilakukan saat check-in',
             done: !isRejected && isCheckedIn,
             active: !isRejected && paymentDone && !isCheckedIn,
         },
@@ -527,18 +546,36 @@ function heroBanner(r: Registration) {
         return {
             tone: 'border-base-300 border-l-4 border-l-primary bg-base-100',
             badge: <StatusChip label="Belum Check-in" tone="warning" />,
-            title: 'Pembayaran tercatat — tahap selanjutnya: Check-in (Verifikasi)',
+            title: r.is_kipk
+                ? 'Berkas pendaftaran tercatat — tahap selanjutnya: Check-in (Verifikasi)'
+                : 'Pembayaran tercatat — tahap selanjutnya: Check-in (Verifikasi)',
             subtitle:
-                'Seluruh data dan berkas yang telah Anda unggah sudah tercatat. Bawa berkas asli ke petugas/fasilitator gedung saat kedatangan untuk verifikasi berkas dan konfirmasi check-in.',
+                r.rate_unit === 'day'
+                    ? 'Bukti pembayaran sewa harian Anda sudah tercatat. Silakan datang ke asrama untuk melakukan check-in pada jadwal yang ditentukan fasilitator asrama.'
+                    : 'Seluruh data dan berkas yang telah Anda unggah sudah tercatat. Silakan datang ke asrama untuk melakukan check-in pada jadwal yang ditentukan fasilitator asrama.',
         };
     }
     if (r.payment_unlocked) {
         return {
             tone: 'border-base-300 border-l-4 border-l-primary bg-base-100',
             badge: <StatusChip label="Siap Pembayaran" tone="info" />,
-            title: 'Berkas terunggah! Silakan selesaikan pembayaran sesuai tagihan',
+            title:
+                r.rate_unit === 'day'
+                    ? 'Kamar sewa harian berhasil dipesan! Silakan selesaikan pembayaran sesuai tagihan'
+                    : 'Berkas terunggah! Silakan selesaikan pembayaran sesuai tagihan',
             subtitle:
-                'Anda dapat langsung mengunggah bukti pembayaran tanpa menunggu verifikasi berkas. Verifikasi berkas akan dilakukan petugas saat check-in.',
+                r.rate_unit === 'day'
+                    ? 'Kategori sewa per hari tidak memerlukan unggah berkas pendaftaran. Silakan unggah bukti pembayaran sebelum batas waktu (H-1 masa sewa), lalu fasilitator gedung akan memeriksa bukti bayar saat check-in.'
+                    : 'Anda dapat langsung mengunggah bukti pembayaran tanpa menunggu verifikasi berkas. Verifikasi berkas akan dilakukan petugas saat check-in.',
+        };
+    }
+    if (r.has_pending_group_invitations) {
+        return {
+            tone: 'border-base-300 border-l-4 border-l-warning bg-base-100',
+            badge: <StatusChip label="Menunggu Teman Grup" tone="warning" />,
+            title: 'Menunggu seluruh teman kamar yang diundang menerima undangan',
+            subtitle:
+                'Tahap pembayaran untuk kategori Per Grup akan terbuka otomatis dan harga kamar dibagi rata setelah seluruh teman yang diundang menerima undangan.',
         };
     }
     return {
@@ -805,7 +842,15 @@ export function StudentRegistrationCard({
         );
     };
 
+    const requiresDocs = r.rate_unit !== 'day';
     const paymentUnlocked = Boolean(r.payment_unlocked);
+    const isCheckInStage =
+        isRegistrationCheckedIn(r) ||
+        hasPaymentSubmittedOrSettled ||
+        Boolean(r.ready_at) ||
+        (Boolean(r.is_kipk) && editableKinds.length === 0) ||
+        (r.blockers ?? []).length === 0;
+    const canShowCancel = Boolean(r.can_cancel) && !isCheckInStage;
     const isPaymentStage =
         !reviewingUploadStep &&
         paymentUnlocked &&
@@ -837,14 +882,14 @@ export function StudentRegistrationCard({
                             {banner.title}
                         </h2>
                         <p className="text-muted text-sm">{banner.subtitle}</p>
-                        {(r.can_cancel ||
+                        {(canShowCancel ||
                             isPaymentStage ||
                             (reviewingUploadStep &&
                                 paymentUnlocked &&
                                 !isKipkExempt &&
                                 !hasPaymentSubmittedOrSettled)) && (
                             <div className="flex flex-wrap items-center gap-2 pt-2">
-                                {r.can_cancel && (
+                                {canShowCancel && (
                                     <button
                                         type="button"
                                         className="btn btn-outline btn-error btn-xs sm:btn-sm gap-1.5"
@@ -858,7 +903,7 @@ export function StudentRegistrationCard({
                                         Kamar/Gedung
                                     </button>
                                 )}
-                                {isPaymentStage && (
+                                {isPaymentStage && requiresDocs && (
                                     <button
                                         type="button"
                                         className="btn btn-outline btn-xs sm:btn-sm gap-1.5"
@@ -1005,14 +1050,16 @@ export function StudentRegistrationCard({
                     </div>
                 )}
 
-            {/* Main Content Grid: Documents & Financing (documents hidden during Step 4 payment) */}
+            {/* Main Content Grid: Documents & Financing (documents hidden during Step 4 payment or daily rental) */}
             <div
                 className={
-                    isPaymentStage ? 'grid gap-5' : 'grid gap-5 lg:grid-cols-2'
+                    isPaymentStage || !requiresDocs
+                        ? 'grid gap-5'
+                        : 'grid gap-5 lg:grid-cols-2'
                 }
             >
                 {/* Section A: Berkas Pendaftaran */}
-                {!isPaymentStage && (
+                {!isPaymentStage && requiresDocs && (
                     <div
                         id={`berkas-${r.id}`}
                         className="border-base-300 bg-base-100 min-w-0 space-y-4 overflow-hidden rounded-xl border p-4 md:p-5"
@@ -1342,627 +1389,680 @@ export function StudentRegistrationCard({
                     </div>
                 )}
 
-                {/* Section B: Pembiayaan & Tagihan */}
-                <div className="border-base-300 bg-base-100 min-w-0 space-y-4 overflow-hidden rounded-xl border p-4 md:p-5">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="flex min-w-0 items-center gap-2">
-                            <Wallet
-                                className="text-muted size-5 shrink-0"
-                                aria-hidden="true"
-                            />
-                            <h3 className="text-base font-semibold">
-                                Pembiayaan & Tagihan
-                            </h3>
+                {/* Section B: Pembiayaan & Tagihan (hidden for KIP-K since KIP-K is not billed at check-in) */}
+                {r.is_kipk ? (
+                    <div className="border-base-300 bg-base-100 min-w-0 space-y-4 overflow-hidden rounded-xl border p-4 md:p-5">
+                        {Boolean(room) && r.status !== 'cancelled' && (
+                            <div className="flex justify-end">
+                                <Link
+                                    href={detailKamarRoute.url()}
+                                    className="btn btn-primary btn-sm gap-1.5"
+                                >
+                                    <span>Buka Kamar Saya</span>
+                                    <ArrowRight className="size-4" />
+                                </Link>
+                            </div>
+                        )}
+                        <div className="border-base-300 bg-base-200/40 rounded-lg border p-3.5 text-sm">
+                            <p className="font-semibold">Skema KIP-K Aktif</p>
+                            <p className="text-muted mt-0.5 text-xs">
+                                Tagihan Biaya hunian ditunda melalui skema KIP-K
+                                sesuai ketentuan asrama
+                            </p>
                         </div>
-                        {r.tagihan &&
-                            (() => {
-                                const chip = tagihanStatusChip(
-                                    r.tagihan.status,
-                                );
-                                return (
-                                    <StatusChip
-                                        label={chip.label}
-                                        tone={chip.tone}
-                                    />
-                                );
-                            })()}
                     </div>
+                ) : (
+                    <div className="border-base-300 bg-base-100 min-w-0 space-y-4 overflow-hidden rounded-xl border p-4 md:p-5">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex min-w-0 items-center gap-2">
+                                <Wallet
+                                    className="text-muted size-5 shrink-0"
+                                    aria-hidden="true"
+                                />
+                                <h3 className="text-base font-semibold">
+                                    Pembiayaan & Tagihan
+                                </h3>
+                            </div>
+                            {r.tagihan &&
+                                (() => {
+                                    const chip = tagihanStatusChip(
+                                        r.tagihan.status,
+                                    );
+                                    return (
+                                        <StatusChip
+                                            label={chip.label}
+                                            tone={chip.tone}
+                                        />
+                                    );
+                                })()}
+                        </div>
 
-                    {r.tagihan ? (
-                        <div className="space-y-3">
-                            <div className="border-base-300 bg-base-200/40 grid grid-cols-1 gap-2 rounded-lg border p-3 text-sm sm:grid-cols-3">
-                                <div className="min-w-0">
-                                    <p className="text-muted text-xs">Total</p>
-                                    <p className="text-base-content font-semibold break-words">
-                                        {formatRupiah(totalTagihan)}
-                                    </p>
+                        {r.tagihan ? (
+                            <div className="space-y-3">
+                                <div className="border-base-300 bg-base-200/40 grid grid-cols-1 gap-2 rounded-lg border p-3 text-sm sm:grid-cols-3">
+                                    <div className="min-w-0">
+                                        <p className="text-muted text-xs">
+                                            Total
+                                        </p>
+                                        <p className="text-base-content font-semibold break-words">
+                                            {formatRupiah(totalTagihan)}
+                                        </p>
+                                    </div>
+                                    <div className="min-w-0">
+                                        <p className="text-muted text-xs">
+                                            Dibayar
+                                        </p>
+                                        <p className="text-base-content font-semibold break-words">
+                                            {formatRupiah(totalDibayar)}
+                                        </p>
+                                    </div>
+                                    <div className="min-w-0">
+                                        <p className="text-muted text-xs">
+                                            Sisa
+                                        </p>
+                                        <p className="text-base-content font-semibold break-words">
+                                            {formatRupiah(remaining)}
+                                        </p>
+                                    </div>
+                                    <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 border-t pt-2 text-xs sm:col-span-3">
+                                        <span className="text-base-content text-identifier min-w-0 font-semibold break-all">
+                                            ID Tagihan: {r.tagihan.nomor}
+                                        </span>
+                                        {(r.tagihan.dokumen?.length ?? 0) >
+                                        0 ? (
+                                            <div className="flex flex-wrap gap-2">
+                                                {r.tagihan.dokumen?.map(
+                                                    (doc) => (
+                                                        <a
+                                                            key={doc.id}
+                                                            href={billingDocument.url(
+                                                                {
+                                                                    document:
+                                                                        doc.id,
+                                                                },
+                                                            )}
+                                                            className="btn btn-ghost btn-xs gap-1"
+                                                        >
+                                                            <Download className="size-3.5" />
+                                                            Unduh {doc.jenis}
+                                                        </a>
+                                                    ),
+                                                )}
+                                            </div>
+                                        ) : !paymentUnlocked ? (
+                                            <span className="text-muted shrink-0">
+                                                Lengkapi berkas wajib terlebih
+                                                dahulu
+                                            </span>
+                                        ) : null}
+                                    </div>
                                 </div>
-                                <div className="min-w-0">
-                                    <p className="text-muted text-xs">
-                                        Dibayar
-                                    </p>
-                                    <p className="text-base-content font-semibold break-words">
-                                        {formatRupiah(totalDibayar)}
-                                    </p>
-                                </div>
-                                <div className="min-w-0">
-                                    <p className="text-muted text-xs">Sisa</p>
-                                    <p className="text-base-content font-semibold break-words">
-                                        {formatRupiah(remaining)}
-                                    </p>
-                                </div>
-                                <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 border-t pt-2 text-xs sm:col-span-3">
-                                    <span className="text-base-content text-identifier min-w-0 font-semibold break-all">
-                                        ID Tagihan: {r.tagihan.nomor}
-                                    </span>
-                                    {(r.tagihan.dokumen?.length ?? 0) > 0 ? (
-                                        <div className="flex flex-wrap gap-2">
-                                            {r.tagihan.dokumen?.map((doc) => (
-                                                <a
-                                                    key={doc.id}
-                                                    href={billingDocument.url({
-                                                        document: doc.id,
-                                                    })}
-                                                    className="btn btn-ghost btn-xs gap-1"
+
+                                {(r.tagihan.items?.length ?? 0) > 0 && (
+                                    <div className="border-base-300 bg-base-100 rounded-lg border p-3 text-xs">
+                                        <p className="text-base-content mb-2 font-semibold">
+                                            Rincian Tagihan
+                                        </p>
+                                        <div className="divide-base-200 divide-y">
+                                            {r.tagihan.items?.map((item) => (
+                                                <div
+                                                    key={item.id}
+                                                    className="flex items-start justify-between gap-3 py-1.5"
                                                 >
-                                                    <Download className="size-3.5" />
-                                                    Unduh {doc.jenis}
-                                                </a>
+                                                    <div className="min-w-0">
+                                                        <p className="text-base-content font-medium">
+                                                            {item.deskripsi}
+                                                        </p>
+                                                        <p className="text-muted">
+                                                            {item.kuantitas} ×{' '}
+                                                            {formatRupiah(
+                                                                Number(
+                                                                    item.harga_satuan,
+                                                                ),
+                                                            )}
+                                                        </p>
+                                                    </div>
+                                                    <span className="text-base-content shrink-0 font-semibold">
+                                                        {formatRupiah(
+                                                            Number(item.jumlah),
+                                                        )}
+                                                    </span>
+                                                </div>
                                             ))}
                                         </div>
-                                    ) : !paymentUnlocked ? (
-                                        <span className="text-muted shrink-0">
-                                            Lengkapi berkas wajib terlebih
-                                            dahulu
-                                        </span>
-                                    ) : null}
-                                </div>
-                            </div>
-
-                            {(r.tagihan.items?.length ?? 0) > 0 && (
-                                <div className="border-base-300 bg-base-100 rounded-lg border p-3 text-xs">
-                                    <p className="text-base-content mb-2 font-semibold">
-                                        Rincian Tagihan
-                                    </p>
-                                    <div className="divide-base-200 divide-y">
-                                        {r.tagihan.items?.map((item) => (
-                                            <div
-                                                key={item.id}
-                                                className="flex items-start justify-between gap-3 py-1.5"
-                                            >
-                                                <div className="min-w-0">
-                                                    <p className="text-base-content font-medium">
-                                                        {item.deskripsi}
-                                                    </p>
-                                                    <p className="text-muted">
-                                                        {item.kuantitas} ×{' '}
-                                                        {formatRupiah(
-                                                            Number(
-                                                                item.harga_satuan,
-                                                            ),
-                                                        )}
-                                                    </p>
-                                                </div>
-                                                <span className="text-base-content shrink-0 font-semibold">
+                                        {Number(r.tagihan.sponsor_total ?? 0) >
+                                            0 && (
+                                            <div className="border-base-200 mt-1.5 flex justify-between border-t pt-1.5">
+                                                <span className="text-muted">
+                                                    Tanggungan Institusi /
+                                                    Sponsor
+                                                    {r.tagihan.sponsor_name
+                                                        ? ` (${r.tagihan.sponsor_name})`
+                                                        : ''}
+                                                </span>
+                                                <span className="font-medium">
                                                     {formatRupiah(
-                                                        Number(item.jumlah),
+                                                        Number(
+                                                            r.tagihan
+                                                                .sponsor_total,
+                                                        ),
                                                     )}
                                                 </span>
                                             </div>
-                                        ))}
+                                        )}
                                     </div>
-                                    {Number(r.tagihan.sponsor_total ?? 0) >
-                                        0 && (
-                                        <div className="border-base-200 mt-1.5 flex justify-between border-t pt-1.5">
-                                            <span className="text-muted">
-                                                Tanggungan Institusi / Sponsor
-                                                {r.tagihan.sponsor_name
-                                                    ? ` (${r.tagihan.sponsor_name})`
-                                                    : ''}
-                                            </span>
-                                            <span className="font-medium">
-                                                {formatRupiah(
-                                                    Number(
-                                                        r.tagihan.sponsor_total,
+                                )}
+
+                                {(paymentUnlocked ||
+                                    hasPaymentSubmittedOrSettled ||
+                                    r.completed_at) &&
+                                    r.status !== 'cancelled' &&
+                                    (() => {
+                                        const invoicePayments =
+                                            r.tagihan?.pembayaran ?? [];
+                                        const pendingPayment =
+                                            invoicePayments.find(
+                                                (p) =>
+                                                    p.status ===
+                                                    'menunggu_verifikasi',
+                                            );
+                                        const latestVerified =
+                                            invoicePayments.find(
+                                                (p) => p.status === 'lunas',
+                                            );
+                                        const latestRejected = !pendingPayment
+                                            ? invoicePayments.find(
+                                                  (p) => p.status === 'ditolak',
+                                              )
+                                            : undefined;
+                                        const displayedProof =
+                                            pendingPayment ?? latestVerified;
+                                        const installments = (
+                                            r.tagihan?.jadwal_cicilan ?? []
+                                        )
+                                            .filter(
+                                                (t) => t.status !== 'diganti',
+                                            )
+                                            .sort(
+                                                (a, b) =>
+                                                    a.termin_ke - b.termin_ke,
+                                            );
+                                        let cumulative = 0;
+                                        let nextTerm:
+                                            | TagihanInstallmentSummary
+                                            | undefined;
+                                        let nextDue = remaining;
+                                        for (const term of installments) {
+                                            cumulative += Number(term.jumlah);
+                                            if (cumulative > totalDibayar) {
+                                                nextTerm = term;
+                                                nextDue = Math.min(
+                                                    remaining,
+                                                    Math.max(
+                                                        cumulative -
+                                                            totalDibayar,
+                                                        0,
                                                     ),
+                                                );
+                                                break;
+                                            }
+                                        }
+
+                                        return (
+                                            <div className="border-base-300 bg-base-100 space-y-4 rounded-xl border p-4">
+                                                {!displayedProof &&
+                                                    !r.completed_at && (
+                                                        <ReservationCountdown
+                                                            targetIso={
+                                                                r.reservation_expires_at ??
+                                                                r.tagihan
+                                                                    ?.jatuh_tempo
+                                                            }
+                                                            label="Batas waktu penyelesaian pembayaran"
+                                                        />
+                                                    )}
+
+                                                {installments.length > 0 && (
+                                                    <div className="border-base-200 bg-base-200/30 space-y-1.5 rounded-lg border p-3 text-xs">
+                                                        <p className="font-semibold">
+                                                            Jadwal Pembayaran /
+                                                            Termin
+                                                        </p>
+                                                        {installments.map(
+                                                            (term) => (
+                                                                <div
+                                                                    key={
+                                                                        term.id
+                                                                    }
+                                                                    className="flex justify-between gap-2"
+                                                                >
+                                                                    <span>
+                                                                        Termin{' '}
+                                                                        {
+                                                                            term.termin_ke
+                                                                        }{' '}
+                                                                        (Jatuh
+                                                                        tempo:{' '}
+                                                                        {formatDate(
+                                                                            term.jatuh_tempo,
+                                                                        )}
+                                                                        )
+                                                                    </span>
+                                                                    <span className="font-medium">
+                                                                        {formatRupiah(
+                                                                            Number(
+                                                                                term.jumlah,
+                                                                            ),
+                                                                        )}
+                                                                    </span>
+                                                                </div>
+                                                            ),
+                                                        )}
+                                                    </div>
                                                 )}
-                                            </span>
+
+                                                {displayedProof ? (
+                                                    <div
+                                                        className={`border-base-300 bg-base-200/40 space-y-2 rounded-lg border border-l-4 p-3.5 text-xs ${
+                                                            displayedProof.status ===
+                                                            'lunas'
+                                                                ? 'border-l-primary'
+                                                                : 'border-l-warning'
+                                                        }`}
+                                                    >
+                                                        <div className="flex flex-wrap items-center justify-between gap-2">
+                                                            <span className="text-sm font-semibold">
+                                                                {displayedProof.status ===
+                                                                'lunas'
+                                                                    ? 'Pembayaran Terverifikasi (Lunas)'
+                                                                    : 'Menunggu Verifikasi Pengelola'}
+                                                            </span>
+                                                            <StatusChip
+                                                                label={
+                                                                    displayedProof.status ===
+                                                                    'lunas'
+                                                                        ? 'Lunas'
+                                                                        : 'Menunggu Verifikasi'
+                                                                }
+                                                                tone={
+                                                                    displayedProof.status ===
+                                                                    'lunas'
+                                                                        ? 'success'
+                                                                        : 'warning'
+                                                                }
+                                                            />
+                                                        </div>
+                                                        <p className="text-muted">
+                                                            Bukti transfer
+                                                            sebesar{' '}
+                                                            <strong>
+                                                                {formatRupiah(
+                                                                    Number(
+                                                                        displayedProof.nominal,
+                                                                    ),
+                                                                )}
+                                                            </strong>{' '}
+                                                            (
+                                                            {
+                                                                displayedProof.kode_transaksi
+                                                            }
+                                                            ) telah diterima
+                                                            sistem.
+                                                        </p>
+                                                        {displayedProof.rekening_tujuan && (
+                                                            <p className="text-muted">
+                                                                Tujuan:{' '}
+                                                                {
+                                                                    displayedProof.rekening_tujuan
+                                                                }
+                                                            </p>
+                                                        )}
+                                                        {(displayedProof.nama_bank ||
+                                                            displayedProof.atas_nama_pengirim) && (
+                                                            <p className="text-muted">
+                                                                Pengirim:{' '}
+                                                                {displayedProof.nama_bank ||
+                                                                    '-'}{' '}
+                                                                {displayedProof.nomor_rekening_pengirim
+                                                                    ? `· ${displayedProof.nomor_rekening_pengirim}`
+                                                                    : ''}
+                                                                {displayedProof.atas_nama_pengirim
+                                                                    ? ` a.n. ${displayedProof.atas_nama_pengirim}`
+                                                                    : ''}
+                                                            </p>
+                                                        )}
+                                                        {(displayedProof.tanggal_bayar ||
+                                                            displayedProof.created_at) && (
+                                                            <p className="text-muted">
+                                                                Waktu transfer:{' '}
+                                                                {formatDateTime(
+                                                                    displayedProof.tanggal_bayar ??
+                                                                        displayedProof.created_at,
+                                                                )}
+                                                            </p>
+                                                        )}
+                                                        <div className="flex flex-wrap gap-2 pt-1">
+                                                            <a
+                                                                href={pembayaranBukti.url(
+                                                                    displayedProof.id,
+                                                                )}
+                                                                className="btn btn-outline btn-xs gap-1"
+                                                            >
+                                                                <Download className="size-3.5" />
+                                                                Unduh Bukti
+                                                                Transfer
+                                                            </a>
+                                                        </div>
+                                                    </div>
+                                                ) : !r.completed_at ? (
+                                                    <>
+                                                        {latestRejected && (
+                                                            <div className="alert alert-error text-xs">
+                                                                <AlertTriangle className="size-4 shrink-0" />
+                                                                <span>
+                                                                    Bukti
+                                                                    pembayaran
+                                                                    sebelumnya
+                                                                    ditolak:{' '}
+                                                                    <strong>
+                                                                        {latestRejected.catatan_verifikasi ||
+                                                                            'Periksa kembali nominal atau lampiran bukti.'}
+                                                                    </strong>
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                        {remaining > 0 && (
+                                                            <PaymentAccountsBox
+                                                                paymentAccounts={
+                                                                    paymentAccounts
+                                                                }
+                                                                virtualAccounts={
+                                                                    virtualAccounts
+                                                                }
+                                                                compact
+                                                            />
+                                                        )}
+                                                        {remaining > 0 && (
+                                                            <div className="border-base-300 bg-base-200/30 space-y-3 rounded-xl border p-4">
+                                                                <h4 className="text-sm font-semibold">
+                                                                    Unggah Bukti
+                                                                    Pembayaran
+                                                                </h4>
+                                                                <PaymentProofForm
+                                                                    key={
+                                                                        r
+                                                                            .tagihan!
+                                                                            .id
+                                                                    }
+                                                                    tagihanId={
+                                                                        r
+                                                                            .tagihan!
+                                                                            .id
+                                                                    }
+                                                                    totalRemaining={
+                                                                        remaining
+                                                                    }
+                                                                    dueAmount={
+                                                                        nextDue
+                                                                    }
+                                                                    terminKe={
+                                                                        nextTerm?.termin_ke ??
+                                                                        null
+                                                                    }
+                                                                    jenisPembayaran={
+                                                                        nextTerm
+                                                                            ? 'cicilan'
+                                                                            : 'sewa_asrama'
+                                                                    }
+                                                                    paymentAccounts={
+                                                                        paymentAccounts
+                                                                    }
+                                                                />
+                                                            </div>
+                                                        )}
+                                                    </>
+                                                ) : null}
+                                            </div>
+                                        );
+                                    })()}
+
+                                {!paymentUnlocked &&
+                                    !isKipkExempt &&
+                                    !r.completed_at &&
+                                    r.status !== 'cancelled' && (
+                                        <div className="border-base-300 bg-base-200/40 rounded-lg border p-3 text-xs">
+                                            <p className="font-semibold">
+                                                Tahap Pembayaran Belum Dibuka
+                                            </p>
+                                            <p className="text-muted mt-0.5">
+                                                Lengkapi unggahan seluruh berkas
+                                                wajib pada panel Berkas
+                                                Pendaftaran agar akses
+                                                pembayaran langsung terbuka
+                                                (verifikasi berkas akan
+                                                dilakukan petugas saat
+                                                check-in).
+                                            </p>
                                         </div>
+                                    )}
+
+                                {Boolean(room) &&
+                                    (r.completed_at ||
+                                        r.ready_at ||
+                                        hasPaymentSubmittedOrSettled) &&
+                                    r.status !== 'cancelled' && (
+                                        <div className="flex justify-end">
+                                            <Link
+                                                href={detailKamarRoute.url()}
+                                                className="btn btn-primary btn-sm gap-1.5"
+                                            >
+                                                <span>Buka Kamar Saya</span>
+                                                <ArrowRight className="size-4" />
+                                            </Link>
+                                        </div>
+                                    )}
+                            </div>
+                        ) : (
+                            <div className="bg-base-200/50 text-muted rounded-lg p-3 text-sm">
+                                Tagihan belum diterbitkan. Menunggu alokasi atau
+                                verifikasi pendaftaran.
+                            </div>
+                        )}
+
+                        {/* Saved Decision Read-Only Card (hide automatic Bayar penuh card) */}
+                        {visibleSavedDecisions.map((d) => {
+                            const decisionChip = decisionStatusChip(d.status);
+                            return (
+                                <div
+                                    key={d.id}
+                                    className="border-base-300 bg-base-200/30 space-y-2 rounded-lg border p-3.5"
+                                >
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                        <p className="text-sm font-semibold">
+                                            {DECISION_LABELS[d.kind] ?? d.kind}
+                                        </p>
+                                        <StatusChip
+                                            label={decisionChip.label}
+                                            tone={decisionChip.tone}
+                                        />
+                                    </div>
+                                    <p className="text-muted flex items-center gap-1.5 text-xs">
+                                        <ShieldCheck
+                                            className="size-3.5 shrink-0"
+                                            aria-hidden="true"
+                                        />
+                                        Pilihan pembiayaan telah tersimpan
+                                        permanen.
+                                    </p>
+                                    {d.reason && (
+                                        <p className="text-xs">
+                                            <strong>Alasan:</strong> {d.reason}
+                                        </p>
+                                    )}
+                                    {d.terms?.notes && (
+                                        <p className="text-xs">
+                                            <strong>Catatan pengelola:</strong>{' '}
+                                            {d.terms.notes}
+                                        </p>
+                                    )}
+                                    {d.terms?.initial_amount !== undefined && (
+                                        <p className="text-xs">
+                                            <strong>
+                                                Pembayaran awal wajib:
+                                            </strong>{' '}
+                                            {formatRupiah(
+                                                Number(d.terms.initial_amount),
+                                            )}
+                                        </p>
+                                    )}
+                                    {(d.terms?.schedule?.length ?? 0) > 0 && (
+                                        <div className="border-base-300 mt-1 space-y-1 border-t pt-2 text-xs">
+                                            <p className="font-medium">
+                                                Jadwal Termin Disetujui:
+                                            </p>
+                                            {d.terms?.schedule?.map(
+                                                (term, idx) => (
+                                                    <div
+                                                        key={idx}
+                                                        className="flex justify-between"
+                                                    >
+                                                        <span>
+                                                            Termin {idx + 1} (
+                                                            {formatDate(
+                                                                term.jatuh_tempo,
+                                                            )}
+                                                            )
+                                                        </span>
+                                                        <span className="font-medium">
+                                                            {formatRupiah(
+                                                                Number(
+                                                                    term.jumlah,
+                                                                ),
+                                                            )}
+                                                        </span>
+                                                    </div>
+                                                ),
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
+
+                        {rejectedDecisions.map((d) => {
+                            const decisionChip = decisionStatusChip(d.status);
+                            return (
+                                <div
+                                    key={d.id}
+                                    className="border-base-300 border-l-error bg-base-100 space-y-1 rounded-lg border border-l-4 p-3 text-xs"
+                                >
+                                    <div className="flex items-center justify-between">
+                                        <span className="font-semibold">
+                                            {DECISION_LABELS[d.kind] ?? d.kind}
+                                        </span>
+                                        <StatusChip
+                                            label={decisionChip.label}
+                                            tone={decisionChip.tone}
+                                        />
+                                    </div>
+                                    {d.terms?.notes && (
+                                        <p>Catatan: {d.terms.notes}</p>
+                                    )}
+                                </div>
+                            );
+                        })}
+
+                        {/* Decision selector ONLY when additional monthly/transfer scheme is actually available */}
+                        {canChooseFinancing &&
+                            (hasMonthlyOption || hasTransferOption) && (
+                                <div className="border-base-300 bg-base-200/30 space-y-3 rounded-lg border p-3.5">
+                                    <p className="text-sm font-semibold">
+                                        Jenis Pembayaran
+                                    </p>
+                                    <p className="text-muted text-xs">
+                                        Pilihan ini akan dikunci permanen
+                                        setelah Anda menekan tombol simpan di
+                                        bawah.
+                                    </p>
+                                    <label className="block space-y-1">
+                                        <span className="text-xs font-medium">
+                                            Jenis Pembayaran
+                                        </span>
+                                        <select
+                                            className="select select-bordered select-sm w-full"
+                                            value={decisionKind}
+                                            onChange={(e) =>
+                                                setDecisionKind(e.target.value)
+                                            }
+                                        >
+                                            <option value="full">
+                                                Bayar penuh sesuai tagihan
+                                            </option>
+                                            {hasMonthlyOption && (
+                                                <option value="monthly">
+                                                    Ajukan skema bulanan
+                                                </option>
+                                            )}
+                                            {hasTransferOption && (
+                                                <option value="transfer_permission">
+                                                    Izin tinggal berbasis bukti
+                                                    transfer
+                                                </option>
+                                            )}
+                                        </select>
+                                    </label>
+                                    {decisionKind !== 'full' && (
+                                        <label className="block space-y-1">
+                                            <span className="text-xs font-medium">
+                                                Alasan Permohonan{' '}
+                                                <span className="text-error">
+                                                    *
+                                                </span>
+                                            </span>
+                                            <textarea
+                                                className="textarea textarea-bordered textarea-sm w-full"
+                                                rows={2}
+                                                value={decisionReason}
+                                                onChange={(e) =>
+                                                    setDecisionReason(
+                                                        e.target.value,
+                                                    )
+                                                }
+                                                placeholder="Jelaskan alasan pengajuan skema pembiayaan ini"
+                                            />
+                                            {errors.decision_reason && (
+                                                <p className="text-error text-xs">
+                                                    {errors.decision_reason}
+                                                </p>
+                                            )}
+                                        </label>
+                                    )}
+                                    {errors.decision_kind && (
+                                        <p className="text-error text-xs">
+                                            {errors.decision_kind}
+                                        </p>
                                     )}
                                 </div>
                             )}
 
-                            {(paymentUnlocked ||
-                                hasPaymentSubmittedOrSettled ||
-                                r.completed_at) &&
-                                r.status !== 'cancelled' &&
-                                (() => {
-                                    const invoicePayments =
-                                        r.tagihan?.pembayaran ?? [];
-                                    const pendingPayment = invoicePayments.find(
-                                        (p) =>
-                                            p.status === 'menunggu_verifikasi',
-                                    );
-                                    const latestVerified = invoicePayments.find(
-                                        (p) => p.status === 'lunas',
-                                    );
-                                    const latestRejected = !pendingPayment
-                                        ? invoicePayments.find(
-                                              (p) => p.status === 'ditolak',
-                                          )
-                                        : undefined;
-                                    const displayedProof =
-                                        pendingPayment ?? latestVerified;
-                                    const installments = (
-                                        r.tagihan?.jadwal_cicilan ?? []
-                                    )
-                                        .filter((t) => t.status !== 'diganti')
-                                        .sort(
-                                            (a, b) => a.termin_ke - b.termin_ke,
-                                        );
-                                    let cumulative = 0;
-                                    let nextTerm:
-                                        | TagihanInstallmentSummary
-                                        | undefined;
-                                    let nextDue = remaining;
-                                    for (const term of installments) {
-                                        cumulative += Number(term.jumlah);
-                                        if (cumulative > totalDibayar) {
-                                            nextTerm = term;
-                                            nextDue = Math.min(
-                                                remaining,
-                                                Math.max(
-                                                    cumulative - totalDibayar,
-                                                    0,
-                                                ),
-                                            );
-                                            break;
-                                        }
-                                    }
-
-                                    return (
-                                        <div className="border-base-300 bg-base-100 space-y-4 rounded-xl border p-4">
-                                            {!displayedProof &&
-                                                !r.completed_at && (
-                                                    <ReservationCountdown
-                                                        targetIso={
-                                                            r.reservation_expires_at ??
-                                                            r.tagihan
-                                                                ?.jatuh_tempo
-                                                        }
-                                                        label="Batas waktu penyelesaian pembayaran"
-                                                    />
-                                                )}
-
-                                            {installments.length > 0 && (
-                                                <div className="border-base-200 bg-base-200/30 space-y-1.5 rounded-lg border p-3 text-xs">
-                                                    <p className="font-semibold">
-                                                        Jadwal Pembayaran /
-                                                        Termin
-                                                    </p>
-                                                    {installments.map(
-                                                        (term) => (
-                                                            <div
-                                                                key={term.id}
-                                                                className="flex justify-between gap-2"
-                                                            >
-                                                                <span>
-                                                                    Termin{' '}
-                                                                    {
-                                                                        term.termin_ke
-                                                                    }{' '}
-                                                                    (Jatuh
-                                                                    tempo:{' '}
-                                                                    {formatDate(
-                                                                        term.jatuh_tempo,
-                                                                    )}
-                                                                    )
-                                                                </span>
-                                                                <span className="font-medium">
-                                                                    {formatRupiah(
-                                                                        Number(
-                                                                            term.jumlah,
-                                                                        ),
-                                                                    )}
-                                                                </span>
-                                                            </div>
-                                                        ),
-                                                    )}
-                                                </div>
-                                            )}
-
-                                            {displayedProof ? (
-                                                <div
-                                                    className={`border-base-300 bg-base-200/40 space-y-2 rounded-lg border border-l-4 p-3.5 text-xs ${
-                                                        displayedProof.status ===
-                                                        'lunas'
-                                                            ? 'border-l-primary'
-                                                            : 'border-l-warning'
-                                                    }`}
-                                                >
-                                                    <div className="flex flex-wrap items-center justify-between gap-2">
-                                                        <span className="text-sm font-semibold">
-                                                            {displayedProof.status ===
-                                                            'lunas'
-                                                                ? 'Pembayaran Terverifikasi (Lunas)'
-                                                                : 'Menunggu Verifikasi Pengelola'}
-                                                        </span>
-                                                        <StatusChip
-                                                            label={
-                                                                displayedProof.status ===
-                                                                'lunas'
-                                                                    ? 'Lunas'
-                                                                    : 'Menunggu Verifikasi'
-                                                            }
-                                                            tone={
-                                                                displayedProof.status ===
-                                                                'lunas'
-                                                                    ? 'success'
-                                                                    : 'warning'
-                                                            }
-                                                        />
-                                                    </div>
-                                                    <p className="text-muted">
-                                                        Bukti transfer sebesar{' '}
-                                                        <strong>
-                                                            {formatRupiah(
-                                                                Number(
-                                                                    displayedProof.nominal,
-                                                                ),
-                                                            )}
-                                                        </strong>{' '}
-                                                        (
-                                                        {
-                                                            displayedProof.kode_transaksi
-                                                        }
-                                                        ) telah diterima sistem.
-                                                    </p>
-                                                    {displayedProof.rekening_tujuan && (
-                                                        <p className="text-muted">
-                                                            Tujuan:{' '}
-                                                            {
-                                                                displayedProof.rekening_tujuan
-                                                            }
-                                                        </p>
-                                                    )}
-                                                    {(displayedProof.nama_bank ||
-                                                        displayedProof.atas_nama_pengirim) && (
-                                                        <p className="text-muted">
-                                                            Pengirim:{' '}
-                                                            {displayedProof.nama_bank ||
-                                                                '-'}{' '}
-                                                            {displayedProof.nomor_rekening_pengirim
-                                                                ? `· ${displayedProof.nomor_rekening_pengirim}`
-                                                                : ''}
-                                                            {displayedProof.atas_nama_pengirim
-                                                                ? ` a.n. ${displayedProof.atas_nama_pengirim}`
-                                                                : ''}
-                                                        </p>
-                                                    )}
-                                                    {(displayedProof.tanggal_bayar ||
-                                                        displayedProof.created_at) && (
-                                                        <p className="text-muted">
-                                                            Waktu transfer:{' '}
-                                                            {formatDateTime(
-                                                                displayedProof.tanggal_bayar ??
-                                                                    displayedProof.created_at,
-                                                            )}
-                                                        </p>
-                                                    )}
-                                                    <div className="flex flex-wrap gap-2 pt-1">
-                                                        <a
-                                                            href={pembayaranBukti.url(
-                                                                displayedProof.id,
-                                                            )}
-                                                            className="btn btn-outline btn-xs gap-1"
-                                                        >
-                                                            <Download className="size-3.5" />
-                                                            Unduh Bukti Transfer
-                                                        </a>
-                                                    </div>
-                                                </div>
-                                            ) : !r.completed_at ? (
-                                                <>
-                                                    {latestRejected && (
-                                                        <div className="alert alert-error text-xs">
-                                                            <AlertTriangle className="size-4 shrink-0" />
-                                                            <span>
-                                                                Bukti pembayaran
-                                                                sebelumnya
-                                                                ditolak:{' '}
-                                                                <strong>
-                                                                    {latestRejected.catatan_verifikasi ||
-                                                                        'Periksa kembali nominal atau lampiran bukti.'}
-                                                                </strong>
-                                                            </span>
-                                                        </div>
-                                                    )}
-                                                    {remaining > 0 && (
-                                                        <PaymentAccountsBox
-                                                            paymentAccounts={
-                                                                paymentAccounts
-                                                            }
-                                                            virtualAccounts={
-                                                                virtualAccounts
-                                                            }
-                                                            compact
-                                                        />
-                                                    )}
-                                                    {remaining > 0 && (
-                                                        <div className="border-base-300 bg-base-200/30 space-y-3 rounded-xl border p-4">
-                                                            <h4 className="text-sm font-semibold">
-                                                                Unggah Bukti
-                                                                Pembayaran
-                                                            </h4>
-                                                            <PaymentProofForm
-                                                                key={
-                                                                    r.tagihan!
-                                                                        .id
-                                                                }
-                                                                tagihanId={
-                                                                    r.tagihan!
-                                                                        .id
-                                                                }
-                                                                totalRemaining={
-                                                                    remaining
-                                                                }
-                                                                dueAmount={
-                                                                    nextDue
-                                                                }
-                                                                terminKe={
-                                                                    nextTerm?.termin_ke ??
-                                                                    null
-                                                                }
-                                                                jenisPembayaran={
-                                                                    nextTerm
-                                                                        ? 'cicilan'
-                                                                        : 'sewa_asrama'
-                                                                }
-                                                                paymentAccounts={
-                                                                    paymentAccounts
-                                                                }
-                                                            />
-                                                        </div>
-                                                    )}
-                                                </>
-                                            ) : null}
-                                        </div>
-                                    );
-                                })()}
-
-                            {!paymentUnlocked &&
-                                !isKipkExempt &&
-                                !r.completed_at &&
-                                r.status !== 'cancelled' && (
-                                    <div className="border-base-300 bg-base-200/40 rounded-lg border p-3 text-xs">
-                                        <p className="font-semibold">
-                                            Tahap Pembayaran Belum Dibuka
-                                        </p>
-                                        <p className="text-muted mt-0.5">
-                                            Lengkapi unggahan seluruh berkas
-                                            wajib pada panel Berkas Pendaftaran
-                                            agar akses pembayaran langsung
-                                            terbuka (verifikasi berkas akan
-                                            dilakukan petugas saat check-in).
-                                        </p>
-                                    </div>
-                                )}
-
-                            {(r.completed_at || r.ready_at) &&
-                                r.status !== 'cancelled' && (
-                                    <div className="flex justify-end">
-                                        <Link
-                                            href={detailKamarRoute.url()}
-                                            className="btn btn-primary btn-sm gap-1.5"
-                                        >
-                                            <span>Buka Kamar Saya</span>
-                                            <ArrowRight className="size-4" />
-                                        </Link>
-                                    </div>
-                                )}
-                        </div>
-                    ) : (
-                        <div className="bg-base-200/50 text-muted rounded-lg p-3 text-sm">
-                            Tagihan belum diterbitkan. Menunggu alokasi atau
-                            verifikasi pendaftaran.
-                        </div>
-                    )}
-
-                    {isKipkExempt && (
-                        <div className="border-base-300 bg-base-200/40 rounded-lg border p-3.5 text-sm">
-                            <p className="font-semibold">Skema KIP-K Aktif</p>
-                            <p className="text-muted mt-0.5 text-xs">
-                                Biaya hunian ditanggung melalui skema KIP-K
-                                sesuai ketentuan asrama. Tidak perlu memilih
-                                cicilan atau penundaan pembayaran pribadi.
-                            </p>
-                        </div>
-                    )}
-
-                    {/* Saved Decision Read-Only Card (hide automatic Bayar penuh card) */}
-                    {visibleSavedDecisions.map((d) => {
-                        const decisionChip = decisionStatusChip(d.status);
-                        return (
-                            <div
-                                key={d.id}
-                                className="border-base-300 bg-base-200/30 space-y-2 rounded-lg border p-3.5"
-                            >
-                                <div className="flex flex-wrap items-center justify-between gap-2">
-                                    <p className="text-sm font-semibold">
-                                        {DECISION_LABELS[d.kind] ?? d.kind}
-                                    </p>
-                                    <StatusChip
-                                        label={decisionChip.label}
-                                        tone={decisionChip.tone}
-                                    />
-                                </div>
-                                <p className="text-muted flex items-center gap-1.5 text-xs">
-                                    <ShieldCheck
-                                        className="size-3.5 shrink-0"
-                                        aria-hidden="true"
-                                    />
-                                    Pilihan pembiayaan telah tersimpan permanen.
+                        {(r.amendments?.length ?? 0) > 0 && (
+                            <div className="border-base-300 bg-base-200/40 space-y-1.5 rounded-lg border p-3 text-xs">
+                                <p className="font-semibold">
+                                    Riwayat Koreksi Pembiayaan
                                 </p>
-                                {d.reason && (
-                                    <p className="text-xs">
-                                        <strong>Alasan:</strong> {d.reason}
+                                {r.amendments?.map((am) => (
+                                    <p key={am.id}>
+                                        <span className="font-medium">
+                                            {am.kind}
+                                        </span>{' '}
+                                        — {am.reason} (
+                                        {formatDate(am.created_at)})
                                     </p>
-                                )}
-                                {d.terms?.notes && (
-                                    <p className="text-xs">
-                                        <strong>Catatan pengelola:</strong>{' '}
-                                        {d.terms.notes}
-                                    </p>
-                                )}
-                                {d.terms?.initial_amount !== undefined && (
-                                    <p className="text-xs">
-                                        <strong>Pembayaran awal wajib:</strong>{' '}
-                                        {formatRupiah(
-                                            Number(d.terms.initial_amount),
-                                        )}
-                                    </p>
-                                )}
-                                {(d.terms?.schedule?.length ?? 0) > 0 && (
-                                    <div className="border-base-300 mt-1 space-y-1 border-t pt-2 text-xs">
-                                        <p className="font-medium">
-                                            Jadwal Termin Disetujui:
-                                        </p>
-                                        {d.terms?.schedule?.map((term, idx) => (
-                                            <div
-                                                key={idx}
-                                                className="flex justify-between"
-                                            >
-                                                <span>
-                                                    Termin {idx + 1} (
-                                                    {formatDate(
-                                                        term.jatuh_tempo,
-                                                    )}
-                                                    )
-                                                </span>
-                                                <span className="font-medium">
-                                                    {formatRupiah(
-                                                        Number(term.jumlah),
-                                                    )}
-                                                </span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        );
-                    })}
-
-                    {rejectedDecisions.map((d) => {
-                        const decisionChip = decisionStatusChip(d.status);
-                        return (
-                            <div
-                                key={d.id}
-                                className="border-base-300 border-l-error bg-base-100 space-y-1 rounded-lg border border-l-4 p-3 text-xs"
-                            >
-                                <div className="flex items-center justify-between">
-                                    <span className="font-semibold">
-                                        {DECISION_LABELS[d.kind] ?? d.kind}
-                                    </span>
-                                    <StatusChip
-                                        label={decisionChip.label}
-                                        tone={decisionChip.tone}
-                                    />
-                                </div>
-                                {d.terms?.notes && (
-                                    <p>Catatan: {d.terms.notes}</p>
-                                )}
-                            </div>
-                        );
-                    })}
-
-                    {/* Decision selector ONLY when additional monthly/transfer scheme is actually available */}
-                    {canChooseFinancing &&
-                        (hasMonthlyOption || hasTransferOption) && (
-                            <div className="border-base-300 bg-base-200/30 space-y-3 rounded-lg border p-3.5">
-                                <p className="text-sm font-semibold">
-                                    Jenis Pembayaran
-                                </p>
-                                <p className="text-muted text-xs">
-                                    Pilihan ini akan dikunci permanen setelah
-                                    Anda menekan tombol simpan di bawah.
-                                </p>
-                                <label className="block space-y-1">
-                                    <span className="text-xs font-medium">
-                                        Jenis Pembayaran
-                                    </span>
-                                    <select
-                                        className="select select-bordered select-sm w-full"
-                                        value={decisionKind}
-                                        onChange={(e) =>
-                                            setDecisionKind(e.target.value)
-                                        }
-                                    >
-                                        <option value="full">
-                                            Bayar penuh sesuai tagihan
-                                        </option>
-                                        {hasMonthlyOption && (
-                                            <option value="monthly">
-                                                Ajukan skema bulanan
-                                            </option>
-                                        )}
-                                        {hasTransferOption && (
-                                            <option value="transfer_permission">
-                                                Izin tinggal berbasis bukti
-                                                transfer
-                                            </option>
-                                        )}
-                                    </select>
-                                </label>
-                                {decisionKind !== 'full' && (
-                                    <label className="block space-y-1">
-                                        <span className="text-xs font-medium">
-                                            Alasan Permohonan{' '}
-                                            <span className="text-error">
-                                                *
-                                            </span>
-                                        </span>
-                                        <textarea
-                                            className="textarea textarea-bordered textarea-sm w-full"
-                                            rows={2}
-                                            value={decisionReason}
-                                            onChange={(e) =>
-                                                setDecisionReason(
-                                                    e.target.value,
-                                                )
-                                            }
-                                            placeholder="Jelaskan alasan pengajuan skema pembiayaan ini"
-                                        />
-                                        {errors.decision_reason && (
-                                            <p className="text-error text-xs">
-                                                {errors.decision_reason}
-                                            </p>
-                                        )}
-                                    </label>
-                                )}
-                                {errors.decision_kind && (
-                                    <p className="text-error text-xs">
-                                        {errors.decision_kind}
-                                    </p>
-                                )}
+                                ))}
                             </div>
                         )}
-
-                    {(r.amendments?.length ?? 0) > 0 && (
-                        <div className="border-base-300 bg-base-200/40 space-y-1.5 rounded-lg border p-3 text-xs">
-                            <p className="font-semibold">
-                                Riwayat Koreksi Pembiayaan
-                            </p>
-                            {r.amendments?.map((am) => (
-                                <p key={am.id}>
-                                    <span className="font-medium">
-                                        {am.kind}
-                                    </span>{' '}
-                                    — {am.reason} ({formatDate(am.created_at)})
-                                </p>
-                            ))}
-                        </div>
-                    )}
-                </div>
+                    </div>
+                )}
             </div>
 
             {errors.package && (

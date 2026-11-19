@@ -1,7 +1,4 @@
-import {
-    StatCard,
-    StatusBadge,
-} from '@/andalas/components/ui';
+import { StatCard, StatusBadge } from '@/andalas/components/ui';
 import { formatRupiah } from '@/andalas/lib/format';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useState } from 'react';
@@ -21,9 +18,7 @@ export default function ResidenceWorkflowPage(props: WorkflowProps) {
     const tab = props.section ?? 'registrations';
     const { errors } = usePage().props;
 
-    const [searchQuery, setSearchQuery] = useState(
-        props.filters?.search ?? '',
-    );
+    const [searchQuery, setSearchQuery] = useState(props.filters?.search ?? '');
     const [statusFilter, setStatusFilter] = useState(
         props.filters?.status ?? '',
     );
@@ -173,8 +168,8 @@ export default function ResidenceWorkflowPage(props: WorkflowProps) {
                     <span>
                         Menampilkan pengajuan penghuni pada gedung penugasan
                         Anda untuk pemeriksaan berkas pendaftaran dan serah
-                        kunci. Verifikasi serta rekonsiliasi pembayaran
-                        dikelola oleh Pengelola.
+                        kunci. Verifikasi serta rekonsiliasi pembayaran dikelola
+                        oleh Pengelola.
                     </span>
                 </div>
             )}
@@ -221,7 +216,7 @@ export default function ResidenceWorkflowPage(props: WorkflowProps) {
                             role={props.role}
                         />
                     ) : (
-                        <div className="bg-base-100 border-base-300 min-w-0 max-w-full space-y-4 overflow-hidden rounded-xl border p-4 shadow-xs">
+                        <div className="bg-base-100 border-base-300 max-w-full min-w-0 space-y-4 overflow-hidden rounded-xl border p-4 shadow-xs">
                             <form
                                 onSubmit={applyRegistrationFilters}
                                 className="flex flex-wrap items-center gap-2"
@@ -357,8 +352,11 @@ export default function ResidenceWorkflowPage(props: WorkflowProps) {
                                                                 ·{' '}
                                                                 {r.billing_basis ===
                                                                 'room'
-                                                                    ? 'Per kamar'
-                                                                    : 'Per orang'}
+                                                                    ? 'Per Kamar'
+                                                                    : r.billing_basis ===
+                                                                        'group'
+                                                                      ? 'Per Grup'
+                                                                      : 'Per Penghuni'}
                                                             </div>
                                                         </td>
                                                         <td>
@@ -424,12 +422,35 @@ export default function ResidenceWorkflowPage(props: WorkflowProps) {
                                                             )}
                                                         </td>
                                                         <td className="text-right">
-                                                            <Link
-                                                                href={`/residence-process/registrations/${r.id}`}
-                                                                className="btn btn-primary btn-xs"
-                                                            >
-                                                                Detail
-                                                            </Link>
+                                                            <div className="flex flex-wrap justify-end gap-1.5">
+                                                                {props.manager &&
+                                                                    !r.completed_at &&
+                                                                    !r.keys_returned_at &&
+                                                                    !r.is_kipk &&
+                                                                    r.tagihan &&
+                                                                    ![
+                                                                        'rejected',
+                                                                        'cancelled',
+                                                                    ].includes(
+                                                                        r.status,
+                                                                    ) && (
+                                                                        <Link
+                                                                            href={`/residence-process/registrations/${r.id}#atur-skema`}
+                                                                            className="btn btn-outline btn-xs"
+                                                                        >
+                                                                            Atur
+                                                                            Skema
+                                                                            /
+                                                                            Cicilan
+                                                                        </Link>
+                                                                    )}
+                                                                <Link
+                                                                    href={`/residence-process/registrations/${r.id}`}
+                                                                    className="btn btn-primary btn-xs"
+                                                                >
+                                                                    Detail
+                                                                </Link>
+                                                            </div>
                                                         </td>
                                                     </tr>
                                                 ),

@@ -3,14 +3,19 @@
 use App\Enums\TagihanStatus;
 use App\Models\Gedung;
 use App\Models\Kamar;
+use App\Models\KipkRecipient;
 use App\Models\Lantai;
+use App\Models\MahasiswaProfil;
 use App\Models\PaymentBankAccount;
 use App\Models\Pembayaran;
+use App\Models\Prodi;
 use App\Models\ResidencePaymentReference;
 use App\Models\ResidencePolicy;
 use App\Models\ResidenceRate;
 use App\Models\ResidenceRegistration;
+use App\Models\RoomInvitation;
 use App\Models\User;
+use App\Services\ResidenceWorkflow;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Notification;
@@ -766,4 +771,332 @@ it('exposes international/S2/S3 policy_category when an S2 local student opens r
             ->where('policy_open', false)
             ->where('policy_category', 'international')
             ->where('policy_closed_reason', 'Pendaftaran kategori ini belum dibuka. Pengelola perlu menerbitkan konfigurasi tarif, dokumen, dan gedung yang lengkap.'));
+});
+
+it('enforces Per Grup mandatory invitation, 5 roommate invitation rules, room locking, and equal billing split after invitee acceptance', function () {
+    $f = toBeFixture('local_non_kipk', 4);
+    $settings = $f['policy']->settings;
+    $settings['rates'] = [[
+        'gedung_id' => $f['building']->id,
+        'type' => $f['room']->tipe_kamar,
+        'unit' => 'year',
+        'amount' => '2500000',
+        'room_amount' => '10000000',
+    ]];
+    $f['policy']->update(['settings' => $settings]);
+
+    // 1. Per Grup requires at least 1 invitee NIM
+    $this->actingAs($f['user'])
+        ->post(route('andalas.registrations.store'), [
+            'periode_id' => $f['period']->id,
+            'billing_basis' => 'group',
+            'preferences' => [['kamar_id' => $f['room']->id]],
+            'invitee_nims' => [],
+        ])
+        ->assertSessionHasErrors('invitee_nims');
+
+    $makeFriend = function (string $nim, string $gender, string $prodiId, int $angkatan = 2025): User {
+        $friend = User::factory()->student()->create(['gender' => $gender, 'nim_nip' => $nim])->assignRole('mahasiswa');
+        $profile = MahasiswaProfil::create([
+            'user_id' => $friend->id,
+            'prodi_id' => $prodiId,
+            'angkatan' => (string) $angkatan,
+            'status_huni' => 'calon',
+            'barcode_code' => fake()->uuid(),
+        ]);
+        withHousingIdentity($profile);
+
+        return $friend;
+    };
+
+    // Rule 1: Invitee must have same gender
+    $makeFriend('2211529001', 'laki_laki', $f['program']->id);
+
+    $this->actingAs($f['user'])
+        ->post(route('andalas.registrations.store'), [
+            'periode_id' => $f['period']->id,
+            'billing_basis' => 'group',
+            'preferences' => [['kamar_id' => $f['room']->id]],
+            'invitee_nims' => ['2211529001'],
+        ])
+        ->assertSessionHasErrors('invitee_nims.0');
+    expect(session('errors')->first('invitee_nims.0'))->toContain('jenis kelamin sama');
+
+    // Rule 2: Invitee cannot be a KIP-K student
+    $makeFriend('2211529002', 'perempuan', $f['program']->id, 2026);
+    KipkRecipient::create(['nim' => '2211529002', 'angkatan' => 2026, 'nama' => 'Mahasiswa KIPK']);
+
+    $this->actingAs($f['user'])
+        ->post(route('andalas.registrations.store'), [
+            'periode_id' => $f['period']->id,
+            'billing_basis' => 'group',
+            'preferences' => [['kamar_id' => $f['room']->id]],
+            'invitee_nims' => ['2211529002'],
+        ])
+        ->assertSessionHasErrors('invitee_nims.0');
+    expect(session('errors')->first('invitee_nims.0'))->toContain('tidak boleh mahasiswa KIP-K');
+
+    // Rule 3: Invitee must have same degree level (S1/S2/S3)
+    $s2Program = Prodi::create([
+        'name' => 'Magister Sistem Informasi',
+        'jenjang' => 'S2',
+        'departemen_id' => $f['program']->departemen_id,
+    ]);
+    $makeFriend('2211529003', 'perempuan', $s2Program->id);
+
+    $this->actingAs($f['user'])
+        ->post(route('andalas.registrations.store'), [
+            'periode_id' => $f['period']->id,
+            'billing_basis' => 'group',
+            'preferences' => [['kamar_id' => $f['room']->id]],
+            'invitee_nims' => ['2211529003'],
+        ])
+        ->assertSessionHasErrors('invitee_nims.0');
+    expect(session('errors')->first('invitee_nims.0'))->toContain('jenjang pendidikan yang sama');
+
+    // Rule 4: Invitee who already chose a room shows message that friend has already chosen a room
+    $otherRoom = Kamar::create([
+        'lantai_id' => $f['room']->lantai_id,
+        'nomor_kamar' => '109',
+        'tipe_kamar' => 'standar',
+        'kapasitas' => 4,
+        'tarif_per_periode' => 2500000,
+        'status' => 'kosong',
+    ]);
+    $alreadyPlacedFriend = $makeFriend('2211529004', 'perempuan', $f['program']->id);
+    $this->actingAs($alreadyPlacedFriend)
+        ->post(route('andalas.registrations.store'), [
+            'periode_id' => $f['period']->id,
+            'billing_basis' => 'person',
+            'preferences' => [['kamar_id' => $otherRoom->id]],
+        ])
+        ->assertRedirect();
+
+    $this->actingAs($f['user'])
+        ->post(route('andalas.registrations.store'), [
+            'periode_id' => $f['period']->id,
+            'billing_basis' => 'group',
+            'preferences' => [['kamar_id' => $f['room']->id]],
+            'invitee_nims' => ['2211529004'],
+        ])
+        ->assertSessionHasErrors('invitee_nims.0');
+    expect(session('errors')->first('invitee_nims.0'))->toContain('sudah memilih kamar');
+
+    // Valid invitee: same gender (perempuan), non-KIP-K, same jenjang (S1), no room yet
+    $validFriend = $makeFriend('2211529005', 'perempuan', $f['program']->id);
+
+    $this->actingAs($f['user'])
+        ->post(route('andalas.registrations.store'), [
+            'periode_id' => $f['period']->id,
+            'billing_basis' => 'group',
+            'preferences' => [['kamar_id' => $f['room']->id]],
+            'invitee_nims' => ['2211529005'],
+            'files' => [
+                'perjanjian' => UploadedFile::fake()->create('perjanjian.pdf', 80, 'application/pdf'),
+            ],
+            'decision_kind' => 'full',
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $hostReg = ResidenceRegistration::where('student_profile_id', $f['profile']->id)->where('status', 'submitted')->sole();
+
+    // Payment is still locked for host while friend has not accepted the invitation
+    expect(app(ResidenceWorkflow::class)->paymentUnlocked($hostReg))->toBeFalse()
+        ->and(app(ResidenceWorkflow::class)->hasPendingGroupInvitations($hostReg))->toBeTrue();
+
+    // Rule 5: Room chosen under Per Grup cannot be chosen by outsiders
+    $outsider = $makeFriend('2211529006', 'perempuan', $f['program']->id);
+    $this->actingAs($outsider)
+        ->post(route('andalas.registrations.store'), [
+            'periode_id' => $f['period']->id,
+            'billing_basis' => 'person',
+            'preferences' => [['kamar_id' => $f['room']->id]],
+        ])
+        ->assertSessionHasErrors('preferences');
+
+    // Friend accepts invitation -> jumps to Step 3 (Upload berkas), host payment unlocks, and 10,000,000 is split equally (5,000,000 each)
+    $invitation = RoomInvitation::where('residence_registration_id', $hostReg->id)->sole();
+    $this->actingAs($validFriend)
+        ->put(route('andalas.room-invitations.update', $invitation), ['accept' => true])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $hostReg->refresh();
+    $friendReg = ResidenceRegistration::where('student_profile_id', $validFriend->mahasiswaProfil->id)->sole();
+
+    expect(app(ResidenceWorkflow::class)->hasPendingGroupInvitations($hostReg))->toBeFalse()
+        ->and(app(ResidenceWorkflow::class)->paymentUnlocked($hostReg))->toBeTrue()
+        ->and((float) $hostReg->tagihan->fresh()->total)->toBe(5000000.0)
+        ->and((float) $friendReg->tagihan->fresh()->total)->toBe(5000000.0)
+        ->and($friendReg->reserved_room_id)->toBe($f['room']->id);
+});
+
+it('applies tiered student daily pricing (1-3 days x 75k, 4-30 days = 250k, 1 month 2 days = 400k), H-1 payment deadline, skips document upload, and allows facilitator check-in after payment proof check', function () {
+    $f = toBeFixture('local_non_kipk', 2);
+    $facilitator = toBeFacilitator($f['building']);
+
+    $settings = $f['policy']->settings;
+    $settings['rates'] = [[
+        'gedung_id' => $f['building']->id,
+        'type' => $f['room']->tipe_kamar,
+        'unit' => 'day',
+        'amount' => '75000',
+        'room_amount' => '0',
+    ]];
+    $f['policy']->update(['settings' => $settings]);
+
+    // Case 1: 1 month 2 days = 32 days (2026-11-20 to 2026-12-22) -> 250,000 + (2 x 75,000) = 400,000
+    $this->actingAs($f['user'])
+        ->post(route('andalas.registrations.store'), [
+            'periode_id' => $f['period']->id,
+            'rate_unit' => 'day',
+            'billing_basis' => 'person',
+            'starts_at' => '2026-11-20',
+            'ends_at' => '2026-12-22',
+            'preferences' => [['kamar_id' => $f['room']->id]],
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $dailyReg = ResidenceRegistration::where('student_profile_id', $f['profile']->id)->where('status', 'submitted')->sole();
+    $invoice = $dailyReg->tagihan->fresh();
+
+    // Payment unlocked immediately without uploading documents, H-1 deadline (2026-11-19), total Rp400.000
+    expect((float) $invoice->total)->toBe(400000.0)
+        ->and($invoice->jatuh_tempo?->toDateString())->toBe('2026-11-19')
+        ->and(app(ResidenceWorkflow::class)->paymentUnlocked($dailyReg))->toBeTrue()
+        ->and(app(ResidenceWorkflow::class)->requiresRegistrationDocuments($dailyReg))->toBeFalse();
+
+    // Student uploads payment proof
+    $this->actingAs($f['user'])
+        ->post(route('andalas.pembayaran.store'), [
+            'tagihan_id' => $invoice->id,
+            'jenis_pembayaran' => 'sewa_asrama',
+            'nominal' => 400000,
+            'bukti_transfer' => UploadedFile::fake()->create('bukti-harian.pdf', 80, 'application/pdf'),
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $payment = Pembayaran::where('tagihan_id', $invoice->id)->sole();
+
+    // Building facilitator can view/download the payment proof and directly check in the resident without document upload
+    $this->actingAs($facilitator)
+        ->get(route('andalas.pembayaran.bukti', $payment))
+        ->assertOk();
+
+    $this->travelTo(Carbon::parse('2026-11-20 09:00:00', 'Asia/Jakarta'));
+
+    $this->actingAs($facilitator)
+        ->post(route('residence.checkin', $dailyReg), [
+            'identity_checked' => 1,
+            'original_documents_checked' => 1,
+            'keys_handed' => 1,
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    expect($dailyReg->fresh()->completed_at)->not->toBeNull();
+});
+
+it('lets pengelola configure offline installment (initial payment + remaining receivable due date) and monthly conversion schemes', function () {
+    $f = toBeFixture('local_non_kipk', 2);
+    $reg = toBeSubmit($f);
+
+    // 1. Pengelola configures installment using simplified initial_amount + remaining_due_date
+    $this->actingAs($f['manager'])
+        ->post(route('residence.decisions.request', $reg), [
+            'kind' => 'installment',
+            'offline_approval' => '1',
+            'approval_basis' => 'Disetujui Pimpinan tanggal 19 Nov 2026',
+            'initial_amount' => 400000,
+            'remaining_due_date' => '2026-12-30',
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $invoice = $reg->tagihan->fresh();
+    expect((float) $invoice->amount_due_now)->toBe(400000.0)
+        ->and($invoice->jadwalCicilan()->count())->toBe(2)
+        ->and((float) $invoice->jadwalCicilan()->where('termin_ke', 2)->value('jumlah'))->toBe(600000.0);
+
+    // 2. Pengelola converts registration to monthly billing scheme with custom monthly price
+    $this->actingAs($f['manager'])
+        ->post(route('residence.decisions.request', $reg), [
+            'kind' => 'monthly',
+            'offline_approval' => '1',
+            'approval_basis' => 'Konfirmasi mahasiswa tahun akhir bayar bulanan',
+            'monthly_amount' => 250000,
+            'months_count' => 1,
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $reg->refresh();
+    expect($reg->rate_unit)->toBe('month')
+        ->and((float) $reg->tagihan->fresh()->total)->toBe(250000.0);
+});
+
+it('displays room details and roommates name and phone number on Kamar Saya immediately upon reaching Stage 5 before physical check-in', function () {
+    $f = toBeFixture('local_kipk', 2);
+    $f['user']->update(['no_hp' => '081234567801']);
+
+    $roommateUser = User::factory()->student()->create([
+        'nama' => 'Siti Teman Kamar',
+        'nim_nip' => '2611529901',
+        'gender' => 'perempuan',
+        'no_hp' => '081234567899',
+    ])->assignRole('mahasiswa');
+    $roommateProfile = MahasiswaProfil::create([
+        'user_id' => $roommateUser->id,
+        'prodi_id' => $f['program']->id,
+        'angkatan' => '2026',
+        'status_huni' => 'calon',
+        'barcode_code' => fake()->uuid(),
+    ]);
+    withHousingIdentity($roommateProfile);
+    $roommateProfile->user->update(['no_hp' => '081234567899']);
+    KipkRecipient::create([
+        'nim' => '2611529901',
+        'nama' => 'Siti Teman Kamar',
+        'angkatan' => 2026,
+    ]);
+
+    // First KIP-K student submits registration + required document -> reaches Stage 5 (Belum Check-in)
+    $this->actingAs($f['user'])
+        ->post(route('andalas.registrations.store'), [
+            'periode_id' => $f['period']->id,
+            'is_kipk' => true,
+            'files' => [
+                'perjanjian' => UploadedFile::fake()->create('perjanjian.pdf', 80, 'application/pdf'),
+            ],
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    // Second KIP-K student submits registration + required document into the same 2-capacity room
+    $this->actingAs($roommateUser)
+        ->post(route('andalas.registrations.store'), [
+            'periode_id' => $f['period']->id,
+            'is_kipk' => true,
+            'files' => [
+                'perjanjian' => UploadedFile::fake()->create('perjanjian.pdf', 80, 'application/pdf'),
+            ],
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    // First student opens Kamar Saya (/mahasiswa/detail-kamar) before physical check-in
+    $this->actingAs($f['user'])
+        ->get(route('mahasiswa.detail-kamar'))
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->has('penempatan', 1)
+            ->where('penempatan.0.kamar.nomor_kamar', $f['room']->nomor_kamar)
+            ->where('penempatan.0.kamar.lantai.gedung.nama_gedung', $f['building']->nama_gedung)
+            ->has('penempatan.0.roommates', 1)
+            ->where('penempatan.0.roommates.0.nama', 'Siti Teman Kamar')
+            ->where('penempatan.0.roommates.0.no_hp', '081234567899')
+        );
 });

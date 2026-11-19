@@ -50,12 +50,12 @@ it('connects account registration payment damage reporting checkout and the mode
     $program = Prodi::create(['name' => 'Informatika', 'jenjang' => 'S1', 'departemen_id' => $department->id]);
 
     $this->post(route('register.store'), [
-        'nama' => 'Penghuni Perjalanan', 'nim_nip' => '2699009999', 'email' => 'journey@example.test',
+        'nama' => 'Penghuni Perjalanan', 'nim_nip' => '2699009999', 'email' => 'journey@unand.ac.id',
         'password' => 'password123', 'password_confirmation' => 'password123',
         'client_profile_category' => 'local_non_kipk', 'gender' => 'perempuan',
         'faculty_id' => $faculty->id, 'departemen_id' => $department->id, 'prodi_id' => $program->id,
     ])->assertSessionHasNoErrors();
-    $resident = User::where('email', 'journey@example.test')->sole();
+    $resident = User::where('email', 'journey@unand.ac.id')->sole();
     $student = withHousingIdentity($resident->mahasiswaProfil);
     $this->actingAs($resident)->post(route('andalas.registrations.store'), [
         'periode_id' => $period->id, 'is_kipk' => false, 'preferences' => [['kamar_id' => $room->id]],

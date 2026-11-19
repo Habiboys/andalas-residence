@@ -297,7 +297,9 @@ export const DECISION_LABELS: Record<string, string> = {
     full: 'Bayar penuh',
     installment: 'Cicilan',
     defer: 'Penundaan pembayaran',
-    monthly: 'Persetujuan bulanan',
+    monthly: 'Skema pembayaran bulanan',
+    scholarship_receivable: 'Piutang beasiswa (Internasional / S2 / S3)',
+    period_scheme: 'Skema periode (Bulan / 6 Bulan / Tahun)',
     transfer_permission: 'Izin berdasarkan bukti transfer',
 };
 
@@ -305,7 +307,7 @@ export const STANDARD_DOC_KINDS: Array<{ key: string; label: string }> = [
     { key: 'perjanjian', label: 'Surat Perjanjian Hunian' },
     { key: 'ktp', label: 'KTP / Identitas Resmi' },
     { key: 'pernyataan_ortu', label: 'Surat Pernyataan Orang Tua / Wali' },
-    { key: 'kipk_rekomendasi', label: 'Bukti KIP-K / Rekomendasi' },
+    { key: 'kipk_rekomendasi', label: 'Kartu Peserta KIP-K' },
     { key: 'pas_foto', label: 'Pas Foto Formal' },
 ];
 

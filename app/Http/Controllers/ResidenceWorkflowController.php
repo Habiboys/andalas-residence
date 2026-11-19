@@ -205,10 +205,11 @@ class ResidenceWorkflowController extends Controller
         $r->setAttribute('can_submit', ResidenceWorkflowAccess::manager($user) || $r->studentProfile->user_id === $user->id);
         $r->setAttribute('can_cancel', $workflow->canStudentCancel($r, $user));
         $r->setAttribute('payment_unlocked', $workflow->paymentUnlocked($r));
+        $r->setAttribute('has_pending_group_invitations', $workflow->hasPendingGroupInvitations($r));
         $r->setAttribute('checkout_request', $r->penempatan_kamar_id ? CheckoutRequest::with('inspection')->where('penempatan_kamar_id', $r->penempatan_kamar_id)->where('status', '!=', 'ditolak')->latest()->first() : null);
         if (ResidenceWorkflowAccess::manager($user) && $r->room_contract_id) {
             $r->setAttribute('contract_candidates', ResidenceRegistration::with('studentProfile.user')->where(function ($q) use ($r): void {
-                $q->where('room_contract_id', $r->room_contract_id)->orWhere(fn ($q) => $q->whereNull('room_contract_id')->whereNull('tagihan_id')->whereNull('completed_at')->whereNotIn('status', ['draft', 'rejected', 'cancelled'])->where('reserved_room_id', $r->reserved_room_id)->where('billing_basis', 'room')->where('residence_policy_id', $r->residence_policy_id)->whereDate('starts_at', $r->starts_at)->whereDate('ends_at', $r->ends_at));
+                $q->where('room_contract_id', $r->room_contract_id)->orWhere(fn ($q) => $q->whereNull('room_contract_id')->whereNull('tagihan_id')->whereNull('completed_at')->whereNotIn('status', ['draft', 'rejected', 'cancelled'])->where('reserved_room_id', $r->reserved_room_id)->whereIn('billing_basis', ['room', 'group'])->where('residence_policy_id', $r->residence_policy_id)->whereDate('starts_at', $r->starts_at)->whereDate('ends_at', $r->ends_at));
             })->whereNotIn('status', ['draft', 'rejected', 'cancelled'])->get()->map(fn ($candidate) => ['id' => $candidate->id, 'name' => $candidate->studentProfile->user->nama]));
         }
         $r->setAttribute('amendments', DB::table('residence_amendments')->where(function ($q) use ($r): void {
@@ -617,35 +618,38 @@ class ResidenceWorkflowController extends Controller
 
     public function requestDecision(Request $request, ResidenceRegistration $registration): RedirectResponse
     {
-        abort_unless(ResidenceWorkflowAccess::manager($request->user()) || $registration->studentProfile->user_id === $request->user()->id, 403);
+        $isManager = ResidenceWorkflowAccess::manager($request->user());
+        abort_unless($isManager || $registration->studentProfile->user_id === $request->user()->id, 403);
         $data = $request->validate([
-            'kind' => ['required', 'in:installment,defer,monthly,transfer_permission'],
+            'kind' => ['required', 'in:installment,defer,monthly,transfer_permission,scholarship_receivable,period_scheme'],
             'reason' => ['required_without:approval_basis', 'nullable', 'string', 'max:2000'],
             'approval_basis' => ['nullable', 'string', 'max:2000'],
         ]);
-        if (in_array($data['kind'], ['installment', 'defer'], true) && ! ResidenceWorkflowAccess::manager($request->user())) {
+        if (in_array($data['kind'], ['installment', 'defer', 'scholarship_receivable', 'period_scheme'], true) && ! $isManager) {
             abort(403, 'Pengajuan cicilan atau penundaan pembayaran dilakukan langsung kepada Pimpinan dan dicatat oleh Pengelola setelah disetujui.');
         }
         $reason = trim((string) ($data['reason'] ?? $data['approval_basis'] ?? ''));
         if ($reason === '') {
             throw ValidationException::withMessages(['reason' => 'Alasan atau dasar persetujuan wajib diisi.']);
         }
-        $decision = DB::transaction(function () use ($request, $registration, $data, $reason): ResidenceDecision {
+        $decision = DB::transaction(function () use ($request, $registration, $data, $reason, $isManager): ResidenceDecision {
             $r = ResidenceRegistration::whereKey($registration->id)->lockForUpdate()->firstOrFail();
             if ($r->completed_at || ! $r->tagihan_id || $r->isClosed()) {
                 throw ValidationException::withMessages(['decision' => 'Keputusan membutuhkan pendaftaran berjalan dan tagihan.']);
             }
-            if ($data['kind'] === 'monthly' && $r->rate_unit !== 'month') {
+            if ($data['kind'] === 'monthly' && $r->rate_unit !== 'month' && ! $isManager) {
                 throw ValidationException::withMessages(['kind' => 'Pendaftaran ini bukan skema bulanan.']);
             }
             if ($data['kind'] === 'transfer_permission' && $r->stay_kind !== 'non_student') {
                 throw ValidationException::withMessages(['kind' => 'Izin berbasis bukti transfer hanya untuk umum.']);
             }
             $existing = $r->decisions()->where('kind', $data['kind'])->where('status', 'pending')->first();
-            if ($existing && ResidenceWorkflowAccess::manager($request->user()) && $request->input('status') === 'approved') {
+            if ($existing && $isManager && ($request->input('status') === 'approved' || $request->boolean('offline_approval'))) {
                 return $existing;
             }
-            if ($r->decisions()->where('kind', $data['kind'])->whereIn('status', ['pending', 'approved'])->exists()) {
+            if ($isManager && ($request->boolean('offline_approval') || $request->input('status') === 'approved')) {
+                $r->decisions()->whereIn('status', ['pending', 'approved'])->update(['status' => 'superseded']);
+            } elseif ($r->decisions()->where('kind', $data['kind'])->whereIn('status', ['pending', 'approved'])->exists()) {
                 throw ValidationException::withMessages(['decision' => 'Keputusan yang sama sudah diajukan atau disetujui.']);
             }
             $decision = $r->decisions()->create(['kind' => $data['kind'], 'reason' => $reason, 'requested_by' => $request->user()->id, 'status' => 'pending']);
@@ -654,7 +658,7 @@ class ResidenceWorkflowController extends Controller
             return $decision;
         });
 
-        if (ResidenceWorkflowAccess::manager($request->user()) && ($request->input('status') === 'approved' || $request->boolean('offline_approval') || $request->filled('approval_basis') || $request->has('schedule'))) {
+        if ($isManager && ($request->input('status') === 'approved' || $request->boolean('offline_approval') || $request->filled('approval_basis') || $request->has('schedule') || $request->filled('monthly_amount') || $request->filled('remaining_due_date') || $request->filled('period_amount') || $data['kind'] === 'scholarship_receivable')) {
             $request->merge([
                 'status' => $request->input('status') ?: 'approved',
                 'offline_approval' => true,
@@ -697,7 +701,13 @@ class ResidenceWorkflowController extends Controller
             'status' => ['required', 'in:approved,rejected'],
             'notes' => ['required_without:approval_basis', 'nullable', 'string', 'max:2000'],
             'approval_basis' => ['nullable', 'string', 'max:2000'],
-            'initial_amount' => ['required_if:status,approved', 'nullable', 'numeric', 'decimal:0,2', 'min:0'],
+            'initial_amount' => ['nullable', 'numeric', 'decimal:0,2', 'min:0'],
+            'remaining_due_date' => ['nullable', 'date', 'after_or_equal:today'],
+            'monthly_amount' => ['nullable', 'numeric', 'decimal:0,2', 'min:1'],
+            'months_count' => ['nullable', 'integer', 'min:1', 'max:36'],
+            'period_unit' => ['nullable', 'in:month,semester,year'],
+            'period_amount' => ['nullable', 'numeric', 'decimal:0,2', 'min:1'],
+            'sponsor_name' => ['nullable', 'string', 'max:255'],
             'schedule' => ['nullable', 'array'],
             'schedule.*.jatuh_tempo' => ['required', 'date', 'after_or_equal:today'],
             'schedule.*.jumlah' => ['required', 'numeric', 'decimal:0,2', 'min:1'],
@@ -720,12 +730,124 @@ class ResidenceWorkflowController extends Controller
             if (! is_array($schedule)) {
                 throw ValidationException::withMessages(['schedule' => 'Jadwal termin tidak valid.']);
             }
-            if ($data['status'] === 'approved' && $decision->kind !== 'transfer_permission') {
-                if ($decision->kind === 'monthly' && ($r->rate_unit !== 'month' || (int) $r->studentProfile->angkatan === (int) $r->periode->angkatan_maba || ! ($r->policy->settings['monthly_allowed'] ?? false))) {
+            if ($data['status'] === 'approved' && $decision->kind === 'scholarship_receivable') {
+                $sponsorName = trim((string) ($data['sponsor_name'] ?? '')) ?: 'Beasiswa / Rektorat UNAND';
+                $r->update([
+                    'funding' => 'sponsor',
+                    'sponsor_name' => $sponsorName,
+                    'sponsor_approved_at' => now(),
+                ]);
+                $invoice->jadwalCicilan()->delete();
+                $invoice->update([
+                    'sponsor_total' => $invoice->subtotal,
+                    'total_penyesuaian' => -(float) $invoice->subtotal,
+                    'total' => 0,
+                    'amount_due_now' => 0,
+                    'sponsor_name' => $sponsorName,
+                ]);
+                $r->decisions()->where('id', '!=', $decision->id)->where('status', 'approved')->update(['status' => 'superseded']);
+            } elseif ($data['status'] === 'approved' && $decision->kind === 'period_scheme') {
+                $periodUnit = (string) ($data['period_unit'] ?? 'month');
+                $periodAmount = (float) ($data['period_amount'] ?? 0);
+                if ($periodAmount <= 0) {
+                    throw ValidationException::withMessages(['period_amount' => 'Masukkan harga per periode pembayaran.']);
+                }
+                $periodCount = max(1, (int) ($data['months_count'] ?? 1));
+                $periodTotal = $periodAmount * $periodCount;
+                $unitLabel = match ($periodUnit) {
+                    'semester' => 'Per 6 Bulan (Semester)',
+                    'year' => 'Per Tahun',
+                    default => 'Per Bulan',
+                };
+                $r->update(['rate_unit' => $periodUnit, 'funding' => 'personal']);
+                $roomLabel = $r->reservedRoom
+                    ? 'Hunian '.$r->reservedRoom->lantai->gedung->nama_gedung.' / '.$r->reservedRoom->nomor_kamar." ({$unitLabel})"
+                    : "Hunian Asrama ({$unitLabel})";
+                $invoice->items()->delete();
+                $invoice->items()->create([
+                    'deskripsi' => $roomLabel,
+                    'kuantitas' => $periodCount,
+                    'harga_satuan' => $periodAmount,
+                    'jumlah' => $periodTotal,
+                ]);
+                $invoice->jadwalCicilan()->delete();
+                $schedule = [];
+                $monthsStep = $periodUnit === 'semester' ? 6 : ($periodUnit === 'year' ? 12 : 1);
+                for ($i = 0; $i < $periodCount; $i++) {
+                    $term = [
+                        'jatuh_tempo' => today()->addMonths($i * $monthsStep)->toDateString(),
+                        'jumlah' => $periodAmount,
+                    ];
+                    $schedule[] = $term;
+                    $invoice->jadwalCicilan()->create([...$term, 'termin_ke' => $i + 1]);
+                }
+                $data['initial_amount'] = $periodAmount;
+                $invoice->update([
+                    'subtotal' => $periodTotal,
+                    'total' => max(0, $periodTotal - (float) $invoice->sponsor_total),
+                    'amount_due_now' => $periodAmount,
+                ]);
+                $r->decisions()->where('id', '!=', $decision->id)->where('status', 'approved')->update(['status' => 'superseded']);
+            } elseif ($data['status'] === 'approved' && $decision->kind !== 'transfer_permission') {
+                if ($decision->kind === 'monthly' && $offlineApproval && ! empty($data['monthly_amount'])) {
+                    $monthlyAmount = (float) $data['monthly_amount'];
+                    $monthsCount = max(1, (int) ($data['months_count'] ?? 1));
+                    $newTotal = $monthlyAmount * $monthsCount;
+                    $r->update(['rate_unit' => 'month']);
+                    $roomLabel = $r->reservedRoom
+                        ? 'Hunian '.$r->reservedRoom->lantai->gedung->nama_gedung.' / '.$r->reservedRoom->nomor_kamar.' (Skema Bulanan)'
+                        : 'Hunian Asrama (Skema Bulanan)';
+                    $invoice->items()->delete();
+                    $invoice->items()->create([
+                        'deskripsi' => $roomLabel,
+                        'kuantitas' => $monthsCount,
+                        'harga_satuan' => $monthlyAmount,
+                        'jumlah' => $newTotal,
+                    ]);
+                    $invoice->update([
+                        'subtotal' => $newTotal,
+                        'total' => max(0, $newTotal - (float) $invoice->sponsor_total),
+                    ]);
+                    if ($schedule === []) {
+                        for ($i = 0; $i < $monthsCount; $i++) {
+                            $schedule[] = [
+                                'jatuh_tempo' => today()->addMonths($i)->toDateString(),
+                                'jumlah' => $monthlyAmount,
+                            ];
+                        }
+                    }
+                    $data['initial_amount'] = $monthlyAmount;
+                } elseif ($decision->kind === 'monthly' && ! $offlineApproval && ($r->rate_unit !== 'month' || (int) $r->studentProfile->angkatan === (int) $r->periode->angkatan_maba || ! ($r->policy->settings['monthly_allowed'] ?? false))) {
                     throw ValidationException::withMessages(['decision' => 'Pendaftar tidak berhak menggunakan skema bulanan.']);
                 }
+
+                $targetBalance = max(0, (float) $invoice->total - (! empty($decision->terms['amendment_id']) ? (float) $invoice->total_dibayar : 0));
+                if ($schedule === [] && ! empty($data['remaining_due_date'])) {
+                    $initial = (float) ($data['initial_amount'] ?? 0);
+                    $remaining = max(0, $targetBalance - $initial);
+                    if ($decision->kind === 'defer' || $initial <= 0) {
+                        $data['initial_amount'] = 0;
+                        $schedule = [
+                            ['jatuh_tempo' => (string) $data['remaining_due_date'], 'jumlah' => $targetBalance],
+                        ];
+                    } elseif ($remaining > 0) {
+                        $schedule = [
+                            ['jatuh_tempo' => today()->toDateString(), 'jumlah' => $initial],
+                            ['jatuh_tempo' => (string) $data['remaining_due_date'], 'jumlah' => $remaining],
+                        ];
+                    } else {
+                        $schedule = [
+                            ['jatuh_tempo' => today()->toDateString(), 'jumlah' => $initial],
+                        ];
+                    }
+                }
+
+                if (! isset($data['initial_amount'])) {
+                    throw ValidationException::withMessages(['initial_amount' => 'Pembayaran awal wajib diisi.']);
+                }
+
                 $sum = collect($schedule)->sum(fn ($term) => (int) round((float) $term['jumlah'] * 100));
-                if ($schedule === [] || $sum !== (int) round(max(0, (float) $invoice->total - (! empty($decision->terms['amendment_id']) ? (float) $invoice->total_dibayar : 0)) * 100) || (float) $data['initial_amount'] > max(0, (float) $invoice->total - (! empty($decision->terms['amendment_id']) ? (float) $invoice->total_dibayar : 0))) {
+                if ($schedule === [] || $sum !== (int) round($targetBalance * 100) || (float) $data['initial_amount'] > $targetBalance) {
                     throw ValidationException::withMessages(['schedule' => 'Jumlah seluruh termin harus sama dengan tagihan dan uang awal tidak boleh melebihi total.']);
                 }
                 $hasApprovedDefer = $r->decisions()->where('kind', 'defer')->where('status', 'approved')->where('id', '!=', $decision->id)->exists();
@@ -740,7 +862,7 @@ class ResidenceWorkflowController extends Controller
                     'defer' => ['installment', 'defer'],
                     default => ['monthly', 'installment', 'defer'],
                 };
-                if ($r->decisions()->whereIn('kind', $conflictingKinds)->where('status', 'approved')->where('id', '!=', $decision->id)->exists()) {
+                if (! $offlineApproval && $r->decisions()->whereIn('kind', $conflictingKinds)->where('status', 'approved')->where('id', '!=', $decision->id)->exists()) {
                     throw ValidationException::withMessages(['decision' => 'Skema pembiayaan sudah disetujui.']);
                 }
                 if (empty($decision->terms['amendment_id']) && (float) $invoice->total_dibayar > 0 && $invoice->jadwalCicilan()->exists()) {

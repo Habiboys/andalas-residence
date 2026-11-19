@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Pembayaran;
 use App\Models\ResidenceRegistration;
+use App\Models\RoomInvitation;
 use App\Models\User;
 use App\Notifications\ResidenceWorkflowNotification;
 use Illuminate\Http\UploadedFile;
@@ -48,6 +49,29 @@ class ResidenceWorkflow
         return true;
     }
 
+    public function requiresRegistrationDocuments(ResidenceRegistration $r): bool
+    {
+        return $r->workflow_version === 2
+            && ! in_array($r->stay_kind, ['summer_course', 'non_student'], true)
+            && $r->rate_unit !== 'day';
+    }
+
+    public function hasPendingGroupInvitations(ResidenceRegistration $r): bool
+    {
+        if ($r->workflow_version !== 2 || $r->billing_basis !== 'group') {
+            return false;
+        }
+        $memberIds = $r->roomContract?->members ?? [$r->id];
+        $invitations = RoomInvitation::whereIn('residence_registration_id', $memberIds)->get(['status', 'expires_at']);
+        if ($invitations->isEmpty()) {
+            return true;
+        }
+        $hasPending = $invitations->contains(fn (RoomInvitation $inv): bool => $inv->status === 'pending' && $inv->expires_at !== null && $inv->expires_at->isFuture());
+        $hasAccepted = $invitations->contains(fn (RoomInvitation $inv): bool => $inv->status === 'accepted');
+
+        return $hasPending || ! $hasAccepted;
+    }
+
     public function documentsUploaded(ResidenceRegistration $r): bool
     {
         if (in_array($r->status->value, ['draft', 'rejected', 'cancelled'], true) || ! $r->reserved_room_id) {
@@ -58,10 +82,12 @@ class ResidenceWorkflow
                 return false;
             }
             $latest = $r->documents()->orderByDesc('version')->get()->unique('kind');
-            foreach ($r->policy?->settings['documents'] ?? [] as $kind) {
-                $doc = $latest->firstWhere('kind', $kind);
-                if (! $doc || $doc->status === 'revision') {
-                    return false;
+            if ($this->requiresRegistrationDocuments($r)) {
+                foreach ($r->policy?->settings['documents'] ?? [] as $kind) {
+                    $doc = $latest->firstWhere('kind', $kind);
+                    if (! $doc || $doc->status === 'revision') {
+                        return false;
+                    }
                 }
             }
             if ($r->decisions()->where('status', 'pending')->exists()) {
@@ -79,7 +105,7 @@ class ResidenceWorkflow
                     }
                 }
             }
-            if ($r->billing_basis === 'room' && ! $r->room_contract_id) {
+            if (in_array($r->billing_basis, ['room', 'group'], true) && ! $r->room_contract_id) {
                 return false;
             }
             if ($r->rate_unit === 'month' && ! $r->decisions()->where('kind', 'monthly')->where('status', 'approved')->exists()) {
@@ -100,9 +126,11 @@ class ResidenceWorkflow
                 return false;
             }
             $latest = $r->documents()->orderByDesc('version')->get()->unique('kind');
-            foreach ($r->policy?->settings['documents'] ?? [] as $kind) {
-                if ($latest->firstWhere('kind', $kind)?->status !== 'valid') {
-                    return false;
+            if ($this->requiresRegistrationDocuments($r)) {
+                foreach ($r->policy?->settings['documents'] ?? [] as $kind) {
+                    if ($latest->firstWhere('kind', $kind)?->status !== 'valid') {
+                        return false;
+                    }
                 }
             }
             if ($r->decisions()->where('status', 'pending')->exists()) {
@@ -117,7 +145,7 @@ class ResidenceWorkflow
                     return false;
                 }
             }
-            if ($r->billing_basis === 'room' && ! $r->room_contract_id) {
+            if (in_array($r->billing_basis, ['room', 'group'], true) && ! $r->room_contract_id) {
                 return false;
             }
             if ($r->rate_unit === 'month' && ! $r->decisions()->where('kind', 'monthly')->where('status', 'approved')->exists()) {
@@ -134,6 +162,9 @@ class ResidenceWorkflow
             return false;
         }
         if ($r->is_kipk) {
+            return false;
+        }
+        if ($this->hasPendingGroupInvitations($r)) {
             return false;
         }
 
@@ -154,13 +185,15 @@ class ResidenceWorkflow
             if (! $r->residence_application_id && $r->policy?->category !== 'international' && (empty($r->studentProfile->nik) || empty($r->studentProfile->alamat))) {
                 $issues[] = 'Data diri penghuni belum lengkap.';
             }
-            $latest = $r->documents()->orderByDesc('version')->get()->unique('kind');
-            foreach ($r->policy?->settings['documents'] ?? [] as $kind) {
-                $doc = $latest->firstWhere('kind', $kind);
-                if (! $doc) {
-                    $issues[] = 'Dokumen '.$kind.' belum diunggah.';
-                } elseif ($doc->status === 'revision') {
-                    $issues[] = 'Dokumen '.$kind.' perlu diperbaiki dan diunggah ulang sesuai catatan revisi.';
+            if ($this->requiresRegistrationDocuments($r)) {
+                $latest = $r->documents()->orderByDesc('version')->get()->unique('kind');
+                foreach ($r->policy?->settings['documents'] ?? [] as $kind) {
+                    $doc = $latest->firstWhere('kind', $kind);
+                    if (! $doc) {
+                        $issues[] = 'Dokumen '.$kind.' belum diunggah.';
+                    } elseif ($doc->status === 'revision') {
+                        $issues[] = 'Dokumen '.$kind.' perlu diperbaiki dan diunggah ulang sesuai catatan revisi.';
+                    }
                 }
             }
         }
@@ -176,8 +209,11 @@ class ResidenceWorkflow
                 }
             }
         }
-        if ($r->billing_basis === 'room' && ! $r->room_contract_id && $r->workflow_version === 2) {
+        if (in_array($r->billing_basis, ['room', 'group'], true) && ! $r->room_contract_id && $r->workflow_version === 2) {
             $issues[] = 'Kontrak kamar bersama belum disahkan.';
+        }
+        if ($this->hasPendingGroupInvitations($r)) {
+            $issues[] = 'Menunggu seluruh teman kamar yang diundang menerima undangan sebelum lanjut ke tahap pembayaran.';
         }
         if ($r->rate_unit === 'month' && $r->workflow_version === 2 && ! $r->decisions()->where('kind', 'monthly')->where('status', 'approved')->exists()) {
             $issues[] = 'Skema bulanan belum disetujui pengelola.';
@@ -206,7 +242,7 @@ class ResidenceWorkflow
     {
         $issues = $this->blockers($r);
 
-        if ($r->workflow_version === 2 && ! in_array($r->stay_kind, ['summer_course', 'non_student'], true)) {
+        if ($this->requiresRegistrationDocuments($r)) {
             $latest = $r->documents()->orderByDesc('version')->get()->unique('kind');
             foreach ($r->policy?->settings['documents'] ?? [] as $kind) {
                 $doc = $latest->firstWhere('kind', $kind);
@@ -255,7 +291,7 @@ class ResidenceWorkflow
         if ($invoice->status->value === 'lunas') {
             return true;
         }
-        $decision = $r->decisions()->whereIn('kind', ['installment', 'defer', 'monthly'])->where('status', 'approved')->latest('decided_at')->first();
+        $decision = $r->decisions()->whereIn('kind', ['installment', 'defer', 'monthly', 'period_scheme', 'scholarship_receivable'])->where('status', 'approved')->latest('decided_at')->first();
         if ($decision) {
             if ($decision->terms['requires_configuration'] ?? false) {
                 return false;

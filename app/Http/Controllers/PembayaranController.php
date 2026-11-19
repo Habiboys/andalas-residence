@@ -14,6 +14,7 @@ use App\Models\VirtualAccount;
 use App\Services\AuditLogService;
 use App\Services\ResidencePolicyService;
 use App\Services\ResidenceWorkflow;
+use App\Services\ResidenceWorkflowAccess;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -283,9 +284,11 @@ class PembayaranController extends Controller
 
     public function downloadBukti(Request $request, Pembayaran $pembayaran): StreamedResponse
     {
+        $registration = $pembayaran->tagihan?->registration;
         abort_unless(
             $request->user()->can('pembayaran.download_bukti')
-            || $pembayaran->mahasiswa_id === $request->user()->mahasiswaProfil?->id,
+            || $pembayaran->mahasiswa_id === $request->user()->mahasiswaProfil?->id
+            || ($registration && ResidenceWorkflowAccess::officer($request->user(), $registration)),
             403,
         );
 

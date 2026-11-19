@@ -256,7 +256,7 @@ it('shows payment verification shortcut on detail page for finance/pengelola', (
     );
     expect(htmlPengelola).toContain('Verifikasi Pembayaran');
     expect(htmlPengelola).toContain(
-        'Ubah Skema Tagihan &amp; Jadwal Cicilan (ACC Offline Pimpinan)',
+        'Mengatur Metode &amp; Skema Pencicilan / Pembayaran',
     );
     expect(htmlPengelola).toContain(
         'href="/admin_layanan/verifikasi-pembayaran?search=2310990001"',
@@ -275,8 +275,52 @@ it('shows payment verification shortcut on detail page for finance/pengelola', (
     );
     expect(htmlFacilitator).not.toContain('Verifikasi Pembayaran');
     expect(htmlFacilitator).not.toContain(
-        'Ubah Skema Tagihan &amp; Jadwal Cicilan (ACC Offline Pimpinan)',
+        'Mengatur Metode &amp; Skema Pencicilan / Pembayaran',
     );
+});
+
+it('replaces document verification with payment proof check and check-in checkboxes for daily rental registrations', () => {
+    const dailyRegistration = makeRegistration({
+        rate_unit: 'day',
+        documents: [],
+        blockers: [],
+        check_in_blockers: [],
+        tagihan: {
+            id: 'inv-day-1',
+            nomor: 'REG-2310990001',
+            total: '250000',
+            total_dibayar: '0',
+            sponsor_total: '0',
+            sponsor_paid: '0',
+            pembayaran: [
+                {
+                    id: 'pay-day-1',
+                    kode_transaksi: 'PAY-DAY-1',
+                    nominal: '250000',
+                    status: 'menunggu_verifikasi',
+                },
+            ],
+        },
+    });
+
+    const html = renderToStaticMarkup(
+        <RegistrationDetailCard
+            r={dailyRegistration}
+            manager={false}
+            finance={false}
+            leader={false}
+            rooms={[]}
+            role="fasilitator"
+        />,
+    );
+
+    expect(html).toContain(
+        'Cek Bukti Pembayaran (Pengganti Verifikasi Berkas Sewa Harian)',
+    );
+    expect(html).toContain('Cek / Unduh Bukti Bayar');
+    expect(html).toContain('Bukti pembayaran telah diperiksa dan sesuai.');
+    expect(html).toContain('Konfirmasi check-in dan serah kunci');
+    expect(html).not.toContain('Dokumen pendaftaran');
 });
 
 it('renders registration operational and amendment forms inside modals rather than expandable details toggles', () => {

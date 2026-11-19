@@ -35,7 +35,11 @@ class AllocateResidenceRoom
                     try {
                         app(ResidencePolicyService::class)->validateRoom($r->policy, $room, $r->studentProfile);
                         $rate = app(ResidencePolicyService::class)->rate($r, $room);
-                        if ($r->billing_basis === 'room' && ($r->rate_unit !== 'year' || empty($rate['room_amount']))) {
+                        $isFullRoomBasis = in_array($r->billing_basis, ['room', 'group'], true);
+                        $roomTotalAmount = ! empty($rate['room_amount']) && (float) $rate['room_amount'] > 0
+                            ? (float) $rate['room_amount']
+                            : ($r->billing_basis === 'group' ? (float) ($rate['amount'] ?? 0) * max(1, (int) $room->kapasitas) : 0.0);
+                        if ($isFullRoomBasis && ($r->rate_unit !== 'year' || $roomTotalAmount <= 0)) {
                             throw ValidationException::withMessages(['billing_basis' => 'Tarif tahunan per kamar belum tersedia.']);
                         }
                         if (! RoomEligibility::allowsType($room->lantai->gedung, $room->tipe_kamar, $room->kapasitas)) {
@@ -43,19 +47,19 @@ class AllocateResidenceRoom
                         }
                         $occupied = count($room->penempatanKamar()->where('status', 'aktif')->lockForUpdate()->get(['id'])->all());
                         $held = app(RoomReservations::class)->count($room, $r->id);
-                        if ($occupied + $held >= $room->kapasitas || ($r->billing_basis === 'room' && $occupied + $held > 0)) {
+                        if ($occupied + $held >= $room->kapasitas || ($isFullRoomBasis && $occupied + $held > 0)) {
                             continue;
                         }
                         $initialAllocationStatus = ($r->is_kipk || $r->funding === 'sponsor' || $r->stay_kind === 'summer_course')
                             ? 'admin_occupied'
                             : 'held';
                         $r->update(['reserved_room_id' => $room->id, 'allocation_status' => $initialAllocationStatus]);
-                        if ($r->billing_basis === 'room') {
+                        if ($isFullRoomBasis) {
                             if (! $r->room_contract_id) {
                                 $contract = RoomContract::create([
                                     'kamar_id' => $room->id,
                                     'occupants' => 1,
-                                    'total' => $rate['room_amount'],
+                                    'total' => $roomTotalAmount,
                                     'members' => [$r->id],
                                     'approved_by' => $r->studentProfile->user_id,
                                     'approved_at' => now(),

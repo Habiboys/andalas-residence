@@ -26,7 +26,14 @@ class CreateNewUser implements CreatesNewUsers
         $validated = Validator::make($input, [
             'nama' => ['required', 'string', 'max:255'],
             'nim_nip' => ['required', 'string', 'max:50', Rule::unique('users', 'nim_nip')],
-            'email' => ['required', 'string', 'email', 'max:255', Rule::unique('users', 'email')],
+            'email' => [
+                'required',
+                'string',
+                'email',
+                'max:255',
+                'regex:/^[^@\s]+@([a-z0-9-]+\.)*unand\.ac\.id$/i',
+                Rule::unique('users', 'email'),
+            ],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
             'client_profile_category' => ['required', Rule::in([
                 'local_student', 'local_kipk', 'local_non_kipk', 'international_student', 'international_free_facility', 'non_student',
@@ -36,6 +43,8 @@ class CreateNewUser implements CreatesNewUsers
             'prodi_id' => [Rule::requiredIf(! $isNonStudent), Rule::excludeIf($isNonStudent), 'uuid', Rule::exists('prodi', 'id')->where('departemen_id', $input['departemen_id'] ?? null)],
             'gender' => ['required', Rule::in(['laki_laki', 'perempuan'])],
             'no_hp' => ['nullable', 'string', 'max:20'],
+        ], [
+            'email.regex' => 'Email pendaftaran wajib menggunakan domain resmi @unand.ac.id.',
         ])->validate();
         $validated['angkatan'] = $isNonStudent ? null : StudentCohort::fromNim($validated['nim_nip']);
 

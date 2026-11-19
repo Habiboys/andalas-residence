@@ -50,10 +50,10 @@ class RoomReservations
             $held->where(fn ($q) => $q->whereNull('room_contract_id')->orWhere('room_contract_id', '!=', $contract));
         }
         $heldRows = (clone $held)->lockForUpdate()->get(['id', 'billing_basis']);
-        if ($heldRows->contains('billing_basis', 'room')) {
+        if ($heldRows->contains(fn ($row) => in_array($row->billing_basis, ['room', 'group'], true))) {
             return $room->kapasitas;
         }
-        $exclusive = ResidenceRegistration::where('billing_basis', 'room')
+        $exclusive = ResidenceRegistration::whereIn('billing_basis', ['room', 'group'])
             ->when($contract, fn ($q) => $q->where(fn ($q) => $q->whereNull('room_contract_id')->orWhere('room_contract_id', '!=', $contract)))
             ->whereHas('placement', fn (Builder $query) => $query->where('kamar_id', $room->id)->where('status', 'aktif'))
             ->when($except, fn (Builder $query) => $query->where('id', '!=', $except))

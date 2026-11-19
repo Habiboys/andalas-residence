@@ -220,7 +220,7 @@ class RolePageController extends Controller
                         $invoice->setAttribute('payment_unlocked', $invoice->registration ? app(ResidenceWorkflow::class)->paymentUnlocked($invoice->registration) : true);
                     }),
             ],
-            'detail-kamar' => ['penempatan' => PenempatanKamar::with('kamar.lantai.gedung')->whereHas('mahasiswa', fn ($q) => $q->where('user_id', $request->user()->id))->orderByRaw("CASE WHEN status = 'aktif' THEN 0 ELSE 1 END")->latest()->get()],
+            'detail-kamar' => $this->detailKamarPayload($request),
             'checkout' => ['checkout' => CheckoutRequest::with(['inspection', 'placement.kamar.lantai.gedung'])->where('mahasiswa_id', $request->user()->mahasiswaProfil?->id)->latest()->get()],
             'bebas-asrama' => [
                 'letterIdentity' => [
@@ -675,9 +675,10 @@ class RolePageController extends Controller
         $canInvite = $student && app(ResidenceLifecycle::class)->isLocal($student) && ! app(ResidenceLifecycle::class)->isKipk($student);
         $workflow = app(ResidenceWorkflow::class);
         foreach ($registrations as $registration) {
-            $registration->setAttribute('can_invite', $canInvite && ! $registration->is_kipk && ($registration->billing_basis !== 'room' || $registration->workflow_version === 2) && ! $registration->ended_at && $registration->periode?->status === 'aktif'
-                && ($registration->billing_basis === 'room' || $rooms->contains('id', $registration->reserved_room_id ?? $registration->placement?->kamar_id))
+            $registration->setAttribute('can_invite', $canInvite && ! $registration->is_kipk && $registration->billing_basis === 'group' && $registration->rate_unit !== 'day' && ! $registration->ended_at && $registration->periode?->status === 'aktif'
+                && ($rooms->contains('id', $registration->reserved_room_id ?? $registration->placement?->kamar_id) || $registration->reserved_room_id !== null)
                 && ($registration->completed_at ? $registration->placement?->status === 'aktif' : in_array($registration->id, $heldIds, true)));
+            $registration->setAttribute('has_pending_group_invitations', $workflow->hasPendingGroupInvitations($registration));
             $registration->setAttribute('blockers', $registration->completed_at ? [] : $workflow->blockers($registration));
             $registration->setAttribute('can_submit', true);
             $registration->setAttribute('can_cancel', $workflow->canStudentCancel($registration, $request->user()));
@@ -731,7 +732,7 @@ class RolePageController extends Controller
             'expires_at' => $invitation->expires_at->toIso8601String(), 'sender_name' => $invitation->sender->nama, 'invitee_name' => $invitation->invitee->nama,
             'room_number' => $room->nomor_kamar, 'building_name' => $room->lantai->gedung->nama_gedung,
             'floor_name' => $room->lantai->nama_lantai, 'rate_unit' => $unit,
-            'estimated_total' => $host->billing_basis === 'room' ? null : $amount * $quantity, 'starts_at' => $starts->toDateString(), 'ends_at' => $host->ends_at?->toDateString(),
+            'estimated_total' => in_array($host->billing_basis, ['room', 'group'], true) ? null : $amount * $quantity, 'starts_at' => $starts->toDateString(), 'ends_at' => $host->ends_at?->toDateString(),
         ];
     }
 
@@ -835,6 +836,89 @@ class RolePageController extends Controller
             ->latest('tanggal_lapor')
             ->limit(100)
             ->get();
+    }
+
+    /** @return array<string, mixed> */
+    private function detailKamarPayload(Request $request): array
+    {
+        $user = $request->user();
+        $profile = $user?->mahasiswaProfil;
+        $placements = PenempatanKamar::with('kamar.lantai.gedung')
+            ->whereHas('mahasiswa', fn ($q) => $q->where('user_id', $user?->id))
+            ->orderByRaw("CASE WHEN status = 'aktif' THEN 0 ELSE 1 END")
+            ->latest()
+            ->get();
+
+        $hasActivePlacement = $placements->contains(fn (PenempatanKamar $p): bool => $p->status === 'aktif');
+        $items = $placements->map(fn (PenempatanKamar $p): array => $p->toArray())->values()->all();
+
+        if (! $hasActivePlacement && $profile) {
+            $activeReg = ResidenceRegistration::with(['reservedRoom.lantai.gedung', 'tagihan.pembayaran'])
+                ->where('student_profile_id', $profile->id)
+                ->whereNotNull('reserved_room_id')
+                ->whereNull('keys_returned_at')
+                ->whereNotIn('status', ['draft', 'rejected', 'cancelled'])
+                ->latest()
+                ->first();
+
+            if ($activeReg && $activeReg->reservedRoom) {
+                $workflow = app(ResidenceWorkflow::class);
+                $hasPaymentProof = ($activeReg->tagihan?->pembayaran ?? collect())->contains(
+                    fn ($p): bool => in_array($p->status, ['menunggu_verifikasi', 'lunas'], true),
+                );
+                $atStageFive = $activeReg->completed_at !== null
+                    || $activeReg->ready_at !== null
+                    || $activeReg->allocation_status === 'admin_occupied'
+                    || $hasPaymentProof
+                    || ($activeReg->is_kipk && $workflow->documentsUploaded($activeReg));
+
+                if ($atStageFive) {
+                    array_unshift($items, [
+                        'id' => $activeReg->id,
+                        'status' => $activeReg->completed_at ? 'aktif' : 'belum_checkin',
+                        'tanggal_mulai' => $activeReg->starts_at?->toDateString(),
+                        'tanggal_selesai' => $activeReg->ends_at?->toDateString(),
+                        'kamar' => $activeReg->reservedRoom->toArray(),
+                    ]);
+                }
+            }
+        }
+
+        if ($items !== []) {
+            $roomId = $items[0]['kamar']['id'] ?? null;
+            if ($roomId) {
+                $placedUsers = PenempatanKamar::with('mahasiswa.user')
+                    ->where('kamar_id', $roomId)
+                    ->where('status', 'aktif')
+                    ->get()
+                    ->map(fn (PenempatanKamar $p) => $p->mahasiswa?->user)
+                    ->filter();
+
+                $registeredUsers = ResidenceRegistration::with('studentProfile.user')
+                    ->where('reserved_room_id', $roomId)
+                    ->whereNull('keys_returned_at')
+                    ->whereNotIn('status', ['draft', 'rejected', 'cancelled'])
+                    ->get()
+                    ->map(fn (ResidenceRegistration $r) => $r->studentProfile?->user)
+                    ->filter();
+
+                $roommates = $placedUsers->concat($registeredUsers)
+                    ->unique('id')
+                    ->reject(fn ($u): bool => $u->id === $user?->id)
+                    ->map(fn ($u): array => [
+                        'id' => $u->id,
+                        'nama' => $u->nama,
+                        'nim_nip' => $u->nim_nip,
+                        'no_hp' => $u->no_hp,
+                    ])
+                    ->values()
+                    ->all();
+
+                $items[0]['roommates'] = $roommates;
+            }
+        }
+
+        return ['penempatan' => $items];
     }
 
     public function userPayload(Request $request): array

@@ -3,6 +3,7 @@ import * as amendments from '@/actions/App/Http/Controllers/ResidenceAmendmentCo
 import * as workflow from '@/actions/App/Http/Controllers/ResidenceWorkflowController';
 import { verifikasiPembayaran as adminVerifikasiPembayaran } from '@/routes/admin';
 import { verifikasiPembayaran as adminLayananVerifikasiPembayaran } from '@/routes/admin_layanan';
+import { bukti as pembayaranBukti } from '@/routes/andalas/pembayaran';
 import { Button, Modal, StatusBadge } from '@/andalas/components/ui';
 import { formatDateTime, formatRupiah } from '@/andalas/lib/format';
 import {
@@ -981,10 +982,25 @@ function InstallmentScheduleFields({
 
 function OfflineFinancingSection({ r }: { r: Registration }) {
     const [open, setOpen] = useState(false);
-    const [kind, setKind] = useState<'installment' | 'defer' | 'monthly'>(
-        'installment',
+    const [kind, setKind] = useState<
+        | 'installment'
+        | 'defer'
+        | 'monthly'
+        | 'scholarship_receivable'
+        | 'period_scheme'
+    >('installment');
+    const [useMultiTerm, setUseMultiTerm] = useState(false);
+    const [initialAmount, setInitialAmount] = useState('1000000');
+    const [remainingDueDate, setRemainingDueDate] = useState('');
+    const [monthlyAmount, setMonthlyAmount] = useState('250000');
+    const [monthsCount, setMonthsCount] = useState('1');
+    const [periodUnit, setPeriodUnit] = useState<'month' | 'semester' | 'year'>(
+        'month',
     );
-    const [initialAmount, setInitialAmount] = useState('0');
+    const [periodAmount, setPeriodAmount] = useState('1000000');
+    const [sponsorName, setSponsorName] = useState(
+        'Beasiswa Internasional UNAND',
+    );
     const [terms, setTerms] = useState<
         Array<{ jatuh_tempo: string; jumlah: string }>
     >([
@@ -996,10 +1012,15 @@ function OfflineFinancingSection({ r }: { r: Registration }) {
         0,
         Number(r.tagihan?.total ?? 0) - Number(r.tagihan?.total_dibayar ?? 0),
     );
-    const hasCustomScheme = r.decisions.some(
+    const activeCustomDecision = r.decisions.find(
         (d) =>
-            ['installment', 'defer', 'monthly'].includes(d.kind) &&
-            ['pending', 'approved'].includes(d.status),
+            [
+                'installment',
+                'defer',
+                'monthly',
+                'scholarship_receivable',
+                'period_scheme',
+            ].includes(d.kind) && ['pending', 'approved'].includes(d.status),
     );
 
     if (
@@ -1008,53 +1029,59 @@ function OfflineFinancingSection({ r }: { r: Registration }) {
         r.keys_returned_at ||
         r.is_kipk ||
         ['rejected', 'cancelled'].includes(r.status) ||
-        remainingTotal <= 0 ||
-        hasCustomScheme
+        (remainingTotal <= 0 && !activeCustomDecision)
     ) {
         return null;
     }
 
+    const parsedInitial = Math.max(0, Number(initialAmount) || 0);
+    const remainingReceivable = Math.max(0, remainingTotal - parsedInitial);
+
     return (
         <>
-            <div className="border-base-300 bg-base-200/30 flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3">
+            <div
+                id="atur-skema"
+                className="border-primary/30 bg-primary/5 flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3.5"
+            >
                 <div className="min-w-0 space-y-0.5">
-                    <p className="text-sm font-medium">
-                        Ubah Skema Tagihan &amp; Jadwal Cicilan (ACC Offline
-                        Pimpinan)
+                    <p className="text-sm font-semibold">
+                        Mengatur Metode &amp; Skema Pencicilan / Pembayaran
                     </p>
-                    <p className="text-base-content/70 text-xs">
-                        Atur cicilan atau penundaan pembayaran (0 DP) bila sudah
-                        mendapat persetujuan offline dari Pimpinan.
+                    <p className="text-base-content/75 text-xs">
+                        {activeCustomDecision
+                            ? `Skema aktif saat ini: ${DECISION_LABELS[activeCustomDecision.kind] ?? activeCustomDecision.kind}. Anda dapat mengubah ulang skema bila diperlukan.`
+                            : 'Atur skema pencicilan (pembayaran awal + batas pelunasan piutang), skema bulanan, penundaan (0 DP), atau skema beasiswa/periode setelah disetujui.'}
                     </p>
                 </div>
                 <Button
                     type="button"
-                    variant="secondary"
+                    variant="primary"
                     size="sm"
                     onClick={() => setOpen(true)}
                 >
-                    Atur Skema &amp; Jadwal
+                    Atur Metode &amp; Skema Pembayaran
                 </Button>
             </div>
 
             <Modal
                 open={open}
                 onClose={() => setOpen(false)}
-                title="Ubah Skema Tagihan & Jadwal Cicilan (ACC Offline Pimpinan)"
+                title="Mengatur Metode & Skema Pencicilan / Pembayaran"
                 width="max-w-2xl"
             >
                 <div className="space-y-3">
                     <p className="border-base-300 bg-base-200/50 text-base-content/75 rounded-lg border p-3 text-xs">
-                        Gunakan formulir ini bila calon penghuni sudah
-                        mengajukan dan mendapat persetujuan langsung dari
-                        Pimpinan secara offline untuk skema cicilan atau
-                        penundaan pembayaran.
+                        Gunakan formulir ini ketika calon penghuni mengajukan
+                        keringanan pencicilan ke kantor asrama (setelah
+                        disetujui Pimpinan), meminta perubahan skema menjadi
+                        bulanan, atau konfigurasi pembayaran mahasiswa
+                        Internasional / S2 / S3.
                     </p>
                     <ActionForm
                         url={workflow.requestDecision.url(r.id)}
-                        label="Simpan Skema & Jadwal Tagihan"
-                        confirmTitle="Ubah Skema Tagihan & Pembayaran?"
-                        confirmMessage="Jadwal termin tagihan mahasiswa akan diperbarui sesuai persetujuan Pimpinan (offline)."
+                        label="Simpan Metode & Skema Tagihan"
+                        confirmTitle="Simpan Perubahan Skema Tagihan?"
+                        confirmMessage="Tagihan dan jadwal pembayaran penghuni akan langsung diperbarui sesuai skema yang Anda tetapkan."
                         onSuccess={() => setOpen(false)}
                         onCancel={() => setOpen(false)}
                     >
@@ -1065,16 +1092,17 @@ function OfflineFinancingSection({ r }: { r: Registration }) {
                         />
                         <input type="hidden" name="status" value="approved" />
                         <div className="grid gap-3 sm:grid-cols-2">
-                            <Field label="Skema Pembiayaan" name="kind">
+                            <Field
+                                label="Metode / Skema Pembayaran"
+                                name="kind"
+                            >
                                 <select
                                     name="kind"
                                     className={fieldInputClass}
                                     value={kind}
                                     onChange={(e) => {
-                                        const nextKind = e.target.value as
-                                            | 'installment'
-                                            | 'defer'
-                                            | 'monthly';
+                                        const nextKind = e.target
+                                            .value as typeof kind;
                                         setKind(nextKind);
                                         if (nextKind === 'defer') {
                                             setInitialAmount('0');
@@ -1082,28 +1110,247 @@ function OfflineFinancingSection({ r }: { r: Registration }) {
                                     }}
                                 >
                                     <option value="installment">
-                                        Cicilan (Termin Pembayaran)
+                                        Cicilan (Pembayaran Awal + Piutang Sisa
+                                        Tagihan)
+                                    </option>
+                                    <option value="monthly">
+                                        Bulanan (Ubah Tagihan Menjadi Per Bulan)
                                     </option>
                                     <option value="defer">
                                         Penundaan Pembayaran (0 DP)
                                     </option>
-                                    {r.rate_unit === 'month' && (
-                                        <option value="monthly">Bulanan</option>
-                                    )}
+                                    <option value="scholarship_receivable">
+                                        Beasiswa Internasional / S2 / S3 (Masuk
+                                        Piutang Beasiswa)
+                                    </option>
+                                    <option value="period_scheme">
+                                        Skema Periode Non-Beasiswa (Per Bulan /
+                                        6 Bulan / Tahun)
+                                    </option>
                                 </select>
                             </Field>
                             <Field
-                                label="Dasar persetujuan Pimpinan (offline)"
+                                label="Dasar persetujuan / keterangan"
                                 name="approval_basis"
                             />
                         </div>
-                        <InstallmentScheduleFields
-                            remainingTotal={remainingTotal}
-                            initialAmount={initialAmount}
-                            onInitialAmountChange={setInitialAmount}
-                            terms={terms}
-                            onTermsChange={setTerms}
-                        />
+
+                        {kind === 'installment' && (
+                            <div className="space-y-3 pt-1">
+                                <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                                    <span className="font-medium">
+                                        Total tagihan saat ini:{' '}
+                                        <strong>
+                                            {formatRupiah(remainingTotal)}
+                                        </strong>
+                                    </span>
+                                    <button
+                                        type="button"
+                                        className="btn btn-ghost btn-xs text-primary"
+                                        onClick={() =>
+                                            setUseMultiTerm((prev) => !prev)
+                                        }
+                                    >
+                                        {useMultiTerm
+                                            ? 'Gunakan Mode Cepat (Pembayaran Awal + Batas Pelunasan)'
+                                            : 'Atur Lebih dari 2 Termin'}
+                                    </button>
+                                </div>
+                                {!useMultiTerm ? (
+                                    <>
+                                        <div className="grid gap-3 sm:grid-cols-2">
+                                            <Field
+                                                label="Jumlah pembayaran awal yang disepakati (Rp)"
+                                                name="initial_amount"
+                                            >
+                                                <input
+                                                    name="initial_amount"
+                                                    type="number"
+                                                    min="0"
+                                                    className={fieldInputClass}
+                                                    value={initialAmount}
+                                                    onChange={(e) =>
+                                                        setInitialAmount(
+                                                            e.target.value,
+                                                        )
+                                                    }
+                                                    required
+                                                />
+                                            </Field>
+                                            <Field
+                                                label="Batas waktu pelunasan sisa tagihan"
+                                                name="remaining_due_date"
+                                            >
+                                                <input
+                                                    name="remaining_due_date"
+                                                    type="date"
+                                                    className={fieldInputClass}
+                                                    value={remainingDueDate}
+                                                    onChange={(e) =>
+                                                        setRemainingDueDate(
+                                                            e.target.value,
+                                                        )
+                                                    }
+                                                    required
+                                                />
+                                            </Field>
+                                        </div>
+                                        <div className="border-base-300 bg-base-100 rounded-lg border px-3 py-2 text-xs">
+                                            Tagihan awal wajib dibayar:{' '}
+                                            <strong>
+                                                {formatRupiah(parsedInitial)}
+                                            </strong>{' '}
+                                            · Sisa tagihan masuk ke piutang
+                                            penghuni:{' '}
+                                            <strong className="text-primary">
+                                                {formatRupiah(
+                                                    remainingReceivable,
+                                                )}
+                                            </strong>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <InstallmentScheduleFields
+                                        remainingTotal={remainingTotal}
+                                        initialAmount={initialAmount}
+                                        onInitialAmountChange={setInitialAmount}
+                                        terms={terms}
+                                        onTermsChange={setTerms}
+                                    />
+                                )}
+                            </div>
+                        )}
+
+                        {kind === 'monthly' && (
+                            <div className="grid gap-3 pt-1 sm:grid-cols-2">
+                                <Field
+                                    label="Harga bulanan yang disepakati (Rp / bulan)"
+                                    name="monthly_amount"
+                                >
+                                    <input
+                                        name="monthly_amount"
+                                        type="number"
+                                        min="1"
+                                        className={fieldInputClass}
+                                        value={monthlyAmount}
+                                        onChange={(e) =>
+                                            setMonthlyAmount(e.target.value)
+                                        }
+                                        required
+                                    />
+                                </Field>
+                                <Field
+                                    label="Jumlah bulan ditagihkan"
+                                    name="months_count"
+                                >
+                                    <input
+                                        name="months_count"
+                                        type="number"
+                                        min="1"
+                                        max="12"
+                                        className={fieldInputClass}
+                                        value={monthsCount}
+                                        onChange={(e) =>
+                                            setMonthsCount(e.target.value)
+                                        }
+                                        required
+                                    />
+                                </Field>
+                            </div>
+                        )}
+
+                        {kind === 'defer' && (
+                            <div className="grid gap-3 pt-1 sm:grid-cols-2">
+                                <input
+                                    type="hidden"
+                                    name="initial_amount"
+                                    value="0"
+                                />
+                                <Field
+                                    label="Batas waktu pelunasan tagihan"
+                                    name="remaining_due_date"
+                                >
+                                    <input
+                                        name="remaining_due_date"
+                                        type="date"
+                                        className={fieldInputClass}
+                                        value={remainingDueDate}
+                                        onChange={(e) =>
+                                            setRemainingDueDate(e.target.value)
+                                        }
+                                        required
+                                    />
+                                </Field>
+                            </div>
+                        )}
+
+                        {kind === 'scholarship_receivable' && (
+                            <div className="space-y-2 pt-1">
+                                <Field
+                                    label="Nama beasiswa / penanggung piutang"
+                                    name="sponsor_name"
+                                >
+                                    <input
+                                        name="sponsor_name"
+                                        type="text"
+                                        className={fieldInputClass}
+                                        value={sponsorName}
+                                        onChange={(e) =>
+                                            setSponsorName(e.target.value)
+                                        }
+                                        required
+                                    />
+                                </Field>
+                                <p className="text-base-content/70 text-xs">
+                                    Seluruh nilai tagihan akan dimasukkan ke
+                                    daftar piutang beasiswa agar mahasiswa dapat
+                                    langsung menempati kamar dan check-in.
+                                </p>
+                            </div>
+                        )}
+
+                        {kind === 'period_scheme' && (
+                            <div className="grid gap-3 pt-1 sm:grid-cols-2">
+                                <Field
+                                    label="Pilihan periode pembayaran"
+                                    name="period_unit"
+                                >
+                                    <select
+                                        name="period_unit"
+                                        className={fieldInputClass}
+                                        value={periodUnit}
+                                        onChange={(e) =>
+                                            setPeriodUnit(
+                                                e.target
+                                                    .value as typeof periodUnit,
+                                            )
+                                        }
+                                    >
+                                        <option value="month">Per Bulan</option>
+                                        <option value="semester">
+                                            Per 6 Bulan (Semester)
+                                        </option>
+                                        <option value="year">Per Tahun</option>
+                                    </select>
+                                </Field>
+                                <Field
+                                    label="Harga sesuai periode tersebut (Rp)"
+                                    name="period_amount"
+                                >
+                                    <input
+                                        name="period_amount"
+                                        type="number"
+                                        min="1"
+                                        className={fieldInputClass}
+                                        value={periodAmount}
+                                        onChange={(e) =>
+                                            setPeriodAmount(e.target.value)
+                                        }
+                                        required
+                                    />
+                                </Field>
+                            </div>
+                        )}
                     </ActionForm>
                 </div>
             </Modal>
@@ -1440,8 +1687,9 @@ export default function RegistrationDetailCard({
 
             {!r.completed_at && checkInBlockers.length === 0 && (
                 <p className="alert alert-success text-sm">
-                    Siap check-in. Hunian aktif setelah petugas memeriksa berkas
-                    asli dan menyerahkan kunci.
+                    {r.rate_unit === 'day'
+                        ? 'Siap check-in. Hunian aktif setelah petugas memeriksa bukti bayar dan menyerahkan kunci.'
+                        : 'Siap check-in. Hunian aktif setelah petugas memeriksa berkas asli dan menyerahkan kunci.'}
                 </p>
             )}
 
@@ -1459,13 +1707,88 @@ export default function RegistrationDetailCard({
                 </p>
             )}
 
-            {r.workflow_version === 2 && (
-                <DocumentReviewSection
-                    r={r}
-                    requiredDocumentKinds={requiredDocumentKinds}
-                    latestDocuments={latestDocuments}
-                />
+            {(r.rate_unit === 'day' ||
+                (r.tagihan?.pembayaran?.length ?? 0) > 0) && (
+                <details className="border-base-300 rounded-lg border p-3" open>
+                    <summary className="flex cursor-pointer flex-wrap items-center justify-between gap-2 font-medium">
+                        <span>
+                            {r.rate_unit === 'day'
+                                ? 'Cek Bukti Pembayaran (Pengganti Verifikasi Berkas Sewa Harian)'
+                                : `Bukti Pembayaran Penghuni (${r.tagihan?.pembayaran?.length ?? 0})`}
+                        </span>
+                        {(r.tagihan?.pembayaran ?? []).some(
+                            (p) =>
+                                p.status === 'menunggu_verifikasi' ||
+                                p.status === 'lunas',
+                        ) ? (
+                            <span className="badge badge-success badge-sm gap-1">
+                                <CheckCircle2 className="size-3" />
+                                Bukti bayar terunggah
+                            </span>
+                        ) : (
+                            <span className="badge badge-warning badge-sm gap-1">
+                                <Clock className="size-3" />
+                                Belum ada bukti bayar
+                            </span>
+                        )}
+                    </summary>
+                    <div className="mt-3 space-y-2.5 text-sm">
+                        {(r.tagihan?.pembayaran ?? []).length === 0 ? (
+                            <p className="text-base-content/70 text-xs">
+                                Penghuni belum mengunggah bukti pembayaran.
+                            </p>
+                        ) : (
+                            (r.tagihan?.pembayaran ?? []).map((p) => (
+                                <div
+                                    key={p.id}
+                                    className="border-base-200 flex flex-wrap items-center justify-between gap-2 border-b pb-2.5 last:border-b-0"
+                                >
+                                    <div className="space-y-0.5">
+                                        <p className="font-medium">
+                                            {p.kode_transaksi} ·{' '}
+                                            <strong>
+                                                {formatRupiah(
+                                                    Number(p.nominal),
+                                                )}
+                                            </strong>
+                                        </p>
+                                        <p className="text-base-content/65 text-xs">
+                                            Status:{' '}
+                                            {p.status === 'lunas'
+                                                ? 'Lunas (Terverifikasi)'
+                                                : p.status ===
+                                                    'menunggu_verifikasi'
+                                                  ? 'Bukti Bayar Terunggah (Siap Diperiksa)'
+                                                  : p.status}
+                                            {p.tanggal_bayar
+                                                ? ` · Tanggal bayar: ${formatDateTime(p.tanggal_bayar)}`
+                                                : ''}
+                                        </p>
+                                    </div>
+                                    <a
+                                        href={pembayaranBukti.url(p.id)}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="btn btn-xs btn-primary btn-outline gap-1"
+                                    >
+                                        <Eye className="size-3.5" />
+                                        Cek / Unduh Bukti Bayar
+                                    </a>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </details>
             )}
+
+            {r.workflow_version === 2 &&
+                (r.rate_unit !== 'day' || r.documents.length > 0) && (
+                    <DocumentReviewSection
+                        r={r}
+                        requiredDocumentKinds={requiredDocumentKinds}
+                        latestDocuments={latestDocuments}
+                    />
+                )}
 
             {manager && <OfflineFinancingSection r={r} />}
 
@@ -1712,7 +2035,9 @@ export default function RegistrationDetailCard({
                                 Identitas penghuni telah diperiksa langsung.
                             </ConfirmCheckbox>
                             <ConfirmCheckbox name="original_documents_checked">
-                                Berkas asli sesuai dokumen yang disahkan.
+                                {r.rate_unit === 'day'
+                                    ? 'Bukti pembayaran telah diperiksa dan sesuai.'
+                                    : 'Berkas asli sesuai dokumen yang disahkan.'}
                             </ConfirmCheckbox>
                             <ConfirmCheckbox name="keys_handed">
                                 Penghuni hadir dan kunci telah diserahkan.

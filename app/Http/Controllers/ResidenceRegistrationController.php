@@ -27,12 +27,13 @@ class ResidenceRegistrationController extends Controller
 
         DB::transaction(function () use ($request, $submit, $student, $validated, $uploadedFiles): void {
             $registration = $submit->handle($student, $validated);
-            if ($uploadedFiles !== [] || ! empty($validated['decision_kind'])) {
+            $decisionKind = $validated['decision_kind'] ?? ($registration->rate_unit === 'day' ? 'full' : null);
+            if ($uploadedFiles !== [] || ! empty($decisionKind)) {
                 app(ResidenceWorkflow::class)->storeSubmittedPackage(
                     $registration,
                     $request->user(),
                     $uploadedFiles,
-                    $validated['decision_kind'] ?? null,
+                    $decisionKind,
                     $validated['decision_reason'] ?? null,
                 );
             }

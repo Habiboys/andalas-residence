@@ -281,3 +281,115 @@ it('shows all uploaded documents and billing details with Belum Check-in badge i
     expect(html).not.toContain('Detail Tagihan &amp; Pembayaran');
     expect(html).not.toContain('Buka Halaman Detail Tagihan');
 });
+
+it('adapts payment banner and hides document upload card for daily rental registrations', () => {
+    const dailyRegistration = {
+        ...sampleRegistration,
+        rate_unit: 'day',
+        payment_unlocked: true,
+        documents: [],
+        decisions: [
+            {
+                id: 'dec-full',
+                kind: 'full',
+                status: 'approved',
+                reason: 'Pembayaran penuh sesuai tagihan.',
+            },
+        ],
+    };
+
+    const html = renderToStaticMarkup(
+        <RegistrationStatus
+            registrations={{
+                data: [dailyRegistration],
+                last_page: 1,
+                links: [],
+            }}
+        />,
+    );
+
+    expect(html).toContain(
+        'Kamar sewa harian berhasil dipesan! Silakan selesaikan pembayaran sesuai tagihan',
+    );
+    expect(html).toContain(
+        'Kategori sewa per hari tidak memerlukan unggah berkas pendaftaran',
+    );
+    expect(html).not.toContain('Berkas Pendaftaran');
+    expect(html).not.toContain('Kembali ke Tahap Sebelumnya');
+});
+
+it('shows waiting for group members banner when Per Grup invitations are still pending', () => {
+    const groupPending = {
+        ...sampleRegistration,
+        billing_basis: 'group',
+        payment_unlocked: false,
+        has_pending_group_invitations: true,
+    };
+
+    const html = renderToStaticMarkup(
+        <RegistrationStatus
+            registrations={{
+                data: [groupPending],
+                last_page: 1,
+                links: [],
+            }}
+        />,
+    );
+
+    expect(html).toContain('Menunggu Teman Grup');
+    expect(html).toContain(
+        'Menunggu seluruh teman kamar yang diundang menerima undangan',
+    );
+});
+
+it('hides Pembiayaan & Tagihan card and cancel button for KIP-K at check-in stage and labels kipk_rekomendasi as Kartu Peserta KIP-K', () => {
+    const kipkReg = {
+        ...sampleRegistration,
+        is_kipk: true,
+        can_cancel: true,
+        ready_at: '2026-11-19T10:00:00Z',
+        blockers: [],
+        policy: {
+            category: 'local_kipk',
+            settings: {
+                documents: ['perjanjian', 'kipk_rekomendasi'],
+            },
+        },
+        documents: [
+            {
+                id: 'doc-1',
+                kind: 'perjanjian',
+                version: 1,
+                status: 'uploaded',
+            },
+            {
+                id: 'doc-2',
+                kind: 'kipk_rekomendasi',
+                version: 1,
+                status: 'uploaded',
+            },
+        ],
+    };
+
+    const html = renderToStaticMarkup(
+        <RegistrationStatus
+            registrations={{
+                data: [kipkReg],
+                last_page: 1,
+                links: [],
+            }}
+        />,
+    );
+
+    expect(html).toContain('Kartu Peserta KIP-K');
+    expect(html).toContain(
+        'Silakan datang ke asrama untuk melakukan check-in pada jadwal yang ditentukan fasilitator asrama.',
+    );
+    expect(html).toContain(
+        'Tagihan Biaya hunian ditunda melalui skema KIP-K sesuai ketentuan asrama',
+    );
+    expect(html).toContain('Buka Kamar Saya');
+    expect(html).not.toContain('Pembiayaan &amp; Tagihan');
+    expect(html).not.toContain('Unggah Bukti Pembayaran');
+    expect(html).not.toContain('Batalkan &amp; Ganti Pilihan Kamar/Gedung');
+});
