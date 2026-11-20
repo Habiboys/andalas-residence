@@ -2,6 +2,7 @@
 
 use App\Actions\Registration\ConfirmResidenceCheckIn;
 use App\Models\FasilitatorWilayah;
+use App\Models\Lantai;
 use App\Models\MahasiswaProfil;
 use App\Models\Pembayaran;
 use App\Models\PenempatanKamar;
@@ -185,6 +186,47 @@ it('allows facilitator check-in after a non-kipk resident is moved to another ro
     expect($r->completed_at)->not->toBeNull()
         ->and($r->reserved_room_id)->toBe($targetRoom->id)
         ->and($r->placement?->kamar_id)->toBe($targetRoom->id);
+});
+
+it('excludes full, closed-floor, maintenance, and current rooms from the facilitator move room selector', function () {
+    $f = toBeFixture(capacity: 1);
+    $facilitator = toBeFacilitator($f['building']);
+
+    $openAvailable = $f['room']->replicate();
+    $openAvailable->nomor_kamar = '1A.05';
+    $openAvailable->status = 'kosong';
+    $openAvailable->save();
+
+    $maintenanceRoom = $f['room']->replicate();
+    $maintenanceRoom->nomor_kamar = '1A.06';
+    $maintenanceRoom->status = 'maintenance';
+    $maintenanceRoom->save();
+
+    $fullRoom = $f['room']->replicate();
+    $fullRoom->nomor_kamar = '1A.07';
+    $fullRoom->status = 'kosong';
+    $fullRoom->save();
+    $otherStudent = User::factory()->student()->create(['gender' => 'perempuan'])->assignRole('mahasiswa');
+    $otherProfile = MahasiswaProfil::create(['user_id' => $otherStudent->id, 'prodi_id' => $f['program']->id, 'angkatan' => '2025', 'barcode_code' => fake()->uuid()]);
+    PenempatanKamar::create(['mahasiswa_id' => $otherProfile->id, 'kamar_id' => $fullRoom->id, 'periode_id' => $f['period']->id, 'tanggal_mulai' => today(), 'status' => 'aktif']);
+
+    $closedFloor = Lantai::create(['gedung_id' => $f['building']->id, 'nomor_lantai' => 2, 'nama_lantai' => 'Lantai 2', 'booking_open' => false]);
+    $closedFloorRoom = $f['room']->replicate();
+    $closedFloorRoom->lantai_id = $closedFloor->id;
+    $closedFloorRoom->nomor_kamar = '1B.16';
+    $closedFloorRoom->status = 'kosong';
+    $closedFloorRoom->save();
+
+    $r = toBeSubmit($f);
+
+    $this->actingAs($facilitator)
+        ->get(route('residence.registrations.show', $r))
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->has('rooms', 1)
+            ->where('rooms.0.id', $openAvailable->id)
+            ->where('rooms.0.available_places', 1)
+        );
 });
 
 it('rejects room moves into full rooms and across a facilitators building boundary', function () {

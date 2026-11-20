@@ -9,6 +9,7 @@ export type Room = {
     id: string;
     nomor_kamar: string;
     kapasitas: number;
+    available_places?: number;
     lantai: { gedung: Building };
 };
 

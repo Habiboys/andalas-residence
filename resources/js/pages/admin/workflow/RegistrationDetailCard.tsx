@@ -649,19 +649,36 @@ function AmendmentsSection({
                                 name="room_id"
                                 required
                             >
-                                <option value="">Pilih kamar</option>
+                                <option value="">Pilih kamar tersedia</option>
                                 {rooms
                                     .filter(
                                         (room) =>
-                                            room.id !== r.reserved_room?.id,
+                                            room.id !== r.reserved_room?.id &&
+                                            (room.available_places ===
+                                                undefined ||
+                                                room.available_places > 0),
                                     )
                                     .map((room) => (
                                         <option key={room.id} value={room.id}>
                                             {room.lantai.gedung.nama_gedung} /{' '}
                                             {room.nomor_kamar}
+                                            {room.available_places !== undefined
+                                                ? ` (Tersedia ${room.available_places}/${room.kapasitas})`
+                                                : ''}
                                         </option>
                                     ))}
                             </select>
+                            {rooms.filter(
+                                (room) =>
+                                    room.id !== r.reserved_room?.id &&
+                                    (room.available_places === undefined ||
+                                        room.available_places > 0),
+                            ).length === 0 && (
+                                <p className="text-warning mt-1 text-xs">
+                                    Tidak ada kamar tujuan yang tersedia pada
+                                    gedung/kategori ini.
+                                </p>
+                            )}
                         </Field>
 
                         <Field

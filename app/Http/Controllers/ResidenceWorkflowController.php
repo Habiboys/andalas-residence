@@ -39,10 +39,13 @@ use App\Services\ResidenceLifecycle;
 use App\Services\ResidencePolicyService;
 use App\Services\ResidenceWorkflow;
 use App\Services\ResidenceWorkflowAccess;
+use App\Services\RoomEligibility;
+use App\Services\RoomReservations;
 use App\Services\StudentCohort;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -143,7 +146,7 @@ class ResidenceWorkflowController extends Controller
             'policyCatalog' => $manager ? collect(ResidencePolicyService::CATEGORIES)
                 ->mapWithKeys(fn (string $category): array => [$category => app(ResidencePolicyService::class)->masterCatalog($category)]) : [],
             'masterHousingUrl' => $user->hasAnyRole(['staff_admin', 'superadmin']) ? route('admin.kelola-bangunan') : null,
-            'rooms' => ($manager || $user->hasRole('fasilitator')) ? Kamar::with('lantai.gedung')->where('status', '!=', 'maintenance')->when(! $manager, fn ($q) => $q->whereHas('lantai', fn ($q) => $q->whereIn('gedung_id', ResidenceBuildingAccess::ids($user))))->get() : [],
+            'rooms' => ($manager || $user->hasRole('fasilitator')) ? $this->availableRoomsForOfficer($user, $manager) : [],
             'applications' => ($manager || $finance) ? ResidenceApplication::with('registrations.tagihan')->latest()->limit(100)->get() : [],
             'paymentProofs' => $finance ? Pembayaran::with(['mahasiswa.user', 'tagihan:id,nomor,total,total_dibayar,status'])->where('status', 'menunggu_verifikasi')->latest()->limit(200)->get() : [],
             'invoiceGroups' => $finance ? InvoiceGroup::latest()->limit(100)->get() : [],
@@ -186,7 +189,7 @@ class ResidenceWorkflowController extends Controller
             'buildings' => [],
             'policyCatalog' => [],
             'masterHousingUrl' => null,
-            'rooms' => ($manager || $user->hasRole('fasilitator')) ? Kamar::with('lantai.gedung')->where('status', '!=', 'maintenance')->when(! $manager, fn ($q) => $q->whereHas('lantai', fn ($q) => $q->whereIn('gedung_id', ResidenceBuildingAccess::ids($user))))->get() : [],
+            'rooms' => ($manager || $user->hasRole('fasilitator')) ? $this->availableRoomsForOfficer($user, $manager, $registration) : [],
             'applications' => [],
             'paymentProofs' => [],
             'invoiceGroups' => [],
@@ -222,6 +225,49 @@ class ResidenceWorkflowController extends Controller
         $r->setAttribute('can_review_documents', ResidenceWorkflowAccess::documentReviewer($user, $r));
 
         return $r;
+    }
+
+    /** @return Collection<int, Kamar> */
+    private function availableRoomsForOfficer(User $user, bool $manager, ?ResidenceRegistration $registration = null): Collection
+    {
+        $policyService = app(ResidencePolicyService::class);
+        $reservations = app(RoomReservations::class);
+        $currentRoomId = $registration?->placement?->kamar_id ?? $registration?->reserved_room_id;
+
+        return Kamar::with('lantai.gedung')
+            ->where('status', '!=', 'maintenance')
+            ->whereHas('lantai', function ($q) use ($user, $manager): void {
+                $q->where('booking_open', true)
+                    ->when(! $manager, fn ($floors) => $floors->whereIn('gedung_id', ResidenceBuildingAccess::ids($user)));
+            })
+            ->orderBy('nomor_kamar')
+            ->get()
+            ->filter(function (Kamar $room) use ($registration, $currentRoomId, $policyService, $reservations): bool {
+                if ($currentRoomId && $room->id === $currentRoomId) {
+                    return false;
+                }
+                if (! RoomEligibility::allowsType($room->lantai->gedung, $room->tipe_kamar, $room->kapasitas)) {
+                    return false;
+                }
+                if ($registration) {
+                    try {
+                        $policyService->validateRoom($registration->policy, $room, $registration->studentProfile);
+                        $policyService->rate($registration, $room);
+                    } catch (ValidationException) {
+                        return false;
+                    }
+                }
+                $occupied = $room->penempatanKamar()->where('status', 'aktif')->count();
+                $held = $reservations->count($room, $registration?->id);
+                $availablePlaces = max(0, (int) $room->kapasitas - $occupied - $held);
+                if ($availablePlaces <= 0) {
+                    return false;
+                }
+                $room->setAttribute('available_places', $availablePlaces);
+
+                return true;
+            })
+            ->values();
     }
 
     public function profile(Request $request): RedirectResponse
