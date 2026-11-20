@@ -21,7 +21,11 @@ class PlaceResidenceRegistration
         $room = Kamar::query()->lockForUpdate()->findOrFail($roomId);
         RoomEligibility::validate($room, $registration->studentProfile->user, 'kamar_id', $registration->id);
 
-        if (! $registration->is_kipk && ! $registration->roomPreferences()->where('kamar_id', $room->id)->exists()) {
+        if (
+            ! $registration->is_kipk
+            && $registration->reserved_room_id !== $room->id
+            && ! $registration->roomPreferences()->where('kamar_id', $room->id)->exists()
+        ) {
             throw ValidationException::withMessages(['kamar_id' => 'Kamar harus berasal dari preferensi mahasiswa.']);
         }
 

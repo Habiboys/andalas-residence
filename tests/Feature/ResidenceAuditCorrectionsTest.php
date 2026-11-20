@@ -149,6 +149,44 @@ it('moves occupancy once without altering payment history and retains damaged ro
     $this->actingAs(toBeOfficer('mahasiswa'))->get(route('residence.amendments.document', $body['reference']))->assertForbidden();
 });
 
+it('allows facilitator check-in after a non-kipk resident is moved to another room before check-in', function () {
+    $f = toBeFixture();
+    $facilitator = toBeFacilitator($f['building']);
+    $targetRoom = $f['room']->replicate();
+    $targetRoom->nomor_kamar = '1A.04';
+    $targetRoom->status = 'kosong';
+    $targetRoom->save();
+
+    $r = toBeSubmit($f);
+    toBeDocument($r, $facilitator);
+    toBePay($r, $f['manager']);
+
+    $this->actingAs($facilitator)
+        ->post(route('residence.move', $r), [
+            'reference' => fake()->uuid(),
+            'room_id' => $targetRoom->id,
+            'reason' => 'Tes pindah kamar sebelum check-in',
+            'keys_exchanged' => 0,
+            'room_condition' => 'ready',
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $this->actingAs($facilitator)
+        ->post(route('residence.checkin', $r->fresh()), [
+            'identity_checked' => 1,
+            'original_documents_checked' => 1,
+            'keys_handed' => 1,
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $r->refresh();
+    expect($r->completed_at)->not->toBeNull()
+        ->and($r->reserved_room_id)->toBe($targetRoom->id)
+        ->and($r->placement?->kamar_id)->toBe($targetRoom->id);
+});
+
 it('rejects room moves into full rooms and across a facilitators building boundary', function () {
     $f = auditOccupiedRoom();
     $r = $f['registration'];
