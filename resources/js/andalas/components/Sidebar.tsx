@@ -474,11 +474,31 @@ const registrationAdminNav: NavGroup = {
     ...workflowNav,
     items: [
         ...workflowNav.items,
-        { label: 'Buka / Tutup Pendaftaran', page: 'residence-workflow/opening', icon: KeyRound },
-        { label: 'Permohonan Institusi & Kegiatan', page: 'residence-workflow/applications', icon: FileText },
-        { label: 'Penyewa Umum', page: 'residence-workflow/public', icon: Users },
-        { label: 'Rekening Koran & Invoice', page: 'residence-workflow/finance', icon: Landmark },
-        { label: 'Pengaturan Layanan', page: 'residence-management', icon: Database },
+        {
+            label: 'Buka / Tutup Pendaftaran',
+            page: 'residence-workflow/opening',
+            icon: KeyRound,
+        },
+        {
+            label: 'Permohonan Institusi & Kegiatan',
+            page: 'residence-workflow/applications',
+            icon: FileText,
+        },
+        {
+            label: 'Penyewa Umum',
+            page: 'residence-workflow/public',
+            icon: Users,
+        },
+        {
+            label: 'Rekening Koran & Invoice',
+            page: 'residence-workflow/finance',
+            icon: Landmark,
+        },
+        {
+            label: 'Pengaturan Layanan',
+            page: 'residence-management',
+            icon: Database,
+        },
     ],
 };
 
@@ -491,11 +511,23 @@ function withOperations(
     [dashboard, ...groups]: NavGroup[],
     registration?: NavGroup,
 ): NavGroup[] {
-    const sections = registration === registrationAdminNav
-        ? groups.map((group) => ({ ...group, items: group.items.filter((item) => item.page !== 'residence-management') }))
-            .filter((group) => group.items.length > 0)
-        : groups;
-    return [dashboard, ...(registration ? [registration] : []), ...sections, reportingNav];
+    const sections =
+        registration === registrationAdminNav
+            ? groups
+                  .map((group) => ({
+                      ...group,
+                      items: group.items.filter(
+                          (item) => item.page !== 'residence-management',
+                      ),
+                  }))
+                  .filter((group) => group.items.length > 0)
+            : groups;
+    return [
+        dashboard,
+        ...(registration ? [registration] : []),
+        ...sections,
+        reportingNav,
+    ];
 }
 
 export const NAV_MAP: Record<UserRole, NavGroup[]> = {
@@ -532,9 +564,12 @@ export function canAccessNavItem(
         activeResident?: boolean;
     } = {},
 ): boolean {
+    if (page === 'audit-log' && role !== 'superadmin') {
+        return false;
+    }
     if (
-        (page === 'audit-log' || page === 'akun-internal') &&
-        role !== 'superadmin'
+        page === 'akun-internal' &&
+        !['superadmin', 'staff_admin'].includes(role)
     ) {
         return false;
     }

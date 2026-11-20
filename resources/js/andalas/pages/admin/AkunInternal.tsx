@@ -32,11 +32,18 @@ type UserRow = {
     no_hp?: string;
     status?: string;
     roles?: string[];
+    assigned_gedung_id?: string | null;
+    assigned_gedung_nama?: string | null;
 };
 
 type RoleRow = { name: string; users_count: number };
+type BuildingOption = { id: string; kode_gedung?: string; nama_gedung: string };
 
-type Props = { users: UserRow[] | null; roles: RoleRow[] | null };
+type Props = {
+    users: UserRow[] | null;
+    roles: RoleRow[] | null;
+    gedung?: BuildingOption[];
+};
 
 const ROLES = [
     'superadmin',
@@ -65,37 +72,35 @@ const emptyForm = {
     email: '',
     password: '',
     no_hp: '',
-    role: 'staff_admin',
+    role: 'fasilitator',
+    gedung_id: '',
 };
 
-export default function AkunInternal({ users, roles }: Props) {
+export default function AkunInternal({ users, roles, gedung = [] }: Props) {
     const { currentUser } = useAuth();
     const isSuperadmin =
         currentUser?.role === 'superadmin' ||
         currentUser?.raw_role === 'superadmin';
+    const isStaffAdmin =
+        currentUser?.role === 'staff_admin' ||
+        currentUser?.raw_role === 'staff_admin';
+    const canAccess = isSuperadmin || isStaffAdmin;
+    const availableRoles = isSuperadmin ? ROLES : ['fasilitator'];
     const [tab, setTab] = useState(0);
     const [viewing, setViewing] = useState<UserRow | null>(null);
     const [open, setOpen] = useState(false);
     const [editing, setEditing] = useState<UserRow | null>(null);
     const [deleting, setDeleting] = useState<UserRow | null>(null);
     const [deletingBusy, setDeletingBusy] = useState(false);
-    const {
-        data,
-        setData,
-        post,
-        put,
-        errors,
-        processing,
-        resetAndClearErrors,
-        clearErrors,
-    } = useForm(emptyForm);
+    const { data, setData, post, put, errors, processing, clearErrors } =
+        useForm(emptyForm);
 
-    if (!isSuperadmin) {
+    if (!canAccess) {
         return (
             <div className="space-y-4">
                 <PageHeader
                     title="Akun & Role Internal"
-                    subtitle="Hanya superadmin yang dapat mengakses halaman ini"
+                    subtitle="Hanya superadmin atau staff admin yang dapat mengakses halaman ini"
                 />
                 <Card className="text-muted p-6 text-sm">
                     Anda tidak memiliki akses ke modul ini.
@@ -106,7 +111,12 @@ export default function AkunInternal({ users, roles }: Props) {
 
     function openCreate() {
         setEditing(null);
-        resetAndClearErrors();
+        setData({
+            ...emptyForm,
+            role: isSuperadmin ? 'staff_admin' : 'fasilitator',
+            gedung_id: '',
+        });
+        clearErrors();
         setOpen(true);
     }
 
@@ -118,7 +128,10 @@ export default function AkunInternal({ users, roles }: Props) {
             email: row.email ?? '',
             password: '',
             no_hp: row.no_hp ?? '',
-            role: row.roles?.[0] ?? 'staff_admin',
+            role:
+                row.roles?.[0] ??
+                (isSuperadmin ? 'staff_admin' : 'fasilitator'),
+            gedung_id: row.assigned_gedung_id ?? '',
         });
         clearErrors();
         setOpen(true);
@@ -148,8 +161,16 @@ export default function AkunInternal({ users, roles }: Props) {
         <div className="space-y-4">
             <PageHeader
                 title="Akun & Role Internal"
-                subtitle="Kelola akun staff dan hak akses (superadmin)"
-                actions={<Button onClick={openCreate}>Tambah Akun</Button>}
+                subtitle={
+                    isSuperadmin
+                        ? 'Kelola akun petugas internal, role, dan penugasan gedung fasilitator'
+                        : 'Kelola akun Fasilitator Gedung dan langsung tetapkan gedung tugasnya'
+                }
+                actions={
+                    <Button onClick={openCreate}>
+                        {isSuperadmin ? 'Tambah Akun' : 'Tambah Fasilitator'}
+                    </Button>
+                }
             />
 
             <section className="space-y-4">
@@ -171,6 +192,15 @@ export default function AkunInternal({ users, roles }: Props) {
                                     r.roles?.[0]
                                         ? (ROLE_LABELS[r.roles[0]] ??
                                           r.roles[0].replace('_', ' '))
+                                        : '-',
+                            },
+                            {
+                                key: 'assigned_gedung_nama',
+                                label: 'Gedung Penugasan',
+                                render: (r: UserRow) =>
+                                    r.roles?.[0] === 'fasilitator'
+                                        ? (r.assigned_gedung_nama ??
+                                          'Belum ditetapkan')
                                         : '-',
                             },
                             {
@@ -333,10 +363,20 @@ export default function AkunInternal({ users, roles }: Props) {
                         <select
                             className={inputClass}
                             value={data.role}
-                            onChange={(e) => setData('role', e.target.value)}
+                            onChange={(e) => {
+                                const nextRole = e.target.value;
+                                setData({
+                                    ...data,
+                                    role: nextRole,
+                                    gedung_id:
+                                        nextRole === 'fasilitator'
+                                            ? data.gedung_id
+                                            : '',
+                                });
+                            }}
                             required
                         >
-                            {ROLES.map((r) => (
+                            {availableRoles.map((r) => (
                                 <option key={r} value={r}>
                                     {ROLE_LABELS[r] ?? r.replace('_', ' ')}
                                 </option>
@@ -348,6 +388,31 @@ export default function AkunInternal({ users, roles }: Props) {
                             </p>
                         )}
                     </FormField>
+                    {data.role === 'fasilitator' && (
+                        <FormField label="Gedung Penugasan Fasilitator">
+                            <select
+                                className={inputClass}
+                                value={data.gedung_id}
+                                onChange={(e) =>
+                                    setData('gedung_id', e.target.value)
+                                }
+                            >
+                                <option value="">
+                                    -- Pilih gedung (opsional) --
+                                </option>
+                                {gedung.map((g) => (
+                                    <option key={g.id} value={g.id}>
+                                        {g.nama_gedung}
+                                    </option>
+                                ))}
+                            </select>
+                            {errors.gedung_id && (
+                                <p className="text-error mt-1 text-sm">
+                                    {errors.gedung_id}
+                                </p>
+                            )}
+                        </FormField>
+                    )}
                 </form>
             </Drawer>
 

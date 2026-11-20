@@ -17,12 +17,14 @@ $pages = [
     'pimpinan' => ['dashboard', 'laporan-keuangan', 'laporan-aset'],
 ];
 
-Route::middleware('role:superadmin')->group(function () {
+Route::middleware('role:superadmin|staff_admin')->group(function () {
     Route::get('admin/akun-internal', [RolePageController::class, 'show'])
         ->defaults('component', 'admin/akun-internal')
-        ->defaults('role', 'superadmin')
+        ->defaults('role', 'admin')
         ->defaults('page', 'akun-internal')
         ->name('admin.akun-internal');
+});
+Route::middleware('role:superadmin')->group(function () {
     Route::get('admin/audit-log', [RolePageController::class, 'show'])
         ->defaults('component', 'admin/audit-log')
         ->defaults('role', 'superadmin')

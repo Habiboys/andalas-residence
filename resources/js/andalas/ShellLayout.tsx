@@ -103,7 +103,14 @@ function ShellInner({
         return null;
     }
 
-    const roleKey = (ROLE_KEYS[role] ?? 'staff_admin') as UserRole;
+    const roleKey = (
+        ROLE_KEYS[role] === 'staff_admin' &&
+        currentUser.raw_role === 'superadmin'
+            ? 'superadmin'
+            : (ROLE_KEYS[role] ??
+              ROLE_KEYS[currentUser.raw_role ?? ''] ??
+              'staff_admin')
+    ) as UserRole;
     const sidebarRole = roleKey as SidebarUserRole;
     const title = pageTitle(role, currentPage);
 

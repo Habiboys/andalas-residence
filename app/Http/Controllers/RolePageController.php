@@ -74,6 +74,11 @@ class RolePageController extends Controller
     {
         $component = (string) $request->route()->defaults['component'];
         $role = (string) $request->route()->defaults['role'];
+        if (in_array($role, ['admin', 'staff_admin'], true) && $request->user()?->hasRole('superadmin')) {
+            $role = 'superadmin';
+        } elseif ($role === 'admin') {
+            $role = 'staff_admin';
+        }
         $page = (string) $request->route()->defaults['page'];
         $landingSections = ['kelola-profil' => 'sejarah', 'kelola-informasi' => 'pengumuman', 'kelola-program' => 'program', 'kelola-testimoni' => 'testimoni'];
         if (isset($landingSections[$page])) {
@@ -285,7 +290,11 @@ class RolePageController extends Controller
             ],
             'approval-bebas-asrama' => $this->freeResidenceApprovalPayload($request),
             'perizinan' => $this->leavePayload($request),
-            'akun-internal' => ['users' => $this->internalUsers(), 'roles' => $this->internalRoles()],
+            'akun-internal' => [
+                'users' => $this->internalUsers(),
+                'roles' => $this->internalRoles(),
+                'gedung' => Gedung::orderBy('nama_gedung')->get(['id', 'kode_gedung', 'nama_gedung']),
+            ],
             'audit-log' => ['audit_logs' => AuditLog::with('user')->latest()->limit(500)->get()],
             default => [],
         };
@@ -751,36 +760,49 @@ class RolePageController extends Controller
 
     private function internalUsers(): ?array
     {
-        if (! $this->isSuperadmin(request())) {
+        $request = request();
+        if (! $this->isSuperadmin($request) && ! $request->user()?->hasRole('staff_admin')) {
             return null;
         }
 
-        return User::role(['superadmin', 'pimpinan', 'admin_layanan', 'admin_aset', 'staff_admin', 'fasilitator', 'teknisi', 'go'])
-            ->with('roles')
+        $allowedRoles = $this->isSuperadmin($request)
+            ? ['superadmin', 'pimpinan', 'admin_layanan', 'admin_aset', 'staff_admin', 'fasilitator', 'teknisi', 'go']
+            : ['fasilitator'];
+
+        return User::whereHas('roles', fn ($q) => $q->whereIn('name', $allowedRoles)->where('guard_name', 'web'))
+            ->with(['roles', 'fasilitatorWilayah.gedung'])
             ->orderBy('nama')
             ->get()
-            ->map(fn (User $u) => [
-                'id' => $u->id,
-                'nim_nip' => $u->nim_nip,
-                'nama' => $u->nama,
-                'email' => $u->email,
-                'no_hp' => $u->no_hp,
-                'status' => $u->status,
-                'roles' => $u->roles->pluck('name'),
-                'profile_summary' => app(UserProfileSummary::class)->forUser($u),
-            ])
+            ->map(function (User $u): array {
+                $assignment = $u->fasilitatorWilayah->first();
+
+                return [
+                    'id' => $u->id,
+                    'nim_nip' => $u->nim_nip,
+                    'nama' => $u->nama,
+                    'email' => $u->email,
+                    'no_hp' => $u->no_hp,
+                    'status' => $u->status,
+                    'roles' => $u->roles->pluck('name'),
+                    'assigned_gedung_id' => $assignment?->gedung_id,
+                    'assigned_gedung_nama' => $assignment?->gedung?->nama_gedung,
+                    'profile_summary' => app(UserProfileSummary::class)->forUser($u),
+                ];
+            })
             ->values()
             ->all();
     }
 
     private function internalRoles(): ?array
     {
-        if (! $this->isSuperadmin(request())) {
+        $request = request();
+        if (! $this->isSuperadmin($request) && ! $request->user()?->hasRole('staff_admin')) {
             return null;
         }
 
         return Role::where('guard_name', 'web')
             ->whereNotIn('name', ['mahasiswa'])
+            ->when(! $this->isSuperadmin($request), fn ($q) => $q->where('name', 'fasilitator'))
             ->orderBy('name')
             ->get()
             ->map(fn (Role $r) => [

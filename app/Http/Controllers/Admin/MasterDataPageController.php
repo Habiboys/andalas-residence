@@ -20,7 +20,7 @@ class MasterDataPageController extends Controller
     {
         return Inertia::render('admin/master-data', [
             'initialUser' => $pages->userPayload($request),
-            'role' => 'staff_admin',
+            'role' => $request->user()->hasRole('superadmin') ? 'superadmin' : 'staff_admin',
             'page' => 'master-data/'.$section,
             'section' => $section,
             'jenis_kegiatan' => JenisKegiatan::orderBy('nama')->get(),

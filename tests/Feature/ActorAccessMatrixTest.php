@@ -22,4 +22,8 @@ test('role page namespaces fail closed for other actors', function (string $role
 
 test('superadmin-only pages reject legacy staff admin', function (string $path) {
     $this->actingAs(actor('staff_admin'))->get($path)->assertForbidden();
-})->with(['/admin/akun-internal', '/admin/audit-log']);
+})->with(['/admin/audit-log']);
+
+test('staff admin can access akun internal to manage facilitator accounts', function () {
+    $this->actingAs(actor('staff_admin'))->get('/admin/akun-internal')->assertOk();
+});

@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Gedung;
 use App\Models\KipkRecipient;
 use App\Models\MahasiswaProfil;
 use App\Models\Periode;
@@ -100,3 +101,55 @@ it('explains why a residence account is inactive', function (?string $reason, st
     ['admin_blocked', 'Nonaktif oleh admin'],
     [null, 'Nonaktif'],
 ]);
+
+it('preserves superadmin role prop across admin dashboard and master data pages', function () {
+    $this->seed(RolePermissionSeeder::class);
+    $superadmin = User::factory()->create(['client_profile_category' => null]);
+    $superadmin->assignRole('superadmin');
+
+    $this->actingAs($superadmin)
+        ->get('/admin/dashboard')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->where('role', 'superadmin'));
+
+    $this->actingAs($superadmin)
+        ->get('/admin/master-data/penugasan')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->where('role', 'superadmin'));
+});
+
+it('lets staff_admin and superadmin create a facilitator account and assign their building directly in Akun Internal while preventing role escalation', function () {
+    $this->seed(RolePermissionSeeder::class);
+    $building = Gedung::create(['kode_gedung' => 'A', 'nama_gedung' => 'Gedung A']);
+
+    $staffAdmin = User::factory()->create(['client_profile_category' => null]);
+    $staffAdmin->assignRole('staff_admin');
+
+    // staff_admin cannot create a superadmin account
+    $this->actingAs($staffAdmin)
+        ->post(route('andalas.admin.users.store'), [
+            'nim_nip' => 'SA-ESC',
+            'nama' => 'Escalate',
+            'email' => 'escalate@unand.ac.id',
+            'password' => 'password123',
+            'role' => 'superadmin',
+        ])
+        ->assertSessionHasErrors('role');
+
+    // staff_admin can create a facilitator and immediately assign them to a building
+    $this->actingAs($staffAdmin)
+        ->post(route('andalas.admin.users.store'), [
+            'nim_nip' => 'FAS-101',
+            'nama' => 'Fasilitator Gedung A',
+            'email' => 'fas.a@unand.ac.id',
+            'password' => 'password123',
+            'role' => 'fasilitator',
+            'gedung_id' => $building->id,
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $facilitator = User::where('email', 'fas.a@unand.ac.id')->sole();
+    expect($facilitator->hasRole('fasilitator'))->toBeTrue()
+        ->and($facilitator->fasilitatorWilayah()->sole()->gedung_id)->toBe($building->id);
+});
