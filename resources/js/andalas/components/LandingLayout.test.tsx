@@ -44,4 +44,6 @@ it('offers login to visitors and the role-aware dashboard route to signed-in use
     expect(authenticated).toContain('/dashboard/redirect"');
     expect(authenticated).toContain('>Dashboard</a>');
     expect(authenticated).not.toContain('/login"');
+    expect(authenticated).toContain('https://wa.me/628116699634');
+    expect(authenticated).toContain('Buka di Google Maps');
 });

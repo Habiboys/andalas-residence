@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { expect, it } from 'vite-plus/test';
-import Pelaporan from './Pelaporan';
+import Pelaporan, { ReportDetailModal } from './Pelaporan';
 
 it.each([0, 1, 2])(
     'shows pagination only for multiple pages (last page: %s)',
@@ -37,24 +37,20 @@ it.each([0, 1, 2])(
                 notifications={[]}
             />,
         );
-        for (const label of [
-            'Halaman logbook',
-            'Halaman laporan kerusakan',
-            'Halaman aktivitas teknisi',
-        ]) {
-            expect(html.includes(`aria-label="${label}"`)).toBe(lastPage > 1);
-        }
+        expect(html.includes('aria-label="Halaman laporan kerusakan"')).toBe(
+            lastPage > 1,
+        );
     },
 );
 
-it('renders create damage report form inside a modal rather than an inline details toggle', () => {
+it('renders create damage report form with camera capture inside a modal and removes summary totals', () => {
     const emptyPage = { data: [], total: 0, last_page: 1, links: [] };
     const html = renderToStaticMarkup(
         <Pelaporan
             reports={emptyPage}
             daily={emptyPage}
             logbooks={emptyPage}
-            summary={{}}
+            summary={{ menunggu_triage: 3, selesai: 2 }}
             blocked_count={0}
             technicians={[]}
             buildings={[]}
@@ -76,26 +72,27 @@ it('renders create damage report form inside a modal rather than an inline detai
         />,
     );
 
-    expect(html).not.toContain(
-        '<details><summary class="cursor-pointer font-semibold">Buat laporan / tambah item kamar</summary>',
-    );
     expect(html).toContain('Buat laporan / tambah item kamar');
     expect(html).toContain('Buat Laporan / Tambah Item Kamar');
     expect(html).toContain('<dialog class="modal');
+    expect(html).toContain('Ambil Foto Langsung');
+    expect(html).toContain('capture="environment"');
+    expect(html).toContain('Pilih Galeri');
     expect(html).toContain('Simpan item laporan');
-    expect(html).toContain('Batal');
+    expect(html).not.toContain('Belum Dikerjakan (disposisi)');
 });
 
-it('renders logbook, link asset, cancel ticket, and complaint forms inside modals', () => {
+it('shows concise report summary cards with BARU badge, claim button, and omits Anggota tim', () => {
     const emptyPage = { data: [], total: 0, last_page: 1, links: [] };
     const reportsPage = {
         data: [
             {
                 id: 'rep-1',
-                nomor_tiket: 'TKT-001',
-                status: 'selesai',
+                nomor_tiket: '0001/H/107/2026',
+                status: 'menunggu_triage',
                 deskripsi: 'Keran bocor',
                 source: 'resident',
+                location_label: 'Kamar 107',
                 priority: 'sedang',
                 is_blocked: false,
                 photos: [],
@@ -106,18 +103,26 @@ it('renders logbook, link asset, cancel ticket, and complaint forms inside modal
                     {
                         id: 'item-1',
                         description: 'Keran wastafel',
-                        completed_at: '2026-11-12',
+                        completed_at: null,
+                        is_new: false,
+                        photos: [],
+                    },
+                    {
+                        id: 'item-2',
+                        description: 'Lampu kamar mandi mati',
+                        completed_at: null,
+                        is_new: true,
                         photos: [],
                     },
                 ],
                 complaints: [],
                 abilities: {
-                    claim: false,
+                    claim: true,
                     progress: false,
                     team: false,
                     complete: false,
-                    linkAsset: true,
-                    cancel: true,
+                    linkAsset: false,
+                    cancel: false,
                     confirm: false,
                 },
             },
@@ -139,7 +144,7 @@ it('renders logbook, link asset, cancel ticket, and complaint forms inside modal
             today="2026-11-12"
             can_order={false}
             can_logbook
-            can_complain
+            can_complain={false}
             can_report={false}
             resident_name=""
             assets={[]}
@@ -148,20 +153,48 @@ it('renders logbook, link asset, cancel ticket, and complaint forms inside modal
         />,
     );
 
-    expect(html).not.toContain(
-        '<details><summary class="cursor-pointer font-semibold">Catat logbook',
+    expect(html).toContain('0001/H/107/2026');
+    expect(html).toContain('BARU (+1)');
+    expect(html).toContain('Lampu kamar mandi mati');
+    expect(html).toContain('Ambil &amp; Kerjakan');
+    expect(html).toContain('Buka Detail');
+    expect(html).not.toContain('Anggota tim');
+});
+
+it('shows reporter phone number and WhatsApp contact button in report detail modal', () => {
+    const html = renderToStaticMarkup(
+        <ReportDetailModal
+            open
+            onClose={() => {}}
+            today="2026-11-21"
+            canComplain={false}
+            report={{
+                id: 'rep-1',
+                nomor_tiket: '0001/H/107/2026',
+                status: 'sedang_dikerjakan',
+                deskripsi: 'Keran bocor',
+                source: 'resident',
+                location_label: 'Kamar 107',
+                priority: 'sedang',
+                is_blocked: false,
+                pelapor: {
+                    id: 'u-1',
+                    nama: 'Syauqi',
+                    no_hp: '081234567890',
+                },
+                photos: [],
+                assignments: [],
+                status_histories: [],
+                progress: [],
+                items: [],
+                complaints: [],
+                abilities: {},
+            }}
+        />,
     );
-    expect(html).not.toContain(
-        '<details><summary class="cursor-pointer">Hubungkan inventaris</summary>',
-    );
-    expect(html).not.toContain(
-        '<details><summary class="text-error cursor-pointer">Batalkan dengan alasan</summary>',
-    );
-    expect(html).not.toContain(
-        '<details><summary class="cursor-pointer font-medium">Ajukan komplain ulang',
-    );
-    expect(html).toContain('Catat Logbook Pekerjaan Lain / Perintah Pimpinan');
-    expect(html).toContain('Hubungkan Inventaris ke Item Laporan');
-    expect(html).toContain('Batalkan Tiket TKT-001');
-    expect(html).toContain('Ajukan Komplain Ulang Hasil Perbaikan');
+
+    expect(html).toContain('Pelapor: Syauqi');
+    expect(html).toContain('081234567890');
+    expect(html).toContain('https://wa.me/6281234567890');
+    expect(html).toContain('Hubungi WA');
 });

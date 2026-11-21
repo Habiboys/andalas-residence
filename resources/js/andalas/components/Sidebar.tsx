@@ -423,10 +423,10 @@ const ADMIN_NAV: NavGroup[] = [
 const TEKNISI_NAV: NavGroup[] = [
     { items: [{ label: 'Beranda', page: 'dashboard', icon: Home }] },
     {
-        group: 'Tiket',
+        group: 'Perbaikan',
         items: [
-            { label: 'Pekerjaan Teknisi', page: 'pelaporan', icon: Ticket },
-            { label: 'Update Tiket', page: 'update-tiket', icon: Pencil },
+            { label: 'Permohonan Perbaikan', page: 'pelaporan', icon: Wrench },
+            { label: 'Update Perbaikan', page: 'update-tiket', icon: Pencil },
         ],
     },
     {

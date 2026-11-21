@@ -75,14 +75,19 @@ it('merges additional items without changing the header ID and makes retries ide
     expect(fn () => $revision->submit($f['user'], [['description' => 'Berbeda']], null, $key))->toThrow(ValidationException::class);
 });
 
-it('does not append items to a report already being worked on', function () {
+it('appends additional items to an ongoing room report before completion and marks them as new', function () {
     $f = finalDamageResident();
     $revision = app(DamageReportRevision::class);
     $w = app(DamageReportWorkflow::class);
     $a = $revision->submit($f['user'], [['description' => 'AC rusak']]);
+    expect($a->nomor_tiket)->toMatch('/^\d{4}\/[A-Z0-9]+\/[A-Z0-9.]+\/\d{4}$/')
+        ->and($a->items()->sole()->is_new)->toBeFalse();
     $w->claim($a, finalDamageTechnician());
     $b = $revision->submit($f['user'], [['description' => 'Pintu macet']]);
-    expect($a->id)->not->toBe($b->id)->and($a->items()->count())->toBe(1)->and($a->fresh()->status)->toBe(Status::SedangDikerjakan);
+    expect($a->id)->toBe($b->id)
+        ->and($a->items()->count())->toBe(2)
+        ->and($a->fresh()->status)->toBe(Status::SedangDikerjakan)
+        ->and($a->items()->where('description', 'Pintu macet')->sole()->is_new)->toBeTrue();
 });
 
 it('prevents closing a multi-item report until all items are completed', function () {
@@ -164,6 +169,46 @@ it('records an idempotent complaint referencing a completed report without reope
     expect(fn () => $revision->complain($r, $other['user'], 'Tidak berhak', null, (string) Str::uuid()))->toThrow(AuthorizationException::class);
 });
 
+it('records a complaint with rating and creates a new rework repair request when requested', function () {
+    $f = finalDamageResident();
+    $revision = app(DamageReportRevision::class);
+    $w = app(DamageReportWorkflow::class);
+    $t = finalDamageTechnician();
+    $r = $revision->submit($f['user'], [['description' => 'AC']]);
+    $r = $w->claim($r, $t);
+    $w->complete($r, $t, 'Baik', ['after/ac.jpg']);
+    $item = $r->items()->sole();
+
+    $q = Kuesioner::create([
+        'kode' => 'K-REWORK-'.Str::random(4),
+        'nama' => 'Evaluasi Teknisi',
+        'jenis' => 'penilaian_teknisi',
+        'versi' => 1,
+        'status' => 'aktif',
+        'dibuat_oleh' => $f['user']->id,
+    ]);
+    $q->pertanyaan()->create([
+        'kode_pertanyaan' => 'Q1',
+        'teks_pertanyaan' => 'Kualitas perbaikan',
+        'tipe_jawaban' => 'skala',
+        'bobot' => 1,
+        'skor_minimal' => 1,
+        'skor_maksimal' => 5,
+        'wajib' => true,
+        'urutan' => 1,
+    ]);
+
+    $complaint = $revision->complain($r, $f['user'], 'AC masih menetes air', $item->id, (string) Str::uuid(), 2, true);
+    expect($r->fresh()->status)->toBe(Status::Selesai)
+        ->and($complaint->rating)->toBe(2)
+        ->and($complaint->rework_report_id)->not->toBeNull()
+        ->and((float) $r->fresh()->penilaian->total_skor)->toBe(2.0);
+
+    $rework = LaporanKerusakan::findOrFail($complaint->rework_report_id);
+    expect($rework->status)->toBe(Status::MenungguTriage)
+        ->and($rework->items()->sole()->is_new)->toBeTrue();
+});
+
 it('includes status history actor, item photos, and notifications in pelaporan and lapor-kerusakan payloads', function () {
     $f = finalDamageResident();
     $revision = app(DamageReportRevision::class);
@@ -175,6 +220,7 @@ it('includes status history actor, item photos, and notifications in pelaporan a
     $this->actingAs($f['user'])->get('/pelaporan')->assertOk()->assertInertia(
         fn ($page) => $page
             ->where('reports.data.0.status_histories.0.actor.nama', fn ($name) => is_string($name) && $name !== '')
+            ->where('reports.data.0.pelapor.nama', $f['user']->nama)
             ->has('assets')
     );
 

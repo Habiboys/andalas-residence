@@ -26,7 +26,10 @@ type TiketRow = {
     aset?: {
         nama_aset?: string;
         kode_inventaris?: string;
-        fasilitas_umum?: { nama_fasilitas?: string; gedung?: { nama_gedung?: string } };
+        fasilitas_umum?: {
+            nama_fasilitas?: string;
+            gedung?: { nama_gedung?: string };
+        };
     } | null;
     kamar?: {
         nomor_kamar?: string;
@@ -84,7 +87,7 @@ export default function PenilaianTeknisi({
     }
 
     const tiketCols = [
-        { key: 'nomor_tiket', label: 'No. Tiket' },
+        { key: 'nomor_tiket', label: 'No. Laporan' },
         {
             key: 'teknisi',
             label: 'Teknisi',

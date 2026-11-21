@@ -7,17 +7,23 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class DamageReportItem extends BaseModel
 {
-    protected $fillable = ['laporan_kerusakan_id', 'aset_id', 'reported_by', 'description', 'location_label', 'completed_at', 'completed_by', 'completion_note', 'legacy'];
+    protected $fillable = ['laporan_kerusakan_id', 'aset_id', 'reported_by', 'description', 'location_label', 'completed_at', 'completed_by', 'completion_note', 'legacy', 'is_new'];
 
     protected function casts(): array
     {
-        return ['completed_at' => 'datetime', 'legacy' => 'boolean'];
+        return ['completed_at' => 'datetime', 'legacy' => 'boolean', 'is_new' => 'boolean'];
     }
 
     /** @return BelongsTo<LaporanKerusakan, $this> */
     public function report(): BelongsTo
     {
         return $this->belongsTo(LaporanKerusakan::class, 'laporan_kerusakan_id');
+    }
+
+    /** @return BelongsTo<User, $this> */
+    public function reporter(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'reported_by');
     }
 
     /** @return HasMany<LaporanKerusakanPhoto, $this> */

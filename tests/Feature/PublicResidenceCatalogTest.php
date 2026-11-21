@@ -19,7 +19,11 @@ it('publishes policy tariffs and subtracts pending allocations without exposing 
     expect($catalog[0]['offers'][0]['amount'])->toBe(1000000.0);
     expect($catalog[0]['offers'][0]['places'])->toBe(1);
     expect(json_encode($catalog))->not->toContain($f['user']->email)->not->toContain($f['user']->nim_nip);
-    $this->get('/')->assertOk()->assertInertia(fn (Assert $page) => $page->component('landing/beranda')->has('residenceCatalog', 1));
+    $this->get('/')->assertOk()->assertInertia(fn (Assert $page) => $page
+        ->component('landing/beranda')
+        ->has('residenceCatalog', 1)
+        ->has('paymentAccounts')
+        ->has('regulationDocs'));
     $this->get('/unit')->assertOk()->assertInertia(fn (Assert $page) => $page->component('landing/unit')->has('residenceCatalog', 1));
 });
 

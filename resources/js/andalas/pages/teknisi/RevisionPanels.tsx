@@ -1,7 +1,14 @@
-import { useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useForm } from '@inertiajs/react';
-import { MessageSquarePlus, Plus } from 'lucide-react';
-import { Button, Card, Modal, inputClass } from '../../components/ui';
+import {
+    Camera,
+    ImagePlus,
+    MessageSquarePlus,
+    Plus,
+    Star,
+    X,
+} from 'lucide-react';
+import { Badge, Button, Card, Modal, inputClass } from '../../components/ui';
 import { newDamageRequestKey } from '../../lib/damage-reports';
 
 type ItemInput = {
@@ -16,6 +23,8 @@ export type DamageItem = {
     location_label?: string;
     completed_at: string | null;
     completion_note?: string;
+    is_new?: boolean;
+    reporter?: { id: string; nama: string; no_hp?: string | null } | null;
     photos: { id: string; type: string }[];
 };
 export type LogbookRow = {
@@ -26,6 +35,7 @@ export type LogbookRow = {
     user?: { nama: string };
     photos: { id: string }[];
 };
+
 function ErrorList({ errors }: { errors: Record<string, string | undefined> }) {
     return (
         <>
@@ -39,6 +49,148 @@ function ErrorList({ errors }: { errors: Record<string, string | undefined> }) {
         </>
     );
 }
+
+export function PhotoCaptureInput({
+    files,
+    onChange,
+    maxFiles = 5,
+    required = false,
+    label,
+}: {
+    files: File[];
+    onChange: (next: File[]) => void;
+    maxFiles?: number;
+    required?: boolean;
+    label?: string;
+}) {
+    const cameraRef = useRef<HTMLInputElement>(null);
+    const galleryRef = useRef<HTMLInputElement>(null);
+    const inputId = useId();
+
+    const previews = useMemo(
+        () =>
+            typeof URL !== 'undefined' &&
+            typeof URL.createObjectURL === 'function'
+                ? files.map((file) => URL.createObjectURL(file))
+                : [],
+        [files],
+    );
+
+    useEffect(() => {
+        return () => {
+            if (
+                typeof URL !== 'undefined' &&
+                typeof URL.revokeObjectURL === 'function'
+            ) {
+                previews.forEach((url) => URL.revokeObjectURL(url));
+            }
+        };
+    }, [previews]);
+
+    const appendFiles = (incoming: FileList | null) => {
+        if (!incoming || incoming.length === 0) {
+            return;
+        }
+        const merged = [...files, ...Array.from(incoming)].slice(0, maxFiles);
+        onChange(merged);
+    };
+
+    const removeAt = (index: number) => {
+        onChange(files.filter((_, i) => i !== index));
+    };
+
+    return (
+        <div className="space-y-2">
+            {label && (
+                <label
+                    htmlFor={inputId}
+                    className="text-base-content block text-xs font-medium"
+                >
+                    {label} {required && <span className="text-error">*</span>}
+                </label>
+            )}
+            <div className="flex flex-wrap gap-2">
+                <button
+                    type="button"
+                    onClick={() => cameraRef.current?.click()}
+                    disabled={files.length >= maxFiles}
+                    className="btn btn-outline btn-primary btn-sm flex-1 gap-1.5 sm:flex-none"
+                >
+                    <Camera className="size-4" aria-hidden="true" />
+                    Ambil Foto Langsung
+                </button>
+                <button
+                    type="button"
+                    onClick={() => galleryRef.current?.click()}
+                    disabled={files.length >= maxFiles}
+                    className="btn btn-outline btn-sm flex-1 gap-1.5 sm:flex-none"
+                >
+                    <ImagePlus className="size-4" aria-hidden="true" />
+                    Pilih Galeri
+                </button>
+            </div>
+            <input
+                ref={cameraRef}
+                id={inputId}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="sr-only"
+                onChange={(e) => {
+                    appendFiles(e.target.files);
+                    e.target.value = '';
+                }}
+            />
+            <input
+                ref={galleryRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                multiple
+                className="sr-only"
+                onChange={(e) => {
+                    appendFiles(e.target.files);
+                    e.target.value = '';
+                }}
+            />
+            {files.length > 0 ? (
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+                    {files.map((file, idx) => (
+                        <div
+                            key={`${file.name}-${idx}`}
+                            className="border-base-300 bg-base-200 relative overflow-hidden rounded-lg border"
+                        >
+                            {previews[idx] ? (
+                                <img
+                                    src={previews[idx]}
+                                    alt={file.name}
+                                    className="aspect-square w-full object-cover"
+                                />
+                            ) : (
+                                <div className="flex aspect-square items-center justify-center p-1 text-[10px] break-all">
+                                    {file.name}
+                                </div>
+                            )}
+                            <button
+                                type="button"
+                                aria-label={`Hapus foto ${idx + 1}`}
+                                onClick={() => removeAt(idx)}
+                                className="bg-neutral/80 text-neutral-content absolute top-1 right-1 flex size-5 items-center justify-center rounded-full"
+                            >
+                                <X className="size-3" />
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            ) : (
+                <p className="text-muted text-xs">
+                    Maksimal {maxFiles} foto (JPG/PNG/WebP). Ketuk Ambil Foto
+                    Langsung untuk membuka kamera.
+                </p>
+            )}
+        </div>
+    );
+}
+
 const emptyItem = (): ItemInput => ({
     description: '',
     aset_id: '',
@@ -166,10 +318,11 @@ export function MultiItemForm({
                             {roomLocation ? ` · ${roomLocation}` : ''}
                         </p>
                         <p className="text-muted text-xs">
-                            Item otomatis ditambahkan ke laporan kamar yang
-                            masih Belum Dikerjakan. Bila pekerjaan sebelumnya
-                            sudah dimulai, pengiriman ini menjadi laporan baru
-                            tanpa mengubah pekerjaan lama.
+                            Selagi permohonan perbaikan kamar Anda masih aktif
+                            (belum selesai), keluhan baru akan otomatis
+                            digabungkan ke laporan tersebut dengan tanda{' '}
+                            <strong>BARU</strong> agar teknisi langsung
+                            mengetahuinya.
                         </p>
                     </div>
 
@@ -266,7 +419,7 @@ export function MultiItemForm({
                                                 location_label: e.target.value,
                                             })
                                         }
-                                        placeholder="Rincian lokasi dalam kamar/fasilitas"
+                                        placeholder="Contoh: Kamar mandi / atas pintu"
                                     />
                                 </div>
 
@@ -286,28 +439,17 @@ export function MultiItemForm({
                                                 description: e.target.value,
                                             })
                                         }
-                                        placeholder="Kerusakan item ini"
+                                        placeholder="Jelaskan kerusakan yang ditemukan"
                                     />
                                 </div>
 
-                                <div className="space-y-1">
-                                    <label className="text-base-content block text-xs font-medium">
-                                        Foto awal item (opsional)
-                                    </label>
-                                    <input
-                                        type="file"
-                                        className="file-input file-input-sm w-full"
-                                        multiple
-                                        accept="image/jpeg,image/png"
-                                        onChange={(e) =>
-                                            edit(index, {
-                                                photos: Array.from(
-                                                    e.target.files ?? [],
-                                                ),
-                                            })
-                                        }
-                                    />
-                                </div>
+                                <PhotoCaptureInput
+                                    label="Foto awal item (opsional)"
+                                    files={item.photos}
+                                    onChange={(photos) =>
+                                        edit(index, { photos })
+                                    }
+                                />
                             </div>
                         ))}
                     </div>
@@ -365,31 +507,59 @@ export function ItemCompletion({
         note: '',
         photos: [],
     });
+    const isNew = Boolean(item.is_new && !item.completed_at);
+
     return (
-        <Card className="space-y-2 p-3">
-            <p>
-                <strong>{item.description}</strong> /{' '}
-                {item.completed_at ? 'Item selesai' : 'Item belum selesai'}
-            </p>
-            <p className="text-sm">
-                {item.location_label} {item.completion_note}
-            </p>
-            <div className="flex gap-3">
-                {item.photos.map((p) => (
-                    <a
-                        className="link"
-                        key={p.id}
-                        target="_blank"
-                        rel="noreferrer"
-                        href={`/andalas/tiket/foto/${p.id}`}
-                    >
-                        {p.type === 'after' ? 'Bukti item' : 'Foto awal item'}
-                    </a>
-                ))}
+        <Card
+            className={`space-y-2.5 p-3.5 ${
+                isNew
+                    ? 'border-amber-400 bg-amber-50/50 dark:bg-amber-950/20'
+                    : ''
+            }`}
+        >
+            <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="space-y-0.5">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                        {isNew && <Badge color="orange">BARU</Badge>}
+                        <p className="text-sm font-semibold">
+                            {item.description}
+                        </p>
+                    </div>
+                    {item.location_label && (
+                        <p className="text-muted text-xs">
+                            Lokasi: {item.location_label}
+                        </p>
+                    )}
+                </div>
+                <Badge color={item.completed_at ? 'green' : 'yellow'}>
+                    {item.completed_at ? 'Selesai' : 'Belum selesai'}
+                </Badge>
             </div>
+            {item.completion_note && (
+                <p className="bg-base-200/60 rounded p-2 text-xs">
+                    Catatan selesai: {item.completion_note}
+                </p>
+            )}
+            {item.photos.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                    {item.photos.map((p) => (
+                        <a
+                            className="btn btn-xs btn-outline"
+                            key={p.id}
+                            target="_blank"
+                            rel="noreferrer"
+                            href={`/andalas/tiket/foto/${p.id}`}
+                        >
+                            {p.type === 'after'
+                                ? 'Lihat Bukti Selesai'
+                                : 'Lihat Foto Awal'}
+                        </a>
+                    ))}
+                </div>
+            )}
             {canComplete && !item.completed_at && (
                 <form
-                    className="space-y-2"
+                    className="border-base-200 space-y-2.5 border-t pt-2.5"
                     onSubmit={(e) => {
                         e.preventDefault();
                         form.post(`/pelaporan/items/${item.id}/complete`, {
@@ -404,26 +574,18 @@ export function ItemCompletion({
                         value={form.data.note}
                         required
                         onChange={(e) => form.setData('note', e.target.value)}
-                        placeholder="Hasil perbaikan item"
+                        placeholder="Catatan hasil perbaikan item ini"
                     />
-                    <label className="block">
-                        Bukti item (opsional; bukti final laporan tetap wajib)
-                        <input
-                            type="file"
-                            className="file-input w-full"
-                            multiple
-                            accept="image/jpeg,image/png"
-                            onChange={(e) =>
-                                form.setData(
-                                    'photos',
-                                    Array.from(e.target.files ?? []),
-                                )
-                            }
-                        />
-                    </label>
+                    <PhotoCaptureInput
+                        label="Foto bukti item (opsional)"
+                        files={form.data.photos}
+                        onChange={(photos) => form.setData('photos', photos)}
+                    />
                     <ErrorList errors={form.errors} />
-                    <Button type="submit" disabled={form.processing}>
-                        Catat item selesai
+                    <Button type="submit" size="sm" disabled={form.processing}>
+                        {form.processing
+                            ? 'Menyimpan...'
+                            : 'Catat item selesai'}
                     </Button>
                 </form>
             )}
@@ -445,9 +607,20 @@ export function ComplaintForm({
     const [internalOpen, setInternalOpen] = useState(false);
     const isControlled = controlledOpen !== undefined;
     const isOpen = controlledOpen ?? internalOpen;
-    const form = useForm({
+    const [photoError, setPhotoError] = useState('');
+    const form = useForm<{
+        reason: string;
+        item_id: string;
+        rating: number;
+        request_rework: boolean;
+        photos: File[];
+        request_key: string;
+    }>({
         reason: '',
         item_id: '',
+        rating: 5,
+        request_rework: true,
+        photos: [],
         request_key: newDamageRequestKey(),
     });
 
@@ -455,6 +628,7 @@ export function ComplaintForm({
         if (form.processing) {
             return;
         }
+        setPhotoError('');
         if (controlledOnClose) {
             controlledOnClose();
         } else {
@@ -478,7 +652,7 @@ export function ComplaintForm({
                             className="size-3.5"
                             aria-hidden="true"
                         />
-                        Ajukan komplain ulang hasil perbaikan
+                        Komplain &amp; Beri Rating
                     </Button>
                 </div>
             )}
@@ -486,19 +660,24 @@ export function ComplaintForm({
             <Modal
                 open={isOpen}
                 onClose={closeModal}
-                title="Ajukan Komplain Ulang Hasil Perbaikan"
+                title="Ajukan Komplain Ulang &amp; Penilaian Perbaikan"
                 width="max-w-lg"
             >
                 <form
                     className="space-y-4"
                     onSubmit={(e) => {
                         e.preventDefault();
+                        setPhotoError('');
                         form.post(`/pelaporan/${reportId}/complaints`, {
+                            forceFormData: true,
                             preserveScroll: true,
                             onSuccess: () => {
                                 form.setData({
                                     reason: '',
                                     item_id: '',
+                                    rating: 5,
+                                    request_rework: true,
+                                    photos: [],
                                     request_key: newDamageRequestKey(),
                                 });
                                 if (controlledOnClose) {
@@ -511,10 +690,41 @@ export function ComplaintForm({
                     }}
                 >
                     <p className="border-base-300 bg-base-200/50 text-muted rounded-lg border p-3 text-xs">
-                        Pengajuan dicatat dengan referensi laporan ini. Histori
-                        selesai tidak ditimpa dan laporan tidak otomatis dibuka
-                        ulang.
+                        Berikan penilaian atas hasil perbaikan teknisi. Jika
+                        masih ditemukan kerusakan, centang pengajuan perbaikan
+                        ulang agar teknisi segera menindaklanjuti dengan laporan
+                        baru tanpa menghapus riwayat selesai sebelumnya.
                     </p>
+
+                    <div className="space-y-1.5">
+                        <span className="text-base-content block text-xs font-medium">
+                            Rating Hasil Perbaikan
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                            {[1, 2, 3, 4, 5].map((value) => (
+                                <button
+                                    key={value}
+                                    type="button"
+                                    aria-label={`Beri ${value} bintang`}
+                                    onClick={() =>
+                                        form.setData('rating', value)
+                                    }
+                                    className="btn btn-ghost btn-xs px-1.5"
+                                >
+                                    <Star
+                                        className={`size-5 ${
+                                            value <= form.data.rating
+                                                ? 'fill-amber-400 text-amber-500'
+                                                : 'text-base-content/30'
+                                        }`}
+                                    />
+                                </button>
+                            ))}
+                            <span className="text-muted ml-1 text-xs">
+                                ({form.data.rating}/5)
+                            </span>
+                        </div>
+                    </div>
 
                     <div className="space-y-1">
                         <label className="text-base-content block text-xs font-medium">
@@ -539,7 +749,7 @@ export function ComplaintForm({
 
                     <div className="space-y-1">
                         <label className="text-base-content block text-xs font-medium">
-                            Alasan komplain{' '}
+                            Catatan / Alasan komplain{' '}
                             <span className="text-error">*</span>
                         </label>
                         <textarea
@@ -551,10 +761,45 @@ export function ComplaintForm({
                                 form.setData('reason', e.target.value)
                             }
                             required
-                            placeholder="Jelaskan hasil perbaikan yang kembali bermasalah"
+                            placeholder="Jelaskan hasil perbaikan atau kerusakan yang masih terjadi"
                         />
                     </div>
 
+                    <label className="border-base-300 bg-base-200/40 flex cursor-pointer items-start gap-2.5 rounded-lg border p-3 text-sm">
+                        <input
+                            type="checkbox"
+                            className="checkbox checkbox-primary checkbox-sm mt-0.5"
+                            checked={form.data.request_rework}
+                            onChange={(e) =>
+                                form.setData('request_rework', e.target.checked)
+                            }
+                        />
+                        <span>
+                            <strong className="block text-xs sm:text-sm">
+                                Ajukan permohonan perbaikan ulang ke teknisi
+                            </strong>
+                            <span className="text-muted block text-xs">
+                                Otomatis menerbitkan permohonan perbaikan baru
+                                dengan tanda BARU untuk teknisi.
+                            </span>
+                        </span>
+                    </label>
+
+                    {form.data.request_rework && (
+                        <PhotoCaptureInput
+                            label="Foto kondisi terbaru (opsional)"
+                            files={form.data.photos}
+                            onChange={(photos) =>
+                                form.setData('photos', photos)
+                            }
+                        />
+                    )}
+
+                    {photoError && (
+                        <p role="alert" className="text-error text-sm">
+                            {photoError}
+                        </p>
+                    )}
                     <ErrorList errors={form.errors} />
 
                     <div className="border-base-200 flex flex-wrap items-center justify-end gap-2 border-t pt-3">
@@ -569,7 +814,9 @@ export function ComplaintForm({
                         <Button type="submit" disabled={form.processing}>
                             {form.processing
                                 ? 'Mengirim...'
-                                : 'Kirim komplain ulang'}
+                                : form.data.request_rework
+                                  ? 'Kirim Komplain & Ajukan Perbaikan Ulang'
+                                  : 'Kirim Komplain & Rating'}
                         </Button>
                     </div>
                 </form>
@@ -581,6 +828,7 @@ export function ComplaintForm({
 export function LogbookForm({ today }: { today: string }) {
     const [open, setOpen] = useState(false);
     const [formKey, setFormKey] = useState(0);
+    const [photoError, setPhotoError] = useState('');
     const form = useForm<{
         work_date: string;
         description: string;
@@ -599,6 +847,7 @@ export function LogbookForm({ today }: { today: string }) {
         if (form.processing) {
             return;
         }
+        setPhotoError('');
         setOpen(false);
         form.clearErrors();
     }
@@ -612,18 +861,18 @@ export function LogbookForm({ today }: { today: string }) {
                             Catat logbook pekerjaan lain / perintah pimpinan
                         </h2>
                         <p className="text-muted text-xs">
-                            Catatan harian ini tidak membuat tiket kerusakan dan
-                            tidak memerlukan klaim.
+                            Catatan harian ini tidak membuat permohonan
+                            perbaikan baru dan tidak memerlukan klaim.
                         </p>
                     </div>
                     <Button
                         type="button"
                         variant="secondary"
                         onClick={() => setOpen(true)}
-                        className="shrink-0 gap-1.5"
+                        className="w-full shrink-0 gap-1.5 sm:w-auto"
                     >
                         <Plus className="size-4" aria-hidden="true" />
-                        Catat logbook pekerjaan lain / perintah pimpinan
+                        Catat Logbook Pekerjaan
                     </Button>
                 </div>
             </Card>
@@ -639,6 +888,13 @@ export function LogbookForm({ today }: { today: string }) {
                     className="space-y-4"
                     onSubmit={(e) => {
                         e.preventDefault();
+                        if (form.data.photos.length === 0) {
+                            setPhotoError(
+                                'Minimal satu foto dokumentasi pekerjaan wajib dilampirkan.',
+                            );
+                            return;
+                        }
+                        setPhotoError('');
                         form.post('/pelaporan/logbook', {
                             forceFormData: true,
                             onSuccess: () => {
@@ -656,8 +912,8 @@ export function LogbookForm({ today }: { today: string }) {
                     }}
                 >
                     <p className="border-base-300 bg-base-200/50 text-muted rounded-lg border p-3 text-xs">
-                        Catatan harian ini tidak membuat tiket kerusakan dan
-                        tidak memerlukan klaim.
+                        Catatan harian ini tidak membuat permohonan perbaikan
+                        baru dan tidak memerlukan klaim.
                     </p>
 
                     <div className="grid gap-3 sm:grid-cols-2">
@@ -720,26 +976,21 @@ export function LogbookForm({ today }: { today: string }) {
                         />
                     </div>
 
-                    <div className="space-y-1">
-                        <label className="text-base-content block text-xs font-medium">
-                            Foto dokumentasi logbook (wajib){' '}
-                            <span className="text-error">*</span>
-                        </label>
-                        <input
-                            type="file"
-                            className="file-input file-input-sm w-full"
-                            multiple
-                            accept="image/jpeg,image/png"
-                            required
-                            onChange={(e) =>
-                                form.setData(
-                                    'photos',
-                                    Array.from(e.target.files ?? []),
-                                )
-                            }
-                        />
-                    </div>
+                    <PhotoCaptureInput
+                        label="Foto dokumentasi logbook"
+                        required
+                        files={form.data.photos}
+                        onChange={(photos) => {
+                            setPhotoError('');
+                            form.setData('photos', photos);
+                        }}
+                    />
 
+                    {photoError && (
+                        <p role="alert" className="text-error text-sm">
+                            {photoError}
+                        </p>
+                    )}
                     <ErrorList errors={form.errors} />
 
                     <div className="border-base-200 flex flex-wrap items-center justify-end gap-2 border-t pt-3">

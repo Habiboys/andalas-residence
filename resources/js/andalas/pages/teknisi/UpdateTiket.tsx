@@ -12,6 +12,7 @@ import { mapTicketStatus } from '../../lib/format';
 import { update as tiketUpdate } from '@/routes/andalas/tiket';
 import { newDamageRequestKey } from '../../lib/damage-reports';
 import { Link } from '@inertiajs/react';
+import { PhotoCaptureInput } from './RevisionPanels';
 
 type TiketRow = {
     id: string;
@@ -70,46 +71,47 @@ export default function UpdateTiket({ tiket = [] }: Props) {
     }
 
     return (
-        <div className="max-w-2xl space-y-4">
+        <div className="space-y-4">
             <PageHeader
-                title="Update Tiket"
-                subtitle="Perbarui status pengerjaan tiket"
+                title="Update Perbaikan"
+                subtitle="Perbarui status pengerjaan permohonan perbaikan"
                 actions={
                     <Link href="/pelaporan" className="btn btn-outline btn-sm">
-                        Buka Pelaporan Lengkap
+                        Daftar Pekerjaan
                     </Link>
                 }
             />
-            <Card className="mb-4 space-y-2 p-6">
+            <Card className="mb-4 space-y-2 p-4">
                 {aktif.length === 0 ? (
                     <p className="text-muted text-sm">
-                        Tidak ada tiket aktif yang perlu diperbarui saat ini.
+                        Tidak ada permohonan perbaikan aktif saat ini.
                     </p>
                 ) : (
                     aktif.map((t) => (
-                    <button
-                        key={t.id}
-                        type="button"
-                        onClick={() => setSelected(t.id)}
-                        className={`w-full rounded border p-3 text-left text-sm ${selected === t.id ? 'border-accent bg-accent/5' : ''}`}
-                    >
-                        <div className="flex justify-between">
-                            <strong>{t.nomor_tiket}</strong>
-                            <StatusBadge
-                                status={mapTicketStatus(t.status ?? '')}
-                            />
-                        </div>
-                        <p className="mt-1">
-                            {t.aset?.nama_aset} ({t.aset?.kode_inventaris}) /{' '}
-                            {t.kamar
-                                ? [
-                                      t.kamar.lantai?.gedung?.nama_gedung,
-                                      t.kamar.nomor_kamar,
-                                  ].join(' / ')
-                                : t.aset?.fasilitas_umum?.nama_fasilitas}
-                        </p>
-                        <p className="text-muted mt-1">{t.deskripsi}</p>
-                    </button>
+                        <button
+                            key={t.id}
+                            type="button"
+                            onClick={() => setSelected(t.id)}
+                            className={`w-full rounded border p-3 text-left text-sm ${selected === t.id ? 'border-accent bg-accent/5' : ''}`}
+                        >
+                            <div className="flex justify-between">
+                                <strong>{t.nomor_tiket}</strong>
+                                <StatusBadge
+                                    status={mapTicketStatus(t.status ?? '')}
+                                />
+                            </div>
+                            <p className="mt-1">
+                                {t.aset?.nama_aset} ({t.aset?.kode_inventaris})
+                                /{' '}
+                                {t.kamar
+                                    ? [
+                                          t.kamar.lantai?.gedung?.nama_gedung,
+                                          t.kamar.nomor_kamar,
+                                      ].join(' / ')
+                                    : t.aset?.fasilitas_umum?.nama_fasilitas}
+                            </p>
+                            <p className="text-muted mt-1">{t.deskripsi}</p>
+                        </button>
                     ))
                 )}
             </Card>
@@ -148,20 +150,14 @@ export default function UpdateTiket({ tiket = [] }: Props) {
                         )}
                     </FormField>
                     {data.status === 'selesai' && (
-                        <FormField label="Bukti penyelesaian">
-                            <input
-                                type="file"
-                                multiple
-                                accept="image/jpeg,image/png"
-                                className="file-input file-input-bordered w-full"
-                                onChange={(e) =>
-                                    setData(
-                                        'bukti_penyelesaian',
-                                        Array.from(e.target.files ?? []),
-                                    )
-                                }
-                            />
-                        </FormField>
+                        <PhotoCaptureInput
+                            label="Bukti penyelesaian"
+                            required
+                            files={data.bukti_penyelesaian}
+                            onChange={(files) =>
+                                setData('bukti_penyelesaian', files)
+                            }
+                        />
                     )}
                     {Object.entries(errors).map(([key, message]) => (
                         <p

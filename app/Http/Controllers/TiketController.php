@@ -36,13 +36,13 @@ class TiketController extends Controller
             'items.*.aset_id' => 'nullable|uuid|exists:aset,id',
             'items.*.location_label' => 'nullable|string|max:255',
             'items.*.photos' => 'nullable|array|max:5',
-            'items.*.photos.*' => 'file|mimes:jpg,jpeg,png|max:5120',
+            'items.*.photos.*' => 'image|mimes:jpg,jpeg,png,webp|max:8192',
             'fasilitas_umum_id' => 'nullable|uuid|exists:fasilitas_umum,id',
             'location_label' => 'nullable|string|max:255',
             'different_incident_reason' => 'nullable|string|max:2000',
             'request_key' => 'nullable|uuid',
             'foto_awal' => 'nullable|array|max:5',
-            'foto_awal.*' => 'file|mimes:jpg,jpeg,png|max:5120',
+            'foto_awal.*' => 'image|mimes:jpg,jpeg,png,webp|max:8192',
         ]);
 
         $paths = array_map(fn ($file): string => $file->store('laporan-kerusakan/before', 'local') ?: throw new \RuntimeException('Foto gagal disimpan.'), $this->uploads($request, 'foto_awal'));
@@ -72,7 +72,7 @@ class TiketController extends Controller
 
         return redirect()->back()->with('toast', [
             'type' => 'success',
-            'message' => "Tiket {$laporan->nomor_tiket} berhasil dibuat.",
+            'message' => "Permohonan perbaikan {$laporan->nomor_tiket} berhasil dikirim.",
         ]);
     }
 
@@ -97,7 +97,7 @@ class TiketController extends Controller
             'status' => 'required|in:didisposisikan,sedang_dikerjakan,selesai,dibatalkan',
             'catatan_penyelesaian' => 'required_if:status,selesai|nullable|string|max:5000',
             'bukti_penyelesaian' => 'exclude_unless:status,selesai|required|array|min:1|max:5',
-            'bukti_penyelesaian.*' => 'file|mimes:jpg,jpeg,png|max:5120',
+            'bukti_penyelesaian.*' => 'image|mimes:jpg,jpeg,png,webp|max:8192',
             'reason' => 'required_if:status,dibatalkan|nullable|string|max:2000',
             'request_key' => 'nullable|uuid',
             'participant_ids' => 'nullable|array|max:30',
@@ -138,7 +138,7 @@ class TiketController extends Controller
 
         return redirect()->back()->with('toast', [
             'type' => 'success',
-            'message' => "Tiket {$laporan->nomor_tiket} diperbarui.",
+            'message' => "Permohonan perbaikan {$laporan->nomor_tiket} diperbarui.",
         ]);
     }
 

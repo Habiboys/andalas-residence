@@ -225,6 +225,7 @@ class RolePermissionSeeder extends Seeder
             'pembayaran.view',
             'pembayaran.create',
             'tiket.create',
+            'tiket.rate',
             'pengajuan.submit',
             'pengajuan.download_surat',
             'absensi.view',

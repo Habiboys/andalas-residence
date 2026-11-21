@@ -133,4 +133,8 @@ it('renders the configured hero FAQ and news on the public homepage', () => {
     expect(html).toContain('Jawaban dari database.');
     expect(html).toContain('Berita terbit');
     expect(html).toContain('Kabar terbaru');
+    expect(html).toContain('Pilih jalur yang sesuai sebelum membuat akun.');
+    expect(html).toContain('Tabel Ringkas Tarif Resmi');
+    expect(html).toContain('Fasilitas Asrama &amp; Aturan Penting');
+    expect(html).toContain('Prosedur Pembayaran Asrama');
 });

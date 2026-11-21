@@ -3,13 +3,10 @@ import { Head, router } from '@inertiajs/react';
 import {
     AlertTriangle,
     Bell,
-    CheckCircle2,
-    Clock,
     Image as ImageIcon,
     MapPin,
     MessageSquarePlus,
     Search,
-    Wrench,
 } from 'lucide-react';
 import * as damageReport from '@/actions/App/Http/Controllers/DamageReportController';
 import * as tiket from '@/actions/App/Http/Controllers/TiketController';
@@ -20,7 +17,6 @@ import {
     ConfirmDialog,
     EmptyState,
     PageHeader,
-    StatCard,
     StatusBadge,
     inputClass,
 } from '@/andalas/components/ui';
@@ -52,6 +48,8 @@ type Complaint = {
     id: string;
     item_id?: string | null;
     reason: string;
+    rating?: number | null;
+    rework_report_id?: string | null;
     status?: string;
     created_at?: string;
 };
@@ -130,7 +128,6 @@ const STATUS_FILTER_OPTIONS = [
 
 export default function StudentPelaporan({
     reports,
-    summary,
     can_report,
     can_complain,
     resident_name,
@@ -165,9 +162,6 @@ export default function StudentPelaporan({
         });
     }, [reports?.data, search, statusFilter]);
 
-    const waitingCount =
-        (summary?.menunggu_triage ?? 0) + (summary?.didisposisikan ?? 0);
-
     const handleMarkRead = (id: string) => {
         setBusyId(id);
         router.post(
@@ -201,8 +195,8 @@ export default function StudentPelaporan({
             <Head title="Pelaporan Kerusakan Asrama" />
 
             <PageHeader
-                title="Pelaporan Kerusakan Asrama"
-                subtitle="Laporkan kerusakan barang kamar atau fasilitas umum asrama dan pantau progres perbaikannya."
+                title="Permohonan Perbaikan Asrama"
+                subtitle="Laporkan kerusakan kamar atau fasilitas umum, pantau penanganan teknisi, dan kirim komplain atau rating."
             />
 
             {/* Unread Notifications */}
@@ -241,35 +235,6 @@ export default function StudentPelaporan({
                 </div>
             )}
 
-            {/* Summary KPIs */}
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                <StatCard
-                    label="Total Tiket"
-                    value={reports?.total ?? 0}
-                    icon={<Wrench className="size-5" aria-hidden="true" />}
-                />
-                <StatCard
-                    label="Menunggu Penanganan"
-                    value={waitingCount}
-                    color="gold"
-                    icon={<Clock className="size-5" aria-hidden="true" />}
-                />
-                <StatCard
-                    label="Sedang Dikerjakan"
-                    value={summary?.sedang_dikerjakan ?? 0}
-                    color="gold"
-                    icon={<Wrench className="size-5" aria-hidden="true" />}
-                />
-                <StatCard
-                    label="Selesai"
-                    value={summary?.selesai ?? 0}
-                    color="green"
-                    icon={
-                        <CheckCircle2 className="size-5" aria-hidden="true" />
-                    }
-                />
-            </div>
-
             {/* New Multi-Item Report Form */}
             {can_report ? (
                 <MultiItemForm
@@ -304,7 +269,7 @@ export default function StudentPelaporan({
                         <input
                             type="search"
                             className={`${inputClass} pl-9`}
-                            placeholder="Cari nomor tiket, lokasi, atau deskripsi kerusakan..."
+                            placeholder="Cari nomor laporan, lokasi, atau deskripsi kerusakan..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                         />
@@ -425,7 +390,7 @@ export default function StudentPelaporan({
                                                         className="size-4"
                                                         aria-hidden="true"
                                                     />
-                                                    Ajukan Komplain Ulang
+                                                    Komplain &amp; Beri Rating
                                                 </Button>
                                             )}
                                     </div>
@@ -440,9 +405,17 @@ export default function StudentPelaporan({
                                                 className="border-base-300 bg-base-200/30 rounded-lg border p-3 text-sm"
                                             >
                                                 <div className="flex items-start justify-between gap-2">
-                                                    <p className="font-medium">
-                                                        {item.description}
-                                                    </p>
+                                                    <div className="flex flex-wrap items-center gap-1.5">
+                                                        {item.is_new &&
+                                                            !item.completed_at && (
+                                                                <Badge color="orange">
+                                                                    BARU
+                                                                </Badge>
+                                                            )}
+                                                        <p className="font-medium">
+                                                            {item.description}
+                                                        </p>
+                                                    </div>
                                                     <Badge
                                                         color={
                                                             item.completed_at
@@ -543,8 +516,11 @@ export default function StudentPelaporan({
                                         </p>
                                         {r.complaints?.map((c) => (
                                             <p key={c.id}>
-                                                • {c.reason} (
-                                                {formatDate(c.created_at)})
+                                                • {c.reason}
+                                                {c.rating
+                                                    ? ` · Rating ${c.rating}/5`
+                                                    : ''}{' '}
+                                                ({formatDate(c.created_at)})
                                             </p>
                                         ))}
                                     </div>
@@ -653,7 +629,7 @@ export default function StudentPelaporan({
             <ConfirmDialog
                 open={Boolean(confirmTarget)}
                 title="Konfirmasi Kejadian Sama"
-                message={`Konfirmasikan bahwa Anda juga mengalami kerusakan yang dilaporkan pada tiket ${confirmTarget?.nomor_tiket ?? ''}?`}
+                message={`Konfirmasikan bahwa Anda juga mengalami kerusakan yang dilaporkan pada permohonan perbaikan ${confirmTarget?.nomor_tiket ?? ''}?`}
                 confirmLabel="Ya, Konfirmasi"
                 onConfirm={handleConfirmIncident}
                 onClose={() => setConfirmTarget(null)}

@@ -7,6 +7,7 @@ use App\Models\Informasi;
 use App\Models\Kamar;
 use App\Models\LandingContent;
 use App\Models\OrganizationPosition;
+use App\Models\PaymentBankAccount;
 use App\Models\PenempatanKamar;
 use App\Models\Program;
 use App\Models\ProgramSub;
@@ -36,6 +37,16 @@ class LandingController extends Controller
             'testimoni' => Testimoni::where('published', true)->orderBy('urutan')->get(),
             'statistik' => $this->statistik(),
             'residenceCatalog' => app(PublicResidenceCatalog::class)->buildings(),
+            'paymentAccounts' => PaymentBankAccount::where('is_active', true)
+                ->orderBy('bank_name')
+                ->orderBy('account_number')
+                ->get(['id', 'bank_name', 'account_number', 'account_name']),
+            'regulationDocs' => Informasi::where('published', true)
+                ->whereIn('kategori', ['regulasi', 'sop'])
+                ->orderBy('kategori')
+                ->orderByDesc('tanggal')
+                ->limit(6)
+                ->get(['id', 'kategori', 'judul', 'file']),
             'pengumuman' => Informasi::where('published', true)->where('kategori', 'pengumuman')->orderByDesc('tanggal')->limit(3)->get(['id', 'judul', 'tanggal']),
             'galeri' => Gedung::whereNotNull('foto')->where('foto', '!=', '')->orderBy('kode_gedung')->limit(4)->get()
                 ->map(fn (Gedung $gedung): array => ['id' => $gedung->id, 'judul' => $gedung->nama_gedung, 'foto' => '/storage/'.$gedung->foto, 'kategori' => 'Hunian'])

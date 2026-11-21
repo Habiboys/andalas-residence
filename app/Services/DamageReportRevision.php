@@ -8,7 +8,9 @@ use App\Models\DamageReportComplaint;
 use App\Models\DamageReportItem;
 use App\Models\FasilitasUmum;
 use App\Models\Kamar;
+use App\Models\Kuesioner;
 use App\Models\LaporanKerusakan;
+use App\Models\PenilaianTeknisi;
 use App\Models\TechnicianLogbook;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -66,28 +68,42 @@ class DamageReportRevision
                 $prepared[] = [...$item, 'aset_id' => $assetId, 'location_label' => $asset ? $asset->nama_aset : ($item['location_label'] ?? 'Kamar '.$room->nomor_kamar)];
             }
             $report = LaporanKerusakan::where('kamar_id', $facilityId ? null : $room->id)->where('fasilitas_umum_id', $facilityId)->where('gedung_id', $buildingId)
-                ->whereIn('status', [Status::MenungguTriage, Status::Didisposisikan])->orderBy('tanggal_lapor')->lockForUpdate()->first();
+                ->whereIn('status', [Status::MenungguTriage, Status::Didisposisikan, Status::SedangDikerjakan])->orderBy('tanggal_lapor')->lockForUpdate()->first();
             $existing = $report !== null;
             if ($report) {
                 Gate::forUser($actor)->authorize('view', $report);
             } else {
                 $report = LaporanKerusakan::create([
-                    'nomor_tiket' => 'TKT-'.Str::upper(Str::random(12)), 'gedung_id' => $buildingId, 'kamar_id' => $facilityId ? null : $room->id,
-                    'fasilitas_umum_id' => $facilityId, 'aset_id' => $prepared[0]['aset_id'], 'dilaporkan_oleh' => $actor->id,
-                    'source' => 'resident', 'location_label' => $facility ? $facility->nama_fasilitas : 'Kamar '.$room->nomor_kamar,
-                    'deskripsi' => $prepared[0]['description'], 'status' => Status::MenungguTriage, 'tanggal_lapor' => now(),
+                    'nomor_tiket' => LaporanKerusakan::generateReportNumber($room->lantai->gedung, $facility ? null : $room, $facility),
+                    'gedung_id' => $buildingId,
+                    'kamar_id' => $facilityId ? null : $room->id,
+                    'fasilitas_umum_id' => $facilityId,
+                    'aset_id' => $prepared[0]['aset_id'],
+                    'dilaporkan_oleh' => $actor->id,
+                    'source' => 'resident',
+                    'location_label' => $facility ? $facility->nama_fasilitas : 'Kamar '.$room->nomor_kamar,
+                    'deskripsi' => $prepared[0]['description'],
+                    'status' => Status::MenungguTriage,
+                    'tanggal_lapor' => now(),
                 ]);
-                app(DamageReportWorkflow::class)->history($report, $actor, null, Status::MenungguTriage, 'Laporan penghuni dibuat.');
+                app(DamageReportWorkflow::class)->history($report, $actor, null, Status::MenungguTriage, 'Permohonan perbaikan penghuni dibuat.');
             }
             foreach ($prepared as $item) {
-                $created = $report->items()->create(['aset_id' => $item['aset_id'], 'reported_by' => $actor->id, 'description' => trim($item['description']), 'location_label' => $item['location_label']]);
+                $created = $report->items()->create([
+                    'aset_id' => $item['aset_id'],
+                    'reported_by' => $actor->id,
+                    'description' => trim($item['description']),
+                    'location_label' => $item['location_label'],
+                    'is_new' => $existing,
+                ]);
                 foreach ($item['paths'] ?? [] as $path) {
                     $this->privatePath($path);
                     $report->photos()->create(['item_id' => $created->id, 'path' => $path, 'type' => 'before', 'uploaded_by' => $actor->id]);
                 }
             }
             if ($existing) {
-                app(DamageReportWorkflow::class)->history($report, $actor, $report->status, $report->status, count($prepared).' item kerusakan ditambahkan.');
+                $report->touch();
+                app(DamageReportWorkflow::class)->history($report, $actor, $report->status, $report->status, count($prepared).' keluhan baru ditambahkan pada laporan berjalan.');
             }
             if ($key) {
                 DB::table('damage_report_submissions')->insert(['user_id' => $actor->id, 'request_key' => $key, 'request_hash' => $hash, 'laporan_kerusakan_id' => $report->id, 'created_at' => now(), 'updated_at' => now()]);
@@ -114,7 +130,7 @@ class DamageReportRevision
             if ($report->status !== Status::SedangDikerjakan || trim($note) === '') {
                 throw ValidationException::withMessages(['note' => 'Item hanya dapat diselesaikan saat laporan dikerjakan dengan catatan hasil.']);
             }
-            $item->update(['completed_at' => now(), 'completed_by' => $actor->id, 'completion_note' => trim($note)]);
+            $item->update(['completed_at' => now(), 'completed_by' => $actor->id, 'completion_note' => trim($note), 'is_new' => false]);
             foreach ($paths as $path) {
                 $this->privatePath($path);
                 $report->photos()->create(['item_id' => $item->id, 'path' => $path, 'type' => 'after', 'uploaded_by' => $actor->id]);
@@ -151,14 +167,18 @@ class DamageReportRevision
         }, 3);
     }
 
-    public function complain(LaporanKerusakan $report, User $actor, string $reason, ?string $itemId, string $key): DamageReportComplaint
+    /** @param list<string> $paths */
+    public function complain(LaporanKerusakan $report, User $actor, string $reason, ?string $itemId, string $key, ?int $rating = null, bool $requestRework = false, array $paths = []): DamageReportComplaint
     {
-        return DB::transaction(function () use ($report, $actor, $reason, $itemId, $key): DamageReportComplaint {
+        return DB::transaction(function () use ($report, $actor, $reason, $itemId, $key, $rating, $requestRework, $paths): DamageReportComplaint {
             $report = app(DamageReportWorkflow::class)->locked($report);
             Gate::forUser($actor)->authorize('view', $report);
             abort_unless($actor->status === 'aktif' && $actor->hasRole('mahasiswa') && $report->status === Status::Selesai, 403);
             if (trim($reason) === '' || ($itemId && ! $report->items()->whereKey($itemId)->exists())) {
                 throw ValidationException::withMessages(['reason' => 'Alasan dan referensi item harus sesuai laporan selesai ini.']);
+            }
+            if ($rating !== null && ($rating < 1 || $rating > 5)) {
+                throw ValidationException::withMessages(['rating' => 'Rating harus antara 1 sampai 5 bintang.']);
             }
             User::whereKey($actor->id)->lockForUpdate()->firstOrFail();
             $previous = DamageReportComplaint::where('user_id', $actor->id)->where('request_key', $key)->first();
@@ -169,7 +189,71 @@ class DamageReportRevision
 
                 return $previous;
             }
-            $complaint = $report->complaints()->create(['user_id' => $actor->id, 'item_id' => $itemId, 'reason' => trim($reason), 'request_key' => $key]);
+            $reworkId = null;
+            if ($requestRework) {
+                $report->loadMissing('gedung', 'kamar.lantai.gedung', 'fasilitasUmum');
+                $targetItem = $itemId ? $report->items()->whereKey($itemId)->first() : null;
+                $reworkDescription = '[Perbaikan Ulang] '.trim($reason);
+                $rework = LaporanKerusakan::create([
+                    'nomor_tiket' => LaporanKerusakan::generateReportNumber($report->gedung, $report->kamar, $report->fasilitasUmum),
+                    'gedung_id' => $report->gedung_id,
+                    'kamar_id' => $report->kamar_id,
+                    'fasilitas_umum_id' => $report->fasilitas_umum_id,
+                    'aset_id' => $targetItem?->aset_id ?? $report->aset_id,
+                    'dilaporkan_oleh' => $actor->id,
+                    'source' => 'resident',
+                    'location_label' => $targetItem?->location_label ?? $report->location_label,
+                    'deskripsi' => $reworkDescription,
+                    'status' => Status::MenungguTriage,
+                    'tanggal_lapor' => now(),
+                ]);
+                $reworkItem = $rework->items()->create([
+                    'aset_id' => $targetItem?->aset_id ?? $report->aset_id,
+                    'reported_by' => $actor->id,
+                    'description' => $reworkDescription,
+                    'location_label' => $targetItem?->location_label ?? $report->location_label,
+                    'is_new' => true,
+                ]);
+                foreach ($paths as $path) {
+                    $this->privatePath($path);
+                    $rework->photos()->create(['item_id' => $reworkItem->id, 'path' => $path, 'type' => 'before', 'uploaded_by' => $actor->id]);
+                }
+                app(DamageReportWorkflow::class)->history($rework, $actor, null, Status::MenungguTriage, 'Permohonan perbaikan ulang dari '.$report->nomor_tiket.'.');
+                $reworkId = $rework->id;
+            }
+            $complaint = $report->complaints()->create([
+                'user_id' => $actor->id,
+                'item_id' => $itemId,
+                'reason' => trim($reason),
+                'rating' => $rating,
+                'rework_report_id' => $reworkId,
+                'request_key' => $key,
+            ]);
+            if ($rating !== null && $report->teknisi_id && ! $report->penilaian()->exists()) {
+                $kuesioner = Kuesioner::where('status', 'aktif')->where('jenis', 'penilaian_teknisi')->with('pertanyaan')->first();
+                if ($kuesioner && $kuesioner->pertanyaan->isNotEmpty()) {
+                    $answers = [];
+                    foreach ($kuesioner->pertanyaan as $question) {
+                        if ($question->tipe_jawaban === 'skala') {
+                            $min = (float) ($question->skor_minimal ?? 1);
+                            $max = (float) ($question->skor_maksimal ?? 5);
+                            $answers[$question->id] = ['nilai_skor' => round($min + (($rating - 1) / 4) * ($max - $min), 2)];
+                        } else {
+                            $answers[$question->id] = ['jawaban_teks' => trim($reason)];
+                        }
+                    }
+                    $penilaian = PenilaianTeknisi::create([
+                        'laporan_kerusakan_id' => $report->id,
+                        'kuesioner_id' => $kuesioner->id,
+                        'teknisi_id' => $report->teknisi_id,
+                        'dinilai_oleh' => $actor->id,
+                        'status' => 'draft',
+                        'catatan_umum' => trim($reason),
+                    ]);
+                    $penilaian->setRelation('kuesioner', $kuesioner);
+                    app(QuestionnaireScoringService::class)->finalize($penilaian, $answers);
+                }
+            }
             app(DamageReportWorkflow::class)->history($report, $actor, $report->status, $report->status, 'Komplain ulang diajukan: '.trim($reason));
 
             return $complaint;

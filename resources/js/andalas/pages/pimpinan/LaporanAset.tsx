@@ -83,9 +83,7 @@ export default function LaporanAset({ aset = [], tiket = [] }: Props) {
     );
 
     const brokenCount = aset.filter((item) =>
-        ['rusak_ringan', 'rusak_berat', 'hilang'].includes(
-            item.kondisi ?? '',
-        ),
+        ['rusak_ringan', 'rusak_berat', 'hilang'].includes(item.kondisi ?? ''),
     ).length;
 
     return (
@@ -177,7 +175,7 @@ export default function LaporanAset({ aset = [], tiket = [] }: Props) {
                 </div>
                 <Table
                     columns={[
-                        { key: 'nomor_tiket', label: 'No. Tiket' },
+                        { key: 'nomor_tiket', label: 'No. Laporan' },
                         {
                             key: 'lokasi',
                             label: 'Lokasi',

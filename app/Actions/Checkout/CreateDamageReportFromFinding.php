@@ -36,7 +36,7 @@ class CreateDamageReportFromFinding
                 'gedung_id' => $room->lantai->gedung_id,
                 'source' => 'checkout',
                 'location_label' => 'Kamar '.$room->nomor_kamar,
-                'nomor_tiket' => 'GO-'.$lockedFinding->id,
+                'nomor_tiket' => LaporanKerusakan::generateReportNumber($room->lantai->gedung, $room),
                 'aset_id' => $lockedFinding->aset_id,
                 'kamar_id' => $lockedFinding->inspection->checkoutRequest->placement->kamar_id,
                 'dilaporkan_oleh' => $reporterId,

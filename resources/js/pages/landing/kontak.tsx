@@ -8,6 +8,8 @@ export default function KontakPage() {
     const site =
         usePage<{ landingSettings: LandingSettings }>().props.landingSettings
             ?.site ?? {};
+    const phoneDisplay = site.phone || '0811-6699634';
+    const waDigits = phoneDisplay.replace(/[^0-9]/g, '').replace(/^0/, '62');
     return (
         <>
             <Head title={site.contact_title ?? 'Kontak'} />
@@ -29,7 +31,7 @@ export default function KontakPage() {
                                 {[
                                     ['Alamat', site.address],
                                     ['Email', site.email],
-                                    ['Telepon', site.phone],
+                                    ['Telepon / WhatsApp', phoneDisplay],
                                     ['Jam layanan', site.hours],
                                 ]
                                     .filter(([, value]) => value)
@@ -44,16 +46,26 @@ export default function KontakPage() {
                                         </div>
                                     ))}
                             </dl>
-                            {site.maps_url && (
+                            <div className="mt-6 flex flex-wrap gap-3">
                                 <a
-                                    href={site.maps_url}
+                                    href={`https://wa.me/${waDigits}`}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="btn btn-outline mt-6"
+                                    className="btn btn-primary"
                                 >
-                                    Petunjuk lokasi
+                                    Chat WhatsApp Pengelola
                                 </a>
-                            )}
+                                {site.maps_url && (
+                                    <a
+                                        href={site.maps_url}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="btn btn-outline"
+                                    >
+                                        Petunjuk lokasi
+                                    </a>
+                                )}
+                            </div>
                         </div>
                         <div className="space-y-6">
                             {site.map_embed && (

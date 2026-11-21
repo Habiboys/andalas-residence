@@ -41,9 +41,10 @@ class DamageReportController extends Controller
         $query = (clone $base)->when($filters['status'] ?? null, fn ($q, $value) => $q->where('status', $value))
             ->when($filters['gedung_id'] ?? null, fn ($q, $value) => $q->where('gedung_id', $value))
             ->when($filters['technician_id'] ?? null, fn ($q, $value) => $q->where(fn ($assigned) => $assigned->where('teknisi_id', $value)->orWhereHas('assignments', fn ($a) => $a->where('technician_id', $value)->whereNull('ended_at'))));
-        $reports = (clone $query)->with(['aset', 'kamar.lantai.gedung', 'gedung', 'fasilitasUmum', 'teknisi', 'photos', 'statusHistories.actor', 'assignments.technician', 'progress.user', 'items.photos', 'complaints'])->latest('tanggal_lapor')->paginate(15)->withQueryString();
+        $reports = (clone $query)->with(['aset', 'kamar.lantai.gedung', 'gedung', 'fasilitasUmum', 'pelapor:id,nama,no_hp', 'teknisi', 'photos', 'statusHistories.actor', 'assignments.technician', 'progress.user', 'items.photos', 'items.reporter:id,nama,no_hp', 'complaints', 'penilaian'])->latest('tanggal_lapor')->paginate(15)->withQueryString();
         $reports->through(fn (LaporanKerusakan $report): array => [
             ...$report->toArray(),
+            'new_items_count' => $report->items->where('is_new', true)->whereNull('completed_at')->count(),
             'abilities' => collect(['claim', 'complete', 'progress', 'team', 'cancel', 'confirm', 'linkAsset'])->mapWithKeys(fn ($ability) => [$ability => $user->can($ability, $report) && (! in_array($ability, ['claim', 'complete', 'progress', 'team', 'cancel'], true) || $user->can('tiket.update'))])->all(),
             'linkable_assets' => $user->can('linkAsset', $report) ? Aset::where('kamar_id', $report->kamar_id)->where('fasilitas_umum_id', $report->fasilitas_umum_id)->get(['id', 'nama_aset']) : [],
         ]);
@@ -77,14 +78,14 @@ class DamageReportController extends Controller
         $this->authorizePermission($request, 'tiket.update');
         $workflow->claim($laporan, $request->user());
 
-        return back()->with('toast', ['type' => 'success', 'message' => 'Tiket diambil.']);
+        return back()->with('toast', ['type' => 'success', 'message' => 'Permohonan perbaikan diambil.']);
     }
 
     public function completeItem(Request $request, DamageReportItem $item, DamageReportRevision $revision): RedirectResponse
     {
         $this->authorizePermission($request, 'tiket.update');
         Gate::authorize('complete', $item->report);
-        $data = $request->validate(['note' => 'required|string|max:5000', 'photos' => 'nullable|array|max:5', 'photos.*' => 'file|mimes:jpg,jpeg,png|max:5120']);
+        $data = $request->validate(['note' => 'required|string|max:5000', 'photos' => 'nullable|array|max:5', 'photos.*' => 'image|mimes:jpg,jpeg,png,webp|max:8192']);
         $paths = array_map(fn ($file): string => $file->store('laporan-kerusakan/after', 'local') ?: throw new \RuntimeException('Bukti gagal disimpan.'), app(TiketController::class)->uploads($request, 'photos'));
         try {
             $revision->completeItem($item, $request->user(), $data['note'], $paths);
@@ -100,7 +101,7 @@ class DamageReportController extends Controller
     public function logbook(Request $request, DamageReportRevision $revision): RedirectResponse
     {
         abort_unless($request->user()->hasRole('teknisi') && $request->user()->status === 'aktif', 403);
-        $data = $request->validate(['work_date' => 'required|date_format:Y-m-d|before_or_equal:today', 'description' => 'required|string|max:5000', 'source' => 'required|in:other_work,leader_instruction', 'request_key' => 'required|uuid', 'photos' => 'required|array|min:1|max:5', 'photos.*' => 'file|mimes:jpg,jpeg,png|max:5120']);
+        $data = $request->validate(['work_date' => 'required|date_format:Y-m-d|before_or_equal:today', 'description' => 'required|string|max:5000', 'source' => 'required|in:other_work,leader_instruction', 'request_key' => 'required|uuid', 'photos' => 'required|array|min:1|max:5', 'photos.*' => 'image|mimes:jpg,jpeg,png,webp|max:8192']);
         $files = app(TiketController::class)->uploads($request, 'photos');
         $paths = array_map(fn ($file): string => $file->store('technician-logbook', 'local') ?: throw new \RuntimeException('Foto logbook gagal disimpan.'), $files);
         try {
@@ -126,10 +127,41 @@ class DamageReportController extends Controller
     public function complain(Request $request, LaporanKerusakan $laporan, DamageReportRevision $revision): RedirectResponse
     {
         Gate::authorize('view', $laporan);
-        $data = $request->validate(['reason' => 'required|string|max:5000', 'item_id' => 'nullable|uuid', 'request_key' => 'required|uuid']);
-        $revision->complain($laporan, $request->user(), $data['reason'], $data['item_id'] ?? null, $data['request_key']);
+        $data = $request->validate([
+            'reason' => 'required|string|max:5000',
+            'item_id' => 'nullable|uuid',
+            'request_key' => 'required|uuid',
+            'rating' => 'nullable|integer|min:1|max:5',
+            'request_rework' => 'nullable|boolean',
+            'photos' => 'nullable|array|max:5',
+            'photos.*' => 'image|mimes:jpg,jpeg,png,webp|max:8192',
+        ]);
+        $paths = array_map(fn ($file): string => $file->store('laporan-kerusakan/before', 'local') ?: throw new \RuntimeException('Foto gagal disimpan.'), app(TiketController::class)->uploads($request, 'photos'));
+        try {
+            $complaint = $revision->complain(
+                $laporan,
+                $request->user(),
+                $data['reason'],
+                $data['item_id'] ?? null,
+                $data['request_key'],
+                isset($data['rating']) ? (int) $data['rating'] : null,
+                filter_var($data['request_rework'] ?? false, FILTER_VALIDATE_BOOLEAN),
+                $paths,
+            );
+            if (! $complaint->rework_report_id) {
+                Storage::disk('local')->delete($paths);
+            }
+        } catch (\Throwable $exception) {
+            Storage::disk('local')->delete($paths);
+            throw $exception;
+        }
 
-        return back()->with('toast', ['type' => 'success', 'message' => 'Komplain tercatat dan merujuk laporan sebelumnya. Status selesai lama tetap dipertahankan.']);
+        return back()->with('toast', [
+            'type' => 'success',
+            'message' => $complaint->rework_report_id
+                ? 'Komplain dan permohonan perbaikan ulang berhasil dikirim ke teknisi.'
+                : 'Komplain dan penilaian tercatat dengan baik.',
+        ]);
     }
 
     public function readNotification(Request $request, string $notification): RedirectResponse

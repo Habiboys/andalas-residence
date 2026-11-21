@@ -1,7 +1,16 @@
 import { type LandingSettings, mediaUrl } from '../lib/landing-settings';
 import { useEffect, useState } from 'react';
 import { Link, usePage } from '@inertiajs/react';
-import { ChevronDown, Menu, Moon, Sun, X } from 'lucide-react';
+import {
+    ChevronDown,
+    Mail,
+    MapPin,
+    Menu,
+    Moon,
+    Phone,
+    Sun,
+    X,
+} from 'lucide-react';
 import { login } from '@/routes';
 import { redirect as dashboardRedirect } from '@/routes/dashboard';
 import { ThemeProvider, useTheme } from '../context/AppContext';
@@ -407,6 +416,59 @@ export default function LandingLayout({ active, children }: Props) {
                             <p className="max-w-md text-sm leading-relaxed text-white/75">
                                 {site.description}
                             </p>
+                            <ul className="mt-4 space-y-2 text-xs text-white/80">
+                                <li className="flex items-start gap-2">
+                                    <MapPin
+                                        className="mt-0.5 size-3.5 shrink-0 text-white/70"
+                                        aria-hidden="true"
+                                    />
+                                    <span>
+                                        {site.address ||
+                                            'Gedung Asrama Roesma/M.Syaff, Limau Manis Padang - 25163'}
+                                    </span>
+                                </li>
+                                <li className="flex items-center gap-2">
+                                    <Phone
+                                        className="size-3.5 shrink-0 text-white/70"
+                                        aria-hidden="true"
+                                    />
+                                    <a
+                                        href={`https://wa.me/${(site.phone || '0811-6699634').replace(/[^0-9]/g, '').replace(/^0/, '62')}`}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="transition-colors hover:text-white"
+                                    >
+                                        WhatsApp / Telp:{' '}
+                                        {site.phone || '0811-6699634'}
+                                    </a>
+                                </li>
+                                <li className="flex items-center gap-2">
+                                    <Mail
+                                        className="size-3.5 shrink-0 text-white/70"
+                                        aria-hidden="true"
+                                    />
+                                    <a
+                                        href={`mailto:${site.email || 'andalasresidence@unand.ac.id'}`}
+                                        className="transition-colors hover:text-white"
+                                    >
+                                        {site.email ||
+                                            'andalasresidence@unand.ac.id'}
+                                    </a>
+                                </li>
+                                <li>
+                                    <a
+                                        href={
+                                            site.maps_url ||
+                                            'https://www.google.com/maps/search/?api=1&query=Asrama+Universitas+Andalas+Limau+Manis'
+                                        }
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="inline-block underline underline-offset-4 transition-colors hover:text-white"
+                                    >
+                                        Buka di Google Maps
+                                    </a>
+                                </li>
+                            </ul>
                         </div>
 
                         <div className="grid flex-1 grid-cols-2 gap-8 sm:col-span-2 lg:col-span-8 lg:grid-cols-3">

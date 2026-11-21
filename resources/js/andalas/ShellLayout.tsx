@@ -3,7 +3,17 @@ import { manage as landingManage } from '@/routes/andalas/landing';
 import { useEffect, useState } from 'react';
 import { Link, usePage, router } from '@inertiajs/react';
 import { edit as profileEdit } from '@/routes/profile';
-import { ArrowLeft, ChevronDown, LogOut, Menu, Search } from 'lucide-react';
+import {
+    ArrowLeft,
+    ChevronDown,
+    Home,
+    LogOut,
+    Menu,
+    Search,
+    Star,
+    User as UserIcon,
+    Wrench,
+} from 'lucide-react';
 import * as adminRoutes from '@/routes/admin';
 import * as adminLayananRoutes from '@/routes/admin_layanan';
 import * as adminAsetRoutes from '@/routes/admin_aset';
@@ -124,6 +134,7 @@ function ShellInner({
               ROLE_KEYS[currentUser.raw_role ?? ''] ??
               'staff_admin')
     ) as UserRole;
+    const isTeknisiMobile = roleKey === 'teknisi';
     const sidebarRole = roleKey as SidebarUserRole;
     const title = pageTitle(role, currentPage);
 
@@ -207,81 +218,122 @@ function ShellInner({
 
     return (
         <div className="bg-base-200 flex min-h-svh">
-            {/* Desktop sidebar */}
-            <div
-                className={`sticky top-0 hidden h-svh shrink-0 overflow-hidden transition-[width] duration-300 lg:flex ${
-                    desktopCollapsed ? 'w-20' : 'w-64'
-                }`}
-            >
-                <Sidebar
-                    role={sidebarRole}
-                    attendanceEligible={currentUser.attendance_eligible}
-                    activeResident={currentUser.status_huni === 'aktif'}
-                    currentPage={currentPage}
-                    setPage={nav}
-                    collapsed={desktopCollapsed}
-                />
-            </div>
+            {!isTeknisiMobile && (
+                <>
+                    {/* Desktop sidebar */}
+                    <div
+                        className={`sticky top-0 hidden h-svh shrink-0 overflow-hidden transition-[width] duration-300 lg:flex ${
+                            desktopCollapsed ? 'w-20' : 'w-64'
+                        }`}
+                    >
+                        <Sidebar
+                            role={sidebarRole}
+                            attendanceEligible={currentUser.attendance_eligible}
+                            activeResident={currentUser.status_huni === 'aktif'}
+                            currentPage={currentPage}
+                            setPage={nav}
+                            collapsed={desktopCollapsed}
+                        />
+                    </div>
 
-            {/* Mobile sidebar */}
-            <div
-                className={`fixed inset-0 z-50 lg:hidden ${
-                    mobileOpen ? 'pointer-events-auto' : 'pointer-events-none'
-                }`}
-            >
-                <button
-                    type="button"
-                    tabIndex={mobileOpen ? 0 : -1}
-                    aria-label="Tutup menu navigasi"
-                    onClick={() => setMobileOpen(false)}
-                    className={`bg-neutral/50 absolute inset-0 cursor-default transition-opacity duration-300 ${
-                        mobileOpen ? 'opacity-100' : 'opacity-0'
-                    }`}
-                />
-                <div
-                    className={`absolute inset-y-0 left-0 w-64 transition-transform duration-300 ease-out ${
-                        mobileOpen ? 'translate-x-0' : '-translate-x-full'
-                    }`}
-                >
-                    <Sidebar
-                        role={sidebarRole}
-                        attendanceEligible={currentUser.attendance_eligible}
-                        activeResident={currentUser.status_huni === 'aktif'}
-                        currentPage={currentPage}
-                        setPage={(p) => {
-                            nav(p);
-                            setMobileOpen(false);
-                        }}
-                        onClose={() => setMobileOpen(false)}
-                    />
-                </div>
-            </div>
+                    {/* Mobile sidebar */}
+                    <div
+                        className={`fixed inset-0 z-50 lg:hidden ${
+                            mobileOpen
+                                ? 'pointer-events-auto'
+                                : 'pointer-events-none'
+                        }`}
+                    >
+                        <button
+                            type="button"
+                            tabIndex={mobileOpen ? 0 : -1}
+                            aria-label="Tutup menu navigasi"
+                            onClick={() => setMobileOpen(false)}
+                            className={`bg-neutral/50 absolute inset-0 cursor-default transition-opacity duration-300 ${
+                                mobileOpen ? 'opacity-100' : 'opacity-0'
+                            }`}
+                        />
+                        <div
+                            className={`absolute inset-y-0 left-0 w-64 transition-transform duration-300 ease-out ${
+                                mobileOpen
+                                    ? 'translate-x-0'
+                                    : '-translate-x-full'
+                            }`}
+                        >
+                            <Sidebar
+                                role={sidebarRole}
+                                attendanceEligible={
+                                    currentUser.attendance_eligible
+                                }
+                                activeResident={
+                                    currentUser.status_huni === 'aktif'
+                                }
+                                currentPage={currentPage}
+                                setPage={(p) => {
+                                    nav(p);
+                                    setMobileOpen(false);
+                                }}
+                                onClose={() => setMobileOpen(false)}
+                            />
+                        </div>
+                    </div>
+                </>
+            )}
 
             <div className="flex min-w-0 flex-1 flex-col">
                 <header className="border-base-300 bg-base-100/90 sticky top-0 z-30 flex h-16 w-full items-center justify-between gap-2 border-b px-3 backdrop-blur-md md:px-6">
-                    {/* Left: menu buttons + desktop search trigger */}
-                    <div className="flex min-w-0 shrink-0 items-center gap-1">
-                        <button
-                            type="button"
-                            onClick={() => setMobileOpen(true)}
-                            className="btn btn-ghost btn-square btn-sm text-base-content lg:hidden"
-                            aria-label="Buka menu navigasi"
-                        >
-                            <Menu className="size-5" aria-hidden="true" />
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setDesktopCollapsed((c) => !c)}
-                            className="btn btn-ghost btn-square btn-sm text-base-content hover:bg-base-200 hidden lg:inline-flex"
-                            aria-label={
-                                desktopCollapsed
-                                    ? 'Tampilkan sidebar'
-                                    : 'Sembunyikan sidebar'
-                            }
-                            aria-pressed={desktopCollapsed}
-                        >
-                            <Menu className="size-5" aria-hidden="true" />
-                        </button>
+                    {/* Left: menu buttons or teknisi mobile header */}
+                    <div className="flex min-w-0 shrink-0 items-center gap-2">
+                        {!isTeknisiMobile ? (
+                            <>
+                                <button
+                                    type="button"
+                                    onClick={() => setMobileOpen(true)}
+                                    className="btn btn-ghost btn-square btn-sm text-base-content lg:hidden"
+                                    aria-label="Buka menu navigasi"
+                                >
+                                    <Menu
+                                        className="size-5"
+                                        aria-hidden="true"
+                                    />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        setDesktopCollapsed((c) => !c)
+                                    }
+                                    className="btn btn-ghost btn-square btn-sm text-base-content hover:bg-base-200 hidden lg:inline-flex"
+                                    aria-label={
+                                        desktopCollapsed
+                                            ? 'Tampilkan sidebar'
+                                            : 'Sembunyikan sidebar'
+                                    }
+                                    aria-pressed={desktopCollapsed}
+                                >
+                                    <Menu
+                                        className="size-5"
+                                        aria-hidden="true"
+                                    />
+                                </button>
+                            </>
+                        ) : (
+                            <div className="flex items-center gap-2">
+                                <span className="bg-primary text-primary-content flex size-8 items-center justify-center rounded-lg">
+                                    <Wrench
+                                        className="size-4"
+                                        aria-hidden="true"
+                                    />
+                                </span>
+                                <div className="leading-tight">
+                                    <p className="text-sm font-bold">
+                                        Teknisi Asrama
+                                    </p>
+                                    <p className="text-base-content/60 text-[11px]">
+                                        Andalas Residence Mobile
+                                    </p>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Desktop search trigger */}
                         <div className="hidden sm:block">
@@ -401,7 +453,11 @@ function ShellInner({
                     />
                 </header>
 
-                <main className="w-full min-w-0 flex-1 p-4 md:p-6">
+                <main
+                    className={`w-full min-w-0 flex-1 p-4 md:p-6 ${
+                        isTeknisiMobile ? 'mx-auto max-w-xl pb-24' : ''
+                    }`}
+                >
                     <div className="mb-3 flex items-center justify-between gap-3">
                         <nav
                             className="breadcrumbs text-base-content/60 py-0 text-xs"
@@ -483,6 +539,64 @@ function ShellInner({
                     )}
                 </main>
             </div>
+
+            {isTeknisiMobile && (
+                <nav
+                    aria-label="Menu teknisi"
+                    className="border-base-300 bg-base-100/95 fixed inset-x-0 bottom-0 z-40 border-t shadow-lg backdrop-blur-md"
+                >
+                    <div className="mx-auto grid max-w-xl grid-cols-4 gap-1 px-2 py-1.5">
+                        {[
+                            {
+                                label: 'Beranda',
+                                page: 'dashboard',
+                                icon: Home,
+                                onClick: () => nav('dashboard'),
+                            },
+                            {
+                                label: 'Perbaikan',
+                                page: 'pelaporan',
+                                icon: Wrench,
+                                onClick: () => nav('pelaporan'),
+                            },
+                            {
+                                label: 'Penilaian',
+                                page: 'riwayat-penilaian',
+                                icon: Star,
+                                onClick: () => nav('riwayat-penilaian'),
+                            },
+                            {
+                                label: 'Profil',
+                                page: 'settings-profile',
+                                icon: UserIcon,
+                                onClick: () => router.visit(profileEdit.url()),
+                            },
+                        ].map((item) => {
+                            const Icon = item.icon;
+                            const isActive = currentPage === item.page;
+                            return (
+                                <button
+                                    key={item.page}
+                                    type="button"
+                                    onClick={item.onClick}
+                                    aria-current={isActive ? 'page' : undefined}
+                                    className={`flex flex-col items-center justify-center gap-0.5 rounded-xl py-2 text-[11px] font-medium transition-colors ${
+                                        isActive
+                                            ? 'bg-primary/10 text-primary font-semibold'
+                                            : 'text-base-content/70 hover:bg-base-200'
+                                    }`}
+                                >
+                                    <Icon
+                                        className="size-5"
+                                        aria-hidden="true"
+                                    />
+                                    <span>{item.label}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </nav>
+            )}
 
             {userMenuOpen && (
                 <button

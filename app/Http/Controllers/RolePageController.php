@@ -11,6 +11,7 @@ use App\Models\Aset;
 use App\Models\AuditLog;
 use App\Models\CheckoutRequest;
 use App\Models\City;
+use App\Models\DamageReportItem;
 use App\Models\Departemen;
 use App\Models\DocumentSigner;
 use App\Models\Faculty;
@@ -153,6 +154,11 @@ class RolePageController extends Controller
                     'tiket' => $this->tickets($request),
                     'performance' => $this->teknisiPerformance(),
                     'gedung_report' => $this->buildingReport(),
+                ] : []),
+                ...($request->user()->hasRole('teknisi') ? [
+                    'tiket' => $this->tickets($request),
+                    'blocked_count' => DamageReportAccess::query($request->user())->where('status', 'sedang_dikerjakan')->where('is_blocked', true)->count(),
+                    'new_items_count' => DamageReportItem::whereIn('laporan_kerusakan_id', DamageReportAccess::query($request->user())->select('id'))->where('is_new', true)->whereNull('completed_at')->count(),
                 ] : []),
             ],
             'registration' => $this->registrationPayload($request),

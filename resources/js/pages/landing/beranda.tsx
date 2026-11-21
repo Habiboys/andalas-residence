@@ -1,6 +1,14 @@
 import ResidenceMarketplace, {
     type ResidenceListing,
 } from '@/andalas/components/ResidenceMarketplace';
+import {
+    FacilitiesAndRulesSection,
+    PaymentProcedureSection,
+    type PublicPaymentAccount,
+    type PublicRegulationDoc,
+    RegistrationTracksSection,
+    TariffMatrixSection,
+} from '@/andalas/components/LandingResidenceGuide';
 import { informasi as informasiPage } from '@/routes/landing';
 import { type LandingSettings, mediaUrl } from '@/andalas/lib/landing-settings';
 import { Head, Link } from '@inertiajs/react';
@@ -21,6 +29,8 @@ type GalleryPhoto = {
 };
 type Props = {
     residenceCatalog?: ResidenceListing[];
+    paymentAccounts?: PublicPaymentAccount[];
+    regulationDocs?: PublicRegulationDoc[];
     landingSettings?: LandingSettings;
     berita?: Notice[];
     testimoni: Testimoni[];
@@ -31,6 +41,8 @@ type Props = {
 
 export default function Beranda({
     residenceCatalog = [],
+    paymentAccounts = [],
+    regulationDocs = [],
     landingSettings,
     berita = [],
     testimoni = [],
@@ -121,6 +133,12 @@ export default function Beranda({
                 </div>
 
                 <ResidenceMarketplace listings={residenceCatalog} />
+
+                <RegistrationTracksSection />
+
+                <TariffMatrixSection listings={residenceCatalog} />
+
+                <FacilitiesAndRulesSection regulationDocs={regulationDocs} />
 
                 <section className="bg-base-100 py-16 md:py-24">
                     <div className="mx-auto grid max-w-7xl gap-12 px-4 md:px-6 lg:grid-cols-2 lg:gap-20">
@@ -361,6 +379,12 @@ export default function Beranda({
                         </dl>
                     </div>
                 </section>
+
+                <PaymentProcedureSection
+                    paymentAccounts={paymentAccounts}
+                    supportPhone={site.phone}
+                    supportEmail={site.email}
+                />
 
                 {berita.length > 0 && (
                     <section className="bg-base-200 py-16">

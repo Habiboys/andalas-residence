@@ -3,10 +3,12 @@
 namespace App\Models;
 
 use App\Enums\LaporanKerusakanStatus;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
 
 /**
  * @property LaporanKerusakanStatus $status
@@ -35,6 +37,29 @@ class LaporanKerusakan extends BaseModel
             'tanggal_selesai' => 'datetime',
             'is_blocked' => 'boolean',
         ];
+    }
+
+    public static function generateReportNumber(?Gedung $building = null, ?Kamar $room = null, ?FasilitasUmum $facility = null, ?CarbonInterface $at = null): string
+    {
+        $year = ($at ?? now())->format('Y');
+        $rawBuilding = $building?->kode_gedung ?: 'UMUM';
+        $buildingCode = Str::upper((string) preg_replace('/[^A-Za-z0-9]/', '', $rawBuilding)) ?: 'UMUM';
+
+        if ($room) {
+            $unitCode = Str::upper((string) preg_replace('/[^A-Za-z0-9.]/', '', $room->nomor_kamar)) ?: 'KMR';
+        } elseif ($facility) {
+            $unitCode = Str::upper(Str::limit((string) preg_replace('/[^A-Za-z0-9]/', '', $facility->nama_fasilitas), 12, '')) ?: 'FASUM';
+        } else {
+            $unitCode = 'UMUM';
+        }
+
+        $seq = static::whereYear('tanggal_lapor', (int) $year)->count() + 1;
+        do {
+            $candidate = sprintf('%04d/%s/%s/%s', $seq, $buildingCode, $unitCode, $year);
+            $seq++;
+        } while (static::where('nomor_tiket', $candidate)->exists());
+
+        return $candidate;
     }
 
     /** @return BelongsTo<Aset, $this> */
