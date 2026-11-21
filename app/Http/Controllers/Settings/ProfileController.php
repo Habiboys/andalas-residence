@@ -14,6 +14,7 @@ use App\Models\Prodi;
 use App\Models\Province;
 use App\Services\AuditLogService;
 use App\Services\ResidenceLifecycle;
+use App\Services\StudentCohort;
 use App\Services\UserProfileSummary;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Http\RedirectResponse;
@@ -43,8 +44,10 @@ class ProfileController extends Controller
             'initialUser' => app(RolePageController::class)->userPayload($request),
             'hasStudentProfile' => $student !== null,
             'academicLocked' => $student ? $this->hasLockedAcademicProfile($student) : false,
+            'canEditNim' => $user->hasPendingNim(),
             'editableProfile' => [
                 'name' => $user->nama,
+                'nim_nip' => $user->hasPendingNim() ? '' : $user->nim_nip,
                 'email' => $user->email,
                 'no_hp' => $user->no_hp ?? '',
                 'gender' => $user->gender ?? '',
@@ -100,6 +103,15 @@ class ProfileController extends Controller
                 'nama' => $validated['name'],
                 'email' => $validated['email'],
             ];
+            if ($user->hasPendingNim() && filled($validated['nim_nip'] ?? null)) {
+                $newNim = trim((string) $validated['nim_nip']);
+                $cohort = StudentCohort::fromNim($newNim);
+                $userUpdates['nim_nip'] = $newNim;
+                if ($student) {
+                    $student->update(['angkatan' => $cohort]);
+                    $student->refresh();
+                }
+            }
             if (array_key_exists('no_hp', $validated)) {
                 $userUpdates['no_hp'] = $validated['no_hp'];
             }
@@ -118,13 +130,16 @@ class ProfileController extends Controller
 
                 if ($studentUpdates !== []) {
                     $student->update($studentUpdates);
+                    $student->refresh();
                 }
 
-                if (! $academicLocked && array_key_exists('prodi_id', $validated) && $validated['prodi_id'] !== null
+                $effectiveNim = $userUpdates['nim_nip'] ?? $user->nim_nip;
+                $effectiveProdiId = $student->prodi_id;
+                if (! $academicLocked && ! str_starts_with((string) $effectiveNim, $user::PENDING_NIM_PREFIX) && filled($effectiveProdiId)
                     && in_array($user->client_profile_category, [ClientProfileCategory::Student, ClientProfileCategory::LocalKipk, ClientProfileCategory::LocalNonKipk], true)) {
                     $userUpdates['client_profile_category'] = app(ResidenceLifecycle::class)->resolveLocalCategory(
-                        $user->nim_nip,
-                        $validated['prodi_id'],
+                        $effectiveNim,
+                        $effectiveProdiId,
                         $student->angkatan !== null ? (int) $student->angkatan : null,
                     );
                 }

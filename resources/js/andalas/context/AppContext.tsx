@@ -33,6 +33,7 @@ export type UserRole =
 export interface User {
     id?: string;
     nim: string;
+    nim_pending?: boolean;
     password?: string;
     nama: string;
     role: UserRole;

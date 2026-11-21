@@ -168,7 +168,13 @@ class RolePageController extends Controller
                 return [
                     'profile' => $profile?->only(['prodi_id', 'city_id', 'angkatan', 'nik', 'alamat', 'email_pribadi']),
                     'identity' => [
-                        ...$user->only(['nama', 'nim_nip', 'email', 'gender', 'no_hp', 'status']),
+                        'nama' => $user->nama,
+                        'nim_nip' => $user->hasPendingNim() ? '' : $user->nim_nip,
+                        'nim_pending' => $user->hasPendingNim(),
+                        'email' => $user->email,
+                        'gender' => $user->gender,
+                        'no_hp' => $user->no_hp,
+                        'status' => $user->status,
                         'is_sso' => $isSso,
                         'category' => $user->getRawOriginal('client_profile_category'),
                     ],
@@ -952,6 +958,7 @@ class RolePageController extends Controller
         return [
             'id' => $user->id,
             'nim' => $user->nim_nip,
+            'nim_pending' => $user->hasPendingNim(),
             'nama' => $user->nama,
             'email' => $user->email,
             'role' => $role,

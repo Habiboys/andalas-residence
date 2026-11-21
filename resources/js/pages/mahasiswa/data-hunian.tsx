@@ -29,6 +29,7 @@ export default function DataHunian({
     identity: {
         nama?: string;
         nim_nip: string;
+        nim_pending?: boolean;
         email: string;
         is_sso?: boolean;
         gender?: string;
@@ -46,12 +47,11 @@ export default function DataHunian({
     const [step, setStep] = useState(0);
     const [confirmOpen, setConfirmOpen] = useState(false);
     const isSso =
-        identity.is_sso ??
-        identity.email.toLowerCase().endsWith('unand.ac.id');
+        identity.is_sso ?? identity.email.toLowerCase().endsWith('unand.ac.id');
     const form = useForm({
         nama: profile?.nik && identity.nama ? identity.nama.toUpperCase() : '',
-        email_pribadi:
-            profile?.email_pribadi ?? (isSso ? '' : identity.email),
+        nim_nip: identity.nim_pending ? '' : identity.nim_nip,
+        email_pribadi: profile?.email_pribadi ?? (isSso ? '' : identity.email),
         no_hp: identity.no_hp ?? '',
         gender: identity.gender ?? '',
         prodi_id: profile?.prodi_id ?? '',
@@ -113,6 +113,8 @@ export default function DataHunian({
 
     const identityReady = !!(
         form.data.nama.trim() &&
+        (!identity.nim_pending ||
+            /^\d{4,50}$/.test(form.data.nim_nip.trim())) &&
         /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.data.email_pribadi.trim()) &&
         form.data.no_hp.trim() &&
         form.data.gender &&
@@ -186,7 +188,12 @@ export default function DataHunian({
                 className="card bg-base-100 border-base-300 space-y-5 rounded-xl border p-5 shadow-xs md:p-6"
                 onSubmit={(event) => {
                     event.preventDefault();
-                    if (!locked && step === 2 && identityReady && addressReady) {
+                    if (
+                        !locked &&
+                        step === 2 &&
+                        identityReady &&
+                        addressReady
+                    ) {
                         setConfirmOpen(true);
                     }
                 }}
@@ -198,13 +205,40 @@ export default function DataHunian({
                                 Isi ulang nama lengkap sesuai dokumen resmi.
                             </p>
                             <p className="text-base-content/70 mt-0.5 text-xs">
-                                Nama bawaan SSO dapat belum sesuai ejaan KTP/KTM.
-                                Ketik ulang nama lengkap Anda untuk keperluan
-                                kontrak dan dokumen resmi asrama.
+                                Nama bawaan SSO dapat belum sesuai ejaan
+                                KTP/KTM. Ketik ulang nama lengkap Anda untuk
+                                keperluan kontrak dan dokumen resmi asrama.
                             </p>
                         </div>
 
                         <div className="grid gap-4 sm:grid-cols-2">
+                            {identity.nim_pending && (
+                                <label className="block space-y-1.5 text-sm font-medium sm:col-span-2">
+                                    <span>
+                                        NIM (Nomor Induk Mahasiswa Resmi)
+                                    </span>
+                                    <input
+                                        required
+                                        className={control}
+                                        inputMode="numeric"
+                                        maxLength={50}
+                                        placeholder="Masukkan NIM resmi Anda (angka)"
+                                        value={form.data.nim_nip}
+                                        onChange={(e) =>
+                                            form.setData(
+                                                'nim_nip',
+                                                e.target.value,
+                                            )
+                                        }
+                                    />
+                                    <span className="text-base-content/70 block text-xs font-normal">
+                                        Akun Anda terdaftar tanpa NIM sementara.
+                                        Lengkapi NIM resmi agar angkatan &amp;
+                                        status KIP-K dapat diverifikasi dan Anda
+                                        bisa memilih kamar.
+                                    </span>
+                                </label>
+                            )}
                             <label className="block space-y-1.5 text-sm font-medium sm:col-span-2">
                                 <span>Nama lengkap</span>
                                 <input
@@ -301,7 +335,10 @@ export default function DataHunian({
                                     NIM / Nomor identitas
                                 </dt>
                                 <dd className="font-medium break-all">
-                                    {identity.nim_nip}
+                                    {identity.nim_pending
+                                        ? form.data.nim_nip ||
+                                          'Belum diisi (wajib dilengkapi)'
+                                        : identity.nim_nip}
                                 </dd>
                                 <dt className="text-base-content/60 text-xs">
                                     Angkatan dari NIM
@@ -511,8 +548,10 @@ export default function DataHunian({
                                     NIM &amp; Angkatan
                                 </span>
                                 <p>
-                                    {identity.nim_nip} · Angkatan{' '}
-                                    {profile?.angkatan || '-'}
+                                    {identity.nim_pending
+                                        ? form.data.nim_nip || '-'
+                                        : identity.nim_nip}{' '}
+                                    · Angkatan {profile?.angkatan || '-'}
                                 </p>
                             </div>
                             <div>
@@ -618,9 +657,7 @@ export default function DataHunian({
                             className="btn btn-primary"
                             disabled={locked || form.processing}
                         >
-                            {locked
-                                ? 'Data Dikunci'
-                                : 'Simpan dan lanjutkan'}
+                            {locked ? 'Data Dikunci' : 'Simpan dan lanjutkan'}
                         </button>
                     )}
                 </div>

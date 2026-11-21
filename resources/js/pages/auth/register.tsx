@@ -14,9 +14,12 @@ import {
 } from '@/andalas/components/AndalasAuthShell';
 
 export default function Register(options: AcademicOptions) {
+    const currentYear = new Date().getFullYear();
     const form = useForm({
         nama: '',
         nim_nip: '',
+        no_nim: false,
+        angkatan: String(currentYear),
         email: '',
         password: '',
         password_confirmation: '',
@@ -29,8 +32,11 @@ export default function Register(options: AcademicOptions) {
     });
     const nonStudent = form.data.client_profile_category === 'non_student';
     const categories = [
-        ['local_student', 'Mahasiswa lokal'],
-        ['international_student', 'Mahasiswa internasional'],
+        ['local_student', 'Mahasiswa Lokal (S1)'],
+        [
+            'international_student',
+            'Mahasiswa Internasional / Mahasiswa Lokal (S2/S3)',
+        ],
         ['non_student', 'Nonmahasiswa'],
     ];
     return (
@@ -57,12 +63,17 @@ export default function Register(options: AcademicOptions) {
                         aria-label="Jenis pendaftar"
                         className={authInputClass}
                         value={form.data.client_profile_category}
-                        onChange={(event) =>
-                            form.setData(
-                                'client_profile_category',
-                                event.target.value,
-                            )
-                        }
+                        onChange={(event) => {
+                            const category = event.target.value;
+                            form.setData((prev) => ({
+                                ...prev,
+                                client_profile_category: category,
+                                no_nim:
+                                    category === 'non_student'
+                                        ? false
+                                        : prev.no_nim,
+                            }));
+                        }}
                     >
                         <option value="">Pilih jenis pendaftar</option>
                         {categories.map(([value, label]) => (
@@ -80,35 +91,83 @@ export default function Register(options: AcademicOptions) {
                         onChange={(e) => form.setData('nama', e.target.value)}
                     />
                 </AuthField>
-                <AuthField
-                    label={
-                        nonStudent
-                            ? 'Nomor identitas (NIK/paspor)'
-                            : 'NIM / nomor mahasiswa'
-                    }
-                    error={form.errors.nim_nip}
-                >
-                    <input
-                        required
-                        className={authInputClass}
-                        value={form.data.nim_nip}
-                        onChange={(e) =>
-                            form.setData('nim_nip', e.target.value)
+                {!nonStudent && (
+                    <div className="col-span-full">
+                        <label className="inline-flex cursor-pointer items-center gap-2 text-sm font-medium">
+                            <input
+                                type="checkbox"
+                                className="checkbox checkbox-sm checkbox-primary"
+                                checked={form.data.no_nim}
+                                onChange={(e) => {
+                                    const checked = e.target.checked;
+                                    form.setData((prev) => ({
+                                        ...prev,
+                                        no_nim: checked,
+                                        nim_nip: checked ? '' : prev.nim_nip,
+                                    }));
+                                }}
+                            />
+                            <span>
+                                Belum memiliki NIM (khusus mahasiswa baru)
+                            </span>
+                        </label>
+                    </div>
+                )}
+                {!nonStudent && form.data.no_nim ? (
+                    <AuthField
+                        label="Tahun Angkatan"
+                        error={form.errors.angkatan}
+                    >
+                        <input
+                            required
+                            type="number"
+                            min={2000}
+                            max={currentYear}
+                            className={authInputClass}
+                            value={form.data.angkatan}
+                            onChange={(e) =>
+                                form.setData('angkatan', e.target.value)
+                            }
+                        />
+                        <p className="text-muted mt-1 text-xs">
+                            Anda dapat mendaftar akun terlebih dahulu. Sistem
+                            akan terus mengingatkan untuk melengkapi NIM pada
+                            menu Data Hunian atau Profil sebelum memilih kamar.
+                        </p>
+                    </AuthField>
+                ) : (
+                    <AuthField
+                        label={
+                            nonStudent
+                                ? 'Nomor identitas (NIK/paspor)'
+                                : 'NIM / nomor mahasiswa'
                         }
-                    />
-                </AuthField>
+                        error={form.errors.nim_nip}
+                    >
+                        <input
+                            required
+                            className={authInputClass}
+                            value={form.data.nim_nip}
+                            onChange={(e) =>
+                                form.setData('nim_nip', e.target.value)
+                            }
+                        />
+                    </AuthField>
+                )}
                 {!nonStudent && (
                     <>
-                        <AuthField label="Angkatan dari NIM">
-                            <output className="block py-2 font-medium">
-                                {cohortFromNim(form.data.nim_nip) ||
-                                    'Isi NIM yang valid terlebih dahulu'}
-                            </output>
-                            <p className="text-muted text-xs">
-                                Dua digit awal NIM menentukan tahun masuk
-                                kuliah.
-                            </p>
-                        </AuthField>
+                        {!form.data.no_nim && (
+                            <AuthField label="Angkatan dari NIM">
+                                <output className="block py-2 font-medium">
+                                    {cohortFromNim(form.data.nim_nip) ||
+                                        'Isi NIM yang valid terlebih dahulu'}
+                                </output>
+                                <p className="text-muted text-xs">
+                                    Dua digit awal NIM menentukan tahun masuk
+                                    kuliah.
+                                </p>
+                            </AuthField>
+                        )}
                         <AcademicFields
                             {...options}
                             value={form.data}
@@ -130,22 +189,23 @@ export default function Register(options: AcademicOptions) {
                     </select>
                 </AuthField>
                 <AuthField
-                    label="Email (@unand.ac.id)"
+                    label="Email (@unand.ac.id / Gmail)"
                     error={form.errors.email}
                 >
                     <input
                         required
                         type="email"
                         autoComplete="email"
-                        placeholder="nama@unand.ac.id"
-                        pattern="^[^@\s]+@([a-zA-Z0-9-]+\.)*unand\.ac\.id$"
-                        title="Gunakan email dengan domain @unand.ac.id"
+                        placeholder="nama@unand.ac.id atau nama@gmail.com"
+                        pattern="^[^@\s]+@((([a-zA-Z0-9-]+\.)*unand\.ac\.id)|(gmail\.com|googlemail\.com))$"
+                        title="Gunakan email @unand.ac.id atau akun Google (@gmail.com)"
                         className={authInputClass}
                         value={form.data.email}
                         onChange={(e) => form.setData('email', e.target.value)}
                     />
                     <p className="text-muted mt-1 text-xs">
-                        Wajib menggunakan email berdomain @unand.ac.id.
+                        Gunakan email berdomain @unand.ac.id atau akun Google
+                        (@gmail.com).
                     </p>
                 </AuthField>
                 <AuthField label="Nomor telepon" error={form.errors.no_hp}>

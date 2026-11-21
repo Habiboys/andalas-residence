@@ -99,6 +99,19 @@ function ShellInner({
         return () => window.removeEventListener('keydown', onKeyDown);
     }, [userMenuOpen]);
 
+    // Reload from the server if browser restores an authenticated page from bfcache after logout.
+    useEffect(() => {
+        const onPageShow = (event: PageTransitionEvent) => {
+            if (event.persisted) {
+                window.location.reload();
+            }
+        };
+
+        window.addEventListener('pageshow', onPageShow);
+
+        return () => window.removeEventListener('pageshow', onPageShow);
+    }, []);
+
     if (!currentUser) {
         return null;
     }
@@ -436,6 +449,31 @@ function ShellInner({
                             </button>
                         )}
                     </div>
+                    {currentUser.nim_pending && (
+                        <div
+                            role="alert"
+                            className="alert alert-warning mb-4 flex flex-wrap items-center justify-between gap-3 text-sm shadow-xs"
+                        >
+                            <div>
+                                <p className="font-semibold">
+                                    NIM resmi Anda belum dilengkapi.
+                                </p>
+                                <p className="text-xs opacity-90">
+                                    Lengkapi NIM Anda di menu Data Hunian atau
+                                    Profil Saya agar dapat memilih kamar dan
+                                    diproses sebagai penghuni asrama.
+                                </p>
+                            </div>
+                            {currentPage !== 'data-hunian' && (
+                                <Link
+                                    href={mahasiswaRoutes.dataHunian.url()}
+                                    className="btn btn-sm btn-neutral shrink-0"
+                                >
+                                    Lengkapi NIM
+                                </Link>
+                            )}
+                        </div>
+                    )}
                     {currentPage === 'dashboard' ? (
                         children
                     ) : (

@@ -150,7 +150,7 @@ it('selects the letter wording from verified residence status and funding catego
         'legacy_verification_path' => $path, 'approved_at' => '2026-09-24 07:17:33',
     ]);
     $html = view('pdf.surat-bebas-asrama', ['pengajuan' => $application, 'mahasiswa' => $student, 'documentNumber' => '674/B/Asrama-XIV/UA/2026'])->render();
-    expect($html)->toContain($title, '674/B/Asrama-XIV/UA/2026', '24 September 2026', '14:17:33', 'Fatmasari, Amd.Kep')
+    expect($html)->toContain($title, '674/B/Asrama-XIV/UA/2026', '24 September 2026', '14:17:33', 'Fatmasari, Amd.Kep', 'Telp. 0811-6699634', 'https://andalasresidence.unand.ac.id')
         ->not->toContain('NIP. ');
     if ($category === 'local_kipk' || $category === 'international_free_facility') {
         expect($html)->not->toContain('telah melunasi uang asrama');

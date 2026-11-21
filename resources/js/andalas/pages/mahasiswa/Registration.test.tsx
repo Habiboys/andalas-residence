@@ -69,6 +69,35 @@ it('displays incoming room invitation alert directly in Step 1 when invited by a
     );
     expect(html).toContain('Budi Santoso');
     expect(html).toContain('Terima Undangan &amp; Lanjut ke Tahap 3');
+    expect(html).not.toContain('Undangan (');
+});
+
+it('hides invitation tab and requires completing housing data before viewing invitations', () => {
+    const html = renderToStaticMarkup(
+        <Registration
+            housingProfileReady={false}
+            housingProfileUrl="/mahasiswa/data-hunian"
+            initialUser={{ is_kipk: false }}
+            room_invitations={[
+                {
+                    id: 'inv-room-1',
+                    incoming: true,
+                    status: 'pending',
+                    expires_at: '2026-12-01T12:00:00Z',
+                    sender_name: 'Budi Santoso',
+                    invitee_name: 'Sulhayati',
+                    room_number: '2A.08',
+                    building_name: 'Hijau (G)',
+                    floor_name: 'Lantai 2',
+                    rate_unit: 'year',
+                    estimated_total: 2500000,
+                },
+            ]}
+        />,
+    );
+    expect(html).toContain('Lengkapi Data Hunian');
+    expect(html).not.toContain('Undangan (1)');
+    expect(html).not.toContain('Budi Santoso');
 });
 it('blocks another application while a submitted registration is pending and ignores cancelled registrations', () => {
     for (const status of ['draft', 'rejected', 'cancelled', 'submitted']) {

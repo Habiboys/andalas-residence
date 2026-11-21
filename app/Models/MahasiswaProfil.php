@@ -27,6 +27,7 @@ class MahasiswaProfil extends BaseModel
 
         return filled($this->user->nama)
             && filled($this->user->nim_nip)
+            && ! $this->user->hasPendingNim()
             && filled($this->user->email)
             && $hasPersonalEmail
             && filled($this->user->no_hp)

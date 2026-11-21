@@ -19,6 +19,7 @@ type PageProps = {
 
 type EditableProfile = {
     name?: string;
+    nim_nip?: string;
     email?: string;
     no_hp?: string;
     gender?: string;
@@ -94,6 +95,7 @@ export default function Profile({
     profileSummary,
     hasStudentProfile = false,
     academicLocked = false,
+    canEditNim = false,
     editableProfile,
     academicOptions,
     locationOptions,
@@ -104,6 +106,7 @@ export default function Profile({
     profileSummary: ProfileSummary;
     hasStudentProfile?: boolean;
     academicLocked?: boolean;
+    canEditNim?: boolean;
     editableProfile?: EditableProfile;
     academicOptions?: AcademicOptions | null;
     locationOptions?: LocationOptions | null;
@@ -114,6 +117,7 @@ export default function Profile({
 
     const buildInitialValues = () => ({
         name: editableProfile?.name ?? auth.user.name ?? '',
+        nim_nip: editableProfile?.nim_nip ?? '',
         email: editableProfile?.email ?? auth.user.email ?? '',
         no_hp: editableProfile?.no_hp ?? '',
         gender: editableProfile?.gender ?? '',
@@ -267,14 +271,49 @@ export default function Profile({
                                     />
                                 </ProfileFieldRow>
 
-                                <ReadonlyRow
-                                    label="NIM / NIP / Nomor identitas"
-                                    value={
-                                        identityFields[
-                                            'NIM / NIP / Nomor identitas'
-                                        ]
-                                    }
-                                />
+                                {canEditNim ? (
+                                    <ProfileFieldRow
+                                        label="NIM / Nomor Mahasiswa"
+                                        htmlFor="nim_nip"
+                                        error={
+                                            (
+                                                form.errors as Record<
+                                                    string,
+                                                    string | undefined
+                                                >
+                                            ).nim_nip
+                                        }
+                                    >
+                                        <input
+                                            id="nim_nip"
+                                            name="nim_nip"
+                                            inputMode="numeric"
+                                            className="input input-bordered w-full max-w-md"
+                                            value={form.data.nim_nip}
+                                            onChange={(e) =>
+                                                form.setData(
+                                                    'nim_nip',
+                                                    e.target.value,
+                                                )
+                                            }
+                                            placeholder="Masukkan NIM resmi Anda"
+                                        />
+                                        <p className="text-base-content/60 text-xs">
+                                            Wajib dilengkapi untuk menentukan
+                                            angkatan &amp; kelayakan pendaftaran
+                                            kamar.
+                                        </p>
+                                    </ProfileFieldRow>
+                                ) : (
+                                    <ReadonlyRow
+                                        label="NIM / NIP / Nomor identitas"
+                                        value={
+                                            identityFields[
+                                                'NIM / NIP / Nomor identitas'
+                                            ]
+                                        }
+                                    />
+                                )}
 
                                 <ProfileFieldRow
                                     label="Email"

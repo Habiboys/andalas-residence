@@ -40,9 +40,16 @@ class User extends Authenticatable
 
     use HasUuids;
 
+    public const PENDING_NIM_PREFIX = 'PENDING-';
+
     protected $keyType = 'string';
 
     public $incrementing = false;
+
+    public function hasPendingNim(): bool
+    {
+        return str_starts_with((string) $this->nim_nip, self::PENDING_NIM_PREFIX);
+    }
 
     public function getNameAttribute(): string
     {

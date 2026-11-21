@@ -38,7 +38,7 @@ class UserProfileSummary
         $sections = [
             ['title' => 'Identitas dan akun', 'fields' => [
                 'Nama lengkap' => $user->nama,
-                'NIM / NIP / Nomor identitas' => $user->nim_nip,
+                'NIM / NIP / Nomor identitas' => $user->hasPendingNim() ? 'Belum diisi (wajib dilengkapi)' : $user->nim_nip,
                 'Email' => $user->email,
                 ...($student ? ['Email pribadi' => $student->email_pribadi ?? ($user->sso_id ? null : $user->email)] : []),
                 'Nomor telepon' => $user->no_hp,

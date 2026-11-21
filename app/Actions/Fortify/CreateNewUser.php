@@ -23,15 +23,30 @@ class CreateNewUser implements CreatesNewUsers
     public function create(array $input): User
     {
         $isNonStudent = ($input['client_profile_category'] ?? null) === ClientProfileCategory::NonStudent->value;
+        $noNim = ! $isNonStudent && filter_var($input['no_nim'] ?? false, FILTER_VALIDATE_BOOLEAN);
         $validated = Validator::make($input, [
             'nama' => ['required', 'string', 'max:255'],
-            'nim_nip' => ['required', 'string', 'max:50', Rule::unique('users', 'nim_nip')],
+            'no_nim' => ['sometimes', 'boolean'],
+            'nim_nip' => [
+                Rule::requiredIf(! $noNim),
+                Rule::excludeIf($noNim),
+                'string',
+                'max:50',
+                Rule::unique('users', 'nim_nip'),
+            ],
+            'angkatan' => [
+                Rule::requiredIf($noNim),
+                Rule::excludeIf(! $noNim),
+                'integer',
+                'min:2000',
+                'max:'.now()->year,
+            ],
             'email' => [
                 'required',
                 'string',
                 'email',
                 'max:255',
-                'regex:/^[^@\s]+@([a-z0-9-]+\.)*unand\.ac\.id$/i',
+                'regex:/^[^@\s]+@((([a-z0-9-]+\.)*unand\.ac\.id)|(gmail\.com|googlemail\.com))$/i',
                 Rule::unique('users', 'email'),
             ],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
@@ -44,15 +59,26 @@ class CreateNewUser implements CreatesNewUsers
             'gender' => ['required', Rule::in(['laki_laki', 'perempuan'])],
             'no_hp' => ['nullable', 'string', 'max:20'],
         ], [
-            'email.regex' => 'Email pendaftaran wajib menggunakan domain resmi @unand.ac.id.',
+            'email.regex' => 'Email pendaftaran wajib menggunakan domain @unand.ac.id atau akun Google (@gmail.com).',
         ])->validate();
-        $validated['angkatan'] = $isNonStudent ? null : StudentCohort::fromNim($validated['nim_nip']);
+
+        if ($noNim) {
+            do {
+                $pendingNim = User::PENDING_NIM_PREFIX.strtoupper(Str::random(10));
+            } while (User::where('nim_nip', $pendingNim)->exists());
+
+            $validated['nim_nip'] = $pendingNim;
+            $validated['angkatan'] = (string) $validated['angkatan'];
+        } else {
+            $validated['angkatan'] = $isNonStudent ? null : StudentCohort::fromNim($validated['nim_nip']);
+        }
 
         if ($validated['client_profile_category'] === 'international_free_facility') {
             $validated['client_profile_category'] = 'international_student';
         }
         if (in_array($validated['client_profile_category'], ['local_student', 'local_kipk', 'local_non_kipk'], true)) {
-            $isKipk = KipkRecipient::where('nim', $validated['nim_nip'])->where('angkatan', $validated['angkatan'])->exists()
+            $isKipk = ! $noNim
+                && KipkRecipient::where('nim', $validated['nim_nip'])->where('angkatan', $validated['angkatan'])->exists()
                 && (int) Periode::where('status', 'aktif')->value('angkatan_maba') === (int) $validated['angkatan']
                 && ! LegacyResident::where('nim', $validated['nim_nip'])->exists()
                 && ! in_array(Prodi::whereKey($validated['prodi_id'])->value('jenjang'), ['S2', 'S3'], true);

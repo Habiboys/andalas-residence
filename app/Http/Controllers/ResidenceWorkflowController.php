@@ -274,8 +274,11 @@ class ResidenceWorkflowController extends Controller
     {
         abort_unless($request->user()->hasRole('mahasiswa') && $request->user()->mahasiswaProfil, 403);
         $housing = $request->routeIs('residence.housing-profile');
-        $isSso = filled($request->user()->sso_id);
+        $user = $request->user();
+        $isSso = filled($user->sso_id);
+        $needsNim = $user->hasPendingNim();
         $data = $request->validate([
+            'nim_nip' => $needsNim ? ['required', 'string', 'max:50', Rule::unique('users', 'nim_nip')->ignore($user->id)] : ['nullable', 'string', 'max:50'],
             'gender' => ['required', 'in:laki_laki,perempuan'],
             'prodi_id' => ['required', 'uuid', 'exists:prodi,id'],
             'no_hp' => [$housing ? 'required' : 'nullable', 'string', 'max:20', ...($housing ? ['regex:/^\+?[0-9][0-9 ()-]{6,18}[0-9]$/D'] : [])],
@@ -288,21 +291,23 @@ class ResidenceWorkflowController extends Controller
                 'alamat' => ['required', 'string', 'max:500'],
             ] : []),
         ]);
-        DB::transaction(function () use ($request, $data, $isSso): void {
+        DB::transaction(function () use ($request, $data, $isSso, $needsNim): void {
             $user = $request->user();
             $profile = $user->mahasiswaProfil()->lockForUpdate()->firstOrFail();
             if ($profile->residenceRegistrations()->whereNull('completed_at')->whereNotIn('status', ['draft', 'rejected', 'cancelled'])->exists() || $profile->penempatanKamar()->where('status', 'aktif')->exists()) {
                 throw ValidationException::withMessages(['profile' => 'Data kategori penghuni berjalan hanya dapat dikoreksi pengelola.']);
             }
-            $year = StudentCohort::fromNim($user->nim_nip);
+            $nim = $needsNim ? trim((string) $data['nim_nip']) : $user->nim_nip;
+            $year = StudentCohort::fromNim($nim);
             $categoryInput = $data['client_profile_category'] ?? ($user->getRawOriginal('client_profile_category') ?? 'local_student');
             if ($categoryInput === 'international_student') {
                 $resolvedCategory = 'international_student';
             } else {
-                $resolvedCategory = app(ResidenceLifecycle::class)->resolveLocalCategory($user->nim_nip, $data['prodi_id'], $year);
+                $resolvedCategory = app(ResidenceLifecycle::class)->resolveLocalCategory($nim, $data['prodi_id'], $year);
             }
 
             $user->update([
+                'nim_nip' => $nim,
                 'nama' => isset($data['nama']) ? mb_strtoupper(trim($data['nama']), 'UTF-8') : $user->nama,
                 'gender' => $data['gender'],
                 'no_hp' => array_key_exists('no_hp', $data) ? $data['no_hp'] : $user->no_hp,

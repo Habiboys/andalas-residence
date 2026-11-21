@@ -18,8 +18,13 @@ class ProfileUpdateRequest extends FormRequest
      */
     public function rules(): array
     {
+        $user = $this->user();
+
         return [
-            ...$this->profileRules($this->user()->id),
+            ...$this->profileRules($user->id),
+            'nim_nip' => $user->hasPendingNim()
+                ? ['nullable', 'string', 'max:50', Rule::unique('users', 'nim_nip')->ignore($user->id)]
+                : ['prohibited'],
             'no_hp' => ['nullable', 'string', 'max:20', 'regex:/^\+?[0-9][0-9 ()-]{6,18}[0-9]$/D'],
             'gender' => ['nullable', Rule::in(['laki_laki', 'perempuan'])],
             'email_pribadi' => ['nullable', 'string', 'email', 'max:255'],

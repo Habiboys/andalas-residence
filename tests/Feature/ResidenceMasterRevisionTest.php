@@ -8,8 +8,10 @@ use App\Models\MahasiswaProfil;
 use App\Models\PenempatanKamar;
 use App\Models\User;
 use Database\Seeders\ResidenceMasterSeeder;
+use Database\Seeders\ResidencePhotoSeeder;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 
 it('imports actual buildings rooms and separate tariffs without duplicates on repeat', function () {
     $this->seed(ResidenceMasterSeeder::class);
@@ -153,5 +155,17 @@ it('preserves placements when a room move or capacity reduction would invalidate
 it('prints the residence letterhead right aligned date and both signatures without empty residence placeholders', function () {
     $invoice = ['nomor' => 'INV-1', 'date' => '2026-10-07', 'recipient' => 'Rektor', 'institution' => 'Universitas Andalas', 'subject' => 'Tagihan', 'bank' => 'BSI', 'account_number' => '123', 'account_name' => 'AR', 'due_date' => '2026-10-14', 'signer' => 'Pimpinan', 'administration_signer' => 'Petugas Administrasi', 'total' => 100000, 'rows' => [['nama' => 'Peserta', 'nim' => '123', 'nomor' => 'INV-1', 'residence' => null, 'amount' => 100000]]];
     $html = view('pdf.invoice-group', compact('invoice'))->render();
-    expect($html)->toContain('Times New Roman', 'class="date"', 'Alamat: Gedung Asrama', 'Demikian kami sampaikan tagihan', 'Petugas Administrasi', 'Administrasi Andalas Residence')->not->toContain('- / - / -');
+    expect($html)->toContain('Times New Roman', 'class="date"', 'Alamat: Gedung Asrama', 'Telp. 0811-6699634', 'Demikian kami sampaikan tagihan', 'Petugas Administrasi', 'Administrasi Andalas Residence')->not->toContain('- / - / -');
+});
+
+it('seeds legacy building photos per building code when photo files exist', function () {
+    Storage::fake('public');
+    $rpx = Gedung::create(['kode_gedung' => 'A', 'nama_gedung' => 'RPX (A)']);
+    $rusunawa = Gedung::create(['kode_gedung' => 'B', 'nama_gedung' => 'Rusunawa (B)']);
+
+    $this->seed(ResidencePhotoSeeder::class);
+
+    expect($rpx->fresh()->foto)->toBe('seed/residence/buildings/rpx.jpg')
+        ->and($rusunawa->fresh()->foto)->toBe('seed/residence/buildings/rusunawa.jpg');
+    Storage::disk('public')->assertExists('seed/residence/buildings/rpx.jpg');
 });

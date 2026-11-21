@@ -1,11 +1,13 @@
 <?php
 
 use App\Enums\ClientProfileCategory;
+use App\Models\City;
 use App\Models\Departemen;
 use App\Models\Faculty;
 use App\Models\KipkRecipient;
 use App\Models\Periode;
 use App\Models\Prodi;
+use App\Models\Province;
 use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -67,10 +69,26 @@ it('uses the KIPK register for every local choice and excludes postgraduate stud
     ['local_student', 'S3', true, 'local_non_kipk'],
 ]);
 
-it('rejects non-unand.ac.id email addresses such as gmail.com during account registration', function () {
+it('allows Google (gmail.com) email addresses alongside unand.ac.id and rejects unsupported email domains during registration', function () {
+    $this->seed(RolePermissionSeeder::class);
     $faculty = Faculty::create(['name' => 'Fakultas Uji']);
     $department = Departemen::create(['name' => 'Departemen Uji', 'faculty_id' => $faculty->id]);
     $program = Prodi::create(['name' => 'Program Uji', 'jenjang' => 'S1', 'departemen_id' => $department->id]);
+
+    $this->post(route('register.store'), [
+        'nama' => 'Calon Email Unsupported',
+        'nim_nip' => '26112342329',
+        'email' => 'calon.baru@yahoo.com',
+        'password' => 'password123',
+        'password_confirmation' => 'password123',
+        'client_profile_category' => 'local_student',
+        'gender' => 'perempuan',
+        'faculty_id' => $faculty->id,
+        'departemen_id' => $department->id,
+        'prodi_id' => $program->id,
+    ])->assertSessionHasErrors(['email']);
+
+    $this->assertDatabaseCount('users', 0);
 
     $this->post(route('register.store'), [
         'nama' => 'Syauqi Nabiih Marwa',
@@ -83,9 +101,87 @@ it('rejects non-unand.ac.id email addresses such as gmail.com during account reg
         'faculty_id' => $faculty->id,
         'departemen_id' => $department->id,
         'prodi_id' => $program->id,
-    ])->assertSessionHasErrors(['email']);
+    ])->assertSessionHasNoErrors()->assertRedirect();
 
-    $this->assertDatabaseCount('users', 0);
+    $user = User::where('email', 'syauqinabiihmarwa@gmail.com')->sole();
+    expect($user->hasRole('mahasiswa'))->toBeTrue();
+    $this->assertAuthenticatedAs($user);
+});
+
+it('allows registration without NIM using angkatan, enforces NIM follow-up before housing, and lets the user fill real NIM later', function () {
+    $this->seed(RolePermissionSeeder::class);
+    $faculty = Faculty::create(['name' => 'Fakultas Uji']);
+    $department = Departemen::create(['name' => 'Departemen Uji', 'faculty_id' => $faculty->id]);
+    $program = Prodi::create(['name' => 'Program Uji', 'jenjang' => 'S1', 'departemen_id' => $department->id]);
+    $province = Province::create(['name' => 'Sumatera Barat']);
+    $city = City::create(['name' => 'Padang', 'province_id' => $province->id]);
+    Periode::create(['nama_periode' => '2026/2027', 'status' => 'aktif', 'angkatan_maba' => 2026, 'tanggal_mulai' => '2026-08-01', 'tanggal_selesai' => '2027-07-31']);
+    KipkRecipient::create(['nim' => '2611520001', 'angkatan' => 2026, 'nama' => 'Maba KIPK']);
+
+    $this->post(route('register.store'), [
+        'nama' => 'Maba Tanpa NIM',
+        'no_nim' => true,
+        'angkatan' => 2026,
+        'email' => 'maba.tanpa.nim@gmail.com',
+        'password' => 'password123',
+        'password_confirmation' => 'password123',
+        'client_profile_category' => 'local_student',
+        'gender' => 'laki_laki',
+        'faculty_id' => $faculty->id,
+        'departemen_id' => $department->id,
+        'prodi_id' => $program->id,
+    ])->assertSessionHasNoErrors()->assertRedirect();
+
+    $user = User::where('email', 'maba.tanpa.nim@gmail.com')->sole();
+    expect($user->hasPendingNim())->toBeTrue()
+        ->and($user->mahasiswaProfil->angkatan)->toBe('2026')
+        ->and($user->mahasiswaProfil->hasCompleteHousingIdentity())->toBeFalse();
+
+    $this->actingAs($user)
+        ->get(route('mahasiswa.registration'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('housingProfileReady', false)
+            ->where('initialUser.nim_pending', true)
+        );
+
+    $this->actingAs($user)
+        ->post(route('residence.housing-profile'), [
+            'nama' => 'Maba Tanpa NIM',
+            'nim_nip' => '2611520001',
+            'nik' => '1371010101010001',
+            'no_hp' => '081234567890',
+            'gender' => 'laki_laki',
+            'email_pribadi' => 'maba.tanpa.nim@gmail.com',
+            'prodi_id' => $program->id,
+            'city_id' => $city->id,
+            'alamat' => 'Limau Manis, Padang',
+        ])
+        ->assertSessionHasNoErrors()
+        ->assertRedirect(route('mahasiswa.registration'));
+
+    $fresh = $user->fresh('mahasiswaProfil');
+    expect($fresh->nim_nip)->toBe('2611520001')
+        ->and($fresh->hasPendingNim())->toBeFalse()
+        ->and($fresh->client_profile_category)->toBe(ClientProfileCategory::LocalKipk)
+        ->and($fresh->mahasiswaProfil->hasCompleteHousingIdentity())->toBeTrue();
+});
+
+it('prevents browser back history caching on authenticated pages and logout responses', function () {
+    $this->seed(RolePermissionSeeder::class);
+    $user = User::factory()->student()->create();
+    $user->assignRole('mahasiswa');
+
+    $dashboardResponse = $this->actingAs($user)->get(route('mahasiswa.dashboard'));
+    $dashboardResponse->assertOk();
+    expect($dashboardResponse->headers->get('Cache-Control'))->toContain('no-store');
+
+    $logoutResponse = $this->actingAs($user)->post(route('logout'));
+    $logoutResponse->assertRedirect();
+    expect($logoutResponse->headers->get('Cache-Control'))->toContain('no-store');
+    $this->assertGuest();
+
+    $this->get(route('mahasiswa.dashboard'))->assertRedirect(route('login'));
 });
 
 it('rejects unknown categories without creating an account', function () {
