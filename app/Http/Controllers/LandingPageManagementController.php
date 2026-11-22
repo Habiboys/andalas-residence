@@ -51,7 +51,7 @@ class LandingPageManagementController extends Controller
         $this->authorizePermission($request, 'landing.manage');
         $current = LandingContentService::settings();
         $images = MediaAsset::where('mime_type', 'like', 'image/%')->pluck('path')->map(fn (string $path): string => '/storage/'.$path)->all();
-        $rules = ['settings' => ['required', 'array:hero,headings,steps,categories,services,faqs,site,gallery']];
+        $rules = ['settings' => ['required', 'array:hero,headings,steps,categories,services,faqs,registration_tracks,facilities,core_rules,payment_steps,site,gallery']];
         foreach (['hero', 'headings', 'site'] as $group) {
             $rules['settings.'.$group] = ['required', 'array:'.implode(',', array_keys($current[$group]))];
             foreach ($current[$group] as $field => $value) {
@@ -72,6 +72,20 @@ class LandingPageManagementController extends Controller
                 $rules['settings.'.$group.'.*.'.$field] = ['required', 'string', 'max:3000'];
             }
         }
+        foreach (['facilities', 'core_rules', 'payment_steps'] as $group) {
+            $rules['settings.'.$group] = ['sometimes', 'array', 'list', 'max:50'];
+            $rules['settings.'.$group.'.*'] = ['required', 'array:title,text'];
+            foreach (['title', 'text'] as $field) {
+                $rules['settings.'.$group.'.*.'.$field] = ['required', 'string', 'max:3000'];
+            }
+        }
+        $rules['settings.registration_tracks'] = ['sometimes', 'array', 'list', 'max:20'];
+        $rules['settings.registration_tracks.*'] = ['required', 'array:badge,title,description,points_text,cta_label,cta_href'];
+        foreach (['badge', 'title', 'description', 'points_text', 'cta_label', 'cta_href'] as $field) {
+            $rules['settings.registration_tracks.*.'.$field] = $field === 'badge' || $field === 'cta_href'
+                ? ['present', 'nullable', 'string', 'max:300']
+                : ['required', 'string', 'max:3000'];
+        }
         $rules['settings.gallery'] = ['present', 'array', 'list', 'max:50'];
         $rules['settings.gallery.*'] = ['required', 'array:title,image,category'];
         $rules['settings.gallery.*.title'] = ['required', 'string', 'max:200'];
@@ -80,7 +94,7 @@ class LandingPageManagementController extends Controller
         $rules['section'] = ['sometimes', 'in:beranda,kontak,galeri'];
         $data = $request->validate($rules)['settings'];
         $groups = match ($request->input('section')) {
-            'beranda' => ['hero', 'headings', 'steps', 'categories', 'services', 'faqs'],
+            'beranda' => ['hero', 'headings', 'steps', 'categories', 'services', 'faqs', 'registration_tracks', 'facilities', 'core_rules', 'payment_steps'],
             'kontak' => ['site'],
             'galeri' => ['gallery'],
             default => array_keys($data),

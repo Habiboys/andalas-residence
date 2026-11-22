@@ -21,6 +21,11 @@ class LandingContentService
         foreach (['hero', 'headings', 'site'] as $group) {
             $settings[$group] = [...$defaults[$group], ...($stored[$group] ?? [])];
         }
+        foreach (['registration_tracks', 'facilities', 'core_rules', 'payment_steps'] as $listGroup) {
+            if (! array_key_exists($listGroup, $stored)) {
+                $settings[$listGroup] = $defaults[$listGroup] ?? [];
+            }
+        }
 
         return $settings;
     }

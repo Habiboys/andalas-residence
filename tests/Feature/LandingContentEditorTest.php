@@ -6,6 +6,7 @@ use App\Models\LandingContent;
 use App\Models\Program;
 use App\Models\ProgramSub;
 use App\Models\User;
+use App\Services\LandingContentService;
 use App\Services\LandingRichText;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -141,4 +142,33 @@ test('homepage gallery uses building photos and published program images', funct
     $this->get('/')->assertInertia(fn (Assert $page) => $page->component('landing/beranda')
         ->has('galeri', 2)->where('galeri.0.foto', '/storage/gedung/a.jpg')
         ->where('galeri.1.judul', 'Kegiatan'));
+});
+
+test('beranda CMS settings can save registration tracks, facilities, core rules, and payment steps without removed policy text', function () {
+    $user = landingEditorUser();
+    $settings = LandingContentService::settings();
+
+    expect($settings['registration_tracks'])->toBeArray()->toHaveCount(3);
+    expect($settings['registration_tracks'][0]['points_text'])->not->toContain('Pembayaran fleksibel sesuai kebijakan periode');
+
+    $settings['headings']['tracks'] = 'Judul Jalur Diedit';
+    $settings['registration_tracks'][0]['title'] = 'Jalur S1 Diedit';
+    $settings['facilities'][0]['title'] = 'WiFi Gigabit';
+    $settings['core_rules'][0]['title'] = 'Aturan Custom';
+    $settings['payment_steps'][0]['title'] = 'Langkah Custom';
+
+    $this->actingAs($user)
+        ->put(route('andalas.landing.settings'), [
+            'section' => 'beranda',
+            'settings' => $settings,
+        ])
+        ->assertSessionHasNoErrors()
+        ->assertRedirect();
+
+    $updated = LandingContentService::settings();
+    expect($updated['headings']['tracks'])->toBe('Judul Jalur Diedit');
+    expect($updated['registration_tracks'][0]['title'])->toBe('Jalur S1 Diedit');
+    expect($updated['facilities'][0]['title'])->toBe('WiFi Gigabit');
+    expect($updated['core_rules'][0]['title'])->toBe('Aturan Custom');
+    expect($updated['payment_steps'][0]['title'])->toBe('Langkah Custom');
 });

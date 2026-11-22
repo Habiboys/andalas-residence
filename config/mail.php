@@ -111,8 +111,9 @@ return [
     */
 
     'from' => [
-        'address' => env('MAIL_FROM_ADDRESS', 'hello@example.com'),
-        'name' => env('MAIL_FROM_NAME', env('APP_NAME', 'Laravel')),
+        'address' => filter_var((string) env('MAIL_FROM_ADDRESS', ''), FILTER_VALIDATE_EMAIL)
+            ?: (filter_var((string) env('MAIL_USERNAME', ''), FILTER_VALIDATE_EMAIL) ?: 'andalasresidence@unand.ac.id'),
+        'name' => env('MAIL_FROM_NAME', env('APP_NAME', 'Andalas Residence')),
     ],
 
 ];

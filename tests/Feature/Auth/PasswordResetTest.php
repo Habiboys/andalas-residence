@@ -76,3 +76,27 @@ test('password cannot be reset with invalid token', function () {
 
     $response->assertSessionHasErrors('email');
 });
+
+test('password reset uses indonesian translations and email customization', function () {
+    Notification::fake();
+
+    $user = User::factory()->create(['email' => 'reset-id@gmail.com']);
+
+    $this->post(route('password.email'), ['email' => $user->email])
+        ->assertSessionHas('status', trans('passwords.sent'));
+
+    expect(trans('passwords.sent'))->toContain('Tautan pemulihan kata sandi');
+    expect(trans('passwords.throttled'))->toContain('Silakan tunggu sekitar 1 menit');
+
+    Notification::assertSentTo(
+        $user,
+        ResetPassword::class,
+        function (ResetPassword $notification) use ($user): bool {
+            $mail = $notification->toMail($user);
+
+            return $mail->subject === 'Atur Ulang Kata Sandi - Andalas Residence';
+        }
+    );
+
+    expect(filter_var(config('mail.from.address'), FILTER_VALIDATE_EMAIL))->not->toBeFalse();
+});

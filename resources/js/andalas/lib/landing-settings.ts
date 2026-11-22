@@ -1,3 +1,12 @@
+export type RegistrationTrackSetting = {
+    badge: string;
+    title: string;
+    description: string;
+    points_text: string;
+    cta_label: string;
+    cta_href: string;
+};
+
 export type LandingSettings = {
     hero: {
         eyebrow: string;
@@ -12,6 +21,10 @@ export type LandingSettings = {
     categories: Array<{ title: string; text: string }>;
     services: Array<{ title: string; text: string }>;
     faqs: Array<{ q: string; a: string }>;
+    registration_tracks?: RegistrationTrackSetting[];
+    facilities?: Array<{ title: string; text: string }>;
+    core_rules?: Array<{ title: string; text: string }>;
+    payment_steps?: Array<{ title: string; text: string }>;
     site: Record<string, string>;
 };
 

@@ -29,11 +29,28 @@ it('uses the managed media image with a readable title and current breadcrumb', 
 
 it('supports external media and retains the heading when no image is configured', () => {
     page.props.landingSettings.hero.image = 'https://example.com/hunian.jpg';
-    expect(renderToStaticMarkup(<LandingPageHero title="Profil" breadcrumb="Profil" />))
-        .toContain('src="https://example.com/hunian.jpg"');
+    expect(
+        renderToStaticMarkup(
+            <LandingPageHero title="Profil" breadcrumb="Profil" />,
+        ),
+    ).toContain('src="https://example.com/hunian.jpg"');
 
     page.props.landingSettings.hero.image = '';
-    const html = renderToStaticMarkup(<LandingPageHero title="Kontak" breadcrumb="Kontak" />);
+    const html = renderToStaticMarkup(
+        <LandingPageHero title="Kontak" breadcrumb="Kontak" />,
+    );
     expect(html).not.toContain('<img');
     expect(html).toContain('Kontak</h1>');
+});
+
+it('renders submenu hero image across the full width instead of cropping it half-screen', () => {
+    page.props.landingSettings.hero.image = 'media/hunian.jpg';
+    const html = renderToStaticMarkup(
+        <LandingPageHero title="Program Asrama" breadcrumb="Program" />,
+    );
+
+    expect(html).toContain(
+        'inset-0 -z-20 h-full w-full object-cover object-center',
+    );
+    expect(html).not.toContain('md:left-1/3 md:w-2/3');
 });

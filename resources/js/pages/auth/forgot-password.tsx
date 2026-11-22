@@ -46,10 +46,17 @@ export default function ForgotPassword({ status }: { status?: string }) {
                                     autoComplete="email"
                                     autoFocus
                                     required
-                                    placeholder="nama@unand.ac.id"
+                                    placeholder="nama@unand.ac.id atau nama@gmail.com"
                                     className={authInputClass}
                                 />
                             </AuthField>
+
+                            <p className="text-muted text-xs leading-5">
+                                Tautan pemulihan dikirim ke email akun yang
+                                terdaftar dan berlaku selama 60 menit. Bila
+                                belum terlihat di kotak masuk, periksa folder
+                                Spam atau tunggu 1 menit sebelum mengirim ulang.
+                            </p>
 
                             <AuthSubmitButton
                                 processing={processing}

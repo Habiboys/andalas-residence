@@ -23,12 +23,12 @@ export default function LandingPageHero({ title, breadcrumb }: Props) {
                     aria-hidden="true"
                     fetchPriority="high"
                     onError={() => setFailedImage(image)}
-                    className="absolute inset-0 -z-20 h-full w-full object-cover object-center md:left-1/3 md:w-2/3"
+                    className="absolute inset-0 -z-20 h-full w-full object-cover object-center"
                 />
             )}
             <div
                 aria-hidden="true"
-                className="absolute inset-0 -z-10 bg-linear-to-r from-[#103c30] via-[#103c30]/90 to-[#103c30]/45 md:via-[#103c30]/75 md:to-[#103c30]/15"
+                className="from-hero/90 via-hero/75 to-hero/45 absolute inset-0 -z-10 bg-linear-to-r"
             />
             <div className="relative mx-auto flex min-h-80 max-w-7xl flex-col justify-end px-4 pt-32 pb-10 md:min-h-96 md:px-6 md:pt-36 md:pb-14">
                 <nav

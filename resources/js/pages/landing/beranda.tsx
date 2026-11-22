@@ -64,6 +64,10 @@ export default function Beranda({
         categories = [],
         services = [],
         faqs = [],
+        registration_tracks = [],
+        facilities = [],
+        core_rules = [],
+        payment_steps = [],
     } = landingSettings ?? {};
     const stats = [
         { val: String(statistik.gedung), label: 'Gedung' },
@@ -134,11 +138,22 @@ export default function Beranda({
 
                 <ResidenceMarketplace listings={residenceCatalog} />
 
-                <RegistrationTracksSection />
+                <RegistrationTracksSection
+                    headings={headings}
+                    tracks={registration_tracks}
+                />
 
-                <TariffMatrixSection listings={residenceCatalog} />
+                <TariffMatrixSection
+                    listings={residenceCatalog}
+                    headings={headings}
+                />
 
-                <FacilitiesAndRulesSection regulationDocs={regulationDocs} />
+                <FacilitiesAndRulesSection
+                    regulationDocs={regulationDocs}
+                    headings={headings}
+                    facilities={facilities}
+                    coreRules={core_rules}
+                />
 
                 <section className="bg-base-100 py-16 md:py-24">
                     <div className="mx-auto grid max-w-7xl gap-12 px-4 md:px-6 lg:grid-cols-2 lg:gap-20">
@@ -384,6 +399,8 @@ export default function Beranda({
                     paymentAccounts={paymentAccounts}
                     supportPhone={site.phone}
                     supportEmail={site.email}
+                    headings={headings}
+                    paymentSteps={payment_steps}
                 />
 
                 {berita.length > 0 && (

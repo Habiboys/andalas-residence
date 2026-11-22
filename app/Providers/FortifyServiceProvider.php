@@ -10,8 +10,10 @@ use App\Models\Departemen;
 use App\Models\Faculty;
 use App\Models\Prodi;
 use App\Models\User;
+use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
@@ -41,8 +43,34 @@ class FortifyServiceProvider extends ServiceProvider
     {
         $this->configureActions();
         $this->configureAuthentication();
+        $this->configurePasswordResetMail();
         $this->configureViews();
         $this->configureRateLimiting();
+    }
+
+    private function configurePasswordResetMail(): void
+    {
+        ResetPassword::toMailUsing(function (object $notifiable, string $token): MailMessage {
+            $email = method_exists($notifiable, 'getEmailForPasswordReset')
+                ? $notifiable->getEmailForPasswordReset()
+                : ($notifiable->email ?? '');
+
+            $resetUrl = url(route('password.reset', [
+                'token' => $token,
+                'email' => $email,
+            ], false));
+
+            $expireMinutes = (int) config('auth.passwords.'.config('auth.defaults.passwords').'.expire', 60);
+
+            return (new MailMessage)
+                ->subject('Atur Ulang Kata Sandi - Andalas Residence')
+                ->greeting('Halo, '.($notifiable->name ?? 'Penghuni').'!')
+                ->line('Anda menerima email ini karena ada permintaan untuk mengatur ulang kata sandi akun Andalas Residence Anda.')
+                ->action('Atur Ulang Kata Sandi', $resetUrl)
+                ->line("Tautan pemulihan kata sandi ini hanya berlaku selama {$expireMinutes} menit.")
+                ->line('Jika Anda tidak merasa mengajukan permintaan ini, abaikan email ini dan kata sandi Anda tetap aman.')
+                ->salutation('Salam hormat, Pengelola Andalas Residence');
+        });
     }
 
     /**

@@ -19,6 +19,7 @@ import {
     Wifi,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { type RegistrationTrackSetting } from '../lib/landing-settings';
 import { formatRupiah } from '../lib/format';
 import type { ResidenceListing } from './ResidenceMarketplace';
 import { register } from '@/routes';
@@ -68,7 +69,6 @@ const TRACKS = [
         points: [
             'Non-KIP-K dapat memilih skema per orang, per grup bersama teman, atau booking 1 kamar.',
             'Penerima KIP-K terverifikasi otomatis dan dialokasikan pengelola sesuai prioritas serta kapasitas.',
-            'Pembayaran fleksibel sesuai kebijakan periode, termasuk opsi pengajuan cicilan/penundaan.',
         ],
         ctaLabel: 'Daftar Akun S1',
         ctaHref: register.url(),
@@ -184,7 +184,83 @@ const PAYMENT_STEPS = [
     },
 ];
 
-export function RegistrationTracksSection() {
+function resolveTrackIcon(title: string, index: number) {
+    const lower = title.toLowerCase();
+    if (
+        lower.includes('internasional') ||
+        lower.includes('s2') ||
+        lower.includes('s3')
+    ) {
+        return Globe2;
+    }
+    if (
+        lower.includes('umum') ||
+        lower.includes('harian') ||
+        lower.includes('kegiatan')
+    ) {
+        return Users;
+    }
+    if (
+        lower.includes('lokal') ||
+        lower.includes('s1') ||
+        lower.includes('kip')
+    ) {
+        return GraduationCap;
+    }
+    return [GraduationCap, Globe2, Users][index % 3];
+}
+
+function resolveFacilityIcon(title: string, index: number) {
+    const lower = title.toLowerCase();
+    if (lower.includes('wifi') || lower.includes('internet')) return Wifi;
+    if (lower.includes('aman') || lower.includes('cctv')) return ShieldCheck;
+    if (lower.includes('belajar') || lower.includes('komunal')) return BookOpen;
+    if (lower.includes('bersih') || lower.includes('teknisi')) return Sparkles;
+    if (lower.includes('bina') || lower.includes('karakter'))
+        return HeartHandshake;
+    if (lower.includes('parkir') || lower.includes('kendaraan')) return Car;
+    if (
+        lower.includes('sanitasi') ||
+        lower.includes('air') ||
+        lower.includes('mandi')
+    )
+        return Bath;
+    if (lower.includes('jemur') || lower.includes('penunjang')) return Shirt;
+    return [
+        Wifi,
+        ShieldCheck,
+        BookOpen,
+        Sparkles,
+        HeartHandshake,
+        Car,
+        Bath,
+        Shirt,
+    ][index % 8];
+}
+
+export function RegistrationTracksSection({
+    headings = {},
+    tracks,
+}: {
+    headings?: Record<string, string>;
+    tracks?: RegistrationTrackSetting[];
+} = {}) {
+    const items =
+        tracks && tracks.length > 0
+            ? tracks.map((track, idx) => ({
+                  badge: track.badge,
+                  title: track.title,
+                  icon: resolveTrackIcon(track.title, idx),
+                  description: track.description,
+                  points: track.points_text
+                      .split(/\r?\n/)
+                      .map((line) => line.trim())
+                      .filter(Boolean),
+                  ctaLabel: track.cta_label,
+                  ctaHref: track.cta_href || register.url(),
+              }))
+            : TRACKS;
+
     return (
         <section
             id="jalur-pendaftaran"
@@ -193,20 +269,20 @@ export function RegistrationTracksSection() {
             <div className="mx-auto max-w-7xl px-4 md:px-6">
                 <div className="max-w-2xl">
                     <p className="text-primary text-xs font-bold tracking-[0.18em] uppercase">
-                        Jalur Pendaftaran
+                        {headings.tracks_eyebrow || 'Jalur Pendaftaran'}
                     </p>
                     <h2 className="font-display mt-2 text-3xl leading-tight md:text-4xl">
-                        Pilih jalur yang sesuai sebelum membuat akun.
+                        {headings.tracks ||
+                            'Pilih jalur yang sesuai sebelum membuat akun.'}
                     </h2>
                     <p className="text-muted mt-3 text-sm leading-6 md:text-base">
-                        Setiap jalur memiliki alur pemilihan kamar, verifikasi
-                        status, dan skema pembiayaan yang disesuaikan agar
-                        proses pendaftaran Anda berjalan lancar.
+                        {headings.tracks_intro ||
+                            'Setiap jalur memiliki alur pemilihan kamar, verifikasi status, dan skema pembiayaan yang disesuaikan agar proses pendaftaran Anda berjalan lancar.'}
                     </p>
                 </div>
 
                 <div className="mt-10 grid gap-6 lg:grid-cols-3">
-                    {TRACKS.map((track, idx) => {
+                    {items.map((track, idx) => {
                         const Icon = track.icon;
                         const highlighted = idx === 0;
                         const isAnchor = track.ctaHref.startsWith('#');
@@ -291,8 +367,10 @@ export function RegistrationTracksSection() {
 
 export function TariffMatrixSection({
     listings = [],
+    headings = {},
 }: {
     listings?: ResidenceListing[];
+    headings?: Record<string, string>;
 }) {
     const buildingsWithRates = useMemo(
         () => listings.filter((item) => item.offers.length > 0),
@@ -363,14 +441,14 @@ export function TariffMatrixSection({
                 <div className="flex flex-wrap items-end justify-between gap-4">
                     <div className="max-w-2xl">
                         <p className="text-primary text-xs font-bold tracking-[0.18em] uppercase">
-                            Transparansi Biaya
+                            {headings.tariffs_eyebrow || 'Transparansi Biaya'}
                         </p>
                         <h2 className="font-display mt-2 text-3xl leading-tight md:text-4xl">
-                            Tabel Ringkas Tarif Resmi
+                            {headings.tariffs || 'Tabel Ringkas Tarif Resmi'}
                         </h2>
                         <p className="text-muted mt-2 text-sm leading-6">
-                            Bandingkan tarif resmi asrama per gedung dan satuan
-                            masa tinggal sesuai kebijakan aktif dari pengelola.
+                            {headings.tariffs_intro ||
+                                'Bandingkan tarif resmi asrama per gedung dan satuan masa tinggal sesuai kebijakan aktif dari pengelola.'}
                         </p>
                     </div>
                     {availableUnits.length > 0 && (
@@ -521,10 +599,8 @@ export function TariffMatrixSection({
                             </table>
                         </div>
                         <p className="text-muted mt-3 text-xs">
-                            Catatan: Tarif KIP-K mengikuti ketentuan beasiswa
-                            KIP-K Universitas Andalas; tarif booking penuh 1
-                            kamar menyesuaikan jumlah kapasitas kamar pada saat
-                            pendaftaran.
+                            {headings.tariffs_note ||
+                                'Catatan: Tarif KIP-K mengikuti ketentuan beasiswa KIP-K Universitas Andalas; tarif booking penuh 1 kamar menyesuaikan jumlah kapasitas kamar pada saat pendaftaran.'}
                         </p>
                     </>
                 ) : (
@@ -552,10 +628,25 @@ export function TariffMatrixSection({
 
 export function FacilitiesAndRulesSection({
     regulationDocs = [],
+    headings = {},
+    facilities,
+    coreRules,
 }: {
     regulationDocs?: PublicRegulationDoc[];
+    headings?: Record<string, string>;
+    facilities?: Array<{ title: string; text: string }>;
+    coreRules?: Array<{ title: string; text: string }>;
 }) {
     const downloadableDocs = regulationDocs.filter((doc) => Boolean(doc.file));
+    const facilityItems =
+        facilities && facilities.length > 0
+            ? facilities.map((item, idx) => ({
+                  ...item,
+                  icon: resolveFacilityIcon(item.title, idx),
+              }))
+            : FACILITIES;
+    const ruleItems =
+        coreRules && coreRules.length > 0 ? coreRules : CORE_RULES;
 
     return (
         <section
@@ -566,20 +657,21 @@ export function FacilitiesAndRulesSection({
                 <div>
                     <div className="max-w-2xl">
                         <p className="text-primary text-xs font-bold tracking-[0.18em] uppercase">
-                            Fasilitas &amp; Tata Tertib
+                            {headings.facilities_eyebrow ||
+                                'Fasilitas & Tata Tertib'}
                         </p>
                         <h2 className="font-display mt-2 text-3xl leading-tight md:text-4xl">
-                            Fasilitas Asrama &amp; Aturan Penting
+                            {headings.facilities ||
+                                'Fasilitas Asrama & Aturan Penting'}
                         </h2>
                         <p className="text-muted mt-3 text-sm leading-6">
-                            Dirancang untuk kenyamanan tinggal, pembinaan
-                            mahasiswa baru, dan keamanan bersama di seluruh unit
-                            Andalas Residence.
+                            {headings.facilities_intro ||
+                                'Dirancang untuk kenyamanan tinggal, pembinaan mahasiswa baru, dan keamanan bersama di seluruh unit Andalas Residence.'}
                         </p>
                     </div>
 
                     <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                        {FACILITIES.map((item) => {
+                        {facilityItems.map((item) => {
                             const Icon = item.icon;
                             return (
                                 <div
@@ -611,14 +703,15 @@ export function FacilitiesAndRulesSection({
                                 className="text-warning size-3.5"
                                 aria-hidden="true"
                             />
-                            Aturan Penting Penghuni
+                            {headings.rules_badge || 'Aturan Penting Penghuni'}
                         </span>
                         <h3 className="font-display mt-3 text-2xl">
-                            Komitmen tinggal aman &amp; tertib di asrama.
+                            {headings.rules ||
+                                'Komitmen tinggal aman & tertib di asrama.'}
                         </h3>
                         <p className="text-muted mt-2 text-sm leading-6">
-                            Calon penghuni wajib membaca regulasi dan tata
-                            tertib asrama sebelum melakukan serah kunci.
+                            {headings.rules_intro ||
+                                'Calon penghuni wajib membaca regulasi dan tata tertib asrama sebelum melakukan serah kunci.'}
                         </p>
                         <div className="mt-5 flex flex-wrap gap-2.5">
                             <Link
@@ -654,13 +747,13 @@ export function FacilitiesAndRulesSection({
                     </div>
 
                     <div className="grid gap-4 sm:grid-cols-3 lg:col-span-2">
-                        {CORE_RULES.map((rule, index) => (
+                        {ruleItems.map((rule, index) => (
                             <div
                                 key={rule.title}
                                 className="border-base-300 bg-base-200/40 rounded-xl border p-4"
                             >
                                 <span className="text-primary text-xs font-bold">
-                                    ATURAN 0{index + 1}
+                                    ATURAN {String(index + 1).padStart(2, '0')}
                                 </span>
                                 <h4 className="mt-1.5 text-sm font-bold">
                                     {rule.title}
@@ -681,13 +774,25 @@ export function PaymentProcedureSection({
     paymentAccounts = [],
     supportPhone,
     supportEmail,
+    headings = {},
+    paymentSteps,
 }: {
     paymentAccounts?: PublicPaymentAccount[];
     supportPhone?: string;
     supportEmail?: string;
+    headings?: Record<string, string>;
+    paymentSteps?: Array<{ title: string; text: string }>;
 }) {
     const cleanPhone = (supportPhone || '0811-6699634').trim();
     const waDigits = cleanPhone.replace(/[^0-9]/g, '').replace(/^0/, '62');
+    const stepItems =
+        paymentSteps && paymentSteps.length > 0
+            ? paymentSteps.map((item, idx) => ({
+                  step: String(idx + 1).padStart(2, '0'),
+                  title: item.title,
+                  text: item.text,
+              }))
+            : PAYMENT_STEPS;
 
     return (
         <section
@@ -698,15 +803,14 @@ export function PaymentProcedureSection({
                 <div className="grid gap-10 lg:grid-cols-3">
                     <div className="space-y-4">
                         <p className="text-primary text-xs font-bold tracking-[0.18em] uppercase">
-                            Pembayaran Resmi
+                            {headings.payment_eyebrow || 'Pembayaran Resmi'}
                         </p>
                         <h2 className="font-display text-3xl leading-tight">
-                            Prosedur Pembayaran Asrama
+                            {headings.payment || 'Prosedur Pembayaran Asrama'}
                         </h2>
                         <p className="text-muted text-sm leading-6">
-                            Seluruh pembayaran asrama tercatat melalui tagihan
-                            akun Anda. Pastikan hanya mentransfer ke Virtual
-                            Account atau rekening resmi Universitas Andalas.
+                            {headings.payment_intro ||
+                                'Seluruh pembayaran asrama tercatat melalui tagihan akun Anda. Pastikan hanya mentransfer ke Virtual Account atau rekening resmi Universitas Andalas.'}
                         </p>
 
                         <div className="border-base-300 bg-base-200/50 space-y-3 rounded-2xl border p-4">
@@ -767,7 +871,7 @@ export function PaymentProcedureSection({
                     </div>
 
                     <div className="grid gap-4 sm:grid-cols-2 lg:col-span-2">
-                        {PAYMENT_STEPS.map((item) => (
+                        {stepItems.map((item) => (
                             <div
                                 key={item.step}
                                 className="border-base-300 bg-base-100 rounded-2xl border p-5"

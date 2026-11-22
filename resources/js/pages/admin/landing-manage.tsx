@@ -119,6 +119,22 @@ const labels: Record<string, string> = {
     program_title: 'Judul halaman program',
     program_heading: 'Judul pengantar program',
     program_intro: 'Pengantar program',
+    tracks_eyebrow: 'Label kecil jalur pendaftaran',
+    tracks: 'Judul jalur pendaftaran',
+    tracks_intro: 'Pengantar jalur pendaftaran',
+    tariffs_eyebrow: 'Label kecil tabel tarif',
+    tariffs: 'Judul tabel tarif',
+    tariffs_intro: 'Pengantar tabel tarif',
+    tariffs_note: 'Catatan bawah tabel tarif',
+    facilities_eyebrow: 'Label kecil fasilitas',
+    facilities: 'Judul fasilitas & aturan',
+    facilities_intro: 'Pengantar fasilitas & aturan',
+    rules_badge: 'Lencana aturan penting',
+    rules: 'Judul aturan penting',
+    rules_intro: 'Pengantar aturan penting',
+    payment_eyebrow: 'Label kecil prosedur pembayaran',
+    payment: 'Judul prosedur pembayaran',
+    payment_intro: 'Pengantar prosedur pembayaran',
 };
 
 const MULTILINE_FIELDS = new Set([
@@ -136,12 +152,26 @@ const MULTILINE_FIELDS = new Set([
     'testimonials_intro',
     'unit_intro',
     'program_intro',
+    'tracks_intro',
+    'tariffs_intro',
+    'tariffs_note',
+    'facilities_intro',
+    'rules_intro',
+    'payment_intro',
 ]);
 
 type DeleteItemTarget =
     | { kind: 'gallery'; index: number; label: string }
     | {
-          kind: 'categories' | 'steps' | 'services' | 'faqs';
+          kind:
+              | 'registration_tracks'
+              | 'facilities'
+              | 'core_rules'
+              | 'payment_steps'
+              | 'categories'
+              | 'steps'
+              | 'services'
+              | 'faqs';
           index: number;
           label: string;
       };
@@ -403,8 +433,287 @@ function SettingsForm({
                                 )}
                             </div>
                         </details>
+                        <section className="border-base-300 space-y-4 rounded-xl border p-4">
+                            <div className="flex items-center justify-between gap-3">
+                                <h2 className="font-semibold">
+                                    Jalur pendaftaran (Kartu beranda)
+                                </h2>
+                                <Button
+                                    type="button"
+                                    variant="secondary"
+                                    onClick={() =>
+                                        form.setData('settings', {
+                                            ...form.data.settings,
+                                            registration_tracks: [
+                                                ...(form.data.settings
+                                                    .registration_tracks ?? []),
+                                                {
+                                                    badge: '',
+                                                    title: '',
+                                                    description: '',
+                                                    points_text: '',
+                                                    cta_label: 'Daftar Akun',
+                                                    cta_href: '/register',
+                                                },
+                                            ],
+                                        })
+                                    }
+                                >
+                                    Tambah jalur
+                                </Button>
+                            </div>
+                            {(form.data.settings.registration_tracks ?? []).map(
+                                (track, index) => (
+                                    <div
+                                        key={index}
+                                        className="border-base-300 space-y-3 border-t pt-4"
+                                    >
+                                        <div className="flex items-center justify-between gap-3">
+                                            <p className="text-muted text-xs font-semibold uppercase">
+                                                Kartu #{index + 1}
+                                            </p>
+                                            <IconButton
+                                                label={`Hapus jalur ${index + 1}`}
+                                                icon={Trash2}
+                                                onClick={() =>
+                                                    setDeleteTarget({
+                                                        kind: 'registration_tracks',
+                                                        index,
+                                                        label:
+                                                            track.title ||
+                                                            `Jalur #${index + 1}`,
+                                                    })
+                                                }
+                                            />
+                                        </div>
+                                        <div className="grid gap-3 md:grid-cols-2">
+                                            <FormField label="Lencana / target">
+                                                <input
+                                                    className={inputClass}
+                                                    value={track.badge}
+                                                    onChange={(event) =>
+                                                        form.setData(
+                                                            'settings',
+                                                            {
+                                                                ...form.data
+                                                                    .settings,
+                                                                registration_tracks:
+                                                                    (
+                                                                        form
+                                                                            .data
+                                                                            .settings
+                                                                            .registration_tracks ??
+                                                                        []
+                                                                    ).map(
+                                                                        (
+                                                                            row,
+                                                                            rowIndex,
+                                                                        ) =>
+                                                                            rowIndex ===
+                                                                            index
+                                                                                ? {
+                                                                                      ...row,
+                                                                                      badge: event
+                                                                                          .target
+                                                                                          .value,
+                                                                                  }
+                                                                                : row,
+                                                                    ),
+                                                            },
+                                                        )
+                                                    }
+                                                />
+                                            </FormField>
+                                            <FormField label="Judul jalur">
+                                                <input
+                                                    className={inputClass}
+                                                    value={track.title}
+                                                    required
+                                                    onChange={(event) =>
+                                                        form.setData(
+                                                            'settings',
+                                                            {
+                                                                ...form.data
+                                                                    .settings,
+                                                                registration_tracks:
+                                                                    (
+                                                                        form
+                                                                            .data
+                                                                            .settings
+                                                                            .registration_tracks ??
+                                                                        []
+                                                                    ).map(
+                                                                        (
+                                                                            row,
+                                                                            rowIndex,
+                                                                        ) =>
+                                                                            rowIndex ===
+                                                                            index
+                                                                                ? {
+                                                                                      ...row,
+                                                                                      title: event
+                                                                                          .target
+                                                                                          .value,
+                                                                                  }
+                                                                                : row,
+                                                                    ),
+                                                            },
+                                                        )
+                                                    }
+                                                />
+                                            </FormField>
+                                            <FormField label="Label tombol">
+                                                <input
+                                                    className={inputClass}
+                                                    value={track.cta_label}
+                                                    required
+                                                    onChange={(event) =>
+                                                        form.setData(
+                                                            'settings',
+                                                            {
+                                                                ...form.data
+                                                                    .settings,
+                                                                registration_tracks:
+                                                                    (
+                                                                        form
+                                                                            .data
+                                                                            .settings
+                                                                            .registration_tracks ??
+                                                                        []
+                                                                    ).map(
+                                                                        (
+                                                                            row,
+                                                                            rowIndex,
+                                                                        ) =>
+                                                                            rowIndex ===
+                                                                            index
+                                                                                ? {
+                                                                                      ...row,
+                                                                                      cta_label:
+                                                                                          event
+                                                                                              .target
+                                                                                              .value,
+                                                                                  }
+                                                                                : row,
+                                                                    ),
+                                                            },
+                                                        )
+                                                    }
+                                                />
+                                            </FormField>
+                                            <FormField label="Tujuan tautan tombol">
+                                                <input
+                                                    className={inputClass}
+                                                    value={track.cta_href}
+                                                    onChange={(event) =>
+                                                        form.setData(
+                                                            'settings',
+                                                            {
+                                                                ...form.data
+                                                                    .settings,
+                                                                registration_tracks:
+                                                                    (
+                                                                        form
+                                                                            .data
+                                                                            .settings
+                                                                            .registration_tracks ??
+                                                                        []
+                                                                    ).map(
+                                                                        (
+                                                                            row,
+                                                                            rowIndex,
+                                                                        ) =>
+                                                                            rowIndex ===
+                                                                            index
+                                                                                ? {
+                                                                                      ...row,
+                                                                                      cta_href:
+                                                                                          event
+                                                                                              .target
+                                                                                              .value,
+                                                                                  }
+                                                                                : row,
+                                                                    ),
+                                                            },
+                                                        )
+                                                    }
+                                                />
+                                            </FormField>
+                                        </div>
+                                        <FormField label="Deskripsi singkat">
+                                            <textarea
+                                                className="textarea w-full"
+                                                rows={2}
+                                                value={track.description}
+                                                required
+                                                onChange={(event) =>
+                                                    form.setData('settings', {
+                                                        ...form.data.settings,
+                                                        registration_tracks: (
+                                                            form.data.settings
+                                                                .registration_tracks ??
+                                                            []
+                                                        ).map(
+                                                            (row, rowIndex) =>
+                                                                rowIndex ===
+                                                                index
+                                                                    ? {
+                                                                          ...row,
+                                                                          description:
+                                                                              event
+                                                                                  .target
+                                                                                  .value,
+                                                                      }
+                                                                    : row,
+                                                        ),
+                                                    })
+                                                }
+                                            />
+                                        </FormField>
+                                        <FormField label="Daftar poin (1 baris = 1 poin)">
+                                            <textarea
+                                                className="textarea w-full"
+                                                rows={3}
+                                                value={track.points_text}
+                                                required
+                                                onChange={(event) =>
+                                                    form.setData('settings', {
+                                                        ...form.data.settings,
+                                                        registration_tracks: (
+                                                            form.data.settings
+                                                                .registration_tracks ??
+                                                            []
+                                                        ).map(
+                                                            (row, rowIndex) =>
+                                                                rowIndex ===
+                                                                index
+                                                                    ? {
+                                                                          ...row,
+                                                                          points_text:
+                                                                              event
+                                                                                  .target
+                                                                                  .value,
+                                                                      }
+                                                                    : row,
+                                                        ),
+                                                    })
+                                                }
+                                            />
+                                        </FormField>
+                                    </div>
+                                ),
+                            )}
+                        </section>
                         {(
-                            ['categories', 'steps', 'services', 'faqs'] as const
+                            [
+                                'facilities',
+                                'core_rules',
+                                'payment_steps',
+                                'categories',
+                                'steps',
+                                'services',
+                                'faqs',
+                            ] as const
                         ).map((group) => (
                             <section
                                 key={group}
@@ -414,6 +723,11 @@ function SettingsForm({
                                     <h2 className="font-semibold">
                                         {
                                             {
+                                                facilities: 'Fasilitas asrama',
+                                                core_rules:
+                                                    'Aturan penting penghuni',
+                                                payment_steps:
+                                                    'Langkah prosedur pembayaran',
                                                 categories: 'Kategori penghuni',
                                                 steps: 'Tahapan pendaftaran',
                                                 services: 'Layanan',
@@ -428,9 +742,9 @@ function SettingsForm({
                                             form.setData('settings', {
                                                 ...form.data.settings,
                                                 [group]: [
-                                                    ...form.data.settings[
+                                                    ...(form.data.settings[
                                                         group
-                                                    ],
+                                                    ] ?? []),
                                                     group === 'faqs'
                                                         ? { q: '', a: '' }
                                                         : {
@@ -444,7 +758,7 @@ function SettingsForm({
                                         Tambah item
                                     </Button>
                                 </div>
-                                {form.data.settings[group].map(
+                                {(form.data.settings[group] ?? []).map(
                                     (item, index) => (
                                         <div
                                             key={index}
@@ -483,9 +797,14 @@ function SettingsForm({
                                                                                 .data
                                                                                 .settings,
                                                                             [group]:
-                                                                                form.data.settings[
-                                                                                    group
-                                                                                ].map(
+                                                                                (
+                                                                                    form
+                                                                                        .data
+                                                                                        .settings[
+                                                                                        group
+                                                                                    ] ??
+                                                                                    []
+                                                                                ).map(
                                                                                     (
                                                                                         row,
                                                                                         rowIndex,
@@ -521,9 +840,14 @@ function SettingsForm({
                                                                                 .data
                                                                                 .settings,
                                                                             [group]:
-                                                                                form.data.settings[
-                                                                                    group
-                                                                                ].map(
+                                                                                (
+                                                                                    form
+                                                                                        .data
+                                                                                        .settings[
+                                                                                        group
+                                                                                    ] ??
+                                                                                    []
+                                                                                ).map(
                                                                                     (
                                                                                         row,
                                                                                         rowIndex,
@@ -666,7 +990,7 @@ function SettingsForm({
                             const kind = deleteTarget.kind;
                             form.setData('settings', {
                                 ...form.data.settings,
-                                [kind]: form.data.settings[kind].filter(
+                                [kind]: (form.data.settings[kind] ?? []).filter(
                                     (_, i) => i !== deleteTarget.index,
                                 ),
                             });

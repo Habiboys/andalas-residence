@@ -137,4 +137,62 @@ it('renders the configured hero FAQ and news on the public homepage', () => {
     expect(html).toContain('Tabel Ringkas Tarif Resmi');
     expect(html).toContain('Fasilitas Asrama &amp; Aturan Penting');
     expect(html).toContain('Prosedur Pembayaran Asrama');
+    expect(html).not.toContain(
+        'Pembayaran fleksibel sesuai kebijakan periode, termasuk opsi pengajuan cicilan/penundaan.',
+    );
+});
+
+it('renders editable residence guide sections in beranda management and reflects custom settings on homepage', () => {
+    const customSettings: LandingSettings = {
+        ...settings,
+        headings: {
+            ...settings.headings,
+            tracks: 'Jalur Masuk Khusus CMS',
+            facilities: 'Fasilitas Unggulan CMS',
+            payment: 'Tata Cara Bayar CMS',
+        },
+        registration_tracks: [
+            {
+                badge: 'Baru',
+                title: 'Jalur Custom S1',
+                description: 'Deskripsi jalur custom',
+                points_text: 'Poin satu\nPoin dua',
+                cta_label: 'Daftar Custom',
+                cta_href: '/register',
+            },
+        ],
+        facilities: [{ title: 'WiFi Kencang', text: 'Akses 24 jam' }],
+        core_rules: [{ title: 'Tertib Waktu', text: 'Patuhi jam malam' }],
+        payment_steps: [{ title: 'Cek Invoice', text: 'Buka menu Tagihan' }],
+    };
+
+    const manageHtml = renderToStaticMarkup(
+        <LandingManage
+            section="beranda"
+            record={null}
+            rows={[]}
+            positions={[]}
+            settings={customSettings}
+        />,
+    );
+    expect(manageHtml).toContain('Jalur pendaftaran (Kartu beranda)');
+    expect(manageHtml).toContain('Fasilitas asrama');
+    expect(manageHtml).toContain('Aturan penting penghuni');
+    expect(manageHtml).toContain('Langkah prosedur pembayaran');
+    expect(manageHtml).toContain('Jalur Custom S1');
+
+    const homeHtml = renderToStaticMarkup(
+        <Beranda
+            landingSettings={customSettings}
+            testimoni={[]}
+            statistik={{ gedung: 10, kamar: 799, penghuni: 1200 }}
+        />,
+    );
+    expect(homeHtml).toContain('Jalur Masuk Khusus CMS');
+    expect(homeHtml).toContain('Jalur Custom S1');
+    expect(homeHtml).toContain('Fasilitas Unggulan CMS');
+    expect(homeHtml).toContain('WiFi Kencang');
+    expect(homeHtml).toContain('Tertib Waktu');
+    expect(homeHtml).toContain('Tata Cara Bayar CMS');
+    expect(homeHtml).toContain('Cek Invoice');
 });

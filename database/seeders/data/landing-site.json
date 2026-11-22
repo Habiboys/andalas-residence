@@ -100,8 +100,116 @@
     "program_title": "Program Andalas Residence",
     "program_heading": "Program Pembinaan Mahasiswa",
     "program_intro": "Berbagai program pembinaan dirancang untuk membentuk karakter, keagamaan, dan prestasi akademik mahasiswa Andalas Residence.",
-    "unit_heading": "Pilihan hunian di Andalas Residence"
+    "unit_heading": "Pilihan hunian di Andalas Residence",
+    "tracks_eyebrow": "Jalur Pendaftaran",
+    "tracks": "Pilih jalur yang sesuai sebelum membuat akun.",
+    "tracks_intro": "Setiap jalur memiliki alur pemilihan kamar, verifikasi status, dan skema pembiayaan yang disesuaikan agar proses pendaftaran Anda berjalan lancar.",
+    "tariffs_eyebrow": "Transparansi Biaya",
+    "tariffs": "Tabel Ringkas Tarif Resmi",
+    "tariffs_intro": "Bandingkan tarif resmi asrama per gedung dan satuan masa tinggal sesuai kebijakan aktif dari pengelola.",
+    "tariffs_note": "Catatan: Tarif KIP-K mengikuti ketentuan beasiswa KIP-K Universitas Andalas; tarif booking penuh 1 kamar menyesuaikan jumlah kapasitas kamar pada saat pendaftaran.",
+    "facilities_eyebrow": "Fasilitas & Tata Tertib",
+    "facilities": "Fasilitas Asrama & Aturan Penting",
+    "facilities_intro": "Dirancang untuk kenyamanan tinggal, pembinaan mahasiswa baru, dan keamanan bersama di seluruh unit Andalas Residence.",
+    "rules_badge": "Aturan Penting Penghuni",
+    "rules": "Komitmen tinggal aman & tertib di asrama.",
+    "rules_intro": "Calon penghuni wajib membaca regulasi dan tata tertib asrama sebelum melakukan serah kunci.",
+    "payment_eyebrow": "Pembayaran Resmi",
+    "payment": "Prosedur Pembayaran Asrama",
+    "payment_intro": "Seluruh pembayaran asrama tercatat melalui tagihan akun Anda. Pastikan hanya mentransfer ke Virtual Account atau rekening resmi Universitas Andalas."
   },
+  "registration_tracks": [
+    {
+      "badge": "Rekomendasi Mahasiswa Baru",
+      "title": "Mahasiswa Lokal (S1) & KIP-K",
+      "description": "Jalur utama bagi mahasiswa S1 Universitas Andalas menggunakan akun @unand.ac.id atau Google (@gmail.com). Mahasiswa baru yang belum memiliki NIM dapat mendaftar dengan tahun angkatan dan melengkapi NIM sebelum memilih kamar.",
+      "points_text": "Non-KIP-K dapat memilih skema per orang, per grup bersama teman, atau booking 1 kamar.\nPenerima KIP-K terverifikasi otomatis dan dialokasikan pengelola sesuai prioritas serta kapasitas.",
+      "cta_label": "Daftar Akun S1",
+      "cta_href": "/register"
+    },
+    {
+      "badge": "Pascasarjana & Warga Negara Asing",
+      "title": "Mahasiswa Internasional & S2/S3",
+      "description": "Diperuntukkan bagi mahasiswa internasional serta mahasiswa program magister (S2) dan doktoral (S3) yang memerlukan hunian kampus atau fasilitas penempatan terkoordinasi.",
+      "points_text": "Gedung dan tipe kamar menyesuaikan kebijakan kategori Internasional / S2 / S3 yang dibuka.\nMendukung pembiayaan mandiri maupun penjamin/sponsor institusi resmi.\nProses administrasi, surat pernyataan, dan verifikasi dipantau langsung dari akun Anda.",
+      "cta_label": "Daftar Jalur S2/S3 & Internasional",
+      "cta_href": "/register"
+    },
+    {
+      "badge": "Peserta Kegiatan & Jangka Pendek",
+      "title": "Sewa Harian / Umum & Kegiatan",
+      "description": "Layanan hunian fleksibel bagi peserta Summer Course, tamu akademik, peserta kegiatan kampus, atau penyewa umum jangka pendek sesuai ketersediaan kamar.",
+      "points_text": "Tarif transparan per hari atau per periode kegiatan tanpa biaya tersembunyi.\nPenempatan kelompok kegiatan maupun tamu difasilitasi pengelola dan fasilitator gedung.\nBukti tagihan, pembayaran, dan administrasi check-out tercatat rapi secara digital.",
+      "cta_label": "Cek Ketersediaan Unit",
+      "cta_href": "#katalog-hunian"
+    }
+  ],
+  "facilities": [
+    {
+      "title": "WiFi Area Asrama",
+      "text": "Koneksi internet di lingkungan gedung dan ruang bersama untuk menunjang perkuliahan."
+    },
+    {
+      "title": "Keamanan 24/7",
+      "text": "Pengawasan lingkungan asrama dengan petugas jaga, akses gerbang, dan CCTV area."
+    },
+    {
+      "title": "Ruang Belajar & Komunal",
+      "text": "Area belajar tenang serta aula berkumpul untuk diskusi akademik dan kegiatan bersama."
+    },
+    {
+      "title": "Kebersihan & Teknisi",
+      "text": "Perawatan area umum rutin serta pelaporan kerusakan kamar yang ditangani langsung oleh teknisi."
+    },
+    {
+      "title": "Pembinaan Karakter",
+      "text": "Program pembinaan mahasiswa binaan terstruktur bersama fasilitator dengan presensi QR."
+    },
+    {
+      "title": "Area Parkir Terpadu",
+      "text": "Ketersediaan area parkir kendaraan bermotor di sekitar kompleks gedung hunian."
+    },
+    {
+      "title": "Sanitasi & Air Bersih",
+      "text": "Kamar mandi dalam maupun bersama yang terjaga kebersihannya serta pasokan air bersih."
+    },
+    {
+      "title": "Area Jemur & Penunjang",
+      "text": "Fasilitas area jemur pakaian dan ruang penunjang harian penghuni di tiap unit gedung."
+    }
+  ],
+  "core_rules": [
+    {
+      "title": "Bebas Rokok & Barang Terlarang",
+      "text": "Dilarang keras merokok, mengonsumsi alkohol, maupun menyimpan barang berbahaya/terlarang di seluruh area asrama."
+    },
+    {
+      "title": "Kebersihan & Aset Kamar",
+      "text": "Penghuni wajib menjaga kebersihan kamar serta fasilitas bersama dan bertanggung jawab atas kondisi aset kamar hingga check-out."
+    },
+    {
+      "title": "Jam Malam, Tamu & Pembinaan",
+      "text": "Patuhi batas jam masuk malam, larangan tamu menginap di kamar, serta kewajiban mengikuti kegiatan pembinaan bagi mahasiswa binaan."
+    }
+  ],
+  "payment_steps": [
+    {
+      "title": "Pilih Kamar & Unggah Berkas",
+      "text": "Setelah akun dan data hunian lengkap, pilih kamar (atau tunggu alokasi KIP-K) lalu unggah dokumen persyaratan."
+    },
+    {
+      "title": "Cek Tagihan & Rekening / VA",
+      "text": "Sistem menerbitkan invoice beserta nominal, batas waktu, nomor Virtual Account (jika tersedia), dan rekening resmi tujuan."
+    },
+    {
+      "title": "Transfer & Unggah Bukti Bayar",
+      "text": "Lakukan pembayaran melalui ATM, mobile banking, atau teller sesuai tagihan lalu unggah bukti transfer pada menu Pendaftaran / Tagihan."
+    },
+    {
+      "title": "Verifikasi Keuangan & Penempatan",
+      "text": "Unggahan bukti langsung mengamankan penempatan administratif Anda sambil menunggu verifikasi lunas resmi oleh bagian keuangan."
+    }
+  ],
   "site": {
     "name": "Andalas Residence",
     "tagline": "Hunian Universitas Andalas",
