@@ -155,7 +155,7 @@ it('preserves placements when a room move or capacity reduction would invalidate
 it('prints the residence letterhead right aligned date and both signatures without empty residence placeholders', function () {
     $invoice = ['nomor' => 'INV-1', 'date' => '2026-10-07', 'recipient' => 'Rektor', 'institution' => 'Universitas Andalas', 'subject' => 'Tagihan', 'bank' => 'BSI', 'account_number' => '123', 'account_name' => 'AR', 'due_date' => '2026-10-14', 'signer' => 'Pimpinan', 'administration_signer' => 'Petugas Administrasi', 'total' => 100000, 'rows' => [['nama' => 'Peserta', 'nim' => '123', 'nomor' => 'INV-1', 'residence' => null, 'amount' => 100000]]];
     $html = view('pdf.invoice-group', compact('invoice'))->render();
-    expect($html)->toContain('Times New Roman', 'class="date"', 'Alamat: Gedung Asrama', 'Telp. 0811-6699634', 'Demikian kami sampaikan tagihan', 'Petugas Administrasi', 'Administrasi Andalas Residence')->not->toContain('- / - / -');
+    expect($html)->toContain('Times New Roman', 'class="date"', 'Gedung Asrama Roesma/M.Syaff', 'Telp. 0811-6699634', 'Demikian kami sampaikan tagihan', 'Petugas Administrasi', 'Administrasi Andalas Residence')->not->toContain('- / - / -');
 });
 
 it('seeds legacy building photos per building code when photo files exist', function () {

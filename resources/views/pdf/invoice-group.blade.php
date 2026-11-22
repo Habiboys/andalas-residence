@@ -1,33 +1,27 @@
+@php
+    $letterhead = app(\App\Services\LetterheadTemplateService::class)->data();
+@endphp
 <!doctype html>
 <html lang="id">
 <head>
     <meta charset="utf-8">
     <style>
-        @page { margin: 40pt 48pt; }
-        body { font-family: "Times New Roman", "DejaVu Serif", Times, serif; font-size: 10.5pt; line-height: 1.38; color: #000; }
+        @page { margin: {{ $letterhead['margins']['top_pt'] }}pt {{ $letterhead['margins']['right_pt'] }}pt 48pt {{ $letterhead['margins']['left_pt'] }}pt; }
+        body { font-family: {!! $letterhead['font_css'] !!}; font-size: 11pt; line-height: 1.4; color: #000; }
+        @include('pdf.partials.letterhead-styles', ['letterhead' => $letterhead])
         table { width: 100%; border-collapse: collapse; }
-        .letterhead { table-layout: fixed; border-bottom: 2pt solid #000; margin-bottom: 16pt; }
-        .letterhead td { border: 0; text-align: center; vertical-align: middle; padding-bottom: 8pt; }
-        .logo { width: 15%; }
-        .logo img { width: 58pt; height: auto; }
-        .institution { width: 70%; line-height: 1.25; }
-        .institution .ministry { font-size: 10pt; }
-        .institution .university { font-size: 10.5pt; }
-        .institution .unit { font-size: 12pt; margin-top: 1pt; }
-        .spacer { width: 15%; }
-        .address { margin-top: 3pt; font-size: 7.5pt; line-height: 1.35; }
-        h1 { text-align: center; font-size: 11.5pt; margin: 0 0 14pt; text-decoration: underline; }
-        .metadata td { border: 0; }
+        h1 { text-align: center; font-size: 12pt; font-weight: bold; margin: 14pt 0 12pt; text-decoration: underline; }
+        .metadata td { border: 0; padding: 0; }
         .date { text-align: right; }
-        p { margin: 10pt 0; }
+        p { margin: 10pt 0; text-align: justify; }
         .items { table-layout: fixed; margin: 12pt 0; }
-        .items th, .items td { border: .7pt solid #000; padding: 6pt 7pt; vertical-align: top; overflow-wrap: break-word; }
-        .items th { background-color: #f4f4f4; }
+        .items th, .items td { border: .7pt solid #000; padding: 6pt 8pt; vertical-align: top; overflow-wrap: break-word; font-size: 10.5pt; }
+        .items th { background-color: #f4f4f4; font-weight: bold; }
         .items thead { display: table-header-group; }
         .items tr { page-break-inside: avoid; }
         .amount { text-align: right; white-space: nowrap; }
         .number { text-align: center; }
-        .detail { font-size: 9pt; }
+        .detail { font-size: 9.5pt; color: #222; }
         .signatures { margin-top: 22pt; table-layout: fixed; page-break-inside: avoid; }
         .signatures td { border: 0; text-align: center; vertical-align: top; width: 50%; }
         .signature-space { height: 62pt; }
@@ -35,7 +29,7 @@
     </style>
 </head>
 <body>
-    @include('pdf.partials.letterhead')
+    @include('pdf.partials.letterhead', ['letterhead' => $letterhead])
     <h1>INVOICE / SURAT PERMINTAAN PEMBAYARAN</h1>
     <table class="metadata">
         <tr>
@@ -46,7 +40,7 @@
     <p>Kepada Yth. {{ $invoice['recipient'] }}<br>Nama Mitra / Instansi: {{ $invoice['institution'] }}</p>
     <p>Perihal: {{ $invoice['subject'] }}</p>
     <table class="items">
-        <colgroup><col style="width:7%"><col style="width:68%"><col style="width:25%"></colgroup>
+        <colgroup><col style="width:8%"><col style="width:67%"><col style="width:25%"></colgroup>
         <thead>
             <tr><th>No.</th><th>Uraian Kegiatan / Layanan</th><th>Jumlah (Rp)</th></tr>
         </thead>
@@ -79,7 +73,7 @@
             <td class="signature-space">@if (!empty($invoice['signature_path']))<img src="{{ Storage::disk('local')->path($invoice['signature_path']) }}" alt="Tanda tangan pimpinan">@endif</td>
             <td class="signature-space">@if (!empty($invoice['administration_signature_path']))<img src="{{ Storage::disk('local')->path($invoice['administration_signature_path']) }}" alt="Tanda tangan administrasi">@endif</td>
         </tr>
-        <tr><td>{{ $invoice['signer'] }}</td><td>{{ $invoice['administration_signer'] ?? '' }}</td></tr>
+        <tr><td><strong>{{ $invoice['signer'] }}</strong></td><td><strong>{{ $invoice['administration_signer'] ?? '' }}</strong></td></tr>
     </table>
 </body>
 </html>

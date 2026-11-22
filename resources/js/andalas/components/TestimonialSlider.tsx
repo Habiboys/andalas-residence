@@ -1,5 +1,6 @@
 import { Pause, Play } from 'lucide-react';
 import { useState } from 'react';
+import { Modal } from './ui';
 
 export type Testimoni = {
     id: string;
@@ -8,6 +9,14 @@ export type Testimoni = {
     teks: string;
     foto: string | null;
 };
+
+const LONG_STORY_CHAR_LIMIT = 165;
+
+function isLongStory(text: string): boolean {
+    const trimmed = text.trim();
+
+    return trimmed.length > LONG_STORY_CHAR_LIMIT || trimmed.includes('\n');
+}
 
 export default function TestimonialSlider({
     items,
@@ -19,12 +28,14 @@ export default function TestimonialSlider({
     description?: string;
 }) {
     const [paused, setPaused] = useState(false);
+    const [activeStory, setActiveStory] = useState<Testimoni | null>(null);
 
     if (items.length === 0) return null;
 
     const sliding = items.length > 1;
     // Keep each loop wider than the viewport, including with only two stories.
     const stories = sliding && items.length < 3 ? [...items, ...items] : items;
+    const isPaused = paused || activeStory !== null;
 
     return (
         <section
@@ -70,7 +81,7 @@ export default function TestimonialSlider({
                     <div
                         className={`testimonial-track ${sliding ? 'testimonial-track--sliding' : ''}`}
                         style={{
-                            animationPlayState: paused ? 'paused' : undefined,
+                            animationPlayState: isPaused ? 'paused' : undefined,
                             animationDuration: `${stories.length * 12}s`,
                         }}
                     >
@@ -80,42 +91,94 @@ export default function TestimonialSlider({
                                 className="testimonial-group"
                                 aria-hidden={group === 1 ? true : undefined}
                             >
-                                {stories.map((item, index) => (
-                                    <figure
-                                        key={`${item.id}-${index}`}
-                                        aria-hidden={
-                                            index >= items.length
-                                                ? true
-                                                : undefined
-                                        }
-                                        className={`testimonial-card border-base-300 bg-base-100 flex min-h-72 flex-col rounded-md border p-6 md:p-7 ${index >= items.length ? 'testimonial-copy' : ''}`}
-                                    >
-                                        <span
-                                            aria-hidden="true"
-                                            className="text-primary/40 font-display h-10 text-5xl leading-none"
+                                {stories.map((item, index) => {
+                                    const hiddenCopy =
+                                        group === 1 || index >= items.length;
+                                    const longStory = isLongStory(item.teks);
+
+                                    return (
+                                        <figure
+                                            key={`${item.id}-${index}`}
+                                            aria-hidden={
+                                                index >= items.length
+                                                    ? true
+                                                    : undefined
+                                            }
+                                            className={`testimonial-card border-base-300 bg-base-100 flex h-80 flex-col rounded-xl border p-6 ${index >= items.length ? 'testimonial-copy' : ''}`}
                                         >
-                                            “
-                                        </span>
-                                        <blockquote className="text-base-content mt-2 flex-1 text-base leading-7">
-                                            {item.teks}
-                                        </blockquote>
-                                        <figcaption className="border-base-300 mt-8 border-t pt-4 text-sm">
-                                            <span className="block font-medium">
-                                                {item.nama}
+                                            <span
+                                                aria-hidden="true"
+                                                className="text-primary/40 font-display h-8 shrink-0 text-4xl leading-none"
+                                            >
+                                                “
                                             </span>
-                                            {item.prodi && (
-                                                <span className="text-muted mt-1 block text-xs leading-5">
-                                                    {item.prodi}
+                                            <div className="mt-1 flex-1 overflow-hidden">
+                                                <blockquote className="text-base-content line-clamp-5 text-sm leading-6 break-words md:text-[15px] md:leading-6">
+                                                    {item.teks}
+                                                </blockquote>
+                                                {longStory && (
+                                                    <button
+                                                        type="button"
+                                                        tabIndex={
+                                                            hiddenCopy
+                                                                ? -1
+                                                                : undefined
+                                                        }
+                                                        onClick={() =>
+                                                            setActiveStory(item)
+                                                        }
+                                                        className="text-primary focus-visible:outline-primary mt-2 inline-flex items-center text-xs font-semibold hover:underline focus-visible:outline-2 focus-visible:outline-offset-2"
+                                                    >
+                                                        Baca selengkapnya
+                                                    </button>
+                                                )}
+                                            </div>
+                                            <figcaption className="border-base-300 mt-4 shrink-0 border-t pt-3.5 text-sm">
+                                                <span className="block truncate font-semibold">
+                                                    {item.nama}
                                                 </span>
-                                            )}
-                                        </figcaption>
-                                    </figure>
-                                ))}
+                                                {item.prodi && (
+                                                    <span className="text-muted mt-0.5 block truncate text-xs leading-5">
+                                                        {item.prodi}
+                                                    </span>
+                                                )}
+                                            </figcaption>
+                                        </figure>
+                                    );
+                                })}
                             </div>
                         ))}
                     </div>
                 </div>
             </div>
+
+            {activeStory && (
+                <Modal
+                    open
+                    onClose={() => setActiveStory(null)}
+                    title="Cerita Penghuni"
+                >
+                    <div className="space-y-4">
+                        <span
+                            aria-hidden="true"
+                            className="text-primary/40 font-display block text-4xl leading-none"
+                        >
+                            “
+                        </span>
+                        <blockquote className="text-base-content text-sm leading-7 whitespace-pre-line md:text-base">
+                            {activeStory.teks}
+                        </blockquote>
+                        <div className="border-base-200 border-t pt-3.5 text-sm">
+                            <p className="font-semibold">{activeStory.nama}</p>
+                            {activeStory.prodi && (
+                                <p className="text-muted mt-0.5 text-xs">
+                                    {activeStory.prodi}
+                                </p>
+                            )}
+                        </div>
+                    </div>
+                </Modal>
+            )}
         </section>
     );
 }

@@ -29,5 +29,30 @@ it('hides an empty section and shows a single story without a redundant pause co
     );
     expect(html).toContain(stories[0].teks);
     expect(html).not.toContain('Jeda geser');
+    expect(html).not.toContain('Baca selengkapnya');
     expect(html.split(stories[0].teks)).toHaveLength(2);
+});
+
+it('keeps testimonial cards uniform in height and offers a read-more trigger for long stories', () => {
+    const longText =
+        'Selama saya tinggal di asrama banyak manfaat yang saya rasakan, mulai dari pembinaan subuh ke mesjid dan program subuh yang dilaksanakan secara beragam seperti membaca Al-Quran, ceramah singkat, serta kedisiplinan waktu setiap hari.';
+    const html = renderToStaticMarkup(
+        <TestimonialSlider
+            items={[
+                stories[0],
+                {
+                    id: 'long',
+                    nama: 'Penghuni Panjang',
+                    prodi: 'Sistem Informasi 22',
+                    teks: longText,
+                    foto: null,
+                },
+            ]}
+        />,
+    );
+
+    expect(html).toContain('h-80');
+    expect(html).toContain('line-clamp-5');
+    expect(html).toContain('Baca selengkapnya');
+    expect(html).toContain(longText);
 });
