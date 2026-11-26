@@ -40,6 +40,9 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
+        if ($request->user() !== null) {
+            Inertia::encryptHistory();
+        }
         if ($request->hasSession() && $request->session()->has('toast')) {
             Inertia::flash('toast', $request->session()->pull('toast'));
         }

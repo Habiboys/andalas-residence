@@ -80,22 +80,12 @@ it('enforces canonical building gender and category rules and activates KIPK res
         ->and($registration->fresh()->checked_in_at)->toBeNull()
         ->and($registration->fresh()->kipk_disbursed_at)->toBeNull();
 
-    // Check-in is still gated on facilitator document verification when arriving at dorm
-    $facilitatorA = toBeFacilitator($buildingA);
-    $this->actingAs($facilitatorA)
-        ->post(route('residence.checkin', $registration), [
-            'identity_checked' => 1,
-            'original_documents_checked' => 1,
-            'keys_handed' => 1,
-        ])
-        ->assertSessionHasErrors('checkin');
-
+    // Non-public/non-summer-course documents are auto-ACC on upload, so facilitator can proceed directly to check-in
     $docKipk = $registration->fresh()->documents()->sole();
-    $this->actingAs($facilitatorA)
-        ->post(route('residence.documents.review', $docKipk), ['status' => 'valid'])
-        ->assertRedirect()
-        ->assertSessionHasNoErrors();
+    expect($docKipk->status)->toBe('valid')
+        ->and($docKipk->reviewed_at)->not->toBeNull();
 
+    $facilitatorA = toBeFacilitator($buildingA);
     $this->actingAs($facilitatorA)
         ->post(route('residence.checkin', $registration), [
             'identity_checked' => 1,
@@ -154,24 +144,14 @@ it('allows payment upload right after uploading documents and verifies documents
         ->and($f['profile']->fresh()->status_huni)->toBe('aktif')
         ->and((float) $registration->tagihan->fresh()->total_dibayar)->toBe(0.0);
 
-    // Check-in is blocked until facilitator verifies uploaded document at check-in
+    // Uploaded documents for student categories are auto-ACC on upload; manager still cannot call document review
     $doc = $registration->fresh()->documents()->sole();
-    $this->actingAs($facilitator)
-        ->post(route('residence.checkin', $registration), [
-            'identity_checked' => 1,
-            'original_documents_checked' => 1,
-            'keys_handed' => 1,
-        ])
-        ->assertSessionHasErrors('checkin');
+    expect($doc->status)->toBe('valid')
+        ->and($doc->reviewed_at)->not->toBeNull();
 
     $this->actingAs($f['manager'])
         ->post(route('residence.documents.review', $doc), ['status' => 'valid'])
         ->assertForbidden();
-
-    $this->actingAs($facilitator)
-        ->post(route('residence.documents.review', $doc), ['status' => 'valid'])
-        ->assertRedirect()
-        ->assertSessionHasNoErrors();
 
     $this->actingAs($facilitator)
         ->post(route('residence.checkin', $registration), [

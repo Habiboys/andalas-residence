@@ -49,10 +49,27 @@ class LandingController extends Controller
                 ->limit(6)
                 ->get(['id', 'kategori', 'judul', 'file']),
             'pengumuman' => Informasi::where('published', true)->where('kategori', 'pengumuman')->orderByDesc('tanggal')->limit(3)->get(['id', 'judul', 'tanggal']),
-            'galeri' => Gedung::whereNotNull('foto')->where('foto', '!=', '')->orderBy('kode_gedung')->limit(4)->get()
-                ->map(fn (Gedung $gedung): array => ['id' => $gedung->id, 'judul' => $gedung->nama_gedung, 'foto' => '/storage/'.$gedung->foto, 'kategori' => 'Hunian'])
-                ->concat(ProgramSub::whereHas('program', fn ($query) => $query->where('published', true))->whereNotNull('gambar')->where('gambar', '!=', '')->orderBy('urutan')->limit(4)->get()
-                    ->map(fn (ProgramSub $sub): array => ['id' => $sub->id, 'judul' => $sub->judul, 'foto' => '/storage/'.$sub->gambar, 'kategori' => 'Program']))->concat(collect(array_values(LandingContentService::settings()['gallery'] ?? []))->map(fn (array $photo, int $index): array => ['id' => 'media-'.$index, 'judul' => $photo['title'], 'foto' => $photo['image'], 'kategori' => $photo['category']]))->values(),
+            'galeri' => (function () {
+                $settings = LandingContentService::settings();
+                $manual = collect(array_values($settings['gallery'] ?? []))->map(
+                    fn (array $photo, int $index): array => [
+                        'id' => 'media-'.$index,
+                        'judul' => $photo['title'],
+                        'foto' => $photo['image'],
+                        'kategori' => $photo['category'],
+                    ]
+                );
+                if (! ($settings['show_auto_gallery'] ?? true)) {
+                    return $manual->values();
+                }
+
+                $autoBuildings = Gedung::whereNotNull('foto')->where('foto', '!=', '')->orderBy('kode_gedung')->limit(4)->get()
+                    ->map(fn (Gedung $gedung): array => ['id' => $gedung->id, 'judul' => $gedung->nama_gedung, 'foto' => '/storage/'.$gedung->foto, 'kategori' => 'Hunian']);
+                $autoPrograms = ProgramSub::whereHas('program', fn ($query) => $query->where('published', true))->whereNotNull('gambar')->where('gambar', '!=', '')->orderBy('urutan')->limit(4)->get()
+                    ->map(fn (ProgramSub $sub): array => ['id' => $sub->id, 'judul' => $sub->judul, 'foto' => '/storage/'.$sub->gambar, 'kategori' => 'Program']);
+
+                return $manual->concat($autoBuildings)->concat($autoPrograms)->values();
+            })(),
         ]);
     }
 

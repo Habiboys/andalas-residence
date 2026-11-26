@@ -191,20 +191,8 @@ it('unlocks payment immediately upon document upload while reserving facilitator
         ->and($f['profile']->fresh()->status_huni)->toBe('aktif')
         ->and((float) $reg->tagihan->fresh()->total_dibayar)->toBe(0.0);
 
-    // Check-in requires assigned building facilitator to verify documents when resident checks in
-    $this->actingAs($assignedFacilitator)
-        ->post(route('residence.checkin', $reg), [
-            'identity_checked' => 1,
-            'original_documents_checked' => 1,
-            'keys_handed' => 1,
-        ])
-        ->assertSessionHasErrors('checkin');
-
-    $this->actingAs($assignedFacilitator)
-        ->post(route('residence.documents.review', $doc), ['status' => 'valid'])
-        ->assertRedirect()
-        ->assertSessionHasNoErrors();
-
+    // Documents are auto-approved ('valid') on upload (non-Umum/Summer Course), so check-in succeeds directly without manual review
+    expect($doc->fresh()->status)->toBe('valid');
     $this->actingAs($assignedFacilitator)
         ->post(route('residence.checkin', $reg), [
             'identity_checked' => 1,
@@ -344,7 +332,7 @@ it('stores mandatory documents and financing scheme atomically in stage 3 submis
     $registration = ResidenceRegistration::where('student_profile_id', $f['profile']->id)->sole();
     $doc = $registration->documents()->sole();
     expect($doc->kind)->toBe('perjanjian')
-        ->and($doc->status)->toBe('uploaded')
+        ->and($doc->status)->toBe('valid')
         ->and($registration->decisions()->sole()->kind)->toBe('full');
 
     // Building facilitator approves document -> payment unlocked

@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\ClientProfileCategory;
 use App\Models\Pembayaran;
 use App\Models\ResidenceRegistration;
 use App\Models\RoomInvitation;
@@ -61,12 +62,12 @@ class ResidenceWorkflow
         if ($r->workflow_version !== 2 || $r->billing_basis !== 'group') {
             return false;
         }
-        $memberIds = $r->roomContract?->members ?? [$r->id];
+        $memberIds = $r->roomContract !== null ? $r->roomContract->members : [$r->id];
         $invitations = RoomInvitation::whereIn('residence_registration_id', $memberIds)->get(['status', 'expires_at']);
         if ($invitations->isEmpty()) {
             return true;
         }
-        $hasPending = $invitations->contains(fn (RoomInvitation $inv): bool => $inv->status === 'pending' && $inv->expires_at !== null && $inv->expires_at->isFuture());
+        $hasPending = $invitations->contains(fn (RoomInvitation $inv): bool => $inv->status === 'pending' && $inv->expires_at->isFuture());
         $hasAccepted = $invitations->contains(fn (RoomInvitation $inv): bool => $inv->status === 'accepted');
 
         return $hasPending || ! $hasAccepted;
@@ -108,8 +109,12 @@ class ResidenceWorkflow
             if (in_array($r->billing_basis, ['room', 'group'], true) && ! $r->room_contract_id) {
                 return false;
             }
-            if ($r->rate_unit === 'month' && ! $r->decisions()->where('kind', 'monthly')->where('status', 'approved')->exists()) {
-                return false;
+            if ($r->rate_unit === 'month') {
+                $autoMonthlyEligible = $r->studentProfile->user->client_profile_category === ClientProfileCategory::Asn
+                    || app(ResidenceLifecycle::class)->isSeniorOverFiveYears($r->studentProfile, $r->periode);
+                if (! $autoMonthlyEligible && ! $r->decisions()->where('kind', 'monthly')->where('status', 'approved')->exists()) {
+                    return false;
+                }
             }
         }
 
@@ -148,8 +153,12 @@ class ResidenceWorkflow
             if (in_array($r->billing_basis, ['room', 'group'], true) && ! $r->room_contract_id) {
                 return false;
             }
-            if ($r->rate_unit === 'month' && ! $r->decisions()->where('kind', 'monthly')->where('status', 'approved')->exists()) {
-                return false;
+            if ($r->rate_unit === 'month') {
+                $autoMonthlyEligible = $r->studentProfile->user->client_profile_category === ClientProfileCategory::Asn
+                    || app(ResidenceLifecycle::class)->isSeniorOverFiveYears($r->studentProfile, $r->periode);
+                if (! $autoMonthlyEligible && ! $r->decisions()->where('kind', 'monthly')->where('status', 'approved')->exists()) {
+                    return false;
+                }
             }
         }
 
@@ -304,12 +313,10 @@ class ResidenceWorkflow
             $requiredAmount = (float) ($invoice->amount_due_now ?? $invoice->total);
         }
 
-        $proofAmount = $r->workflow_version === 2
-            ? (float) Pembayaran::where('tagihan_id', $invoice->id)
-                ->whereIn('status', ['menunggu_verifikasi', 'lunas'])
-                ->whereNotNull('bukti_transfer_path')
-                ->sum('nominal')
-            : 0.0;
+        $proofAmount = (float) Pembayaran::where('tagihan_id', $invoice->id)
+            ->whereIn('status', ['menunggu_verifikasi', 'lunas'])
+            ->whereNotNull('bukti_transfer_path')
+            ->sum('nominal');
 
         return max((float) $invoice->total_dibayar, $proofAmount) >= $requiredAmount && $requiredAmount > 0;
     }
@@ -351,7 +358,6 @@ class ResidenceWorkflow
             }
         } elseif (! $ready
             && ! $hasSubmittedProof
-            && ! $r->completed_at
             && ! $r->penempatan_kamar_id
             && ! $r->is_kipk
             && $r->funding === 'personal'
@@ -392,6 +398,7 @@ class ResidenceWorkflow
                 'perjanjian',
             ]);
 
+            $autoApproveDocs = ! in_array($r->stay_kind, ['summer_course', 'non_student'], true);
             foreach ($uploadedFiles as $kind => $file) {
                 $kind = (string) $kind;
                 $amendmentAllowed = $approvedDecisions->contains(
@@ -408,13 +415,14 @@ class ResidenceWorkflow
 
                 $document = $r->documents()->create([
                     'kind' => $kind,
-                    'version' => 1 + (int) ($latest?->version ?? 0),
+                    'version' => 1 + ($latest !== null ? (int) $latest->version : 0),
                     'path' => $file->store('documents/registration', 'local'),
                     'checksum' => hash_file('sha256', $file->getRealPath()),
                     'uploaded_by' => $actor->id,
-                    'status' => 'uploaded',
+                    'status' => $autoApproveDocs ? 'valid' : 'uploaded',
+                    'reviewed_at' => $autoApproveDocs ? now() : null,
                 ]);
-                AuditLogService::log($actor, 'registration_document_uploaded', $document, null, ['kind' => $document->kind, 'version' => $document->version]);
+                AuditLogService::log($actor, 'registration_document_uploaded', $document, null, ['kind' => $document->kind, 'version' => $document->version, 'auto_approved' => $autoApproveDocs]);
             }
 
             if (! empty($decisionKind)) {
@@ -449,11 +457,16 @@ class ResidenceWorkflow
                     if ($decisionKind === 'transfer_permission' && $r->stay_kind !== 'non_student') {
                         throw ValidationException::withMessages(['decision_kind' => 'Izin berbasis bukti transfer hanya untuk umum.']);
                     }
+                    $autoApproveMonthly = $decisionKind === 'monthly'
+                        && ($r->studentProfile->user->client_profile_category === ClientProfileCategory::Asn
+                            || app(ResidenceLifecycle::class)->isSeniorOverFiveYears($r->studentProfile, $r->periode));
                     $decision = $r->decisions()->create([
                         'kind' => $decisionKind,
                         'reason' => $reason,
                         'requested_by' => $actor->id,
-                        'status' => 'pending',
+                        'decided_by' => $autoApproveMonthly ? $actor->id : null,
+                        'decided_at' => $autoApproveMonthly ? now() : null,
+                        'status' => $autoApproveMonthly ? 'approved' : 'pending',
                     ]);
                     AuditLogService::log($actor, 'residence_decision_requested', $decision, null, ['kind' => $decisionKind, 'reason' => $reason]);
                 }
@@ -462,7 +475,14 @@ class ResidenceWorkflow
             $fresh = $r->fresh();
             $this->evaluate($fresh);
             if ($uploadedFiles !== []) {
-                $this->notify($fresh, 'Dokumen pendaftaran baru diterima', 'Berkas pendaftaran baru telah diunggah dan siap diverifikasi oleh fasilitator gedung saat check-in.', true);
+                $this->notify(
+                    $fresh,
+                    $autoApproveDocs ? 'Dokumen pendaftaran diterima & disetujui otomatis' : 'Dokumen pendaftaran baru diterima',
+                    $autoApproveDocs
+                        ? 'Berkas pendaftaran Anda telah diterima dan langsung disetujui otomatis oleh sistem.'
+                        : 'Berkas pendaftaran baru telah diunggah dan siap diperiksa oleh pengelola.',
+                    true,
+                );
             }
         });
     }

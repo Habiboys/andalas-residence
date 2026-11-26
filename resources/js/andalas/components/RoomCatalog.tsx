@@ -140,6 +140,7 @@ export default function RoomCatalog({
     unit,
     basis,
     isStudent = true,
+    allowedUnits,
 }: {
     rooms: CatalogRoom[];
     rates: CatalogRate[];
@@ -149,6 +150,7 @@ export default function RoomCatalog({
     unit: string;
     basis: string;
     isStudent?: boolean;
+    allowedUnits?: string[];
 }) {
     const catalog = useRoomTypeCatalog();
     const [building, setBuilding] = useState('');
@@ -556,6 +558,7 @@ export default function RoomCatalog({
                     unit={unit}
                     basis={basis}
                     isStudent={isStudent}
+                    allowedUnits={allowedUnits}
                     isSelected={selected === detailRoom.id}
                     typeName={roomTypeName(catalog, detailRoom.tipe_kamar)}
                     onClose={() => setDetailRoom(null)}
@@ -584,6 +587,7 @@ function RoomDetailModal({
     unit,
     basis,
     isStudent,
+    allowedUnits,
     isSelected,
     typeName,
     onClose,
@@ -595,6 +599,7 @@ function RoomDetailModal({
     unit: string;
     basis: string;
     isStudent: boolean;
+    allowedUnits?: string[];
     isSelected: boolean;
     typeName: string;
     onClose: () => void;
@@ -614,7 +619,8 @@ function RoomDetailModal({
         (r) =>
             r.gedung_id === room.lantai?.gedung_id &&
             (r.tipe_kamar === room.tipe_kamar ||
-                (r.unit === 'day' && r.tipe_kamar === 'umum')),
+                (r.unit === 'day' && r.tipe_kamar === 'umum')) &&
+            (!allowedUnits || allowedUnits.includes(r.unit)),
     );
 
     return (

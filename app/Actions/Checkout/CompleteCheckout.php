@@ -10,6 +10,7 @@ use App\Models\CheckoutRequest;
 use App\Models\Kamar;
 use App\Models\PenempatanKamar;
 use App\Services\ResidenceLifecycle;
+use App\Services\RoomReservations;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -19,7 +20,7 @@ class CompleteCheckout
     {
         return DB::transaction(function () use ($checkoutRequest, $officerId): CheckoutRequest {
             $request = CheckoutRequest::query()
-                ->with(['inspection'])
+                ->with(['inspection.findings', 'mahasiswa'])
                 ->lockForUpdate()
                 ->findOrFail($checkoutRequest->id);
 
@@ -35,11 +36,8 @@ class CompleteCheckout
                 throw ValidationException::withMessages(['checkout' => 'GO harus menyelesaikan pemeriksaan kondisi kamar sebelum fasilitator menyelesaikan checkout.']);
             }
 
-            $placement = PenempatanKamar::query()->lockForUpdate()->findOrFail($request->penempatan_kamar_id);
+            $placement = PenempatanKamar::query()->with('registration')->lockForUpdate()->findOrFail($request->penempatan_kamar_id);
             $room = Kamar::query()->lockForUpdate()->findOrFail($placement->kamar_id);
-            if ($placement->registration?->workflow_version === 2) {
-                throw ValidationException::withMessages(['checkout' => 'Konfirmasi pengembalian kunci melalui Proses Pendaftaran setelah pemeriksaan fisik selesai.']);
-            }
             $expectedAssetIds = Aset::query()->where('kamar_id', $room->id)->pluck('id')->sort()->values()->all();
             $checkedAssetIds = collect($request->inspection->asset_checks ?? [])->pluck('aset_id')->sort()->values()->all();
             if ($expectedAssetIds !== $checkedAssetIds) {
@@ -54,19 +52,33 @@ class CompleteCheckout
                 throw ValidationException::withMessages(['checkout' => 'Seluruh tagihan pribadi harus lunas sebelum checkout.']);
             }
 
+            $hasFindings = $request->inspection->findings->isNotEmpty();
             $placement->update(['status' => 'berakhir', 'tanggal_selesai' => now()->toDateString()]);
             $request->mahasiswa()->update(['status_huni' => 'keluar']);
             $request->mahasiswa->residenceHistories()->create(['event' => ResidenceEvent::CheckedOut, 'occurred_at' => now()]);
+
+            if ($placement->registration !== null) {
+                $placement->registration->update([
+                    'keys_returned_at' => now(),
+                    'keys_returned_by' => $officerId,
+                    'return_condition' => $hasFindings ? 'damaged' : 'ready',
+                    'ended_at' => now(),
+                    'allocation_status' => 'released',
+                ]);
+            }
 
             $activeOccupants = PenempatanKamar::query()
                 ->whereBelongsTo($room, 'kamar')
                 ->where('status', 'aktif')
                 ->count();
+            $occupied = $activeOccupants + app(RoomReservations::class)->count($room);
 
-            if ($room->status !== 'maintenance') {
+            if ($hasFindings) {
+                $room->update(['status' => 'maintenance']);
+            } elseif ($room->status !== 'maintenance') {
                 $room->update(['status' => match (true) {
-                    $activeOccupants === 0 => 'kosong',
-                    $activeOccupants >= $room->kapasitas => 'penuh',
+                    $occupied === 0 => 'kosong',
+                    $occupied >= $room->kapasitas => 'penuh',
                     default => 'terisi_sebagian',
                 }]);
             }

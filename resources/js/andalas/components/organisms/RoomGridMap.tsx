@@ -42,6 +42,9 @@ export type RoomGridItem = {
     status: string;
     tipe_kamar?: string;
     okupansi?: number;
+    pending_checkout_count?: number;
+    needs_go_inspection?: boolean;
+    open_damage_count?: number;
     aset?: RoomAsset[];
     penempatan_kamar?: RoomResident[];
 };
@@ -100,6 +103,26 @@ export function RoomGridMap({ rooms, onSelect }: Props) {
                             <span className="text-muted mt-1 inline-block text-xs">
                                 {kamar.tipe_kamar}
                             </span>
+                        )}
+                        {(kamar.needs_go_inspection ||
+                            (kamar.pending_checkout_count ?? 0) > 0 ||
+                            (kamar.open_damage_count ?? 0) > 0) && (
+                            <div className="mt-2 flex flex-wrap gap-1">
+                                {kamar.needs_go_inspection ? (
+                                    <span className="badge badge-warning badge-xs font-semibold">
+                                        Cek GO
+                                    </span>
+                                ) : (kamar.pending_checkout_count ?? 0) > 0 ? (
+                                    <span className="badge badge-info badge-xs">
+                                        Checkout
+                                    </span>
+                                ) : null}
+                                {(kamar.open_damage_count ?? 0) > 0 && (
+                                    <span className="badge badge-error badge-xs font-semibold">
+                                        {kamar.open_damage_count} Rusak
+                                    </span>
+                                )}
+                            </div>
                         )}
                     </button>
                 );

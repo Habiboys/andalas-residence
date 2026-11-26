@@ -29,6 +29,10 @@
     {
       "title": "Non-mahasiswa",
       "text": "Pendaftaran mengikuti ketersediaan kamar dan ketentuan pengelola asrama."
+    },
+    {
+      "title": "ASN / Dosen (Rusun ASN)",
+      "text": "Hunian khusus aparatur sipil negara dan dosen Universitas Andalas pada Gedung Rusun ASN melalui SSO Dosen atau registrasi NIP."
     }
   ],
   "services": [
@@ -233,5 +237,6 @@
     "footer": "Andalas Residence, Universitas Andalas",
     "logo": ""
   },
-  "gallery": []
+  "gallery": [],
+  "show_auto_gallery": true
 }

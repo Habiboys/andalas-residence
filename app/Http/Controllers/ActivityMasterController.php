@@ -62,7 +62,7 @@ class ActivityMasterController extends Controller
     {
         $data = $this->assignmentData($request);
         if ($data['user_id'] !== $assignment->user_id) {
-            throw ValidationException::withMessages(['user_id' => 'Fasilitator tidak dapat diganti pada penugasan ini. Tambahkan penugasan lain.']);
+            throw ValidationException::withMessages(['user_id' => 'Petugas tidak dapat diganti pada penugasan ini. Tambahkan penugasan lain.']);
         }
 
         return $this->storeAssignment($request);
@@ -81,8 +81,8 @@ class ActivityMasterController extends Controller
     private function assignmentData(Request $request): array
     {
         $data = $request->validate(['user_id' => 'required|uuid|exists:users,id', 'gedung_id' => 'required|uuid|exists:gedung,id']);
-        if (! User::findOrFail($data['user_id'])->hasRole('fasilitator')) {
-            throw ValidationException::withMessages(['user_id' => 'Pilih akun fasilitator.']);
+        if (! User::whereKey($data['user_id'])->firstOrFail()->hasAnyRole(['fasilitator', 'go'])) {
+            throw ValidationException::withMessages(['user_id' => 'Pilih akun fasilitator atau GO.']);
         }
 
         return $data;

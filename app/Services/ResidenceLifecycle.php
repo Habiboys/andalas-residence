@@ -81,7 +81,8 @@ class ResidenceLifecycle
             ? (int) $period->angkatan_maba
             : (int) (Periode::where('status', 'aktif')->value('angkatan_maba') ?? now()->format('Y'));
 
-        return ($year - (int) $student->angkatan) >= 5;
+        // Semester 9 ke atas (tahun studi ke-5 s.d. ke-7): selisih tahun ajaran >= 4.
+        return ($year - (int) $student->angkatan) >= 4;
     }
 
     public function isKipk(MahasiswaProfil $student): bool

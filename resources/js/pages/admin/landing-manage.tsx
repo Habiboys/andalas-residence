@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { router, useForm } from '@inertiajs/react';
-import { Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Trash2, Upload } from 'lucide-react';
 import LandingEditor from './landing-editor';
 import OrganizationManager from '@/andalas/pages/admin/OrganizationManager';
 import LandingContentList, {
@@ -26,10 +26,16 @@ type ProfileRecord = {
     image?: string;
     published: boolean;
 };
+type AutoGalleryItem = {
+    title: string;
+    image: string;
+    category: string;
+};
 type Props = {
     section: string;
     record: ProfileRecord | null;
     settings: LandingSettings;
+    galleryAutoPreview?: AutoGalleryItem[];
     rows: LandingRow[];
     positions: OrganizationNode[];
 };
@@ -64,6 +70,7 @@ export default function LandingManage(props: Props) {
                 key={section}
                 settings={props.settings}
                 section={section}
+                galleryAutoPreview={props.galleryAutoPreview ?? []}
             />
         );
     return (
@@ -179,15 +186,35 @@ type DeleteItemTarget =
 function SettingsForm({
     settings,
     section,
+    galleryAutoPreview = [],
 }: {
     settings: LandingSettings;
     section: string;
+    galleryAutoPreview?: AutoGalleryItem[];
 }) {
     const form = useForm({ settings, section });
+    const uploadForm = useForm({
+        title: '',
+        category: 'Kehidupan Asrama',
+        file: null as File | null,
+    });
     const [picker, setPicker] = useState<'hero' | 'logo' | number | null>(null);
     const [deleteTarget, setDeleteTarget] = useState<DeleteItemTarget | null>(
         null,
     );
+
+    const moveGallery = (index: number, delta: number) => {
+        const list = [...(form.data.settings.gallery ?? [])];
+        const target = index + delta;
+        if (target < 0 || target >= list.length) {
+            return;
+        }
+        [list[index], list[target]] = [list[target], list[index]];
+        form.setData('settings', {
+            ...form.data.settings,
+            gallery: list,
+        });
+    };
 
     useEffect(() => {
         if (!form.isDirty) return;
@@ -265,11 +292,99 @@ function SettingsForm({
                     section === 'beranda'
                         ? 'Beranda & Hero'
                         : section === 'galeri'
-                          ? 'Galeri Landing Page'
+                          ? 'Galeri & Kehidupan di Andalas Residence'
                           : 'Kontak & Identitas Situs'
                 }
                 subtitle="Perubahan disimpan ke database dan digunakan pada halaman publik."
             />
+            {section === 'galeri' && (
+                <section className="border-primary/25 bg-base-100 space-y-4 rounded-xl border p-5 shadow-xs">
+                    <div>
+                        <h2 className="flex items-center gap-2 text-base font-semibold">
+                            <Upload className="text-primary size-4" />
+                            Unggah Foto Langsung ke &ldquo;Kehidupan di Andalas
+                            Residence&rdquo;
+                        </h2>
+                        <p className="text-muted mt-0.5 text-xs">
+                            Foto yang diunggah di sini langsung tampil di urutan
+                            pertama pada bagian Kehidupan di Andalas Residence
+                            di Beranda.
+                        </p>
+                    </div>
+                    <form
+                        className="grid gap-4 md:grid-cols-4"
+                        onSubmit={(e) => {
+                            e.preventDefault();
+                            uploadForm.post('/andalas/landing/gallery-upload', {
+                                forceFormData: true,
+                                preserveScroll: true,
+                                onSuccess: () => uploadForm.reset(),
+                            });
+                        }}
+                    >
+                        <FormField label="Judul Foto">
+                            <input
+                                required
+                                className={inputClass}
+                                placeholder="Contoh: Kegiatan Subuh Berjamaah"
+                                value={uploadForm.data.title}
+                                onChange={(e) =>
+                                    uploadForm.setData('title', e.target.value)
+                                }
+                            />
+                        </FormField>
+                        <FormField label="Kategori">
+                            <input
+                                required
+                                className={inputClass}
+                                placeholder="Contoh: Kehidupan Asrama"
+                                value={uploadForm.data.category}
+                                onChange={(e) =>
+                                    uploadForm.setData(
+                                        'category',
+                                        e.target.value,
+                                    )
+                                }
+                            />
+                        </FormField>
+                        <FormField label="Pilih File Foto (JPG/PNG/WebP)">
+                            <input
+                                type="file"
+                                required
+                                accept="image/jpeg,image/png,image/webp"
+                                className="file-input file-input-bordered w-full"
+                                onChange={(e) =>
+                                    uploadForm.setData(
+                                        'file',
+                                        e.target.files?.[0] ?? null,
+                                    )
+                                }
+                            />
+                        </FormField>
+                        <div className="flex items-end">
+                            <Button
+                                type="submit"
+                                disabled={
+                                    uploadForm.processing ||
+                                    !uploadForm.data.file
+                                }
+                            >
+                                {uploadForm.processing
+                                    ? 'Mengunggah...'
+                                    : 'Unggah Foto'}
+                            </Button>
+                        </div>
+                        {Object.values(uploadForm.errors).map((err, idx) => (
+                            <p
+                                key={idx}
+                                className="text-error text-xs md:col-span-4"
+                            >
+                                {err}
+                            </p>
+                        ))}
+                    </form>
+                </section>
+            )}
             <form
                 className="space-y-6"
                 onSubmit={(event) => {
@@ -278,30 +393,75 @@ function SettingsForm({
                 }}
             >
                 {section === 'galeri' ? (
-                    <section className="space-y-4">
-                        <p className="text-muted text-sm">
-                            Foto tambahan di beranda. Foto gedung dan program
-                            juga ditampilkan otomatis dari data masing-masing.
-                        </p>
-                        <Button
-                            type="button"
-                            variant="secondary"
-                            onClick={() =>
-                                form.setData('settings', {
-                                    ...form.data.settings,
-                                    gallery: [
-                                        ...(form.data.settings.gallery ?? []),
-                                        {
-                                            title: '',
-                                            image: '',
-                                            category: 'Kegiatan',
-                                        },
-                                    ],
-                                })
-                            }
-                        >
-                            Tambah foto
-                        </Button>
+                    <section className="space-y-5">
+                        <div className="border-base-300 bg-base-100 grid gap-4 rounded-xl border p-4 md:grid-cols-2">
+                            {text(
+                                'headings',
+                                'gallery',
+                                form.data.settings.headings?.gallery ??
+                                    'Kehidupan di Andalas Residence',
+                            )}
+                            {text(
+                                'headings',
+                                'gallery_intro',
+                                form.data.settings.headings?.gallery_intro ??
+                                    '',
+                            )}
+                            <label className="inline-flex cursor-pointer items-center gap-2 text-sm md:col-span-2">
+                                <input
+                                    type="checkbox"
+                                    className="checkbox checkbox-sm checkbox-primary"
+                                    checked={
+                                        form.data.settings.show_auto_gallery ??
+                                        true
+                                    }
+                                    onChange={(e) =>
+                                        form.setData('settings', {
+                                            ...form.data.settings,
+                                            show_auto_gallery: e.target.checked,
+                                        })
+                                    }
+                                />
+                                <span>
+                                    Tampilkan juga foto otomatis dari data
+                                    Gedung &amp; Program di bawah foto galeri
+                                    kelolaan
+                                </span>
+                            </label>
+                        </div>
+
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div>
+                                <h3 className="text-base font-semibold">
+                                    Daftar Foto Galeri (
+                                    {(form.data.settings.gallery ?? []).length})
+                                </h3>
+                                <p className="text-muted text-xs">
+                                    Anda juga dapat menambah foto dari Pustaka
+                                    Media, mengatur urutan, atau menghapus foto.
+                                </p>
+                            </div>
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                onClick={() =>
+                                    form.setData('settings', {
+                                        ...form.data.settings,
+                                        gallery: [
+                                            ...(form.data.settings.gallery ??
+                                                []),
+                                            {
+                                                title: '',
+                                                image: '',
+                                                category: 'Kehidupan Asrama',
+                                            },
+                                        ],
+                                    })
+                                }
+                            >
+                                Tambah dari Pustaka Media
+                            </Button>
+                        </div>
                         {(form.data.settings.gallery ?? []).map(
                             (photo, index) => (
                                 <div
@@ -348,7 +508,7 @@ function SettingsForm({
                                             }
                                         />
                                     </FormField>
-                                    <div>
+                                    <div className="space-y-3">
                                         <FormField label="Kategori">
                                             <input
                                                 className={inputClass}
@@ -374,22 +534,77 @@ function SettingsForm({
                                                 }
                                             />
                                         </FormField>
-                                        <IconButton
-                                            label="Hapus foto galeri"
-                                            icon={Trash2}
-                                            onClick={() =>
-                                                setDeleteTarget({
-                                                    kind: 'gallery',
-                                                    index,
-                                                    label:
-                                                        photo.title ||
-                                                        `Foto galeri #${index + 1}`,
-                                                })
-                                            }
-                                        />
+                                        <div className="flex items-center gap-1">
+                                            <IconButton
+                                                label="Geser ke atas"
+                                                icon={ArrowUp}
+                                                disabled={index === 0}
+                                                onClick={() =>
+                                                    moveGallery(index, -1)
+                                                }
+                                            />
+                                            <IconButton
+                                                label="Geser ke bawah"
+                                                icon={ArrowDown}
+                                                disabled={
+                                                    index ===
+                                                    (
+                                                        form.data.settings
+                                                            .gallery ?? []
+                                                    ).length -
+                                                        1
+                                                }
+                                                onClick={() =>
+                                                    moveGallery(index, 1)
+                                                }
+                                            />
+                                            <IconButton
+                                                label="Hapus foto galeri"
+                                                icon={Trash2}
+                                                onClick={() =>
+                                                    setDeleteTarget({
+                                                        kind: 'gallery',
+                                                        index,
+                                                        label:
+                                                            photo.title ||
+                                                            `Foto galeri #${index + 1}`,
+                                                    })
+                                                }
+                                            />
+                                        </div>
                                     </div>
                                 </div>
                             ),
+                        )}
+                        {galleryAutoPreview.length > 0 && (
+                            <div className="border-base-300 bg-base-200/40 space-y-3 rounded-xl border p-4">
+                                <p className="text-sm font-semibold">
+                                    Pratinjau Foto Otomatis dari Gedung &amp;
+                                    Program ({galleryAutoPreview.length})
+                                </p>
+                                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                                    {galleryAutoPreview.map((item, idx) => (
+                                        <div
+                                            key={idx}
+                                            className="border-base-300 bg-base-100 overflow-hidden rounded-lg border"
+                                        >
+                                            <img
+                                                src={mediaUrl(item.image)}
+                                                alt={item.title}
+                                                className="aspect-video w-full object-cover"
+                                            />
+                                            <div className="p-2 text-xs">
+                                                <p className="truncate font-medium">
+                                                    {item.title}
+                                                </p>
+                                                <p className="text-muted">
+                                                    {item.category}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
                         )}
                     </section>
                 ) : section === 'beranda' ? (

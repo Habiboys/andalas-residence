@@ -17,7 +17,7 @@ const ADMIN_PAGES: Record<string, string> = {
     'landing-page/struktur-organisasi': 'Struktur Organisasi',
     'landing-page/kontak': 'Kontak & Identitas Situs',
     'landing-page/media': 'Pustaka Media',
-    'landing-page/galeri': 'Galeri',
+    'landing-page/galeri': 'Galeri & Kehidupan Asrama',
     'landing-page/berita': 'Berita',
     'landing-page/pengumuman': 'Pengumuman',
     'landing-page/regulasi': 'Regulasi',
@@ -79,6 +79,7 @@ const FASILITATOR_PAGES: Record<string, string> = {
     'kelola-aset': 'Aset per Kamar',
     'jadwal-kegiatan': 'Kegiatan & Absensi',
     dashboard: 'Dashboard',
+    'pemetaan-kamar': 'Pemetaan Kamar',
     'monitoring-kamar': 'Monitoring Kamar',
     'checkout-approval': 'Finalisasi Check-out',
 };
@@ -127,6 +128,7 @@ const ORANG_TUA_PAGES: Record<string, string> = {
 
 const GO_PAGES: Record<string, string> = {
     dashboard: 'Dashboard GO',
+    'pemetaan-kamar': 'Pemetaan Kamar',
     'monitoring-kamar': 'Inspeksi Kamar',
     'checkout-inspection': 'Inspeksi Check-out',
 };

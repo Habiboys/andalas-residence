@@ -184,9 +184,12 @@ class SsoAuthController extends Controller
         Auth::guard('web')->logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
+        Inertia::clearHistory();
 
         if (! $sso->isConfigured()) {
-            return redirect()->route('landing');
+            $landing = route('landing');
+
+            return $request->header('X-Inertia') ? Inertia::location($landing) : redirect()->away($landing);
         }
 
         $url = $sso->endpoint('logout').'?'.http_build_query([

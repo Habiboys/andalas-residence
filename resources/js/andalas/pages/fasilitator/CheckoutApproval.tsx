@@ -1,8 +1,11 @@
 import { useState } from 'react';
-import { useForm } from '@inertiajs/react';
-import { CheckCircle2 } from 'lucide-react';
+import { router, useForm } from '@inertiajs/react';
+import { CheckCircle2, ClipboardList, LogOut } from 'lucide-react';
 import { complete } from '@/routes/andalas/checkout';
 import {
+    Badge,
+    Button,
+    Card,
     ConfirmDialog,
     DataTable,
     IconButton,
@@ -14,6 +17,9 @@ import {
 type Row = {
     id: string;
     status: string;
+    room_active_occupants?: number;
+    room_pending_checkouts?: number;
+    all_room_occupants_checked_out?: boolean;
     mahasiswa?: { user?: { nama: string } };
     placement?: {
         kamar?: {
@@ -24,8 +30,20 @@ type Row = {
     inspection?: {
         status: string;
         catatan?: string;
-        findings?: Array<{ id: string; description?: string; severity?: string }>;
+        findings?: Array<{
+            id: string;
+            description?: string;
+            severity?: string;
+        }>;
     };
+};
+
+type ActivePlacementRow = {
+    id: string;
+    mahasiswa_nama: string;
+    nim_nip: string;
+    lokasi: string;
+    tanggal_mulai: string;
 };
 
 type TableRow = Row & {
@@ -36,10 +54,15 @@ type TableRow = Row & {
 
 export default function CheckoutApproval({
     checkout = [],
+    active_placements = [],
 }: {
     checkout?: Row[];
+    active_placements?: ActivePlacementRow[];
 }) {
     const [selected, setSelected] = useState<TableRow | null>(null);
+    const [initiateTarget, setInitiateTarget] =
+        useState<ActivePlacementRow | null>(null);
+    const [initiating, setInitiating] = useState(false);
     const form = useForm({});
     const approveDisabledReason = (row: TableRow) =>
         row.status !== 'selesai' && row.status_inspeksi !== 'selesai'
@@ -59,12 +82,31 @@ export default function CheckoutApproval({
         status_inspeksi: row.inspection?.status ?? 'menunggu',
     }));
 
+    const waitingGoCount = rows.filter(
+        (r) => r.status !== 'selesai' && r.status_inspeksi !== 'selesai',
+    ).length;
+
     const columns: DataColumn<TableRow>[] = [
         { key: 'mahasiswa_nama', label: 'Mahasiswa' },
         { key: 'lokasi', label: 'Gedung / Kamar' },
         {
+            key: 'status_kamar',
+            label: 'Kondisi Penghuni Kamar',
+            render: (row) =>
+                row.all_room_occupants_checked_out ? (
+                    <Badge color="green">
+                        Seluruh penghuni checkout · Dicek GO
+                    </Badge>
+                ) : (
+                    <Badge color="yellow">
+                        {row.room_pending_checkouts ?? 1}/
+                        {row.room_active_occupants ?? 1} penghuni checkout
+                    </Badge>
+                ),
+        },
+        {
             key: 'status_inspeksi',
-            label: 'Status inspeksi',
+            label: 'Inspeksi GO',
             render: (row) => <StatusBadge status={row.status_inspeksi} />,
             filter: {
                 type: 'select',
@@ -78,10 +120,14 @@ export default function CheckoutApproval({
         },
         {
             key: 'temuan',
-            label: 'Temuan aset',
+            label: 'Temuan kerusakan',
             render: (row) => {
                 const count = row.inspection?.findings?.length ?? 0;
-                return count > 0 ? `${count} temuan` : 'Tidak ada';
+                return count > 0 ? (
+                    <Badge color="red">{count} temuan</Badge>
+                ) : (
+                    'Tidak ada'
+                );
             },
         },
         {
@@ -96,10 +142,7 @@ export default function CheckoutApproval({
             render: (row) => {
                 const reason = approveDisabledReason(row);
                 return (
-                    <div
-                        className="flex items-center gap-2"
-                        title={reason}
-                    >
+                    <div className="flex items-center gap-2" title={reason}>
                         <IconButton
                             label="Finalisasi checkout"
                             icon={CheckCircle2}
@@ -124,6 +167,29 @@ export default function CheckoutApproval({
         },
     ];
 
+    const placementColumns: DataColumn<ActivePlacementRow>[] = [
+        { key: 'mahasiswa_nama', label: 'Penghuni' },
+        { key: 'nim_nip', label: 'NIM / NIP' },
+        { key: 'lokasi', label: 'Gedung / Kamar' },
+        { key: 'tanggal_mulai', label: 'Mulai Huni' },
+        {
+            key: 'aksi',
+            label: 'Aksi',
+            action: true,
+            render: (row) => (
+                <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => setInitiateTarget(row)}
+                >
+                    <LogOut className="mr-1.5 size-3.5" />
+                    Proses Checkout
+                </Button>
+            ),
+        },
+    ];
+
     function finalizeCheckout() {
         if (!selected) {
             return;
@@ -134,20 +200,81 @@ export default function CheckoutApproval({
         });
     }
 
+    function initiateCheckout() {
+        if (!initiateTarget) {
+            return;
+        }
+        setInitiating(true);
+        router.post(
+            `/andalas/checkout/initiate/${initiateTarget.id}`,
+            { alasan: 'Checkout diproses oleh fasilitator gedung.' },
+            {
+                preserveScroll: true,
+                onFinish: () => {
+                    setInitiating(false);
+                    setInitiateTarget(null);
+                },
+            },
+        );
+    }
+
     return (
-        <div className="space-y-4">
+        <div className="space-y-5">
             <PageHeader
-                title="Finalisasi Check-out"
-                subtitle="Selesaikan checkout setelah GO memeriksa kamar. Kapasitas kamar diperbarui otomatis."
+                title="Finalisasi & Monitor Check-out"
+                subtitle="Pantau kamar yang menunggu pengecekan GO, proses checkout penghuni secara langsung, dan perbarui kapasitas kamar otomatis."
             />
+
+            {waitingGoCount > 0 && (
+                <Card className="border-warning/40 bg-warning/10 flex items-center gap-3 p-4 text-sm">
+                    <ClipboardList className="text-warning size-5 shrink-0" />
+                    <div>
+                        <strong>
+                            {waitingGoCount} pengajuan checkout menunggu
+                            pengecekan GO.
+                        </strong>{' '}
+                        Bila dalam 14 hari belum diperiksa GO, sistem akan
+                        otomatis menyetujui checkout dan memperbarui kapasitas
+                        kamar.
+                    </div>
+                </Card>
+            )}
 
             <DataTable
                 columns={columns}
                 data={rows}
-                searchKeys={['mahasiswa_nama', 'lokasi', 'status_inspeksi', 'status']}
+                searchKeys={[
+                    'mahasiswa_nama',
+                    'lokasi',
+                    'status_inspeksi',
+                    'status',
+                ]}
                 searchPlaceholder="Cari mahasiswa, kamar, atau status..."
                 emptyMessage="Belum ada pengajuan checkout."
             />
+
+            {active_placements.length > 0 && (
+                <section className="space-y-3 pt-2">
+                    <div>
+                        <h2 className="text-base font-semibold">
+                            Checkout Langsung Penghuni Aktif (
+                            {active_placements.length})
+                        </h2>
+                        <p className="text-muted text-xs">
+                            Fasilitator dapat langsung menginisiasi checkout
+                            penghuni gedung tanpa menunggu penghuni mengajukan
+                            mandiri.
+                        </p>
+                    </div>
+                    <DataTable
+                        columns={placementColumns}
+                        data={active_placements}
+                        searchKeys={['mahasiswa_nama', 'nim_nip', 'lokasi']}
+                        searchPlaceholder="Cari penghuni aktif atau nomor kamar..."
+                        emptyMessage="Semua penghuni aktif sudah memiliki pengajuan checkout."
+                    />
+                </section>
+            )}
 
             {selected !== null && (
                 <ConfirmDialog
@@ -161,15 +288,17 @@ export default function CheckoutApproval({
                         <div className="space-y-3">
                             <p>
                                 Finalisasi checkout untuk{' '}
-                                <strong>{selected.mahasiswa_nama}</strong> ({selected.lokasi})?
+                                <strong>{selected.mahasiswa_nama}</strong> (
+                                {selected.lokasi})?
                             </p>
                             <p>
                                 Catatan inspeksi:{' '}
                                 {selected.inspection?.catatan ?? '-'}
                             </p>
                             <p>
-                                Temuan aset:{' '}
-                                {(selected.inspection?.findings?.length ?? 0) > 0
+                                Temuan kerusakan:{' '}
+                                {(selected.inspection?.findings?.length ?? 0) >
+                                0
                                     ? `${selected.inspection?.findings?.length} temuan dicatat GO`
                                     : 'Tidak ada temuan'}
                             </p>
@@ -180,6 +309,18 @@ export default function CheckoutApproval({
                             ))}
                         </div>
                     }
+                />
+            )}
+
+            {initiateTarget !== null && (
+                <ConfirmDialog
+                    open={initiateTarget !== null}
+                    onClose={() => !initiating && setInitiateTarget(null)}
+                    title="Proses Checkout Penghuni"
+                    confirmLabel="Ya, Ajukan Checkout"
+                    loading={initiating}
+                    onConfirm={initiateCheckout}
+                    message={`Ajukan checkout untuk ${initiateTarget.mahasiswa_nama} (${initiateTarget.lokasi})? GO gedung akan langsung mendapat notifikasi untuk memeriksa kondisi kamar.`}
                 />
             )}
         </div>

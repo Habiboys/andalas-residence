@@ -42,7 +42,7 @@ class AdminUserController extends Controller
             ]);
             $user->syncRoles([$validated['role']]);
 
-            if ($validated['role'] === 'fasilitator' && ! empty($validated['gedung_id'])) {
+            if (in_array($validated['role'], ['fasilitator', 'go'], true) && ! empty($validated['gedung_id'])) {
                 FasilitatorWilayah::updateOrCreate(
                     ['user_id' => $user->id],
                     ['gedung_id' => $validated['gedung_id']]
@@ -94,7 +94,7 @@ class AdminUserController extends Controller
                 $user->syncRoles([$validated['role']]);
             }
 
-            if ($effectiveRole === 'fasilitator') {
+            if (in_array($effectiveRole, ['fasilitator', 'go'], true)) {
                 if (array_key_exists('gedung_id', $validated)) {
                     $existing = FasilitatorWilayah::where('user_id', $user->id)->first();
                     if (! empty($validated['gedung_id'])) {

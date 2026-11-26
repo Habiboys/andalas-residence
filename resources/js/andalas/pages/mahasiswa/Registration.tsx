@@ -163,7 +163,9 @@ export default function Registration({
     registration = [],
     room_invitations = [],
 }: Props) {
-    const [step, setStep] = useState(0);
+    const periods = periode.filter((p) => p.status === 'aktif');
+    const kipk = initialUser?.is_kipk === true;
+    const [step, setStep] = useState(kipk ? 2 : 0);
     const [stepPreview, setStepPreview] = useState<number | null>(null);
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [friendNim, setFriendNim] = useState('');
@@ -174,8 +176,6 @@ export default function Registration({
     const [docFileErrors, setDocFileErrors] = useState<Record<string, string>>(
         {},
     );
-    const periods = periode.filter((p) => p.status === 'aktif');
-    const kipk = initialUser?.is_kipk === true;
     const pending = registration.some(
         (r) =>
             !r.completed_at &&
@@ -209,15 +209,21 @@ export default function Registration({
         initialUser?.angkatan != null &&
         selectedPeriod?.angkatan_maba != null &&
         Number(initialUser.angkatan) === Number(selectedPeriod.angkatan_maba);
-    const isSeniorOverFiveYears =
+    const isSeniorMonthlyEligible =
         !isAsn &&
         initialUser?.angkatan != null &&
         selectedPeriod?.angkatan_maba != null &&
         Number(selectedPeriod.angkatan_maba) - Number(initialUser.angkatan) >=
-            5;
+            4;
     const canSelectSemester = isAsn || !isMaba;
     const canSelectMonthly =
-        isAsn || isSeniorOverFiveYears || (policy_monthly_allowed && !isMaba);
+        isAsn || isSeniorMonthlyEligible || (policy_monthly_allowed && !isMaba);
+    const allowedUnits = [
+        'year',
+        ...(canSelectSemester ? ['semester'] : []),
+        ...(canSelectMonthly ? ['month'] : []),
+        'day',
+    ];
     const room = rooms.find((r) => r.id === form.data.preferences[0].kamar_id);
     const rateUnit =
         form.data.rate_unit === 'period' ? 'year' : form.data.rate_unit;
@@ -448,6 +454,12 @@ export default function Registration({
                                   ? 4
                                   : 3;
 
+                        const showTopPendingSummary =
+                            !activeDisplayReg.completed_at &&
+                            !paymentSubmittedOrSettled &&
+                            !activeDisplayReg.ready_at &&
+                            !(activeDisplayReg.is_kipk && allDocsUploaded);
+
                         return (
                             <div className="space-y-5">
                                 <LinearStepper
@@ -456,41 +468,30 @@ export default function Registration({
                                     }
                                     kipk={kipk}
                                 />
-                                <div className="border-base-300 bg-base-200/40 rounded-xl border p-4 text-sm">
-                                    <p className="font-semibold">
-                                        {activeDisplayReg.completed_at
-                                            ? 'Sudah Check-in · Penghuni Aktif'
-                                            : 'Pendaftaran sedang diproses'}
-                                    </p>
-                                    <p className="text-base-content/75 mt-1">
-                                        {waitingKipkAllocation
-                                            ? 'Menunggu alokasi kamar sesuai prioritas dan kapasitas. Tagihan diterbitkan setelah kamar dialokasikan.'
-                                            : hasRevisionDoc
-                                              ? 'Petugas meminta revisi berkas. Unggah ulang dokumen yang diminta pada panel di bawah.'
-                                              : hasPendingGroupInvites
-                                                ? 'Tahap 3 (Per Grup): Menunggu seluruh teman kamar yang diundang menerima undangan sebelum tahap pembayaran dibuka.'
-                                                : stepPreview === 2 ||
-                                                    !allDocsUploaded
-                                                  ? 'Tahap 3: Periksa atau unggah seluruh berkas wajib pada panel di bawah sebelum melanjutkan ke pembayaran.'
-                                                  : activeDisplayReg.completed_at
-                                                    ? 'Tahap 5: Verifikasi dan check-in telah dinyatakan selesai oleh petugas. Untuk mengakhiri masa huni, ajukan Check-out pada menu Check-out.'
-                                                    : paymentSubmittedOrSettled ||
-                                                        activeDisplayReg.ready_at ||
-                                                        activeDisplayReg.is_kipk
-                                                      ? activeDisplayReg.is_kipk
-                                                          ? 'Tahap 5 (Belum Check-in): Berkas pendaftaran Anda sudah tercatat. Silakan datang ke asrama untuk melakukan check-in pada jadwal yang ditentukan fasilitator asrama.'
-                                                          : activeDisplayReg.rate_unit ===
-                                                              'day'
-                                                            ? 'Tahap 5 (Belum Check-in): Pembayaran sewa harian sudah tercatat. Silakan datang ke asrama untuk melakukan check-in pada jadwal yang ditentukan fasilitator asrama.'
-                                                            : 'Tahap 5 (Belum Check-in): Pembayaran sudah tercatat. Silakan datang ke asrama untuk melakukan check-in pada jadwal yang ditentukan fasilitator asrama.'
+                                {showTopPendingSummary && (
+                                    <div className="border-base-300 bg-base-200/40 rounded-xl border p-4 text-sm">
+                                        <p className="font-semibold">
+                                            Pendaftaran sedang diproses
+                                        </p>
+                                        <p className="text-base-content/75 mt-1">
+                                            {waitingKipkAllocation
+                                                ? 'Menunggu alokasi kamar sesuai prioritas dan kapasitas.'
+                                                : hasRevisionDoc
+                                                  ? 'Petugas meminta revisi berkas. Unggah ulang dokumen yang diminta pada panel di bawah.'
+                                                  : hasPendingGroupInvites
+                                                    ? 'Tahap 3 (Per Grup): Menunggu seluruh teman kamar yang diundang menerima undangan sebelum tahap pembayaran dibuka.'
+                                                    : stepPreview === 2 ||
+                                                        !allDocsUploaded
+                                                      ? 'Tahap 3: Unggah seluruh berkas wajib pada panel di bawah (otomatis disetujui setelah diunggah).'
                                                       : activeDisplayReg.payment_unlocked
                                                         ? activeDisplayReg.rate_unit ===
                                                           'day'
-                                                            ? 'Tahap 4 (Sewa Harian): Kamar berhasil dipesan. Silakan langsung selesaikan pembayaran dan unggah bukti transfer sebelum batas waktu pembayaran (H-1 masa sewa).'
-                                                            : 'Tahap 4: Berkas sudah terunggah. Silakan langsung selesaikan pembayaran dan unggah bukti transfer tanpa menunggu verifikasi berkas.'
+                                                            ? 'Tahap 4 (Sewa Harian): Kamar berhasil dipesan. Selesaikan pembayaran dan unggah bukti transfer sebelum H-1 masa sewa.'
+                                                            : 'Tahap 4: Berkas otomatis disetujui. Silakan selesaikan pembayaran dan unggah bukti transfer.'
                                                         : 'Tahap pembiayaan sedang diproses sesuai ketentuan kategori Anda.'}
-                                    </p>
-                                </div>
+                                        </p>
+                                    </div>
+                                )}
                                 <StudentRegistrationCard
                                     registration={
                                         activeDisplayReg as WorkflowRegistration
@@ -684,15 +685,15 @@ export default function Registration({
                                                     </option>
                                                     {canSelectSemester && (
                                                         <option value="semester">
-                                                            Per 6 bulan
-                                                            (Non-Maba)
+                                                            Per 6 bulan (Tarif
+                                                            tahunan ÷ 2)
                                                         </option>
                                                     )}
                                                     {canSelectMonthly && (
                                                         <option value="month">
                                                             Per bulan
-                                                            {isSeniorOverFiveYears
-                                                                ? ' (Tahun studi > 5)'
+                                                            {isSeniorMonthlyEligible
+                                                                ? ' (Semester 9+)'
                                                                 : ''}
                                                         </option>
                                                     )}
@@ -843,6 +844,7 @@ export default function Registration({
                                             onReview={() => setStep(2)}
                                             unit={rateUnit}
                                             basis={form.data.billing_basis}
+                                            allowedUnits={allowedUnits}
                                             isStudent={
                                                 initialUser?.client_profile_category !==
                                                 'non_student'
@@ -1270,12 +1272,19 @@ export default function Registration({
                                 </>
                             )}
                             {kipk && (
-                                <div className="border-base-300 bg-base-100 rounded-xl border p-4">
-                                    {step === 0
-                                        ? 'Pendaftaran KIP-K menggunakan skema tahunan.'
-                                        : step === 1
-                                          ? 'Kamar dialokasikan otomatis sesuai prioritas gedung.'
-                                          : 'Periksa kategori KIP-K dan unggah berkas wajib di bawah sebelum mengajukan pendaftaran.'}
+                                <div className="border-primary/25 bg-primary/5 space-y-1.5 rounded-xl border p-4 text-sm">
+                                    <p className="font-semibold">
+                                        Penempatan &amp; Masa Hunian KIP-K
+                                        Diatur Otomatis
+                                    </p>
+                                    <p className="text-base-content/75">
+                                        Mahasiswa penerima KIP-K tidak perlu
+                                        memilih tarif, masa hunian, maupun kamar
+                                        karena gedung asrama dan masa hunian
+                                        tahunan telah ditetapkan oleh pengelola.
+                                        Silakan langsung unggah berkas wajib di
+                                        bawah lalu ajukan pendaftaran.
+                                    </p>
                                 </div>
                             )}
                             {step === 2 && (
@@ -1563,7 +1572,7 @@ export default function Registration({
                                 </p>
                             ))}
                             <div className="border-base-300 flex flex-wrap justify-between gap-3 border-t pt-4">
-                                {step > 0 && (
+                                {!kipk && step > 0 && (
                                     <button
                                         type="button"
                                         className="btn btn-outline"

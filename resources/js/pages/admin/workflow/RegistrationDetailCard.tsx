@@ -595,7 +595,7 @@ function AmendmentsSection({
                             size="sm"
                             onClick={() => setMoveOpen(true)}
                         >
-                            Pindah kamar
+                            Pindah kamar / gedung
                         </Button>
                     )}
                     {canReviseContract && (

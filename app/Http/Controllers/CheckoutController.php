@@ -9,6 +9,7 @@ use App\Enums\CheckoutRequestStatus;
 use App\Enums\RoomInspectionStatus;
 use App\Models\Aset;
 use App\Models\CheckoutRequest;
+use App\Models\PenempatanKamar;
 use App\Models\RoomInspectionFinding;
 use App\Services\ResidenceBuildingAccess;
 use Illuminate\Http\RedirectResponse;
@@ -32,9 +33,26 @@ class CheckoutController extends Controller
         return back()->with('toast', ['type' => 'success', 'message' => 'Pengajuan checkout berhasil dikirim.']);
     }
 
+    public function initiateByOfficer(Request $request, PenempatanKamar $placement, CreateCheckoutRequest $createCheckoutRequest): RedirectResponse
+    {
+        $this->authorizePermission($request, 'checkout.manage');
+        $placement->loadMissing(['kamar.lantai', 'mahasiswa']);
+        $buildingId = $placement->kamar->lantai->gedung_id;
+        abort_unless($request->user()->hasAnyRole(['superadmin', 'staff_admin', 'admin_layanan']) || ResidenceBuildingAccess::allows($request->user(), $buildingId), 403);
+
+        $validated = $request->validate(['alasan' => 'nullable|string|max:1000']);
+        $createCheckoutRequest->handle($placement->mahasiswa, $validated['alasan'] ?? 'Checkout diproses oleh fasilitator gedung.');
+
+        return back()->with('toast', ['type' => 'success', 'message' => 'Pengajuan checkout penghuni berhasil dibuat dan diteruskan ke GO untuk pengecekan kamar.']);
+    }
+
     public function inspect(Request $request, CheckoutRequest $checkoutRequest, CreateDamageReportFromFinding $create): RedirectResponse
     {
         $this->authorizePermission($request, 'inspection.manage');
+        $buildingId = $checkoutRequest->placement->kamar->lantai->gedung_id;
+        if ($request->user()->hasRole('go') && ! $request->user()->hasRole('superadmin') && ResidenceBuildingAccess::ids($request->user()) !== []) {
+            abort_unless(ResidenceBuildingAccess::allows($request->user(), $buildingId), 403);
+        }
 
         $validated = $request->validate([
             'status' => 'required|in:menunggu,berlangsung,selesai',
@@ -71,7 +89,7 @@ class CheckoutController extends Controller
 
         $findings = $request->validate([
             'findings' => ['nullable', 'array'],
-            'findings.*.aset_id' => ['required', 'uuid', 'distinct', Rule::exists('aset', 'id')->where('kamar_id', $checkoutRequest->placement->kamar_id)],
+            'findings.*.aset_id' => ['nullable', 'uuid', Rule::exists('aset', 'id')->where('kamar_id', $checkoutRequest->placement->kamar_id)],
             'findings.*.description' => ['required', 'string', 'max:2000'],
             'findings.*.severity' => ['required', 'in:rusak_ringan,rusak_berat,hilang'],
         ])['findings'] ?? [];
@@ -105,8 +123,16 @@ class CheckoutController extends Controller
                 }
             }
             foreach ($findings as $data) {
-                $finding = $inspection->findings()->updateOrCreate(['aset_id' => $data['aset_id']], $data);
-                Aset::whereKey($data['aset_id'])->update(['kondisi' => $data['severity']]);
+                if (! empty($data['aset_id'])) {
+                    $finding = $inspection->findings()->updateOrCreate(['aset_id' => $data['aset_id']], $data);
+                    Aset::whereKey($data['aset_id'])->update(['kondisi' => $data['severity']]);
+                } else {
+                    $finding = $inspection->findings()->create([
+                        'aset_id' => null,
+                        'description' => $data['description'],
+                        'severity' => $data['severity'],
+                    ]);
+                }
                 $create->handle($finding, $request->user()->id);
             }
         });

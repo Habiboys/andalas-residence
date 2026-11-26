@@ -27,7 +27,13 @@ export default function Checkout({ checkout = [] }: Props) {
 
     const [confirmOpen, setConfirmOpen] = useState(false);
     const hasActiveCheckout = checkout.some((item) =>
-        ['menunggu', 'disetujui'].includes(item.status),
+        [
+            'diajukan',
+            'diproses',
+            'siap_checkout',
+            'menunggu',
+            'disetujui',
+        ].includes(item.status),
     );
 
     function submit(event: React.FormEvent) {
@@ -59,8 +65,9 @@ export default function Checkout({ checkout = [] }: Props) {
                         diselesaikan.
                     </li>
                     <li>
-                        Fasilitator menyelesaikan checkout; kapasitas kamar
-                        diperbarui otomatis.
+                        Fasilitator menyelesaikan checkout dan kapasitas kamar
+                        otomatis diperbarui (bila dalam 14 hari belum dicek GO,
+                        checkout otomatis disetujui sistem).
                     </li>
                     <li>
                         Tagihan tetap menjadi kewajiban dan harus lunas untuk

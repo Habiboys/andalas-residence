@@ -45,6 +45,7 @@ use App\Services\RoomReservations;
 use App\Services\StudentCohort;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -144,8 +145,10 @@ class ResidenceWorkflowController extends Controller
                         ? route('andalas.gedung.show', $building)
                         : null,
                 ]) : [],
-            'policyCatalog' => $manager ? collect(ResidencePolicyService::CATEGORIES)
-                ->mapWithKeys(fn (string $category): array => [$category => app(ResidencePolicyService::class)->masterCatalog($category)]) : [],
+            'policyCatalog' => $manager ? array_combine(
+                ResidencePolicyService::CATEGORIES,
+                array_map(fn (string $category): array => app(ResidencePolicyService::class)->masterCatalog($category)->all(), ResidencePolicyService::CATEGORIES)
+            ) : [],
             'masterHousingUrl' => $user->hasAnyRole(['staff_admin', 'superadmin']) ? route('admin.kelola-bangunan') : null,
             'rooms' => ($manager || $user->hasRole('fasilitator')) ? $this->availableRoomsForOfficer($user, $manager) : [],
             'applications' => ($manager || $finance) ? ResidenceApplication::with('registrations.tagihan')->latest()->limit(100)->get() : [],
@@ -233,13 +236,15 @@ class ResidenceWorkflowController extends Controller
     {
         $policyService = app(ResidencePolicyService::class);
         $reservations = app(RoomReservations::class);
-        $currentRoomId = $registration?->placement?->kamar_id ?? $registration?->reserved_room_id;
+        $currentRoomId = $registration?->placement !== null
+            ? $registration->placement->kamar_id
+            : $registration?->reserved_room_id;
 
         return Kamar::with('lantai.gedung')
             ->where('status', '!=', 'maintenance')
-            ->whereHas('lantai', function ($q) use ($user, $manager): void {
+            ->whereHas('lantai', function ($q) use ($user, $manager, $registration): void {
                 $q->where('booking_open', true)
-                    ->when(! $manager, fn ($floors) => $floors->whereIn('gedung_id', ResidenceBuildingAccess::ids($user)));
+                    ->when(! $manager && $registration === null, fn ($floors) => $floors->whereIn('gedung_id', ResidenceBuildingAccess::ids($user)));
             })
             ->orderBy('nomor_kamar')
             ->get()
@@ -474,8 +479,16 @@ class ResidenceWorkflowController extends Controller
             if (($r->completed_at && ! $r->decisions()->where('status', 'approved')->get()->contains(fn ($d) => ! empty($d->terms['amendment_id']) && ($d->terms['agreement_kind'] ?? null) === $data['kind'])) || $r->keys_returned_at || $r->isClosed() || ! in_array($data['kind'], array_unique([...($r->policy?->settings['documents'] ?? []), ...$r->decisions()->where('status', 'approved')->get()->filter(fn ($decision) => ! ($decision->terms['requires_configuration'] ?? false))->pluck('terms.agreement_kind')->filter()->all(), 'perjanjian']), true)) {
                 throw ValidationException::withMessages(['kind' => 'Jenis dokumen tidak berlaku atau pendaftaran sudah selesai.']);
             }
-            $document = $r->documents()->create(['kind' => $data['kind'], 'version' => 1 + (int) $r->documents()->where('kind', $data['kind'])->max('version'),
-                'path' => $request->file('file')->store('documents/registration', 'local'), 'checksum' => hash_file('sha256', $request->file('file')->getRealPath()), 'uploaded_by' => $request->user()->id, 'status' => 'uploaded']);
+            $autoApprove = ! in_array($r->stay_kind, ['summer_course', 'non_student'], true);
+            $document = $r->documents()->create([
+                'kind' => $data['kind'],
+                'version' => 1 + (int) $r->documents()->where('kind', $data['kind'])->max('version'),
+                'path' => $request->file('file')->store('documents/registration', 'local'),
+                'checksum' => hash_file('sha256', $request->file('file')->getRealPath()),
+                'uploaded_by' => $request->user()->id,
+                'status' => $autoApprove ? 'valid' : 'uploaded',
+                'reviewed_at' => $autoApprove ? now() : null,
+            ]);
             app(ResidenceWorkflow::class)->evaluate($r->fresh());
             AuditLogService::log($request->user(), 'registration_document_uploaded', $document, null, ['kind' => $document->kind, 'version' => $document->version]);
         });
@@ -494,7 +507,12 @@ class ResidenceWorkflowController extends Controller
             'decision_reason' => ['nullable', 'string', 'max:2000'],
         ]);
 
-        $uploadedFiles = $request->file('files', []);
+        $uploadedFiles = [];
+        foreach (is_array($data['files'] ?? null) ? $data['files'] : [] as $kind => $file) {
+            if (is_string($kind) && $file instanceof UploadedFile) {
+                $uploadedFiles[$kind] = $file;
+            }
+        }
         if ($uploadedFiles === [] && empty($data['decision_kind'])) {
             throw ValidationException::withMessages([
                 'package' => 'Pilih minimal satu dokumen atau pilihan pembiayaan untuk disimpan.',
@@ -893,7 +911,7 @@ class ResidenceWorkflowController extends Controller
                         }
                     }
                     $data['initial_amount'] = $monthlyAmount;
-                } elseif ($decision->kind === 'monthly' && ! $offlineApproval && ($r->rate_unit !== 'month' || (int) $r->studentProfile->angkatan === (int) $r->periode->angkatan_maba || ! ($r->policy->settings['monthly_allowed'] ?? false))) {
+                } elseif ($decision->kind === 'monthly' && ! $offlineApproval && ($r->rate_unit !== 'month' || ((int) $r->studentProfile->angkatan === (int) $r->periode->angkatan_maba || (! ($r->policy->settings['monthly_allowed'] ?? false) && ! app(ResidenceLifecycle::class)->isSeniorOverFiveYears($r->studentProfile, $r->periode))))) {
                     throw ValidationException::withMessages(['decision' => 'Pendaftar tidak berhak menggunakan skema bulanan.']);
                 }
 
@@ -1068,8 +1086,8 @@ class ResidenceWorkflowController extends Controller
                 throw ValidationException::withMessages(['contract' => 'Jumlah anggota melebihi kapasitas.']);
             }
             $rate = app(ResidencePolicyService::class)->rate($first, $room);
-            if (empty($rate['room_amount']) || $first->rate_unit !== 'year') {
-                throw ValidationException::withMessages(['contract' => 'Tarif tahunan kamar belum tersedia.']);
+            if (empty($rate['room_amount']) || ! in_array($first->rate_unit, ['year', 'semester'], true)) {
+                throw ValidationException::withMessages(['contract' => 'Tarif kamar penuh belum tersedia untuk satuan ini.']);
             }
             $contract = $existingContractIds->isNotEmpty()
                 ? RoomContract::whereKey($existingContractIds->first())->lockForUpdate()->first()

@@ -93,7 +93,7 @@ class RolePageController extends Controller
         return Inertia::render($component, [
             'initialUser' => $this->userPayload($request),
             'role' => $role,
-            'assigned_building' => $request->user()->hasRole('fasilitator') ? Gedung::whereIn('id', ResidenceBuildingAccess::ids($request->user()))->first(['id', 'kode_gedung', 'nama_gedung']) : null,
+            'assigned_building' => $request->user()->hasAnyRole(['fasilitator', 'go']) ? Gedung::whereIn('id', ResidenceBuildingAccess::ids($request->user()))->first(['id', 'kode_gedung', 'nama_gedung']) : null,
             'page' => $page,
             ...$this->pagePayload($request, $page),
         ]);
@@ -127,15 +127,29 @@ class RolePageController extends Controller
                     ? ActivityAttendance::where('is_present', true)->whereHas('session.kegiatan', fn ($query) => $query->whereIn('gedung_id', ResidenceBuildingAccess::ids($request->user())))->whereDate('attended_at', today())->get()
                     : [],
                 'inspection_pending' => $request->user()->hasRole('go')
-                    ? CheckoutRequest::whereNotIn('status', ['selesai', 'ditolak'])->whereHas('inspection', fn ($query) => $query->where('status', '!=', 'selesai'))->count()
+                    ? CheckoutRequest::whereNotIn('status', ['selesai', 'ditolak'])
+                        ->when(
+                            ResidenceBuildingAccess::ids($request->user()) !== [],
+                            fn ($query) => $query->whereHas('placement.kamar.lantai', fn ($floors) => $floors->whereIn('gedung_id', ResidenceBuildingAccess::ids($request->user())))
+                        )
+                        ->whereHas('inspection', fn ($query) => $query->where('status', '!=', 'selesai'))
+                        ->count()
                     : 0,
-                ...($request->user()->hasRole('go') ? [
-                    'go_summary' => [
-                        'menunggu' => CheckoutRequest::whereNotIn('status', ['selesai', 'ditolak'])->whereHas('inspection', fn ($query) => $query->where('status', 'menunggu'))->count(),
-                        'berlangsung' => CheckoutRequest::whereNotIn('status', ['selesai', 'ditolak'])->whereHas('inspection', fn ($query) => $query->where('status', 'berlangsung'))->count(),
-                        'selesai' => CheckoutRequest::whereHas('inspection', fn ($query) => $query->where('status', 'selesai'))->count(),
-                    ],
-                ] : []),
+                ...($request->user()->hasRole('go') ? (function () use ($request): array {
+                    $goIds = ResidenceBuildingAccess::ids($request->user());
+                    $scopeGo = fn ($query) => $query->when(
+                        $goIds !== [],
+                        fn ($q) => $q->whereHas('placement.kamar.lantai', fn ($floors) => $floors->whereIn('gedung_id', $goIds))
+                    );
+
+                    return [
+                        'go_summary' => [
+                            'menunggu' => $scopeGo(CheckoutRequest::whereNotIn('status', ['selesai', 'ditolak']))->whereHas('inspection', fn ($query) => $query->where('status', 'menunggu'))->count(),
+                            'berlangsung' => $scopeGo(CheckoutRequest::whereNotIn('status', ['selesai', 'ditolak']))->whereHas('inspection', fn ($query) => $query->where('status', 'berlangsung'))->count(),
+                            'selesai' => $scopeGo(CheckoutRequest::query())->whereHas('inspection', fn ($query) => $query->where('status', 'selesai'))->count(),
+                        ],
+                    ];
+                })() : []),
                 ...($request->user()->hasRole('admin_aset') ? [
                     'aset_summary' => [
                         'total_unit_aset' => (int) Aset::sum('jumlah'),
@@ -196,15 +210,87 @@ class RolePageController extends Controller
                 ];
             })(),
             'registration-review' => $this->registrationReviewPayload($request),
-            'checkout-approval', 'checkout-inspection' => [
-                'checkout' => CheckoutRequest::with(['inspection.findings.aset', 'placement.kamar.lantai.gedung', 'placement.kamar.aset', 'mahasiswa.user'])
+            'checkout-approval', 'checkout-inspection' => (function () use ($request, $page): array {
+                $user = $request->user();
+                $isFacilitator = $user->hasRole('fasilitator') && ! $user->hasRole('superadmin');
+                $goIds = $user->hasRole('go') && ! $user->hasRole('superadmin') ? ResidenceBuildingAccess::ids($user) : [];
+                $scopeBuildingIds = $isFacilitator
+                    ? ResidenceBuildingAccess::ids($user)
+                    : ($page === 'checkout-inspection' && $goIds !== [] ? $goIds : null);
+
+                $checkouts = CheckoutRequest::with(['inspection.findings.aset', 'placement.kamar.lantai.gedung', 'placement.kamar.aset', 'mahasiswa.user'])
                     ->when(
-                        $page === 'checkout-approval' && $request->user()->hasRole('fasilitator'),
-                        fn ($query) => $query->whereHas('placement.kamar.lantai', fn ($floors) => $floors->whereIn('gedung_id', ResidenceBuildingAccess::ids($request->user())))
+                        $scopeBuildingIds !== null,
+                        fn ($query) => $query->whereHas('placement.kamar.lantai', fn ($floors) => $floors->whereIn('gedung_id', $scopeBuildingIds))
                     )
                     ->latest()
-                    ->get(),
-            ],
+                    ->get();
+
+                $roomIds = $checkouts->map(fn (CheckoutRequest $c): ?string => $c->placement?->kamar_id)->filter()->unique()->values();
+                $activeByRoom = $roomIds->isEmpty()
+                    ? collect()
+                    : PenempatanKamar::query()
+                        ->whereIn('kamar_id', $roomIds)
+                        ->where('status', 'aktif')
+                        ->selectRaw('kamar_id, COUNT(*) as total')
+                        ->groupBy('kamar_id')
+                        ->pluck('total', 'kamar_id');
+                $openCheckoutsByRoom = $roomIds->isEmpty()
+                    ? collect()
+                    : CheckoutRequest::query()
+                        ->whereNotIn('status', ['selesai', 'ditolak'])
+                        ->whereHas('placement', fn ($q) => $q->whereIn('kamar_id', $roomIds)->where('status', 'aktif'))
+                        ->with('placement:id,kamar_id')
+                        ->get()
+                        ->groupBy(fn (CheckoutRequest $c): string => $c->placement !== null ? (string) $c->placement->kamar_id : '')
+                        ->map->count();
+
+                $enriched = $checkouts->map(function (CheckoutRequest $c) use ($activeByRoom, $openCheckoutsByRoom): array {
+                    $roomId = $c->placement?->kamar_id;
+                    $activeCount = (int) ($roomId ? ($activeByRoom[$roomId] ?? 0) : 0);
+                    $pendingCount = (int) ($roomId ? ($openCheckoutsByRoom[$roomId] ?? 0) : 0);
+
+                    return [
+                        ...$c->toArray(),
+                        'room_active_occupants' => $activeCount,
+                        'room_pending_checkouts' => $pendingCount,
+                        'all_room_occupants_checked_out' => $activeCount === 0 || $pendingCount >= $activeCount,
+                    ];
+                })->values();
+
+                $activePlacements = [];
+                if ($page === 'checkout-approval') {
+                    $activePlacements = PenempatanKamar::query()
+                        ->where('status', 'aktif')
+                        ->when(
+                            $scopeBuildingIds !== null,
+                            fn ($q) => $q->whereHas('kamar.lantai', fn ($floors) => $floors->whereIn('gedung_id', $scopeBuildingIds))
+                        )
+                        ->whereDoesntHave('checkoutRequests', fn ($q) => $q->whereNotIn('status', ['selesai', 'ditolak']))
+                        ->with(['mahasiswa.user:id,nama,nim_nip', 'kamar.lantai.gedung:id,kode_gedung,nama_gedung'])
+                        ->orderBy('tanggal_mulai', 'desc')
+                        ->get()
+                        ->map(function (PenempatanKamar $p): array {
+                            $studentUser = $p->mahasiswa?->user;
+                            $building = $p->kamar?->lantai?->gedung;
+
+                            return [
+                                'id' => $p->id,
+                                'mahasiswa_nama' => $studentUser !== null ? $studentUser->nama : '-',
+                                'nim_nip' => $studentUser !== null ? ($studentUser->nim_nip ?? '-') : '-',
+                                'lokasi' => ($building !== null ? $building->nama_gedung : '-').' / Kamar '.($p->kamar !== null ? $p->kamar->nomor_kamar : '-'),
+                                'tanggal_mulai' => (string) $p->tanggal_mulai,
+                            ];
+                        })
+                        ->values()
+                        ->all();
+                }
+
+                return [
+                    'checkout' => $enriched,
+                    'active_placements' => $activePlacements,
+                ];
+            })(),
             'data-mahasiswa' => [
                 'mahasiswa' => $this->residents()->with(['user.roles', 'prodi.departemen.faculty', 'city.province', 'periode', 'penempatanKamar.kamar.lantai.gedung'])->get()->map(function (MahasiswaProfil $student) {
                     $student->user->setRelation('mahasiswaProfil', $student);
@@ -604,11 +690,28 @@ class RolePageController extends Controller
     private function gedungTree(?User $user = null): array
     {
         $detailed = $user === null || ! $user->hasRole('mahasiswa');
-        $scoped = $user !== null && $user->hasRole('fasilitator') && ! $user->hasRole('superadmin');
+        $isFacilitator = $user !== null && $user->hasRole('fasilitator') && ! $user->hasRole('superadmin');
+        $isAssignedGo = $user !== null && $user->hasRole('go') && ! $user->hasRole('superadmin') && ResidenceBuildingAccess::ids($user) !== [];
+        $scoped = $isFacilitator || $isAssignedGo;
         $ids = $scoped ? ResidenceBuildingAccess::ids($user) : [];
 
-        return Gedung::when($scoped, fn ($query) => $query->whereIn('id', $ids))
+        $openCheckoutsByRoom = CheckoutRequest::query()
+            ->whereNotIn('status', ['selesai', 'ditolak'])
+            ->with(['inspection:id,checkout_request_id,status', 'placement:id,kamar_id'])
+            ->get()
+            ->groupBy(fn (CheckoutRequest $req): string => $req->placement !== null ? (string) $req->placement->kamar_id : '');
+
+        $openDamageByRoom = LaporanKerusakan::query()
+            ->whereNotIn('status', ['selesai', 'ditolak', 'dibatalkan'])
+            ->whereNotNull('kamar_id')
+            ->selectRaw('kamar_id, COUNT(*) as total')
+            ->groupBy('kamar_id')
+            ->pluck('total', 'kamar_id');
+
+        $buildings = Gedung::when($scoped, fn ($query) => $query->whereIn('id', $ids))
+            ->orderBy('kode_gedung')
             ->with([
+                'lantai.kamar.penempatanKamar' => fn ($query) => $query->where('status', 'aktif'),
                 'lantai.kamar.penempatanKamar.mahasiswa.user',
                 ...$detailed ? [
                     'lantai.kamar.aset',
@@ -617,6 +720,26 @@ class RolePageController extends Controller
                     'lantai.kamar.penempatanKamar.mahasiswa.pembayaran' => fn ($query) => $query->latest('tanggal_bayar'),
                 ] : [],
             ])->get()->toArray();
+
+        foreach ($buildings as &$building) {
+            foreach ($building['lantai'] ?? [] as &$floor) {
+                foreach ($floor['kamar'] ?? [] as &$room) {
+                    $roomCheckouts = $openCheckoutsByRoom->get($room['id'], collect());
+                    $room['pending_checkout_count'] = $roomCheckouts->count();
+                    $room['needs_go_inspection'] = $roomCheckouts->contains(function (CheckoutRequest $c): bool {
+                        $status = $c->inspection?->status;
+
+                        return ($status !== null ? $status->value : 'menunggu') !== 'selesai';
+                    });
+                    $room['open_damage_count'] = (int) ($openDamageByRoom[$room['id']] ?? 0);
+                }
+                unset($room);
+            }
+            unset($floor);
+        }
+        unset($building);
+
+        return $buildings;
     }
 
     private function leavePayload(Request $request): array
@@ -718,7 +841,7 @@ class RolePageController extends Controller
             ->with(['sender:id,nama', 'invitee:id,nama', 'room.lantai.gedung', 'registration'])->latest()->get()->map(fn (RoomInvitation $invitation): array => $this->invitationPayload($invitation, $request->user(), $rates));
 
         return [
-            'policy_open' => $policy !== null, 'policy_category' => $policy?->category ?? $resolvedCategory, 'policy_closed_reason' => $policy === null ? $policyClosedReason : null, 'required_documents' => $policy?->settings['documents'] ?? ['perjanjian'], 'policy_monthly_allowed' => (bool) ($policy?->settings['monthly_allowed'] ?? false), 'policy_month_days' => $policy?->settings['month_days'] ?? 30, 'policy_day_basis' => $policy?->settings['day_basis'] ?? 'nights',
+            'policy_open' => $policy !== null, 'policy_category' => $policy !== null ? $policy->category : $resolvedCategory, 'policy_closed_reason' => $policy === null ? $policyClosedReason : null, 'required_documents' => $policy?->settings['documents'] ?? ['perjanjian'], 'policy_monthly_allowed' => (bool) ($policy?->settings['monthly_allowed'] ?? false), 'policy_month_days' => $policy?->settings['month_days'] ?? 30, 'policy_day_basis' => $policy?->settings['day_basis'] ?? 'nights',
             'rates' => $rates, 'periode' => Periode::where('status', 'aktif')->get(),
             'billing' => Tagihan::with(['items', 'jadwalCicilan', 'dokumen'])->where('mahasiswa_id', $student?->id)->latest()->get(),
             'rooms' => $rooms,
@@ -900,7 +1023,7 @@ class RolePageController extends Controller
 
             if ($activeReg && $activeReg->reservedRoom) {
                 $workflow = app(ResidenceWorkflow::class);
-                $hasPaymentProof = ($activeReg->tagihan?->pembayaran ?? collect())->contains(
+                $hasPaymentProof = ($activeReg->tagihan !== null ? $activeReg->tagihan->pembayaran : collect())->contains(
                     fn ($p): bool => in_array($p->status, ['menunggu_verifikasi', 'lunas'], true),
                 );
                 $atStageFive = $activeReg->completed_at !== null

@@ -24,6 +24,9 @@ type Gedung = {
 export default function PemetaanKamar({ gedung = [] }: { gedung?: Gedung[] }) {
     const [selectedGedung, setSelectedGedung] = useState('');
     const [selectedLantai, setSelectedLantai] = useState('');
+    const [highlightFilter, setHighlightFilter] = useState<
+        'all' | 'checkout' | 'damage'
+    >('all');
 
     useEffect(() => {
         if (gedung?.length && !selectedGedung) {
@@ -37,13 +40,27 @@ export default function PemetaanKamar({ gedung = [] }: { gedung?: Gedung[] }) {
         [gedung, selectedGedung],
     );
 
-    const filteredKamar = useMemo(() => {
+    const floorRooms = useMemo(() => {
         const lantai = lantaiForGedung.find((l) => l.id === selectedLantai);
         return (lantai?.kamar ?? []).map((k) => ({
             ...k,
             okupansi: k.penempatan_kamar?.length ?? 0,
         }));
     }, [lantaiForGedung, selectedLantai]);
+
+    const filteredKamar = useMemo(() => {
+        if (highlightFilter === 'checkout') {
+            return floorRooms.filter(
+                (k) =>
+                    k.needs_go_inspection ||
+                    (k.pending_checkout_count ?? 0) > 0,
+            );
+        }
+        if (highlightFilter === 'damage') {
+            return floorRooms.filter((k) => (k.open_damage_count ?? 0) > 0);
+        }
+        return floorRooms;
+    }, [floorRooms, highlightFilter]);
 
     return (
         <div className="space-y-6">
@@ -157,6 +174,43 @@ export default function PemetaanKamar({ gedung = [] }: { gedung?: Gedung[] }) {
                     <span className="text-muted">
                         Total: {filteredKamar.length} kamar
                     </span>
+                </div>
+                <div className="mb-4 flex flex-wrap gap-2 text-xs">
+                    <button
+                        type="button"
+                        onClick={() => setHighlightFilter('all')}
+                        className={`btn btn-xs ${highlightFilter === 'all' ? 'btn-primary' : 'btn-outline'}`}
+                    >
+                        Semua ({floorRooms.length})
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setHighlightFilter('checkout')}
+                        className={`btn btn-xs ${highlightFilter === 'checkout' ? 'btn-warning' : 'btn-outline'}`}
+                    >
+                        Perlu Cek GO / Checkout (
+                        {
+                            floorRooms.filter(
+                                (k) =>
+                                    k.needs_go_inspection ||
+                                    (k.pending_checkout_count ?? 0) > 0,
+                            ).length
+                        }
+                        )
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setHighlightFilter('damage')}
+                        className={`btn btn-xs ${highlightFilter === 'damage' ? 'btn-error' : 'btn-outline'}`}
+                    >
+                        Ada Kerusakan Aktif (
+                        {
+                            floorRooms.filter(
+                                (k) => (k.open_damage_count ?? 0) > 0,
+                            ).length
+                        }
+                        )
+                    </button>
                 </div>
                 <RoomGridMap
                     rooms={filteredKamar}

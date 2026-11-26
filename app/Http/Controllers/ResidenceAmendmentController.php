@@ -87,13 +87,13 @@ class ResidenceAmendmentController extends Controller
 
                 return;
             }
-            $fromRoomId = $r->placement?->kamar_id ?? $r->reserved_room_id;
+            $fromRoomId = $r->placement !== null ? $r->placement->kamar_id : $r->reserved_room_id;
             if ($r->workflow_version !== 2 || ! $fromRoomId || $r->keys_returned_at || $r->isClosed() || $r->ends_at->isBefore(today())) {
                 throw ValidationException::withMessages(['move' => 'Mutasi memerlukan hunian workflow baru yang masih aktif dan kunci belum dikembalikan.']);
             }
             $from = Kamar::with('lantai.gedung')->findOrFail($fromRoomId);
             $to = Kamar::with('lantai.gedung')->whereKey($data['room_id'])->firstOrFail();
-            abort_unless(ResidenceWorkflowAccess::manager($request->user()) || $from->lantai->gedung_id === $to->lantai->gedung_id, 403);
+            // Fasilitator gedung asal diperbolehkan memindahkan penghuni antar kamar maupun lintas gedung (tetap melalui validasi kelayakan kebijakan & kapasitas).
             Gedung::whereIn('id', [$from->lantai->gedung_id, $to->lantai->gedung_id])->orderBy('id')->lockForUpdate()->get();
             Kamar::whereIn('id', [$from->id, $to->id])->orderBy('id')->lockForUpdate()->get();
             $to->refresh();

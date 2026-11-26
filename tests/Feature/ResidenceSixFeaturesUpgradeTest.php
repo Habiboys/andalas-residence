@@ -299,7 +299,7 @@ it('unlocks monthly option automatically for students above 5 years of study eve
         'starts_at' => now()->addDay()->toDateString(),
         'ends_at' => now()->addDays(31)->toDateString(),
         'preferences' => [['kamar_id' => $fx['roomF']->id]],
-    ]))->toThrow(ValidationException::class, 'tahun studi > 5');
+    ]))->toThrow(ValidationException::class, 'semester 9 ke atas');
 });
 
 it('supports ASN via SSO Dosen and manual NIP registration restricted strictly to Rusun ASN', function () {

@@ -21,6 +21,11 @@ export function UserMenuContent({ user }: Props) {
     const { logoutUrl } = usePage<{ logoutUrl?: string }>().props;
 
     const handleLogout = () => {
+        try {
+            window.sessionStorage.setItem('andalas_logged_out', '1');
+        } catch {
+            // Ignore storage restrictions.
+        }
         cleanup();
         router.flushAll();
     };

@@ -237,7 +237,7 @@ it('rejects room moves into full rooms and across a facilitators building bounda
     FasilitatorWilayah::create(['user_id' => $fac->id, 'gedung_id' => $f['building']->id]);
     $other = toBeFixture('international');
     $body['room_id'] = $other['room']->id;
-    $this->actingAs($fac)->post(route('residence.move', $r), $body)->assertForbidden();
+    $this->actingAs($fac)->post(route('residence.move', $r), $body)->assertSessionHasErrors('kamar_id');
     $f['target']->update(['kapasitas' => 0]);
     $body['room_id'] = $f['target']->id;
     $this->actingAs($f['manager'])->post(route('residence.move', $r), $body)->assertSessionHasErrors('room_id');

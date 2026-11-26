@@ -74,6 +74,12 @@ export function AuthProvider({
     };
 
     const logout = () => {
+        try {
+            window.sessionStorage.setItem('andalas_logged_out', '1');
+        } catch {
+            // Ignore storage access restrictions.
+        }
+        router.flushAll();
         router.post(logoutUrl ?? logoutRoute.url());
     };
 

@@ -47,7 +47,7 @@ class ResidenceMasterImport
                     if (! ($values['G'] ?? null)) {
                         continue;
                     }
-                    $type = strtolower(str_replace(' ', '_', trim((string) ($values['G'] ?? ''))));
+                    $type = strtolower(str_replace(' ', '_', trim((string) $values['G'])));
                     if (! in_array($type, $knownTypes, true)) {
                         throw new \InvalidArgumentException($name.' baris '.$row.': tipe tarif tidak dikenal.');
                     }
@@ -75,6 +75,18 @@ class ResidenceMasterImport
                         $rates[] = ['tipe_kamar' => $type, 'unit' => $unit, 'amount' => $amount ?? 0,
                             'student_amount' => $unit === 'day' ? ($studentAmount ?? 0) : null, 'room_amount' => $roomAmount,
                             'facilities' => trim((string) ($values['H'] ?? ''))];
+                        if ($unit === 'year' && ((float) ($amount ?? 0) > 0 || (float) ($roomAmount ?? 0) > 0)) {
+                            $rates[] = [
+                                'tipe_kamar' => $type,
+                                'unit' => 'semester',
+                                'amount' => (int) round(((float) ($amount ?? 0)) / 2),
+                                'student_amount' => null,
+                                'room_amount' => $roomAmount !== null && (float) $roomAmount > 0
+                                    ? (int) round(((float) $roomAmount) / 2)
+                                    : null,
+                                'facilities' => trim((string) ($values['H'] ?? '')),
+                            ];
+                        }
                     }
                 }
                 $rooms = [];
@@ -144,8 +156,10 @@ class ResidenceMasterImport
     public function withCheckinOccupancy(array $buildings, array $students): array
     {
         $matching = app(Residence2026StudentMatching::class);
-        $rows = collect($students['students'])->flatMap(fn (array $student): array => $student['checkins'])
-            ->concat(collect($students['unresolved'])->where('source', 'checkins'));
+        $studentList = is_array($students['students'] ?? null) ? $students['students'] : [];
+        $unresolvedList = is_array($students['unresolved'] ?? null) ? $students['unresolved'] : [];
+        $rows = collect($studentList)->flatMap(fn (array $student): array => $student['checkins'])
+            ->concat(collect($unresolvedList)->where('source', 'checkins'));
         foreach ($buildings as &$building) {
             $counts = [];
             $lookup = [];
@@ -175,8 +189,9 @@ class ResidenceMasterImport
             foreach ($counts as $index => $occupants) {
                 $building['rooms'][$index]['kapasitas'] = max($building['rooms'][$index]['kapasitas'], count($occupants));
             }
+            $buildingRooms = is_array($building['rooms'] ?? null) ? $building['rooms'] : [];
             foreach ($building['room_types'] as &$type) {
-                $type['max_capacity'] = max($type['max_capacity'] ?? 0, collect($building['rooms'])->where('tipe_kamar', $type['type'])->max('kapasitas') ?? 0) ?: null;
+                $type['max_capacity'] = max($type['max_capacity'] ?? 0, collect($buildingRooms)->where('tipe_kamar', $type['type'])->max('kapasitas') ?? 0) ?: null;
             }
             unset($type);
         }
@@ -193,15 +208,23 @@ class ResidenceMasterImport
                 $building = Gedung::updateOrCreate(['kode_gedung' => $data['kode_gedung']], [
                     'nama_gedung' => $data['nama_gedung'], 'allowed_categories' => $data['allowed_categories'], 'room_types' => $data['room_types'], 'alamat' => 'Kampus Limau Manis',
                 ]);
-                ResidenceRate::where('gedung_id', $building->id)->when($data['rates'] !== [], function ($query) use ($data): void {
-                    $query->whereNot(function ($query) use ($data): void {
-                        foreach ($data['rates'] as $rate) {
-                            $query->orWhere(fn ($query) => $query->where('tipe_kamar', $rate['tipe_kamar'])->where('unit', $rate['unit']));
-                        }
-                    });
-                })->delete();
+                ResidenceRate::where('gedung_id', $building->id)
+                    ->where('category', ResidenceRate::DEFAULT_CATEGORY)
+                    ->when($data['rates'] !== [], function ($query) use ($data): void {
+                        $query->whereNot(function ($query) use ($data): void {
+                            foreach ($data['rates'] as $rate) {
+                                $query->orWhere(fn ($query) => $query->where('tipe_kamar', $rate['tipe_kamar'])->where('unit', $rate['unit']));
+                            }
+                        });
+                    })
+                    ->delete();
                 foreach ($data['rates'] as $rate) {
-                    ResidenceRate::updateOrCreate(['gedung_id' => $building->id, 'tipe_kamar' => $rate['tipe_kamar'], 'unit' => $rate['unit']], $rate);
+                    ResidenceRate::updateOrCreate([
+                        'gedung_id' => $building->id,
+                        'category' => ResidenceRate::DEFAULT_CATEGORY,
+                        'tipe_kamar' => $rate['tipe_kamar'],
+                        'unit' => $rate['unit'],
+                    ], $rate);
                 }
                 foreach ($data['rooms'] as $roomData) {
                     $floor = Lantai::firstOrCreate(['gedung_id' => $building->id, 'nomor_lantai' => $roomData['nomor_lantai']], ['nama_lantai' => 'Lantai '.$roomData['nomor_lantai']]);
@@ -218,12 +241,14 @@ class ResidenceMasterImport
                     if ($roomData['kapasitas'] < $active + $reserved) {
                         throw new \LogicException('Kapasitas '.$building->nama_gedung.' / '.$roomData['nomor_kamar'].' lebih kecil dari penghuni/reservasi aktif. Tidak ada data yang diubah.');
                     }
-                    $annual = collect($data['rates'])->first(fn (array $rate): bool => $rate['tipe_kamar'] === $roomData['tipe_kamar'] && $rate['unit'] === 'year');
+                    $dataRates = is_array($data['rates'] ?? null) ? $data['rates'] : [];
+                    $annual = collect($dataRates)->first(fn (array $rate): bool => $rate['tipe_kamar'] === $roomData['tipe_kamar'] && $rate['unit'] === 'year');
                     $keepMaintenance = $room->exists && $room->status === 'maintenance' && ! ($wasMissingCapacity && ($roomData['assumed_capacity'] ?? false));
                     $status = $keepMaintenance || ($roomData['blocked'] ?? false) || $roomData['kapasitas'] === 0 ? 'maintenance' : ($active === 0 ? 'kosong' : ($active + $reserved >= $roomData['kapasitas'] ? 'penuh' : 'terisi_sebagian'));
                     $room->fill(['kapasitas' => $roomData['kapasitas'], 'tipe_kamar' => $roomData['tipe_kamar'], 'tarif_per_periode' => $annual['amount'] ?? 0, 'status' => $status])->save();
                 }
-                if (collect($data['rooms'])->contains('assumed_capacity', true)) {
+                $dataRooms = is_array($data['rooms'] ?? null) ? $data['rooms'] : [];
+                if (collect($dataRooms)->contains('assumed_capacity', true)) {
                     $types = $building->room_types;
                     foreach ($types as &$type) {
                         $capacity = Kamar::whereHas('lantai', fn ($query) => $query->where('gedung_id', $building->id))

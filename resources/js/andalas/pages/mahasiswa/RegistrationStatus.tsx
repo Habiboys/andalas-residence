@@ -35,7 +35,10 @@ import {
 import { formatDate, formatDateTime, formatRupiah } from '@/andalas/lib/format';
 import { bukti as pembayaranBukti } from '@/routes/andalas/pembayaran';
 import { document as billingDocument } from '@/routes/andalas/tagihan';
-import { detailKamar as detailKamarRoute } from '@/routes/mahasiswa';
+import {
+    detailKamar as detailKamarRoute,
+    tagihan as tagihanRoute,
+} from '@/routes/mahasiswa';
 
 export type TemplateItem = {
     id: string;
@@ -534,25 +537,23 @@ function heroBanner(r: Registration) {
             tone: 'border-base-300 border-l-4 border-l-primary bg-base-100',
             badge: (
                 <StatusChip
-                    label="Sudah Check-in · Penghuni Aktif"
+                    label="Penghuni Aktif · Sudah Check-in"
                     tone="success"
                 />
             ),
-            title: 'Selamat! Verifikasi berkas dan check-in Anda telah dinyatakan selesai',
-            subtitle: `Diverifikasi dan dinyatakan check-in pada ${formatDate(r.completed_at ?? r.checked_in_at)}. Anda resmi menjadi penghuni aktif asrama.`,
+            title: 'Anda resmi menjadi penghuni aktif Andalas Residence',
+            subtitle: `Tercatat check-in pada ${formatDate(r.completed_at ?? r.checked_in_at)}.`,
         };
     }
     if (hasSubmittedOrSettledPayment(r) || (r.blockers ?? []).length === 0) {
         return {
             tone: 'border-base-300 border-l-4 border-l-primary bg-base-100',
-            badge: <StatusChip label="Belum Check-in" tone="warning" />,
+            badge: <StatusChip label="Siap Check-in" tone="success" />,
             title: r.is_kipk
-                ? 'Berkas pendaftaran tercatat — tahap selanjutnya: Check-in (Verifikasi)'
-                : 'Pembayaran tercatat — tahap selanjutnya: Check-in (Verifikasi)',
+                ? 'Pendaftaran KIP-K disetujui — Anda siap check-in ke asrama'
+                : 'Administrasi & pembayaran tercatat — Anda siap check-in',
             subtitle:
-                r.rate_unit === 'day'
-                    ? 'Bukti pembayaran sewa harian Anda sudah tercatat. Silakan datang ke asrama untuk melakukan check-in pada jadwal yang ditentukan fasilitator asrama.'
-                    : 'Seluruh data dan berkas yang telah Anda unggah sudah tercatat. Silakan datang ke asrama untuk melakukan check-in pada jadwal yang ditentukan fasilitator asrama.',
+                'Ikuti panduan singkat di bawah ini saat datang ke gedung asrama untuk pengambilan kunci kamar.',
         };
     }
     if (r.payment_unlocked) {
@@ -562,11 +563,11 @@ function heroBanner(r: Registration) {
             title:
                 r.rate_unit === 'day'
                     ? 'Kamar sewa harian berhasil dipesan! Silakan selesaikan pembayaran sesuai tagihan'
-                    : 'Berkas terunggah! Silakan selesaikan pembayaran sesuai tagihan',
+                    : 'Berkas otomatis disetujui! Silakan selesaikan pembayaran sesuai tagihan',
             subtitle:
                 r.rate_unit === 'day'
-                    ? 'Kategori sewa per hari tidak memerlukan unggah berkas pendaftaran. Silakan unggah bukti pembayaran sebelum batas waktu (H-1 masa sewa), lalu fasilitator gedung akan memeriksa bukti bayar saat check-in.'
-                    : 'Anda dapat langsung mengunggah bukti pembayaran tanpa menunggu verifikasi berkas. Verifikasi berkas akan dilakukan petugas saat check-in.',
+                    ? 'Kategori sewa per hari tidak memerlukan berkas pendaftaran. Unggah bukti pembayaran sebelum H-1 masa sewa.'
+                    : 'Berkas Anda sudah langsung disetujui sistem. Silakan transfer sesuai tagihan dan unggah bukti transfer di bawah ini.',
         };
     }
     if (r.has_pending_group_invitations) {
@@ -1050,1020 +1051,1248 @@ export function StudentRegistrationCard({
                     </div>
                 )}
 
-            {/* Main Content Grid: Documents & Financing (documents hidden during Step 4 payment or daily rental) */}
-            <div
-                className={
-                    isPaymentStage || !requiresDocs
-                        ? 'grid gap-5'
-                        : 'grid gap-5 lg:grid-cols-2'
-                }
-            >
-                {/* Section A: Berkas Pendaftaran */}
-                {!isPaymentStage && requiresDocs && (
-                    <div
-                        id={`berkas-${r.id}`}
-                        className="border-base-300 bg-base-100 min-w-0 space-y-4 overflow-hidden rounded-xl border p-4 md:p-5"
-                    >
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                            <div className="flex min-w-0 items-center gap-2">
-                                <FileText
-                                    className="text-muted size-5 shrink-0"
-                                    aria-hidden="true"
-                                />
-                                <h3 className="text-base font-semibold">
-                                    Berkas Pendaftaran
+            {/* Simplified Student Check-In Action Guide on Final Stage */}
+            {isCheckInStage &&
+                !reviewingUploadStep &&
+                editableKinds.length === 0 &&
+                !canChooseFinancing &&
+                !r.keys_returned_at &&
+                r.status !== 'cancelled' &&
+                r.status !== 'rejected' && (
+                    <div className="border-primary/25 bg-primary/5 space-y-4 rounded-xl border p-4 md:p-5">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <p className="text-primary text-xs font-bold tracking-wider uppercase">
+                                        Panduan Singkat Mahasiswa
+                                    </p>
+                                    <StatusChip
+                                        label={
+                                            isRegistrationCheckedIn(r)
+                                                ? 'Sudah Check-in · Penghuni Aktif'
+                                                : 'Belum Check-in'
+                                        }
+                                        tone={
+                                            isRegistrationCheckedIn(r)
+                                                ? 'success'
+                                                : 'info'
+                                        }
+                                    />
+                                </div>
+                                <h3 className="text-base-content mt-1 text-base font-semibold">
+                                    {isRegistrationCheckedIn(r)
+                                        ? 'Langkah selama tinggal di asrama'
+                                        : 'Apa yang perlu Anda lakukan saat check-in?'}
                                 </h3>
                             </div>
-                            <StatusChip
-                                label={
-                                    editableKinds.length === 0
-                                        ? 'Semua berkas terunggah'
-                                        : `${editableKinds.length} berkas perlu diunggah`
-                                }
-                                tone={
-                                    editableKinds.length === 0
-                                        ? 'success'
-                                        : 'warning'
-                                }
-                            />
-                        </div>
-
-                        <div className="space-y-3">
-                            {requiredKinds.map((kind) => {
-                                const doc = latestByKind.get(kind);
-                                const template = templates.find(
-                                    (t) =>
-                                        t.category === category &&
-                                        t.kind === kind,
-                                );
-                                const needsUpload =
-                                    editableKinds.includes(kind);
-
-                                return (
-                                    <div
-                                        key={kind}
-                                        className="border-base-300 bg-base-200/30 min-w-0 space-y-2.5 overflow-hidden rounded-lg border p-3.5"
-                                    >
-                                        <div className="flex flex-wrap items-start justify-between gap-2">
-                                            <div className="min-w-0">
-                                                <p className="text-base-content text-sm font-semibold">
-                                                    {friendlyDocumentLabel(
-                                                        kind,
-                                                    )}
-                                                </p>
-                                                {doc && (
-                                                    <p className="text-muted text-xs">
-                                                        Versi {doc.version}
-                                                        {doc.reviewer?.nama
-                                                            ? ` · Diperiksa oleh ${doc.reviewer.nama}`
-                                                            : ''}
-                                                    </p>
-                                                )}
-                                            </div>
-                                            <StatusChip
-                                                label={documentStatusText(
-                                                    doc?.status ?? 'missing',
-                                                )}
-                                                tone={documentChipTone(
-                                                    doc?.status ?? 'missing',
-                                                )}
-                                            />
-                                        </div>
-
-                                        {doc?.status === 'revision' &&
-                                            doc.notes && (
-                                                <div className="border-base-300 border-l-error bg-base-100 text-base-content rounded-md border border-l-4 px-3 py-2 text-xs break-words">
-                                                    <strong>
-                                                        Catatan revisi:
-                                                    </strong>{' '}
-                                                    {doc.notes}
-                                                </div>
-                                            )}
-
-                                        <div className="flex min-w-0 flex-wrap gap-2">
-                                            {template && (
-                                                <a
-                                                    href={workflow.downloadTemplate.url(
-                                                        [category, kind],
-                                                    )}
-                                                    title={`Unduh Template (${template.original_name})`}
-                                                    className="btn btn-xs btn-outline max-w-full min-w-0 gap-1.5 overflow-hidden"
-                                                >
-                                                    <Download
-                                                        className="size-3.5 shrink-0"
-                                                        aria-hidden="true"
-                                                    />
-                                                    <span className="truncate">
-                                                        Unduh Template (
-                                                        {template.original_name}
-                                                        )
-                                                    </span>
-                                                </a>
-                                            )}
-                                            {doc && (
-                                                <a
-                                                    href={workflow.document.url(
-                                                        doc.id,
-                                                    )}
-                                                    className="btn btn-xs btn-ghost border-base-300 max-w-full min-w-0 gap-1.5 overflow-hidden border"
-                                                >
-                                                    <FileCheck2
-                                                        className="size-3.5 shrink-0"
-                                                        aria-hidden="true"
-                                                    />
-                                                    <span className="truncate">
-                                                        Unduh Berkas v
-                                                        {doc.version}
-                                                    </span>
-                                                </a>
-                                            )}
-                                        </div>
-
-                                        {/* Upload input ONLY rendered when missing or revision required */}
-                                        {needsUpload ? (
-                                            <div className="space-y-1 pt-1">
-                                                <label className="block">
-                                                    <span className="text-muted mb-1 block text-xs">
-                                                        Unggah PDF atau gambar
-                                                        (maks. 5 MB)
-                                                    </span>
-                                                    <input
-                                                        type="file"
-                                                        accept=".pdf,.jpg,.jpeg,.png"
-                                                        className="file-input file-input-bordered file-input-sm w-full max-w-full"
-                                                        onChange={(e) => {
-                                                            const file =
-                                                                e.target
-                                                                    .files?.[0];
-                                                            const fieldKey = `files.${kind}`;
-                                                            if (file) {
-                                                                const ext =
-                                                                    file.name
-                                                                        .split(
-                                                                            '.',
-                                                                        )
-                                                                        .pop()
-                                                                        ?.toLowerCase() ??
-                                                                    '';
-                                                                if (
-                                                                    !ALLOWED_UPLOAD_EXTENSIONS.has(
-                                                                        ext,
-                                                                    )
-                                                                ) {
-                                                                    e.target.value =
-                                                                        '';
-                                                                    setSelectedFiles(
-                                                                        (
-                                                                            prev,
-                                                                        ) => {
-                                                                            const next =
-                                                                                {
-                                                                                    ...prev,
-                                                                                };
-                                                                            delete next[
-                                                                                kind
-                                                                            ];
-                                                                            return next;
-                                                                        },
-                                                                    );
-                                                                    setErrors(
-                                                                        (
-                                                                            prev,
-                                                                        ) => ({
-                                                                            ...prev,
-                                                                            [fieldKey]:
-                                                                                'Format berkas harus PDF, JPG, JPEG, atau PNG.',
-                                                                        }),
-                                                                    );
-                                                                    return;
-                                                                }
-                                                                if (
-                                                                    file.size >
-                                                                    MAX_UPLOAD_BYTES
-                                                                ) {
-                                                                    e.target.value =
-                                                                        '';
-                                                                    setSelectedFiles(
-                                                                        (
-                                                                            prev,
-                                                                        ) => {
-                                                                            const next =
-                                                                                {
-                                                                                    ...prev,
-                                                                                };
-                                                                            delete next[
-                                                                                kind
-                                                                            ];
-                                                                            return next;
-                                                                        },
-                                                                    );
-                                                                    setErrors(
-                                                                        (
-                                                                            prev,
-                                                                        ) => ({
-                                                                            ...prev,
-                                                                            [fieldKey]: `Ukuran berkas ${formatFileSize(file.size)} melebihi batas maksimum 5 MB. Kompres berkas terlebih dahulu.`,
-                                                                        }),
-                                                                    );
-                                                                    return;
-                                                                }
-                                                            }
-                                                            setErrors(
-                                                                (prev) => {
-                                                                    if (
-                                                                        !(
-                                                                            fieldKey in
-                                                                            prev
-                                                                        )
-                                                                    ) {
-                                                                        return prev;
-                                                                    }
-                                                                    const next =
-                                                                        {
-                                                                            ...prev,
-                                                                        };
-                                                                    delete next[
-                                                                        fieldKey
-                                                                    ];
-                                                                    return next;
-                                                                },
-                                                            );
-                                                            setSelectedFiles(
-                                                                (prev) => {
-                                                                    const next =
-                                                                        {
-                                                                            ...prev,
-                                                                        };
-                                                                    if (file) {
-                                                                        next[
-                                                                            kind
-                                                                        ] =
-                                                                            file;
-                                                                    } else {
-                                                                        delete next[
-                                                                            kind
-                                                                        ];
-                                                                    }
-                                                                    return next;
-                                                                },
-                                                            );
-                                                        }}
-                                                    />
-                                                </label>
-                                                {selectedFiles[kind] && (
-                                                    <p className="text-primary text-xs font-medium break-all">
-                                                        Siap disimpan:{' '}
-                                                        {
-                                                            selectedFiles[kind]
-                                                                .name
-                                                        }{' '}
-                                                        (
-                                                        {formatFileSize(
-                                                            selectedFiles[kind]
-                                                                .size,
-                                                        )}
-                                                        )
-                                                    </p>
-                                                )}
-                                                {errors[`files.${kind}`] && (
-                                                    <p className="text-error text-xs">
-                                                        {
-                                                            errors[
-                                                                `files.${kind}`
-                                                            ]
-                                                        }
-                                                    </p>
-                                                )}
-                                            </div>
-                                        ) : (
-                                            doc && (
-                                                <p className="text-muted flex items-start gap-1.5 text-xs">
-                                                    <Lock
-                                                        className="mt-0.5 size-3.5 shrink-0"
-                                                        aria-hidden="true"
-                                                    />
-                                                    <span>
-                                                        Berkas sudah tersimpan
-                                                        permanen. Pengunggahan
-                                                        ulang hanya dibuka bila
-                                                        petugas meminta revisi.
-                                                    </span>
-                                                </p>
-                                            )
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-
-                        {(r.documents?.length ?? 0) > 1 && (
-                            <details className="border-base-300 rounded-lg border p-3 text-xs">
-                                <summary className="cursor-pointer font-medium">
-                                    Riwayat versi dokumen (
-                                    {(r.documents ?? []).length})
-                                </summary>
-                                <div className="mt-2 space-y-1">
-                                    {(r.documents ?? []).map((d) => (
-                                        <div
-                                            key={d.id}
-                                            className="flex flex-wrap items-center justify-between gap-2"
-                                        >
-                                            <a
-                                                href={workflow.document.url(
-                                                    d.id,
-                                                )}
-                                                className="link link-primary"
-                                            >
-                                                {friendlyDocumentLabel(d.kind)}{' '}
-                                                v{d.version}
-                                            </a>
-                                            <span className="text-muted break-words">
-                                                {documentStatusText(d.status)}
-                                                {d.notes ? ` — ${d.notes}` : ''}
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </details>
-                        )}
-                    </div>
-                )}
-
-                {/* Section B: Pembiayaan & Tagihan (hidden for KIP-K since KIP-K is not billed at check-in) */}
-                {r.is_kipk ? (
-                    <div className="border-base-300 bg-base-100 min-w-0 space-y-4 overflow-hidden rounded-xl border p-4 md:p-5">
-                        {Boolean(room) && r.status !== 'cancelled' && (
-                            <div className="flex justify-end">
+                            <div className="flex flex-wrap gap-2">
                                 <Link
                                     href={detailKamarRoute.url()}
                                     className="btn btn-primary btn-sm gap-1.5"
                                 >
-                                    <span>Buka Kamar Saya</span>
-                                    <ArrowRight className="size-4" />
+                                    <Home className="size-4" />
+                                    Buka Kamar Saya
                                 </Link>
+                                {!r.is_kipk && (
+                                    <Link
+                                        href={tagihanRoute.url()}
+                                        className="btn btn-outline btn-sm gap-1.5"
+                                    >
+                                        <Wallet className="size-4" />
+                                        Lihat Tagihan
+                                    </Link>
+                                )}
                             </div>
-                        )}
-                        <div className="border-base-300 bg-base-200/40 rounded-lg border p-3.5 text-sm">
-                            <p className="font-semibold">Skema KIP-K Aktif</p>
-                            <p className="text-muted mt-0.5 text-xs">
-                                Tagihan Biaya hunian ditunda melalui skema KIP-K
-                                sesuai ketentuan asrama
-                            </p>
-                        </div>
-                    </div>
-                ) : (
-                    <div className="border-base-300 bg-base-100 min-w-0 space-y-4 overflow-hidden rounded-xl border p-4 md:p-5">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                            <div className="flex min-w-0 items-center gap-2">
-                                <Wallet
-                                    className="text-muted size-5 shrink-0"
-                                    aria-hidden="true"
-                                />
-                                <h3 className="text-base font-semibold">
-                                    Pembiayaan & Tagihan
-                                </h3>
-                            </div>
-                            {r.tagihan &&
-                                (() => {
-                                    const chip = tagihanStatusChip(
-                                        r.tagihan.status,
-                                    );
-                                    return (
-                                        <StatusChip
-                                            label={chip.label}
-                                            tone={chip.tone}
-                                        />
-                                    );
-                                })()}
                         </div>
 
-                        {r.tagihan ? (
-                            <div className="space-y-3">
-                                <div className="border-base-300 bg-base-200/40 grid grid-cols-1 gap-2 rounded-lg border p-3 text-sm sm:grid-cols-3">
-                                    <div className="min-w-0">
-                                        <p className="text-muted text-xs">
-                                            Total
-                                        </p>
-                                        <p className="text-base-content font-semibold break-words">
-                                            {formatRupiah(totalTagihan)}
-                                        </p>
+                        {isRegistrationCheckedIn(r) ? (
+                            <ol className="text-base-content/85 list-inside list-decimal space-y-1.5 text-sm">
+                                <li>
+                                    Kamar aktif Anda:{' '}
+                                    <strong>
+                                        {room
+                                            ? `${roomBuilding ?? 'Asrama'} · Kamar ${room.nomor_kamar}`
+                                            : 'Sesuai penetapan pengelola'}
+                                    </strong>
+                                    .
+                                </li>
+                                <li>
+                                    Gunakan menu{' '}
+                                    <strong>Laporkan Kerusakan</strong> bila ada
+                                    fasilitas kamar yang perlu diperbaiki
+                                    teknisi.
+                                </li>
+                                <li>
+                                    Saat masa huni berakhir, ajukan pengembalian
+                                    kamar dengan mudah melalui menu{' '}
+                                    <strong>Check-out</strong>.
+                                </li>
+                            </ol>
+                        ) : (
+                            <ol className="text-base-content/85 list-inside list-decimal space-y-1.5 text-sm">
+                                <li>
+                                    <strong>
+                                        Datang ke gedung hunian Anda:
+                                    </strong>{' '}
+                                    {room
+                                        ? `${roomBuilding ?? 'Asrama'} · Kamar ${room.nomor_kamar}`
+                                        : 'sesuai pemberitahuan penempatan'}
+                                    .
+                                </li>
+                                <li>
+                                    <strong>Temui Fasilitator Gedung</strong>{' '}
+                                    dengan menunjukkan identitas (KTM/KTP) dan
+                                    halaman bukti pendaftaran ini untuk
+                                    pengambilan kunci kamar.
+                                </li>
+                                <li>
+                                    <strong>Langsung menempati kamar</strong> —
+                                    berkas Anda sudah disetujui otomatis
+                                    {!r.is_kipk
+                                        ? ' dan bukti pembayaran Anda sedang/telah dicatat bagian keuangan.'
+                                        : ' sebagai penerima KIP-K.'}
+                                </li>
+                            </ol>
+                        )}
+                    </div>
+                )}
+
+            {/* Main Content Grid: Documents & Financing (collapsed into clean archive on Stage 5 Check-In) */}
+            {(() => {
+                const collapseArchive =
+                    isCheckInStage &&
+                    !reviewingUploadStep &&
+                    editableKinds.length === 0 &&
+                    !canChooseFinancing &&
+                    r.status !== 'cancelled' &&
+                    r.status !== 'rejected';
+                const detailsGrid = (
+                    <div
+                        className={
+                            isPaymentStage || !requiresDocs
+                                ? 'grid gap-5'
+                                : 'grid gap-5 lg:grid-cols-2'
+                        }
+                    >
+                        {/* Section A: Berkas Pendaftaran */}
+                        {!isPaymentStage && requiresDocs && (
+                            <div
+                                id={`berkas-${r.id}`}
+                                className="border-base-300 bg-base-100 min-w-0 space-y-4 overflow-hidden rounded-xl border p-4 md:p-5"
+                            >
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <div className="flex min-w-0 items-center gap-2">
+                                        <FileText
+                                            className="text-muted size-5 shrink-0"
+                                            aria-hidden="true"
+                                        />
+                                        <h3 className="text-base font-semibold">
+                                            Berkas Pendaftaran
+                                        </h3>
                                     </div>
-                                    <div className="min-w-0">
-                                        <p className="text-muted text-xs">
-                                            Dibayar
-                                        </p>
-                                        <p className="text-base-content font-semibold break-words">
-                                            {formatRupiah(totalDibayar)}
-                                        </p>
-                                    </div>
-                                    <div className="min-w-0">
-                                        <p className="text-muted text-xs">
-                                            Sisa
-                                        </p>
-                                        <p className="text-base-content font-semibold break-words">
-                                            {formatRupiah(remaining)}
-                                        </p>
-                                    </div>
-                                    <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 border-t pt-2 text-xs sm:col-span-3">
-                                        <span className="text-base-content text-identifier min-w-0 font-semibold break-all">
-                                            ID Tagihan: {r.tagihan.nomor}
-                                        </span>
-                                        {(r.tagihan.dokumen?.length ?? 0) >
-                                        0 ? (
-                                            <div className="flex flex-wrap gap-2">
-                                                {r.tagihan.dokumen?.map(
-                                                    (doc) => (
-                                                        <a
-                                                            key={doc.id}
-                                                            href={billingDocument.url(
-                                                                {
-                                                                    document:
-                                                                        doc.id,
-                                                                },
-                                                            )}
-                                                            className="btn btn-ghost btn-xs gap-1"
-                                                        >
-                                                            <Download className="size-3.5" />
-                                                            Unduh {doc.jenis}
-                                                        </a>
-                                                    ),
-                                                )}
-                                            </div>
-                                        ) : !paymentUnlocked ? (
-                                            <span className="text-muted shrink-0">
-                                                Lengkapi berkas wajib terlebih
-                                                dahulu
-                                            </span>
-                                        ) : null}
-                                    </div>
+                                    <StatusChip
+                                        label={
+                                            editableKinds.length === 0
+                                                ? 'Semua berkas terunggah'
+                                                : `${editableKinds.length} berkas perlu diunggah`
+                                        }
+                                        tone={
+                                            editableKinds.length === 0
+                                                ? 'success'
+                                                : 'warning'
+                                        }
+                                    />
                                 </div>
 
-                                {(r.tagihan.items?.length ?? 0) > 0 && (
-                                    <div className="border-base-300 bg-base-100 rounded-lg border p-3 text-xs">
-                                        <p className="text-base-content mb-2 font-semibold">
-                                            Rincian Tagihan
-                                        </p>
-                                        <div className="divide-base-200 divide-y">
-                                            {r.tagihan.items?.map((item) => (
-                                                <div
-                                                    key={item.id}
-                                                    className="flex items-start justify-between gap-3 py-1.5"
-                                                >
+                                <div className="space-y-3">
+                                    {requiredKinds.map((kind) => {
+                                        const doc = latestByKind.get(kind);
+                                        const template = templates.find(
+                                            (t) =>
+                                                t.category === category &&
+                                                t.kind === kind,
+                                        );
+                                        const needsUpload =
+                                            editableKinds.includes(kind);
+
+                                        return (
+                                            <div
+                                                key={kind}
+                                                className="border-base-300 bg-base-200/30 min-w-0 space-y-2.5 overflow-hidden rounded-lg border p-3.5"
+                                            >
+                                                <div className="flex flex-wrap items-start justify-between gap-2">
                                                     <div className="min-w-0">
-                                                        <p className="text-base-content font-medium">
-                                                            {item.deskripsi}
-                                                        </p>
-                                                        <p className="text-muted">
-                                                            {item.kuantitas} ×{' '}
-                                                            {formatRupiah(
-                                                                Number(
-                                                                    item.harga_satuan,
-                                                                ),
+                                                        <p className="text-base-content text-sm font-semibold">
+                                                            {friendlyDocumentLabel(
+                                                                kind,
                                                             )}
                                                         </p>
-                                                    </div>
-                                                    <span className="text-base-content shrink-0 font-semibold">
-                                                        {formatRupiah(
-                                                            Number(item.jumlah),
+                                                        {doc && (
+                                                            <p className="text-muted text-xs">
+                                                                Versi{' '}
+                                                                {doc.version}
+                                                                {doc.reviewer
+                                                                    ?.nama
+                                                                    ? ` · Diperiksa oleh ${doc.reviewer.nama}`
+                                                                    : ''}
+                                                            </p>
                                                         )}
+                                                    </div>
+                                                    <StatusChip
+                                                        label={documentStatusText(
+                                                            doc?.status ??
+                                                                'missing',
+                                                        )}
+                                                        tone={documentChipTone(
+                                                            doc?.status ??
+                                                                'missing',
+                                                        )}
+                                                    />
+                                                </div>
+
+                                                {doc?.status === 'revision' &&
+                                                    doc.notes && (
+                                                        <div className="border-base-300 border-l-error bg-base-100 text-base-content rounded-md border border-l-4 px-3 py-2 text-xs break-words">
+                                                            <strong>
+                                                                Catatan revisi:
+                                                            </strong>{' '}
+                                                            {doc.notes}
+                                                        </div>
+                                                    )}
+
+                                                <div className="flex min-w-0 flex-wrap gap-2">
+                                                    {template && (
+                                                        <a
+                                                            href={workflow.downloadTemplate.url(
+                                                                [
+                                                                    category,
+                                                                    kind,
+                                                                ],
+                                                            )}
+                                                            title={`Unduh Template (${template.original_name})`}
+                                                            className="btn btn-xs btn-outline max-w-full min-w-0 gap-1.5 overflow-hidden"
+                                                        >
+                                                            <Download
+                                                                className="size-3.5 shrink-0"
+                                                                aria-hidden="true"
+                                                            />
+                                                            <span className="truncate">
+                                                                Unduh Template (
+                                                                {
+                                                                    template.original_name
+                                                                }
+                                                                )
+                                                            </span>
+                                                        </a>
+                                                    )}
+                                                    {doc && (
+                                                        <a
+                                                            href={workflow.document.url(
+                                                                doc.id,
+                                                            )}
+                                                            className="btn btn-xs btn-ghost border-base-300 max-w-full min-w-0 gap-1.5 overflow-hidden border"
+                                                        >
+                                                            <FileCheck2
+                                                                className="size-3.5 shrink-0"
+                                                                aria-hidden="true"
+                                                            />
+                                                            <span className="truncate">
+                                                                Unduh Berkas v
+                                                                {doc.version}
+                                                            </span>
+                                                        </a>
+                                                    )}
+                                                </div>
+
+                                                {/* Upload input ONLY rendered when missing or revision required */}
+                                                {needsUpload ? (
+                                                    <div className="space-y-1 pt-1">
+                                                        <label className="block">
+                                                            <span className="text-muted mb-1 block text-xs">
+                                                                Unggah PDF atau
+                                                                gambar (maks. 5
+                                                                MB)
+                                                            </span>
+                                                            <input
+                                                                type="file"
+                                                                accept=".pdf,.jpg,.jpeg,.png"
+                                                                className="file-input file-input-bordered file-input-sm w-full max-w-full"
+                                                                onChange={(
+                                                                    e,
+                                                                ) => {
+                                                                    const file =
+                                                                        e.target
+                                                                            .files?.[0];
+                                                                    const fieldKey = `files.${kind}`;
+                                                                    if (file) {
+                                                                        const ext =
+                                                                            file.name
+                                                                                .split(
+                                                                                    '.',
+                                                                                )
+                                                                                .pop()
+                                                                                ?.toLowerCase() ??
+                                                                            '';
+                                                                        if (
+                                                                            !ALLOWED_UPLOAD_EXTENSIONS.has(
+                                                                                ext,
+                                                                            )
+                                                                        ) {
+                                                                            e.target.value =
+                                                                                '';
+                                                                            setSelectedFiles(
+                                                                                (
+                                                                                    prev,
+                                                                                ) => {
+                                                                                    const next =
+                                                                                        {
+                                                                                            ...prev,
+                                                                                        };
+                                                                                    delete next[
+                                                                                        kind
+                                                                                    ];
+                                                                                    return next;
+                                                                                },
+                                                                            );
+                                                                            setErrors(
+                                                                                (
+                                                                                    prev,
+                                                                                ) => ({
+                                                                                    ...prev,
+                                                                                    [fieldKey]:
+                                                                                        'Format berkas harus PDF, JPG, JPEG, atau PNG.',
+                                                                                }),
+                                                                            );
+                                                                            return;
+                                                                        }
+                                                                        if (
+                                                                            file.size >
+                                                                            MAX_UPLOAD_BYTES
+                                                                        ) {
+                                                                            e.target.value =
+                                                                                '';
+                                                                            setSelectedFiles(
+                                                                                (
+                                                                                    prev,
+                                                                                ) => {
+                                                                                    const next =
+                                                                                        {
+                                                                                            ...prev,
+                                                                                        };
+                                                                                    delete next[
+                                                                                        kind
+                                                                                    ];
+                                                                                    return next;
+                                                                                },
+                                                                            );
+                                                                            setErrors(
+                                                                                (
+                                                                                    prev,
+                                                                                ) => ({
+                                                                                    ...prev,
+                                                                                    [fieldKey]: `Ukuran berkas ${formatFileSize(file.size)} melebihi batas maksimum 5 MB. Kompres berkas terlebih dahulu.`,
+                                                                                }),
+                                                                            );
+                                                                            return;
+                                                                        }
+                                                                    }
+                                                                    setErrors(
+                                                                        (
+                                                                            prev,
+                                                                        ) => {
+                                                                            if (
+                                                                                !(
+                                                                                    fieldKey in
+                                                                                    prev
+                                                                                )
+                                                                            ) {
+                                                                                return prev;
+                                                                            }
+                                                                            const next =
+                                                                                {
+                                                                                    ...prev,
+                                                                                };
+                                                                            delete next[
+                                                                                fieldKey
+                                                                            ];
+                                                                            return next;
+                                                                        },
+                                                                    );
+                                                                    setSelectedFiles(
+                                                                        (
+                                                                            prev,
+                                                                        ) => {
+                                                                            const next =
+                                                                                {
+                                                                                    ...prev,
+                                                                                };
+                                                                            if (
+                                                                                file
+                                                                            ) {
+                                                                                next[
+                                                                                    kind
+                                                                                ] =
+                                                                                    file;
+                                                                            } else {
+                                                                                delete next[
+                                                                                    kind
+                                                                                ];
+                                                                            }
+                                                                            return next;
+                                                                        },
+                                                                    );
+                                                                }}
+                                                            />
+                                                        </label>
+                                                        {selectedFiles[
+                                                            kind
+                                                        ] && (
+                                                            <p className="text-primary text-xs font-medium break-all">
+                                                                Siap disimpan:{' '}
+                                                                {
+                                                                    selectedFiles[
+                                                                        kind
+                                                                    ].name
+                                                                }{' '}
+                                                                (
+                                                                {formatFileSize(
+                                                                    selectedFiles[
+                                                                        kind
+                                                                    ].size,
+                                                                )}
+                                                                )
+                                                            </p>
+                                                        )}
+                                                        {errors[
+                                                            `files.${kind}`
+                                                        ] && (
+                                                            <p className="text-error text-xs">
+                                                                {
+                                                                    errors[
+                                                                        `files.${kind}`
+                                                                    ]
+                                                                }
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    doc && (
+                                                        <p className="text-muted flex items-start gap-1.5 text-xs">
+                                                            <Lock
+                                                                className="mt-0.5 size-3.5 shrink-0"
+                                                                aria-hidden="true"
+                                                            />
+                                                            <span>
+                                                                Berkas sudah
+                                                                tersimpan
+                                                                permanen.
+                                                                Pengunggahan
+                                                                ulang hanya
+                                                                dibuka bila
+                                                                petugas meminta
+                                                                revisi.
+                                                            </span>
+                                                        </p>
+                                                    )
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+
+                                {(r.documents?.length ?? 0) > 1 && (
+                                    <details className="border-base-300 rounded-lg border p-3 text-xs">
+                                        <summary className="cursor-pointer font-medium">
+                                            Riwayat versi dokumen (
+                                            {(r.documents ?? []).length})
+                                        </summary>
+                                        <div className="mt-2 space-y-1">
+                                            {(r.documents ?? []).map((d) => (
+                                                <div
+                                                    key={d.id}
+                                                    className="flex flex-wrap items-center justify-between gap-2"
+                                                >
+                                                    <a
+                                                        href={workflow.document.url(
+                                                            d.id,
+                                                        )}
+                                                        className="link link-primary"
+                                                    >
+                                                        {friendlyDocumentLabel(
+                                                            d.kind,
+                                                        )}{' '}
+                                                        v{d.version}
+                                                    </a>
+                                                    <span className="text-muted break-words">
+                                                        {documentStatusText(
+                                                            d.status,
+                                                        )}
+                                                        {d.notes
+                                                            ? ` — ${d.notes}`
+                                                            : ''}
                                                     </span>
                                                 </div>
                                             ))}
                                         </div>
-                                        {Number(r.tagihan.sponsor_total ?? 0) >
-                                            0 && (
-                                            <div className="border-base-200 mt-1.5 flex justify-between border-t pt-1.5">
-                                                <span className="text-muted">
-                                                    Tanggungan Institusi /
-                                                    Sponsor
-                                                    {r.tagihan.sponsor_name
-                                                        ? ` (${r.tagihan.sponsor_name})`
-                                                        : ''}
-                                                </span>
-                                                <span className="font-medium">
-                                                    {formatRupiah(
-                                                        Number(
-                                                            r.tagihan
-                                                                .sponsor_total,
-                                                        ),
-                                                    )}
-                                                </span>
-                                            </div>
-                                        )}
-                                    </div>
+                                    </details>
                                 )}
-
-                                {(paymentUnlocked ||
-                                    hasPaymentSubmittedOrSettled ||
-                                    r.completed_at) &&
-                                    r.status !== 'cancelled' &&
-                                    (() => {
-                                        const invoicePayments =
-                                            r.tagihan?.pembayaran ?? [];
-                                        const pendingPayment =
-                                            invoicePayments.find(
-                                                (p) =>
-                                                    p.status ===
-                                                    'menunggu_verifikasi',
-                                            );
-                                        const latestVerified =
-                                            invoicePayments.find(
-                                                (p) => p.status === 'lunas',
-                                            );
-                                        const latestRejected = !pendingPayment
-                                            ? invoicePayments.find(
-                                                  (p) => p.status === 'ditolak',
-                                              )
-                                            : undefined;
-                                        const displayedProof =
-                                            pendingPayment ?? latestVerified;
-                                        const installments = (
-                                            r.tagihan?.jadwal_cicilan ?? []
-                                        )
-                                            .filter(
-                                                (t) => t.status !== 'diganti',
-                                            )
-                                            .sort(
-                                                (a, b) =>
-                                                    a.termin_ke - b.termin_ke,
-                                            );
-                                        let cumulative = 0;
-                                        let nextTerm:
-                                            | TagihanInstallmentSummary
-                                            | undefined;
-                                        let nextDue = remaining;
-                                        for (const term of installments) {
-                                            cumulative += Number(term.jumlah);
-                                            if (cumulative > totalDibayar) {
-                                                nextTerm = term;
-                                                nextDue = Math.min(
-                                                    remaining,
-                                                    Math.max(
-                                                        cumulative -
-                                                            totalDibayar,
-                                                        0,
-                                                    ),
-                                                );
-                                                break;
-                                            }
-                                        }
-
-                                        return (
-                                            <div className="border-base-300 bg-base-100 space-y-4 rounded-xl border p-4">
-                                                {!displayedProof &&
-                                                    !r.completed_at && (
-                                                        <ReservationCountdown
-                                                            targetIso={
-                                                                r.reservation_expires_at ??
-                                                                r.tagihan
-                                                                    ?.jatuh_tempo
-                                                            }
-                                                            label="Batas waktu penyelesaian pembayaran"
-                                                        />
-                                                    )}
-
-                                                {installments.length > 0 && (
-                                                    <div className="border-base-200 bg-base-200/30 space-y-1.5 rounded-lg border p-3 text-xs">
-                                                        <p className="font-semibold">
-                                                            Jadwal Pembayaran /
-                                                            Termin
-                                                        </p>
-                                                        {installments.map(
-                                                            (term) => (
-                                                                <div
-                                                                    key={
-                                                                        term.id
-                                                                    }
-                                                                    className="flex justify-between gap-2"
-                                                                >
-                                                                    <span>
-                                                                        Termin{' '}
-                                                                        {
-                                                                            term.termin_ke
-                                                                        }{' '}
-                                                                        (Jatuh
-                                                                        tempo:{' '}
-                                                                        {formatDate(
-                                                                            term.jatuh_tempo,
-                                                                        )}
-                                                                        )
-                                                                    </span>
-                                                                    <span className="font-medium">
-                                                                        {formatRupiah(
-                                                                            Number(
-                                                                                term.jumlah,
-                                                                            ),
-                                                                        )}
-                                                                    </span>
-                                                                </div>
-                                                            ),
-                                                        )}
-                                                    </div>
-                                                )}
-
-                                                {displayedProof ? (
-                                                    <div
-                                                        className={`border-base-300 bg-base-200/40 space-y-2 rounded-lg border border-l-4 p-3.5 text-xs ${
-                                                            displayedProof.status ===
-                                                            'lunas'
-                                                                ? 'border-l-primary'
-                                                                : 'border-l-warning'
-                                                        }`}
-                                                    >
-                                                        <div className="flex flex-wrap items-center justify-between gap-2">
-                                                            <span className="text-sm font-semibold">
-                                                                {displayedProof.status ===
-                                                                'lunas'
-                                                                    ? 'Pembayaran Terverifikasi (Lunas)'
-                                                                    : 'Menunggu Verifikasi Pengelola'}
-                                                            </span>
-                                                            <StatusChip
-                                                                label={
-                                                                    displayedProof.status ===
-                                                                    'lunas'
-                                                                        ? 'Lunas'
-                                                                        : 'Menunggu Verifikasi'
-                                                                }
-                                                                tone={
-                                                                    displayedProof.status ===
-                                                                    'lunas'
-                                                                        ? 'success'
-                                                                        : 'warning'
-                                                                }
-                                                            />
-                                                        </div>
-                                                        <p className="text-muted">
-                                                            Bukti transfer
-                                                            sebesar{' '}
-                                                            <strong>
-                                                                {formatRupiah(
-                                                                    Number(
-                                                                        displayedProof.nominal,
-                                                                    ),
-                                                                )}
-                                                            </strong>{' '}
-                                                            (
-                                                            {
-                                                                displayedProof.kode_transaksi
-                                                            }
-                                                            ) telah diterima
-                                                            sistem.
-                                                        </p>
-                                                        {displayedProof.rekening_tujuan && (
-                                                            <p className="text-muted">
-                                                                Tujuan:{' '}
-                                                                {
-                                                                    displayedProof.rekening_tujuan
-                                                                }
-                                                            </p>
-                                                        )}
-                                                        {(displayedProof.nama_bank ||
-                                                            displayedProof.atas_nama_pengirim) && (
-                                                            <p className="text-muted">
-                                                                Pengirim:{' '}
-                                                                {displayedProof.nama_bank ||
-                                                                    '-'}{' '}
-                                                                {displayedProof.nomor_rekening_pengirim
-                                                                    ? `· ${displayedProof.nomor_rekening_pengirim}`
-                                                                    : ''}
-                                                                {displayedProof.atas_nama_pengirim
-                                                                    ? ` a.n. ${displayedProof.atas_nama_pengirim}`
-                                                                    : ''}
-                                                            </p>
-                                                        )}
-                                                        {(displayedProof.tanggal_bayar ||
-                                                            displayedProof.created_at) && (
-                                                            <p className="text-muted">
-                                                                Waktu transfer:{' '}
-                                                                {formatDateTime(
-                                                                    displayedProof.tanggal_bayar ??
-                                                                        displayedProof.created_at,
-                                                                )}
-                                                            </p>
-                                                        )}
-                                                        <div className="flex flex-wrap gap-2 pt-1">
-                                                            <a
-                                                                href={pembayaranBukti.url(
-                                                                    displayedProof.id,
-                                                                )}
-                                                                className="btn btn-outline btn-xs gap-1"
-                                                            >
-                                                                <Download className="size-3.5" />
-                                                                Unduh Bukti
-                                                                Transfer
-                                                            </a>
-                                                        </div>
-                                                    </div>
-                                                ) : !r.completed_at ? (
-                                                    <>
-                                                        {latestRejected && (
-                                                            <div className="alert alert-error text-xs">
-                                                                <AlertTriangle className="size-4 shrink-0" />
-                                                                <span>
-                                                                    Bukti
-                                                                    pembayaran
-                                                                    sebelumnya
-                                                                    ditolak:{' '}
-                                                                    <strong>
-                                                                        {latestRejected.catatan_verifikasi ||
-                                                                            'Periksa kembali nominal atau lampiran bukti.'}
-                                                                    </strong>
-                                                                </span>
-                                                            </div>
-                                                        )}
-                                                        {remaining > 0 && (
-                                                            <PaymentAccountsBox
-                                                                paymentAccounts={
-                                                                    paymentAccounts
-                                                                }
-                                                                virtualAccounts={
-                                                                    virtualAccounts
-                                                                }
-                                                                compact
-                                                            />
-                                                        )}
-                                                        {remaining > 0 && (
-                                                            <div className="border-base-300 bg-base-200/30 space-y-3 rounded-xl border p-4">
-                                                                <h4 className="text-sm font-semibold">
-                                                                    Unggah Bukti
-                                                                    Pembayaran
-                                                                </h4>
-                                                                <PaymentProofForm
-                                                                    key={
-                                                                        r
-                                                                            .tagihan!
-                                                                            .id
-                                                                    }
-                                                                    tagihanId={
-                                                                        r
-                                                                            .tagihan!
-                                                                            .id
-                                                                    }
-                                                                    totalRemaining={
-                                                                        remaining
-                                                                    }
-                                                                    dueAmount={
-                                                                        nextDue
-                                                                    }
-                                                                    terminKe={
-                                                                        nextTerm?.termin_ke ??
-                                                                        null
-                                                                    }
-                                                                    jenisPembayaran={
-                                                                        nextTerm
-                                                                            ? 'cicilan'
-                                                                            : 'sewa_asrama'
-                                                                    }
-                                                                    paymentAccounts={
-                                                                        paymentAccounts
-                                                                    }
-                                                                />
-                                                            </div>
-                                                        )}
-                                                    </>
-                                                ) : null}
-                                            </div>
-                                        );
-                                    })()}
-
-                                {!paymentUnlocked &&
-                                    !isKipkExempt &&
-                                    !r.completed_at &&
-                                    r.status !== 'cancelled' && (
-                                        <div className="border-base-300 bg-base-200/40 rounded-lg border p-3 text-xs">
-                                            <p className="font-semibold">
-                                                Tahap Pembayaran Belum Dibuka
-                                            </p>
-                                            <p className="text-muted mt-0.5">
-                                                Lengkapi unggahan seluruh berkas
-                                                wajib pada panel Berkas
-                                                Pendaftaran agar akses
-                                                pembayaran langsung terbuka
-                                                (verifikasi berkas akan
-                                                dilakukan petugas saat
-                                                check-in).
-                                            </p>
-                                        </div>
-                                    )}
-
-                                {Boolean(room) &&
-                                    (r.completed_at ||
-                                        r.ready_at ||
-                                        hasPaymentSubmittedOrSettled) &&
-                                    r.status !== 'cancelled' && (
-                                        <div className="flex justify-end">
-                                            <Link
-                                                href={detailKamarRoute.url()}
-                                                className="btn btn-primary btn-sm gap-1.5"
-                                            >
-                                                <span>Buka Kamar Saya</span>
-                                                <ArrowRight className="size-4" />
-                                            </Link>
-                                        </div>
-                                    )}
-                            </div>
-                        ) : (
-                            <div className="bg-base-200/50 text-muted rounded-lg p-3 text-sm">
-                                Tagihan belum diterbitkan. Menunggu alokasi atau
-                                verifikasi pendaftaran.
                             </div>
                         )}
 
-                        {/* Saved Decision Read-Only Card (hide automatic Bayar penuh card) */}
-                        {visibleSavedDecisions.map((d) => {
-                            const decisionChip = decisionStatusChip(d.status);
-                            return (
-                                <div
-                                    key={d.id}
-                                    className="border-base-300 bg-base-200/30 space-y-2 rounded-lg border p-3.5"
-                                >
-                                    <div className="flex flex-wrap items-center justify-between gap-2">
-                                        <p className="text-sm font-semibold">
-                                            {DECISION_LABELS[d.kind] ?? d.kind}
-                                        </p>
-                                        <StatusChip
-                                            label={decisionChip.label}
-                                            tone={decisionChip.tone}
-                                        />
+                        {/* Section B: Pembiayaan & Tagihan (hidden for KIP-K since KIP-K is not billed at check-in) */}
+                        {r.is_kipk ? (
+                            <div className="border-base-300 bg-base-100 min-w-0 space-y-4 overflow-hidden rounded-xl border p-4 md:p-5">
+                                {Boolean(room) && r.status !== 'cancelled' && (
+                                    <div className="flex justify-end">
+                                        <Link
+                                            href={detailKamarRoute.url()}
+                                            className="btn btn-primary btn-sm gap-1.5"
+                                        >
+                                            <span>Buka Kamar Saya</span>
+                                            <ArrowRight className="size-4" />
+                                        </Link>
                                     </div>
-                                    <p className="text-muted flex items-center gap-1.5 text-xs">
-                                        <ShieldCheck
-                                            className="size-3.5 shrink-0"
+                                )}
+                                <div className="border-base-300 bg-base-200/40 rounded-lg border p-3.5 text-sm">
+                                    <p className="font-semibold">
+                                        Skema KIP-K Aktif
+                                    </p>
+                                    <p className="text-muted mt-0.5 text-xs">
+                                        Tagihan Biaya hunian ditunda melalui
+                                        skema KIP-K sesuai ketentuan asrama
+                                    </p>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="border-base-300 bg-base-100 min-w-0 space-y-4 overflow-hidden rounded-xl border p-4 md:p-5">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <div className="flex min-w-0 items-center gap-2">
+                                        <Wallet
+                                            className="text-muted size-5 shrink-0"
                                             aria-hidden="true"
                                         />
-                                        Pilihan pembiayaan telah tersimpan
-                                        permanen.
-                                    </p>
-                                    {d.reason && (
-                                        <p className="text-xs">
-                                            <strong>Alasan:</strong> {d.reason}
-                                        </p>
-                                    )}
-                                    {d.terms?.notes && (
-                                        <p className="text-xs">
-                                            <strong>Catatan pengelola:</strong>{' '}
-                                            {d.terms.notes}
-                                        </p>
-                                    )}
-                                    {d.terms?.initial_amount !== undefined && (
-                                        <p className="text-xs">
-                                            <strong>
-                                                Pembayaran awal wajib:
-                                            </strong>{' '}
-                                            {formatRupiah(
-                                                Number(d.terms.initial_amount),
-                                            )}
-                                        </p>
-                                    )}
-                                    {(d.terms?.schedule?.length ?? 0) > 0 && (
-                                        <div className="border-base-300 mt-1 space-y-1 border-t pt-2 text-xs">
-                                            <p className="font-medium">
-                                                Jadwal Termin Disetujui:
-                                            </p>
-                                            {d.terms?.schedule?.map(
-                                                (term, idx) => (
-                                                    <div
-                                                        key={idx}
-                                                        className="flex justify-between"
-                                                    >
-                                                        <span>
-                                                            Termin {idx + 1} (
-                                                            {formatDate(
-                                                                term.jatuh_tempo,
-                                                            )}
-                                                            )
+                                        <h3 className="text-base font-semibold">
+                                            Pembiayaan & Tagihan
+                                        </h3>
+                                    </div>
+                                    {r.tagihan &&
+                                        (() => {
+                                            const chip = tagihanStatusChip(
+                                                r.tagihan.status,
+                                            );
+                                            return (
+                                                <StatusChip
+                                                    label={chip.label}
+                                                    tone={chip.tone}
+                                                />
+                                            );
+                                        })()}
+                                </div>
+
+                                {r.tagihan ? (
+                                    <div className="space-y-3">
+                                        <div className="border-base-300 bg-base-200/40 grid grid-cols-1 gap-2 rounded-lg border p-3 text-sm sm:grid-cols-3">
+                                            <div className="min-w-0">
+                                                <p className="text-muted text-xs">
+                                                    Total
+                                                </p>
+                                                <p className="text-base-content font-semibold break-words">
+                                                    {formatRupiah(totalTagihan)}
+                                                </p>
+                                            </div>
+                                            <div className="min-w-0">
+                                                <p className="text-muted text-xs">
+                                                    Dibayar
+                                                </p>
+                                                <p className="text-base-content font-semibold break-words">
+                                                    {formatRupiah(totalDibayar)}
+                                                </p>
+                                            </div>
+                                            <div className="min-w-0">
+                                                <p className="text-muted text-xs">
+                                                    Sisa
+                                                </p>
+                                                <p className="text-base-content font-semibold break-words">
+                                                    {formatRupiah(remaining)}
+                                                </p>
+                                            </div>
+                                            <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 border-t pt-2 text-xs sm:col-span-3">
+                                                <span className="text-base-content text-identifier min-w-0 font-semibold break-all">
+                                                    ID Tagihan:{' '}
+                                                    {r.tagihan.nomor}
+                                                </span>
+                                                {(r.tagihan.dokumen?.length ??
+                                                    0) > 0 ? (
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {r.tagihan.dokumen?.map(
+                                                            (doc) => (
+                                                                <a
+                                                                    key={doc.id}
+                                                                    href={billingDocument.url(
+                                                                        {
+                                                                            document:
+                                                                                doc.id,
+                                                                        },
+                                                                    )}
+                                                                    className="btn btn-ghost btn-xs gap-1"
+                                                                >
+                                                                    <Download className="size-3.5" />
+                                                                    Unduh{' '}
+                                                                    {doc.jenis}
+                                                                </a>
+                                                            ),
+                                                        )}
+                                                    </div>
+                                                ) : !paymentUnlocked ? (
+                                                    <span className="text-muted shrink-0">
+                                                        Lengkapi berkas wajib
+                                                        terlebih dahulu
+                                                    </span>
+                                                ) : null}
+                                            </div>
+                                        </div>
+
+                                        {(r.tagihan.items?.length ?? 0) > 0 && (
+                                            <div className="border-base-300 bg-base-100 rounded-lg border p-3 text-xs">
+                                                <p className="text-base-content mb-2 font-semibold">
+                                                    Rincian Tagihan
+                                                </p>
+                                                <div className="divide-base-200 divide-y">
+                                                    {r.tagihan.items?.map(
+                                                        (item) => (
+                                                            <div
+                                                                key={item.id}
+                                                                className="flex items-start justify-between gap-3 py-1.5"
+                                                            >
+                                                                <div className="min-w-0">
+                                                                    <p className="text-base-content font-medium">
+                                                                        {
+                                                                            item.deskripsi
+                                                                        }
+                                                                    </p>
+                                                                    <p className="text-muted">
+                                                                        {
+                                                                            item.kuantitas
+                                                                        }{' '}
+                                                                        ×{' '}
+                                                                        {formatRupiah(
+                                                                            Number(
+                                                                                item.harga_satuan,
+                                                                            ),
+                                                                        )}
+                                                                    </p>
+                                                                </div>
+                                                                <span className="text-base-content shrink-0 font-semibold">
+                                                                    {formatRupiah(
+                                                                        Number(
+                                                                            item.jumlah,
+                                                                        ),
+                                                                    )}
+                                                                </span>
+                                                            </div>
+                                                        ),
+                                                    )}
+                                                </div>
+                                                {Number(
+                                                    r.tagihan.sponsor_total ??
+                                                        0,
+                                                ) > 0 && (
+                                                    <div className="border-base-200 mt-1.5 flex justify-between border-t pt-1.5">
+                                                        <span className="text-muted">
+                                                            Tanggungan Institusi
+                                                            / Sponsor
+                                                            {r.tagihan
+                                                                .sponsor_name
+                                                                ? ` (${r.tagihan.sponsor_name})`
+                                                                : ''}
                                                         </span>
                                                         <span className="font-medium">
                                                             {formatRupiah(
                                                                 Number(
-                                                                    term.jumlah,
+                                                                    r.tagihan
+                                                                        .sponsor_total,
                                                                 ),
                                                             )}
                                                         </span>
                                                     </div>
-                                                ),
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {(paymentUnlocked ||
+                                            hasPaymentSubmittedOrSettled ||
+                                            r.completed_at) &&
+                                            r.status !== 'cancelled' &&
+                                            (() => {
+                                                const invoicePayments =
+                                                    r.tagihan?.pembayaran ?? [];
+                                                const pendingPayment =
+                                                    invoicePayments.find(
+                                                        (p) =>
+                                                            p.status ===
+                                                            'menunggu_verifikasi',
+                                                    );
+                                                const latestVerified =
+                                                    invoicePayments.find(
+                                                        (p) =>
+                                                            p.status ===
+                                                            'lunas',
+                                                    );
+                                                const latestRejected =
+                                                    !pendingPayment
+                                                        ? invoicePayments.find(
+                                                              (p) =>
+                                                                  p.status ===
+                                                                  'ditolak',
+                                                          )
+                                                        : undefined;
+                                                const displayedProof =
+                                                    pendingPayment ??
+                                                    latestVerified;
+                                                const installments = (
+                                                    r.tagihan?.jadwal_cicilan ??
+                                                    []
+                                                )
+                                                    .filter(
+                                                        (t) =>
+                                                            t.status !==
+                                                            'diganti',
+                                                    )
+                                                    .sort(
+                                                        (a, b) =>
+                                                            a.termin_ke -
+                                                            b.termin_ke,
+                                                    );
+                                                let cumulative = 0;
+                                                let nextTerm:
+                                                    | TagihanInstallmentSummary
+                                                    | undefined;
+                                                let nextDue = remaining;
+                                                for (const term of installments) {
+                                                    cumulative += Number(
+                                                        term.jumlah,
+                                                    );
+                                                    if (
+                                                        cumulative >
+                                                        totalDibayar
+                                                    ) {
+                                                        nextTerm = term;
+                                                        nextDue = Math.min(
+                                                            remaining,
+                                                            Math.max(
+                                                                cumulative -
+                                                                    totalDibayar,
+                                                                0,
+                                                            ),
+                                                        );
+                                                        break;
+                                                    }
+                                                }
+
+                                                return (
+                                                    <div className="border-base-300 bg-base-100 space-y-4 rounded-xl border p-4">
+                                                        {!displayedProof &&
+                                                            !r.completed_at && (
+                                                                <ReservationCountdown
+                                                                    targetIso={
+                                                                        r.reservation_expires_at ??
+                                                                        r
+                                                                            .tagihan
+                                                                            ?.jatuh_tempo
+                                                                    }
+                                                                    label="Batas waktu penyelesaian pembayaran"
+                                                                />
+                                                            )}
+
+                                                        {installments.length >
+                                                            0 && (
+                                                            <div className="border-base-200 bg-base-200/30 space-y-1.5 rounded-lg border p-3 text-xs">
+                                                                <p className="font-semibold">
+                                                                    Jadwal
+                                                                    Pembayaran /
+                                                                    Termin
+                                                                </p>
+                                                                {installments.map(
+                                                                    (term) => (
+                                                                        <div
+                                                                            key={
+                                                                                term.id
+                                                                            }
+                                                                            className="flex justify-between gap-2"
+                                                                        >
+                                                                            <span>
+                                                                                Termin{' '}
+                                                                                {
+                                                                                    term.termin_ke
+                                                                                }{' '}
+                                                                                (Jatuh
+                                                                                tempo:{' '}
+                                                                                {formatDate(
+                                                                                    term.jatuh_tempo,
+                                                                                )}
+                                                                                )
+                                                                            </span>
+                                                                            <span className="font-medium">
+                                                                                {formatRupiah(
+                                                                                    Number(
+                                                                                        term.jumlah,
+                                                                                    ),
+                                                                                )}
+                                                                            </span>
+                                                                        </div>
+                                                                    ),
+                                                                )}
+                                                            </div>
+                                                        )}
+
+                                                        {displayedProof ? (
+                                                            <div
+                                                                className={`border-base-300 bg-base-200/40 space-y-2 rounded-lg border border-l-4 p-3.5 text-xs ${
+                                                                    displayedProof.status ===
+                                                                    'lunas'
+                                                                        ? 'border-l-primary'
+                                                                        : 'border-l-warning'
+                                                                }`}
+                                                            >
+                                                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                                                    <span className="text-sm font-semibold">
+                                                                        {displayedProof.status ===
+                                                                        'lunas'
+                                                                            ? 'Pembayaran Terverifikasi (Lunas)'
+                                                                            : 'Menunggu Verifikasi Pengelola'}
+                                                                    </span>
+                                                                    <StatusChip
+                                                                        label={
+                                                                            displayedProof.status ===
+                                                                            'lunas'
+                                                                                ? 'Lunas'
+                                                                                : 'Menunggu Verifikasi'
+                                                                        }
+                                                                        tone={
+                                                                            displayedProof.status ===
+                                                                            'lunas'
+                                                                                ? 'success'
+                                                                                : 'warning'
+                                                                        }
+                                                                    />
+                                                                </div>
+                                                                <p className="text-muted">
+                                                                    Bukti
+                                                                    transfer
+                                                                    sebesar{' '}
+                                                                    <strong>
+                                                                        {formatRupiah(
+                                                                            Number(
+                                                                                displayedProof.nominal,
+                                                                            ),
+                                                                        )}
+                                                                    </strong>{' '}
+                                                                    (
+                                                                    {
+                                                                        displayedProof.kode_transaksi
+                                                                    }
+                                                                    ) telah
+                                                                    diterima
+                                                                    sistem.
+                                                                </p>
+                                                                {displayedProof.rekening_tujuan && (
+                                                                    <p className="text-muted">
+                                                                        Tujuan:{' '}
+                                                                        {
+                                                                            displayedProof.rekening_tujuan
+                                                                        }
+                                                                    </p>
+                                                                )}
+                                                                {(displayedProof.nama_bank ||
+                                                                    displayedProof.atas_nama_pengirim) && (
+                                                                    <p className="text-muted">
+                                                                        Pengirim:{' '}
+                                                                        {displayedProof.nama_bank ||
+                                                                            '-'}{' '}
+                                                                        {displayedProof.nomor_rekening_pengirim
+                                                                            ? `· ${displayedProof.nomor_rekening_pengirim}`
+                                                                            : ''}
+                                                                        {displayedProof.atas_nama_pengirim
+                                                                            ? ` a.n. ${displayedProof.atas_nama_pengirim}`
+                                                                            : ''}
+                                                                    </p>
+                                                                )}
+                                                                {(displayedProof.tanggal_bayar ||
+                                                                    displayedProof.created_at) && (
+                                                                    <p className="text-muted">
+                                                                        Waktu
+                                                                        transfer:{' '}
+                                                                        {formatDateTime(
+                                                                            displayedProof.tanggal_bayar ??
+                                                                                displayedProof.created_at,
+                                                                        )}
+                                                                    </p>
+                                                                )}
+                                                                <div className="flex flex-wrap gap-2 pt-1">
+                                                                    <a
+                                                                        href={pembayaranBukti.url(
+                                                                            displayedProof.id,
+                                                                        )}
+                                                                        className="btn btn-outline btn-xs gap-1"
+                                                                    >
+                                                                        <Download className="size-3.5" />
+                                                                        Unduh
+                                                                        Bukti
+                                                                        Transfer
+                                                                    </a>
+                                                                </div>
+                                                            </div>
+                                                        ) : !r.completed_at ? (
+                                                            <>
+                                                                {latestRejected && (
+                                                                    <div className="alert alert-error text-xs">
+                                                                        <AlertTriangle className="size-4 shrink-0" />
+                                                                        <span>
+                                                                            Bukti
+                                                                            pembayaran
+                                                                            sebelumnya
+                                                                            ditolak:{' '}
+                                                                            <strong>
+                                                                                {latestRejected.catatan_verifikasi ||
+                                                                                    'Periksa kembali nominal atau lampiran bukti.'}
+                                                                            </strong>
+                                                                        </span>
+                                                                    </div>
+                                                                )}
+                                                                {remaining >
+                                                                    0 && (
+                                                                    <PaymentAccountsBox
+                                                                        paymentAccounts={
+                                                                            paymentAccounts
+                                                                        }
+                                                                        virtualAccounts={
+                                                                            virtualAccounts
+                                                                        }
+                                                                        compact
+                                                                    />
+                                                                )}
+                                                                {remaining >
+                                                                    0 && (
+                                                                    <div className="border-base-300 bg-base-200/30 space-y-3 rounded-xl border p-4">
+                                                                        <h4 className="text-sm font-semibold">
+                                                                            Unggah
+                                                                            Bukti
+                                                                            Pembayaran
+                                                                        </h4>
+                                                                        <PaymentProofForm
+                                                                            key={
+                                                                                r
+                                                                                    .tagihan!
+                                                                                    .id
+                                                                            }
+                                                                            tagihanId={
+                                                                                r
+                                                                                    .tagihan!
+                                                                                    .id
+                                                                            }
+                                                                            totalRemaining={
+                                                                                remaining
+                                                                            }
+                                                                            dueAmount={
+                                                                                nextDue
+                                                                            }
+                                                                            terminKe={
+                                                                                nextTerm?.termin_ke ??
+                                                                                null
+                                                                            }
+                                                                            jenisPembayaran={
+                                                                                nextTerm
+                                                                                    ? 'cicilan'
+                                                                                    : 'sewa_asrama'
+                                                                            }
+                                                                            paymentAccounts={
+                                                                                paymentAccounts
+                                                                            }
+                                                                        />
+                                                                    </div>
+                                                                )}
+                                                            </>
+                                                        ) : null}
+                                                    </div>
+                                                );
+                                            })()}
+
+                                        {!paymentUnlocked &&
+                                            !isKipkExempt &&
+                                            !r.completed_at &&
+                                            r.status !== 'cancelled' && (
+                                                <div className="border-base-300 bg-base-200/40 rounded-lg border p-3 text-xs">
+                                                    <p className="font-semibold">
+                                                        Tahap Pembayaran Belum
+                                                        Dibuka
+                                                    </p>
+                                                    <p className="text-muted mt-0.5">
+                                                        Lengkapi unggahan
+                                                        seluruh berkas wajib
+                                                        pada panel Berkas
+                                                        Pendaftaran agar akses
+                                                        pembayaran langsung
+                                                        terbuka (verifikasi
+                                                        berkas akan dilakukan
+                                                        petugas saat check-in).
+                                                    </p>
+                                                </div>
+                                            )}
+
+                                        {Boolean(room) &&
+                                            (r.completed_at ||
+                                                r.ready_at ||
+                                                hasPaymentSubmittedOrSettled) &&
+                                            r.status !== 'cancelled' && (
+                                                <div className="flex justify-end">
+                                                    <Link
+                                                        href={detailKamarRoute.url()}
+                                                        className="btn btn-primary btn-sm gap-1.5"
+                                                    >
+                                                        <span>
+                                                            Buka Kamar Saya
+                                                        </span>
+                                                        <ArrowRight className="size-4" />
+                                                    </Link>
+                                                </div>
+                                            )}
+                                    </div>
+                                ) : (
+                                    <div className="bg-base-200/50 text-muted rounded-lg p-3 text-sm">
+                                        Tagihan belum diterbitkan. Menunggu
+                                        alokasi atau verifikasi pendaftaran.
+                                    </div>
+                                )}
+
+                                {/* Saved Decision Read-Only Card (hide automatic Bayar penuh card) */}
+                                {visibleSavedDecisions.map((d) => {
+                                    const decisionChip = decisionStatusChip(
+                                        d.status,
+                                    );
+                                    return (
+                                        <div
+                                            key={d.id}
+                                            className="border-base-300 bg-base-200/30 space-y-2 rounded-lg border p-3.5"
+                                        >
+                                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                                <p className="text-sm font-semibold">
+                                                    {DECISION_LABELS[d.kind] ??
+                                                        d.kind}
+                                                </p>
+                                                <StatusChip
+                                                    label={decisionChip.label}
+                                                    tone={decisionChip.tone}
+                                                />
+                                            </div>
+                                            <p className="text-muted flex items-center gap-1.5 text-xs">
+                                                <ShieldCheck
+                                                    className="size-3.5 shrink-0"
+                                                    aria-hidden="true"
+                                                />
+                                                Pilihan pembiayaan telah
+                                                tersimpan permanen.
+                                            </p>
+                                            {d.reason && (
+                                                <p className="text-xs">
+                                                    <strong>Alasan:</strong>{' '}
+                                                    {d.reason}
+                                                </p>
+                                            )}
+                                            {d.terms?.notes && (
+                                                <p className="text-xs">
+                                                    <strong>
+                                                        Catatan pengelola:
+                                                    </strong>{' '}
+                                                    {d.terms.notes}
+                                                </p>
+                                            )}
+                                            {d.terms?.initial_amount !==
+                                                undefined && (
+                                                <p className="text-xs">
+                                                    <strong>
+                                                        Pembayaran awal wajib:
+                                                    </strong>{' '}
+                                                    {formatRupiah(
+                                                        Number(
+                                                            d.terms
+                                                                .initial_amount,
+                                                        ),
+                                                    )}
+                                                </p>
+                                            )}
+                                            {(d.terms?.schedule?.length ?? 0) >
+                                                0 && (
+                                                <div className="border-base-300 mt-1 space-y-1 border-t pt-2 text-xs">
+                                                    <p className="font-medium">
+                                                        Jadwal Termin Disetujui:
+                                                    </p>
+                                                    {d.terms?.schedule?.map(
+                                                        (term, idx) => (
+                                                            <div
+                                                                key={idx}
+                                                                className="flex justify-between"
+                                                            >
+                                                                <span>
+                                                                    Termin{' '}
+                                                                    {idx + 1} (
+                                                                    {formatDate(
+                                                                        term.jatuh_tempo,
+                                                                    )}
+                                                                    )
+                                                                </span>
+                                                                <span className="font-medium">
+                                                                    {formatRupiah(
+                                                                        Number(
+                                                                            term.jumlah,
+                                                                        ),
+                                                                    )}
+                                                                </span>
+                                                            </div>
+                                                        ),
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+
+                                {rejectedDecisions.map((d) => {
+                                    const decisionChip = decisionStatusChip(
+                                        d.status,
+                                    );
+                                    return (
+                                        <div
+                                            key={d.id}
+                                            className="border-base-300 border-l-error bg-base-100 space-y-1 rounded-lg border border-l-4 p-3 text-xs"
+                                        >
+                                            <div className="flex items-center justify-between">
+                                                <span className="font-semibold">
+                                                    {DECISION_LABELS[d.kind] ??
+                                                        d.kind}
+                                                </span>
+                                                <StatusChip
+                                                    label={decisionChip.label}
+                                                    tone={decisionChip.tone}
+                                                />
+                                            </div>
+                                            {d.terms?.notes && (
+                                                <p>Catatan: {d.terms.notes}</p>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+
+                                {/* Decision selector ONLY when additional monthly/transfer scheme is actually available */}
+                                {canChooseFinancing &&
+                                    (hasMonthlyOption || hasTransferOption) && (
+                                        <div className="border-base-300 bg-base-200/30 space-y-3 rounded-lg border p-3.5">
+                                            <p className="text-sm font-semibold">
+                                                Jenis Pembayaran
+                                            </p>
+                                            <p className="text-muted text-xs">
+                                                Pilihan ini akan dikunci
+                                                permanen setelah Anda menekan
+                                                tombol simpan di bawah.
+                                            </p>
+                                            <label className="block space-y-1">
+                                                <span className="text-xs font-medium">
+                                                    Jenis Pembayaran
+                                                </span>
+                                                <select
+                                                    className="select select-bordered select-sm w-full"
+                                                    value={decisionKind}
+                                                    onChange={(e) =>
+                                                        setDecisionKind(
+                                                            e.target.value,
+                                                        )
+                                                    }
+                                                >
+                                                    <option value="full">
+                                                        Bayar penuh sesuai
+                                                        tagihan
+                                                    </option>
+                                                    {hasMonthlyOption && (
+                                                        <option value="monthly">
+                                                            Ajukan skema bulanan
+                                                        </option>
+                                                    )}
+                                                    {hasTransferOption && (
+                                                        <option value="transfer_permission">
+                                                            Izin tinggal
+                                                            berbasis bukti
+                                                            transfer
+                                                        </option>
+                                                    )}
+                                                </select>
+                                            </label>
+                                            {decisionKind !== 'full' && (
+                                                <label className="block space-y-1">
+                                                    <span className="text-xs font-medium">
+                                                        Alasan Permohonan{' '}
+                                                        <span className="text-error">
+                                                            *
+                                                        </span>
+                                                    </span>
+                                                    <textarea
+                                                        className="textarea textarea-bordered textarea-sm w-full"
+                                                        rows={2}
+                                                        value={decisionReason}
+                                                        onChange={(e) =>
+                                                            setDecisionReason(
+                                                                e.target.value,
+                                                            )
+                                                        }
+                                                        placeholder="Jelaskan alasan pengajuan skema pembiayaan ini"
+                                                    />
+                                                    {errors.decision_reason && (
+                                                        <p className="text-error text-xs">
+                                                            {
+                                                                errors.decision_reason
+                                                            }
+                                                        </p>
+                                                    )}
+                                                </label>
+                                            )}
+                                            {errors.decision_kind && (
+                                                <p className="text-error text-xs">
+                                                    {errors.decision_kind}
+                                                </p>
                                             )}
                                         </div>
                                     )}
-                                </div>
-                            );
-                        })}
 
-                        {rejectedDecisions.map((d) => {
-                            const decisionChip = decisionStatusChip(d.status);
-                            return (
-                                <div
-                                    key={d.id}
-                                    className="border-base-300 border-l-error bg-base-100 space-y-1 rounded-lg border border-l-4 p-3 text-xs"
-                                >
-                                    <div className="flex items-center justify-between">
-                                        <span className="font-semibold">
-                                            {DECISION_LABELS[d.kind] ?? d.kind}
-                                        </span>
-                                        <StatusChip
-                                            label={decisionChip.label}
-                                            tone={decisionChip.tone}
-                                        />
-                                    </div>
-                                    {d.terms?.notes && (
-                                        <p>Catatan: {d.terms.notes}</p>
-                                    )}
-                                </div>
-                            );
-                        })}
-
-                        {/* Decision selector ONLY when additional monthly/transfer scheme is actually available */}
-                        {canChooseFinancing &&
-                            (hasMonthlyOption || hasTransferOption) && (
-                                <div className="border-base-300 bg-base-200/30 space-y-3 rounded-lg border p-3.5">
-                                    <p className="text-sm font-semibold">
-                                        Jenis Pembayaran
-                                    </p>
-                                    <p className="text-muted text-xs">
-                                        Pilihan ini akan dikunci permanen
-                                        setelah Anda menekan tombol simpan di
-                                        bawah.
-                                    </p>
-                                    <label className="block space-y-1">
-                                        <span className="text-xs font-medium">
-                                            Jenis Pembayaran
-                                        </span>
-                                        <select
-                                            className="select select-bordered select-sm w-full"
-                                            value={decisionKind}
-                                            onChange={(e) =>
-                                                setDecisionKind(e.target.value)
-                                            }
-                                        >
-                                            <option value="full">
-                                                Bayar penuh sesuai tagihan
-                                            </option>
-                                            {hasMonthlyOption && (
-                                                <option value="monthly">
-                                                    Ajukan skema bulanan
-                                                </option>
-                                            )}
-                                            {hasTransferOption && (
-                                                <option value="transfer_permission">
-                                                    Izin tinggal berbasis bukti
-                                                    transfer
-                                                </option>
-                                            )}
-                                        </select>
-                                    </label>
-                                    {decisionKind !== 'full' && (
-                                        <label className="block space-y-1">
-                                            <span className="text-xs font-medium">
-                                                Alasan Permohonan{' '}
-                                                <span className="text-error">
-                                                    *
-                                                </span>
-                                            </span>
-                                            <textarea
-                                                className="textarea textarea-bordered textarea-sm w-full"
-                                                rows={2}
-                                                value={decisionReason}
-                                                onChange={(e) =>
-                                                    setDecisionReason(
-                                                        e.target.value,
-                                                    )
-                                                }
-                                                placeholder="Jelaskan alasan pengajuan skema pembiayaan ini"
-                                            />
-                                            {errors.decision_reason && (
-                                                <p className="text-error text-xs">
-                                                    {errors.decision_reason}
-                                                </p>
-                                            )}
-                                        </label>
-                                    )}
-                                    {errors.decision_kind && (
-                                        <p className="text-error text-xs">
-                                            {errors.decision_kind}
+                                {(r.amendments?.length ?? 0) > 0 && (
+                                    <div className="border-base-300 bg-base-200/40 space-y-1.5 rounded-lg border p-3 text-xs">
+                                        <p className="font-semibold">
+                                            Riwayat Koreksi Pembiayaan
                                         </p>
-                                    )}
-                                </div>
-                            )}
-
-                        {(r.amendments?.length ?? 0) > 0 && (
-                            <div className="border-base-300 bg-base-200/40 space-y-1.5 rounded-lg border p-3 text-xs">
-                                <p className="font-semibold">
-                                    Riwayat Koreksi Pembiayaan
-                                </p>
-                                {r.amendments?.map((am) => (
-                                    <p key={am.id}>
-                                        <span className="font-medium">
-                                            {am.kind}
-                                        </span>{' '}
-                                        — {am.reason} (
-                                        {formatDate(am.created_at)})
-                                    </p>
-                                ))}
+                                        {r.amendments?.map((am) => (
+                                            <p key={am.id}>
+                                                <span className="font-medium">
+                                                    {am.kind}
+                                                </span>{' '}
+                                                — {am.reason} (
+                                                {formatDate(am.created_at)})
+                                            </p>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
-                )}
-            </div>
+                );
+
+                return collapseArchive ? (
+                    <details className="border-base-300 bg-base-100 rounded-xl border p-4">
+                        <summary className="text-base-content cursor-pointer text-sm font-semibold">
+                            Lihat rincian arsip berkas &amp; tagihan
+                        </summary>
+                        <div className="mt-4">{detailsGrid}</div>
+                    </details>
+                ) : (
+                    detailsGrid
+                );
+            })()}
 
             {errors.package && (
                 <div className="border-base-300 border-l-error bg-base-200/40 text-base-content rounded-lg border border-l-4 p-3 text-sm">

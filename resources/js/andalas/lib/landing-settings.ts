@@ -17,6 +17,7 @@ export type LandingSettings = {
     };
     headings: Record<string, string>;
     gallery: Array<{ title: string; image: string; category: string }>;
+    show_auto_gallery?: boolean;
     steps: Array<{ title: string; text: string }>;
     categories: Array<{ title: string; text: string }>;
     services: Array<{ title: string; text: string }>;

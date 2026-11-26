@@ -10,11 +10,13 @@ class FasilitatorWilayah extends BaseModel
 
     protected $fillable = ['user_id', 'gedung_id'];
 
+    /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
+    /** @return BelongsTo<Gedung, $this> */
     public function gedung(): BelongsTo
     {
         return $this->belongsTo(Gedung::class);

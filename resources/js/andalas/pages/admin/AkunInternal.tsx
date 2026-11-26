@@ -198,7 +198,9 @@ export default function AkunInternal({ users, roles, gedung = [] }: Props) {
                                 key: 'assigned_gedung_nama',
                                 label: 'Gedung Penugasan',
                                 render: (r: UserRow) =>
-                                    r.roles?.[0] === 'fasilitator'
+                                    ['fasilitator', 'go'].includes(
+                                        r.roles?.[0] ?? '',
+                                    )
                                         ? (r.assigned_gedung_nama ??
                                           'Belum ditetapkan')
                                         : '-',
@@ -368,10 +370,11 @@ export default function AkunInternal({ users, roles, gedung = [] }: Props) {
                                 setData({
                                     ...data,
                                     role: nextRole,
-                                    gedung_id:
-                                        nextRole === 'fasilitator'
-                                            ? data.gedung_id
-                                            : '',
+                                    gedung_id: ['fasilitator', 'go'].includes(
+                                        nextRole,
+                                    )
+                                        ? data.gedung_id
+                                        : '',
                                 });
                             }}
                             required
@@ -388,8 +391,14 @@ export default function AkunInternal({ users, roles, gedung = [] }: Props) {
                             </p>
                         )}
                     </FormField>
-                    {data.role === 'fasilitator' && (
-                        <FormField label="Gedung Penugasan Fasilitator">
+                    {['fasilitator', 'go'].includes(data.role) && (
+                        <FormField
+                            label={
+                                data.role === 'go'
+                                    ? 'Gedung Penugasan GO'
+                                    : 'Gedung Penugasan Fasilitator'
+                            }
+                        >
                             <select
                                 className={inputClass}
                                 value={data.gedung_id}

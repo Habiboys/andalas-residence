@@ -1,7 +1,5 @@
-import { Fragment } from 'react';
 import {
     ArrowRightLeft,
-    BarChart3,
     BedDouble,
     Building2,
     Calendar,
@@ -198,6 +196,7 @@ const GO_NAV: NavGroup[] = [
     {
         group: 'Inspeksi',
         items: [
+            { label: 'Pemetaan Kamar', page: 'pemetaan-kamar', icon: Map },
             { label: 'Monitoring Kamar', page: 'monitoring-kamar', icon: Eye },
             {
                 label: 'Inspeksi Check-out',
@@ -231,6 +230,7 @@ const FASILITATOR_NAV: NavGroup[] = [
     },
     {
         items: [
+            { label: 'Pemetaan Kamar', page: 'pemetaan-kamar', icon: Map },
             { label: 'Monitoring Kamar', page: 'monitoring-kamar', icon: Eye },
             { label: 'Monitoring Perizinan', page: 'perizinan', icon: Inbox },
             { label: 'Aset per Kamar', page: 'kelola-aset', icon: Package },
@@ -273,7 +273,7 @@ const ADMIN_NAV: NavGroup[] = [
                 icon: List,
             },
             {
-                label: 'Penugasan Fasilitator',
+                label: 'Penugasan Fasilitator & GO',
                 page: 'master-data/penugasan',
                 icon: Users,
             },
@@ -394,7 +394,11 @@ const ADMIN_NAV: NavGroup[] = [
             { label: 'Panduan', page: 'landing-page/panduan', icon: FileText },
             { label: 'Program', page: 'landing-page/program', icon: List },
             { label: 'Testimoni', page: 'landing-page/testimoni', icon: Quote },
-            { label: 'Galeri', page: 'landing-page/galeri', icon: FileText },
+            {
+                label: 'Galeri & Kehidupan Asrama',
+                page: 'landing-page/galeri',
+                icon: FileText,
+            },
             {
                 label: 'Kontak & Identitas Situs',
                 page: 'landing-page/kontak',

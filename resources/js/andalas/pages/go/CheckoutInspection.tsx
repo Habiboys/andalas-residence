@@ -1,8 +1,9 @@
 import { useState, type FormEvent } from 'react';
 import { useForm } from '@inertiajs/react';
-import { ClipboardCheck, Eye } from 'lucide-react';
+import { ClipboardCheck, Eye, Plus, Trash2 } from 'lucide-react';
 import { update } from '@/routes/andalas/checkout/inspection';
 import {
+    Badge,
     Button,
     ConfirmDialog,
     DataTable,
@@ -31,9 +32,18 @@ type AssetCheck = {
     name?: string;
 };
 
+type GeneralFinding = {
+    aset_id: null;
+    description: string;
+    severity: 'rusak_ringan' | 'rusak_berat' | 'hilang';
+};
+
 type Row = {
     id: string;
     status: string;
+    room_active_occupants?: number;
+    room_pending_checkouts?: number;
+    all_room_occupants_checked_out?: boolean;
     mahasiswa?: { user?: { nama: string } };
     placement?: {
         kamar?: {
@@ -46,6 +56,12 @@ type Row = {
         status: string;
         catatan?: string;
         asset_checks?: AssetCheck[];
+        findings?: Array<{
+            id: string;
+            aset_id?: string | null;
+            description: string;
+            severity: string;
+        }>;
     };
 };
 
@@ -66,6 +82,7 @@ export default function CheckoutInspection({
         status: 'selesai',
         catatan: '',
         asset_checks: [] as AssetCheck[],
+        findings: [] as GeneralFinding[],
     });
     const rows: TableRow[] = checkout.map((row) => {
         const selectedRoom = row.placement?.kamar;
@@ -112,6 +129,7 @@ export default function CheckoutInspection({
                     note: existing?.note ?? '',
                 };
             }),
+            findings: [],
         });
         setSelected(row);
     }
@@ -173,12 +191,27 @@ export default function CheckoutInspection({
         { key: 'mahasiswa_nama', label: 'Mahasiswa' },
         { key: 'lokasi', label: 'Gedung / kamar' },
         {
+            key: 'status_kamar_checkout',
+            label: 'Status Kamar',
+            render: (row) =>
+                row.all_room_occupants_checked_out ? (
+                    <Badge color="green">
+                        Seluruh penghuni checkout · Siap dicek
+                    </Badge>
+                ) : (
+                    <Badge color="yellow">
+                        {row.room_pending_checkouts ?? 1}/
+                        {row.room_active_occupants ?? 1} penghuni checkout
+                    </Badge>
+                ),
+        },
+        {
             key: 'status_inspeksi',
             label: 'Status inspeksi',
             render: (row) => <StatusBadge status={row.status_inspeksi} />,
             filter: {
                 type: 'select',
-                options: ['menunggu', 'selesai'],
+                options: ['menunggu', 'berlangsung', 'selesai'],
             },
         },
         {
@@ -449,6 +482,128 @@ export default function CheckoutInspection({
                                     })}
                                 </section>
 
+                                <section className="border-base-200 space-y-3 border-t pt-4">
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                        <div>
+                                            <h3 className="font-semibold">
+                                                Temuan Kerusakan Kamar Lainnya
+                                                (Non-Aset)
+                                            </h3>
+                                            <p className="text-muted text-xs">
+                                                Misal: dinding retak, kunci
+                                                pintu rusak, lampu mati, atau
+                                                keran bocor. Otomatis mengirim
+                                                notifikasi ke Fasilitator &amp;
+                                                Pimpinan.
+                                            </p>
+                                        </div>
+                                        <Button
+                                            type="button"
+                                            variant="secondary"
+                                            size="sm"
+                                            onClick={() =>
+                                                form.setData('findings', [
+                                                    ...form.data.findings,
+                                                    {
+                                                        aset_id: null,
+                                                        description: '',
+                                                        severity:
+                                                            'rusak_ringan',
+                                                    },
+                                                ])
+                                            }
+                                        >
+                                            <Plus className="mr-1 size-3.5" />
+                                            Tambah Kerusakan
+                                        </Button>
+                                    </div>
+                                    {form.data.findings.map((finding, idx) => (
+                                        <div
+                                            key={idx}
+                                            className="border-base-300 bg-base-200/30 space-y-2.5 rounded-xl border p-3"
+                                        >
+                                            <div className="flex items-center justify-between gap-2">
+                                                <span className="text-xs font-semibold">
+                                                    Kerusakan #{idx + 1}
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-ghost btn-xs text-error"
+                                                    onClick={() =>
+                                                        form.setData(
+                                                            'findings',
+                                                            form.data.findings.filter(
+                                                                (_, i) =>
+                                                                    i !== idx,
+                                                            ),
+                                                        )
+                                                    }
+                                                >
+                                                    <Trash2 className="size-3.5" />
+                                                </button>
+                                            </div>
+                                            <FormField label="Tingkat kerusakan">
+                                                <select
+                                                    className={inputClass}
+                                                    value={finding.severity}
+                                                    onChange={(e) =>
+                                                        form.setData(
+                                                            'findings',
+                                                            form.data.findings.map(
+                                                                (item, i) =>
+                                                                    i === idx
+                                                                        ? {
+                                                                              ...item,
+                                                                              severity:
+                                                                                  e
+                                                                                      .target
+                                                                                      .value as GeneralFinding['severity'],
+                                                                          }
+                                                                        : item,
+                                                            ),
+                                                        )
+                                                    }
+                                                >
+                                                    <option value="rusak_ringan">
+                                                        Rusak ringan
+                                                    </option>
+                                                    <option value="rusak_berat">
+                                                        Rusak berat
+                                                    </option>
+                                                    <option value="hilang">
+                                                        Hilang / tidak lengkap
+                                                    </option>
+                                                </select>
+                                            </FormField>
+                                            <FormField label="Deskripsi kerusakan">
+                                                <textarea
+                                                    required
+                                                    className={inputClass}
+                                                    placeholder="Jelaskan kondisi kerusakan kamar..."
+                                                    value={finding.description}
+                                                    onChange={(e) =>
+                                                        form.setData(
+                                                            'findings',
+                                                            form.data.findings.map(
+                                                                (item, i) =>
+                                                                    i === idx
+                                                                        ? {
+                                                                              ...item,
+                                                                              description:
+                                                                                  e
+                                                                                      .target
+                                                                                      .value,
+                                                                          }
+                                                                        : item,
+                                                            ),
+                                                        )
+                                                    }
+                                                />
+                                            </FormField>
+                                        </div>
+                                    ))}
+                                </section>
+
                                 {Object.entries(form.errors).map(
                                     ([key, error]) => (
                                         <p
@@ -467,7 +622,9 @@ export default function CheckoutInspection({
             {confirmComplete && selected && (
                 <ConfirmDialog
                     open={confirmComplete}
-                    onClose={() => !form.processing && setConfirmComplete(false)}
+                    onClose={() =>
+                        !form.processing && setConfirmComplete(false)
+                    }
                     onConfirm={confirmFinalize}
                     loading={form.processing}
                     title="Selesaikan Inspeksi Checkout"

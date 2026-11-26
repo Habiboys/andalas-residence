@@ -8,6 +8,7 @@ use App\Models\Kamar;
 use App\Models\Lantai;
 use App\Models\MahasiswaProfil;
 use App\Models\ResidenceRate;
+use App\Models\User;
 use App\Services\ResidenceBuildingAccess;
 use App\Services\RoomReservations;
 use App\Services\UserProfileSummary;
@@ -52,7 +53,7 @@ class ResidenceDetailController extends Controller
         $this->authorizePermission($request, 'aset.view');
         $aset->load(['kamar.lantai.gedung', 'fasilitasUmum.gedung', 'stokAset', 'laporanKerusakan']);
         $buildingId = $aset->kamar?->lantai->gedung_id ?? $aset->fasilitasUmum?->gedung_id;
-        if ($request->user()->hasRole('fasilitator') && ! $request->user()->hasRole('superadmin')) {
+        if ($this->isBuildingScoped($request->user())) {
             abort_unless(ResidenceBuildingAccess::allows($request->user(), $buildingId), 403);
         }
 
@@ -63,12 +64,12 @@ class ResidenceDetailController extends Controller
     {
         $this->authorizeAnyPermission($request, ['mahasiswa.view', 'penempatan.view']);
         $mahasiswa->load(['user', 'prodi', 'penempatanKamar.kamar.lantai.gedung', 'penempatanKamar.periode']);
-        if ($request->user()->hasRole('fasilitator') && ! $request->user()->hasRole('superadmin')) {
+        if ($this->isBuildingScoped($request->user())) {
             abort_unless($mahasiswa->penempatanKamar->contains(fn ($placement) => ResidenceBuildingAccess::allows($request->user(), $placement->kamar->lantai->gedung_id)), 403);
         }
         $fullProfile = $request->user()->can('mahasiswa.view');
         $placements = $mahasiswa->penempatanKamar;
-        if ($request->user()->hasRole('fasilitator') && ! $request->user()->hasRole('superadmin')) {
+        if ($this->isBuildingScoped($request->user())) {
             $placements = $placements->filter(fn ($placement) => ResidenceBuildingAccess::allows($request->user(), $placement->kamar->lantai->gedung_id))->values();
         }
 
@@ -81,11 +82,24 @@ class ResidenceDetailController extends Controller
     private function locationAccess(Request $request, string $buildingId): void
     {
         $this->authorizeAnyPermission($request, ['gedung.view', 'aset.view', 'penempatan.view', 'inspection.manage']);
-        if ($request->user()->hasRole('fasilitator') && ! $request->user()->hasRole('superadmin')) {
+        if ($this->isBuildingScoped($request->user())) {
             abort_unless(ResidenceBuildingAccess::allows($request->user(), $buildingId), 403);
         }
     }
 
+    private function isBuildingScoped(User $user): bool
+    {
+        if ($user->hasRole('superadmin')) {
+            return false;
+        }
+        if ($user->hasRole('fasilitator')) {
+            return true;
+        }
+
+        return $user->hasRole('go') && ResidenceBuildingAccess::ids($user) !== [];
+    }
+
+    /** @param array<string, mixed> $data */
     private function render(Request $request, string $kind, array $data): Response
     {
         $user = app(RolePageController::class)->userPayload($request);

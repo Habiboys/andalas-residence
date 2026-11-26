@@ -402,10 +402,10 @@ export default function MasterData({
         id: string;
         user_id: string;
         gedung_id: string;
-        user: { nama: string };
+        user: { nama: string; email?: string; role?: string };
         gedung: { nama_gedung: string };
     }[];
-    fasilitator?: { id: string; nama: string; email: string }[];
+    fasilitator?: { id: string; nama: string; email: string; role?: string }[];
     gedung?: { id: string; nama_gedung: string }[];
 }) {
     const sectionKeys = [
@@ -459,21 +459,39 @@ export default function MasterData({
             ),
         },
         {
-            label: 'Penugasan Fasilitator',
+            label: 'Penugasan Fasilitator & GO',
             section: (
                 <MasterCrudSection
-                    title="Penugasan Fasilitator"
-                    subtitle="Satu fasilitator bertugas di satu gedung. Satu gedung dapat memiliki beberapa fasilitator. Perubahan penugasan menutup QR aktif petugas tersebut."
+                    title="Penugasan Fasilitator & GO per Gedung"
+                    subtitle="Tetapkan gedung tugas untuk akun Fasilitator maupun GO (General Officer). Satu petugas bertugas pada satu gedung; satu gedung dapat memiliki beberapa Fasilitator dan GO."
                     data={penugasan.map((row) => ({
                         ...row,
                         nama: row.user.nama,
+                        peran: row.user.role === 'go' ? 'GO' : 'Fasilitator',
                         nama_gedung: row.gedung.nama_gedung,
                     }))}
                     store={assignmentStore}
                     update={assignmentUpdate}
                     destroy={assignmentDestroy}
                     columns={[
-                        { key: 'nama', label: 'Fasilitator' },
+                        { key: 'nama', label: 'Petugas' },
+                        {
+                            key: 'peran',
+                            label: 'Peran',
+                            filter: {
+                                type: 'select',
+                                options: ['Fasilitator', 'GO'],
+                            },
+                            render: (row) => (
+                                <Badge
+                                    color={
+                                        row.peran === 'GO' ? 'blue' : 'green'
+                                    }
+                                >
+                                    {valueToString(row.peran)}
+                                </Badge>
+                            ),
+                        },
                         {
                             key: 'nama_gedung',
                             label: 'Gedung',
@@ -486,12 +504,12 @@ export default function MasterData({
                     fields={[
                         {
                             key: 'user_id',
-                            label: 'Fasilitator',
+                            label: 'Akun Fasilitator / GO',
                             type: 'select',
                             required: true,
                             options: fasilitator.map((row) => ({
                                 value: row.id,
-                                label: row.nama + ' · ' + row.email,
+                                label: `[${row.role === 'go' ? 'GO' : 'Fasilitator'}] ${row.nama} · ${row.email}`,
                             })),
                         },
                         {
@@ -506,7 +524,7 @@ export default function MasterData({
                         },
                     ]}
                     rowLabel={(row) => valueToString(row.nama)}
-                    emptyMessage="Belum ada penugasan fasilitator."
+                    emptyMessage="Belum ada penugasan fasilitator atau GO."
                 />
             ),
         },

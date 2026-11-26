@@ -54,12 +54,12 @@ class SubmitResidenceRegistration
             }
 
             $isMaba = $life->isMaba($student, $period);
-            $isSeniorOverFiveYears = $life->isSeniorOverFiveYears($student, $period);
+            $isSeniorMonthlyEligible = $life->isSeniorOverFiveYears($student, $period);
             if ($unit === 'semester' && ! $isAsn && $isMaba) {
                 throw ValidationException::withMessages(['rate_unit' => 'Skema per 6 bulan hanya tersedia untuk mahasiswa hunian (non-maba).']);
             }
-            if ($unit === 'month' && ! $isAsn && ! $isSeniorOverFiveYears && ($isMaba || ! ($policy->settings['monthly_allowed'] ?? false))) {
-                throw ValidationException::withMessages(['rate_unit' => 'Skema bulanan hanya tersedia untuk mahasiswa tahun studi > 5 atau non-maba yang diizinkan kebijakan pengelola.']);
+            if ($unit === 'month' && ! $isAsn && ! $isSeniorMonthlyEligible && ($isMaba || ! ($policy->settings['monthly_allowed'] ?? false))) {
+                throw ValidationException::withMessages(['rate_unit' => 'Skema bulanan hanya tersedia untuk mahasiswa semester 9 ke atas (tahun studi > 4) atau non-maba yang diizinkan kebijakan pengelola.']);
             }
             if (($data['funding'] ?? 'personal') !== 'personal') {
                 throw ValidationException::withMessages(['funding' => 'Pendaftaran jalur ini memiliki kewajiban pembayaran pribadi.']);

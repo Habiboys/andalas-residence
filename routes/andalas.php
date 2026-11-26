@@ -156,6 +156,7 @@ Route::middleware(['auth', 'verified', EnsureResidenceAccountAccess::class])->gr
     Route::prefix('andalas')->name('andalas.')->group(function () {
         Route::get('/landing/manage/{section?}', [LandingPageManagementController::class, 'index'])->name('landing.manage');
         Route::put('/landing/settings', [LandingPageManagementController::class, 'updateSettings'])->name('landing.settings');
+        Route::post('/landing/gallery-upload', [LandingPageManagementController::class, 'uploadGalleryPhoto'])->name('landing.gallery.upload');
         Route::get('/landing/media', [MediaAssetController::class, 'index'])->name('landing.media.index');
         Route::post('/landing/media', [MediaAssetController::class, 'store'])->name('landing.media.store');
         Route::delete('/landing/media/{asset}', [MediaAssetController::class, 'destroy'])->name('landing.media.destroy');
@@ -237,6 +238,7 @@ Route::middleware(['auth', 'verified', EnsureResidenceAccountAccess::class])->gr
         Route::post('/temporary-stays', [TemporaryStayController::class, 'store'])->middleware('role:superadmin|staff_admin|admin_layanan|fasilitator')->name('temporary-stays.store');
         Route::patch('/registrations/{registration}', [ResidenceRegistrationController::class, 'update'])->name('registrations.update');
         Route::post('/checkout', [CheckoutController::class, 'store'])->name('checkout.store');
+        Route::post('/checkout/initiate/{placement}', [CheckoutController::class, 'initiateByOfficer'])->name('checkout.initiate');
         Route::put('/checkout/{checkoutRequest}/inspection', [CheckoutController::class, 'inspect'])->name('checkout.inspection.update');
         Route::post('/checkout/findings/{finding}/damage-report', [CheckoutController::class, 'createDamageReport'])->name('checkout.findings.damage-report');
         Route::post('/checkout/{checkoutRequest}/complete', [CheckoutController::class, 'complete'])->name('checkout.complete');

@@ -124,4 +124,6 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    'building_staff_default_password' => env('BUILDING_STAFF_DEFAULT_PASSWORD', 'password'),
+
 ];
