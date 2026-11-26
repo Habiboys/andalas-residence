@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AbsensiController;
 use App\Http\Controllers\ActivityMasterController;
+use App\Http\Controllers\Admin\PricingSettingsController;
 use App\Http\Controllers\AdminUserController;
 use App\Http\Controllers\AsetController;
 use App\Http\Controllers\CheckoutController;
@@ -29,6 +30,7 @@ use App\Http\Controllers\PeriodeController;
 use App\Http\Controllers\PerizinanController;
 use App\Http\Controllers\ProdiController;
 use App\Http\Controllers\ProvinsiController;
+use App\Http\Controllers\PublicStayApplicationController;
 use App\Http\Controllers\ResidenceDetailController;
 use App\Http\Controllers\ResidenceManagementController;
 use App\Http\Controllers\ResidenceRegistrationController;
@@ -52,6 +54,16 @@ Route::get('/informasi/{kategori}', [LandingController::class, 'informasi'])->na
 Route::get('/program', [LandingController::class, 'programIndex'])->name('landing.program');
 Route::get('/program/{program}', [LandingController::class, 'programDetail'])->name('landing.program.detail');
 Route::get('/kontak', [LandingController::class, 'kontak'])->name('landing.kontak');
+
+// Pengajuan langsung Sewa Umum & Summer Course dari halaman Beranda.
+Route::post('/pengajuan-hunian', [PublicStayApplicationController::class, 'store'])
+    ->middleware('throttle:10,1')
+    ->name('public-booking.store');
+Route::get('/pengajuan-hunian/{token}', [PublicStayApplicationController::class, 'show'])
+    ->name('public-booking.show');
+Route::post('/pengajuan-hunian/{token}/bukti-bayar', [PublicStayApplicationController::class, 'uploadProof'])
+    ->middleware('throttle:10,1')
+    ->name('public-booking.proof');
 
 // Halaman publik untuk memindai QR pada surat resmi.
 Route::get('/dokumen/verifikasi/{token}', [DocumentVerificationController::class, 'show'])->name('dokumen.verifikasi');
@@ -93,6 +105,13 @@ Route::middleware(['auth', 'verified', EnsureResidenceAccountAccess::class])->gr
 
         return redirect()->route($prefix.'.dashboard');
     })->name('dashboard.redirect');
+
+    Route::middleware('role:staff_admin|admin_layanan|admin_aset|superadmin')->group(function () {
+        Route::get('/admin/pengaturan-harga', [PricingSettingsController::class, 'index'])->name('admin.pengaturan-harga');
+        Route::post('/admin/pengaturan-harga', [PricingSettingsController::class, 'store'])->name('admin.pengaturan-harga.store');
+        Route::post('/admin/pengaturan-harga/batch', [PricingSettingsController::class, 'storeBatch'])->name('admin.pengaturan-harga.batch');
+        Route::delete('/admin/pengaturan-harga/{rate}', [PricingSettingsController::class, 'destroy'])->name('admin.pengaturan-harga.destroy');
+    });
 
     Route::middleware('role:staff_admin|admin_layanan|superadmin')->group(function () {
         Route::get('/admin/kelola-penandatangan', [DocumentSignerController::class, 'index'])->name('admin.kelola-penandatangan');

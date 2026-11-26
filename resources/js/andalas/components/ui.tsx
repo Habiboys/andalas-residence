@@ -61,7 +61,7 @@ const badgeTone: Record<BadgeColor, string> = {
 export function Badge({ color = 'gray', children }: BadgeProps) {
     return (
         <span
-            className={`badge badge-sm h-auto shrink-0 px-2.5 py-0.5 font-medium leading-snug whitespace-nowrap ${badgeTone[color]}`}
+            className={`badge badge-sm h-auto shrink-0 px-2.5 py-0.5 leading-snug font-medium whitespace-nowrap ${badgeTone[color]}`}
         >
             {children}
         </span>
@@ -159,7 +159,7 @@ export function Card({
 }) {
     return (
         <div
-            className={`card rounded-box bg-base-100 min-w-0 max-w-full shadow-xs ${className}`}
+            className={`card rounded-box bg-base-100 max-w-full min-w-0 shadow-xs ${className}`}
         >
             {children}
         </div>
@@ -1180,10 +1180,12 @@ export function FormField({
     label,
     children,
     hint,
+    error,
 }: {
     label: string;
     children: ReactNode;
     hint?: string;
+    error?: string;
 }) {
     return (
         <fieldset className="fieldset">
@@ -1191,6 +1193,11 @@ export function FormField({
                 {label}
             </legend>
             {children}
+            {error && (
+                <p role="alert" className="fieldset-label text-error text-xs">
+                    {error}
+                </p>
+            )}
             {hint && (
                 <p className="fieldset-label text-muted text-xs">{hint}</p>
             )}

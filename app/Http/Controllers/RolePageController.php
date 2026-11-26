@@ -172,7 +172,10 @@ class RolePageController extends Controller
                 $isSso = filled($user->sso_id) || str_ends_with(strtolower((string) $user->email), 'unand.ac.id');
 
                 return [
-                    'profile' => $profile?->only(['prodi_id', 'city_id', 'angkatan', 'nik', 'alamat', 'email_pribadi']),
+                    'profile' => $profile?->only([
+                        'prodi_id', 'city_id', 'angkatan', 'nik', 'alamat', 'email_pribadi',
+                        'is_external_campus', 'external_campus_name', 'external_program_name', 'unit_kerja',
+                    ]),
                     'identity' => [
                         'nama' => $user->nama,
                         'nim_nip' => $user->hasPendingNim() ? '' : $user->nim_nip,
@@ -970,9 +973,15 @@ class RolePageController extends Controller
             'role' => $role,
             'raw_role' => $role,
             'no_hp' => $user->no_hp,
-            'prodi' => $user->mahasiswaProfil?->prodi?->name,
+            'prodi' => $user->mahasiswaProfil?->is_external_campus
+                ? $user->mahasiswaProfil->external_program_name
+                : $user->mahasiswaProfil?->prodi?->name,
             'angkatan' => $user->mahasiswaProfil?->angkatan,
-            'student_stage' => $user->mahasiswaProfil ? (app(ResidenceLifecycle::class)->isBinaan($user->mahasiswaProfil) ? 'Mahasiswa binaan' : 'Mahasiswa hunian') : null,
+            'is_external_campus' => (bool) $user->mahasiswaProfil?->is_external_campus,
+            'external_campus_name' => $user->mahasiswaProfil?->external_campus_name,
+            'external_program_name' => $user->mahasiswaProfil?->external_program_name,
+            'unit_kerja' => $user->mahasiswaProfil?->unit_kerja,
+            'student_stage' => $user->mahasiswaProfil ? ($user->client_profile_category?->value === 'asn' ? 'Penghuni ASN / Dosen' : (app(ResidenceLifecycle::class)->isBinaan($user->mahasiswaProfil) ? 'Mahasiswa binaan' : 'Mahasiswa hunian')) : null,
             'residence_state' => $user->mahasiswaProfil ? app(ResidenceLifecycle::class)->state($user->mahasiswaProfil) : null,
             'is_kipk' => $user->mahasiswaProfil && app(ResidenceLifecycle::class)->isKipk($user->mahasiswaProfil),
             'kipk_personal_payment' => $user->mahasiswaProfil && app(ResidenceLifecycle::class)->isKipk($user->mahasiswaProfil) && app(ResidenceLifecycle::class)->requiresKipkPersonalPayment($user->mahasiswaProfil),

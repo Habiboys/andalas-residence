@@ -6,7 +6,7 @@ use App\Models\DokumenTagihan;
 use App\Models\PembayaranTagihan;
 use App\Models\Tagihan;
 use App\Notifications\DocumentReadyNotification;
-use Barryvdh\DomPDF\Facade\Pdf;
+use App\Services\BillingDocumentRenderer;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -55,15 +55,12 @@ class GenerateBillingDocument implements ShouldBeUnique, ShouldQueue
             default => 'RCPT-'.$payment->referensi,
         };
         $path = 'documents/billing/'.strtolower($number).'.pdf';
-        $contents = Pdf::loadView('pdf.billing-document', [
-            'title' => $this->jenis === 'invoice' ? 'TAGIHAN' : 'KWITANSI',
-            'number' => $number,
-            'invoice' => $invoice,
-            'payment' => $payment,
-            'student' => $invoice->mahasiswa,
-            'registration' => $invoice->registration,
-            'placement' => $invoice->registration?->placement,
-        ])->setPaper('a4')->output();
+        $contents = app(BillingDocumentRenderer::class)->renderPdf(
+            invoice: $invoice,
+            jenis: $this->jenis,
+            number: $number,
+            payment: $payment,
+        );
 
         Storage::disk('local')->put($path, $contents);
 
@@ -74,7 +71,7 @@ class GenerateBillingDocument implements ShouldBeUnique, ShouldQueue
             'nomor' => $number,
             'path' => $path,
             'checksum_sha256' => hash('sha256', $contents),
-            'template_version' => 'billing-v1',
+            'template_version' => BillingDocumentRenderer::VERSION,
             'diterbitkan_pada' => now(),
         ]);
 

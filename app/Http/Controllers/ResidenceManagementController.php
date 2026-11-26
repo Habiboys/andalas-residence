@@ -19,6 +19,7 @@ use App\Models\ResidenceRate;
 use App\Models\ResidenceRegistration;
 use App\Models\RoomType;
 use App\Services\MasterDataService;
+use App\Services\ResidencePolicyService;
 use App\Services\ResidenceWorkflowAccess;
 use App\Services\RoomEligibility;
 use App\Services\RoomReservations;
@@ -63,7 +64,17 @@ class ResidenceManagementController extends Controller
             $data = $request->validate(['nim' => ['required', 'string', 'max:50'], 'nama' => ['required', 'string', 'max:255']]);
             KipkRecipient::updateOrCreate(['nim' => $data['nim'], 'angkatan' => StudentCohort::fromNim($data['nim'])], ['nama' => $data['nama']]);
         } elseif ($kind === 'rate') {
-            $data = $request->validate(['gedung_id' => ['required', 'uuid', 'exists:gedung,id'], 'tipe_kamar' => ['required', Rule::exists('room_types', 'code')], 'unit' => ['required', 'in:year,month,day'], 'amount' => ['required', 'integer', 'min:0'], 'student_amount' => ['nullable', 'integer', 'min:0'], 'room_amount' => ['nullable', 'integer', 'min:0'], 'facilities' => ['nullable', 'string', 'max:2000']]);
+            $data = $request->validate([
+                'gedung_id' => ['required', 'uuid', 'exists:gedung,id'],
+                'category' => ['nullable', Rule::in([ResidenceRate::DEFAULT_CATEGORY, ...app(ResidencePolicyService::class)::CATEGORIES])],
+                'tipe_kamar' => ['required', Rule::exists('room_types', 'code')],
+                'unit' => ['required', 'in:year,semester,month,day'],
+                'amount' => ['required', 'integer', 'min:0'],
+                'student_amount' => ['nullable', 'integer', 'min:0'],
+                'room_amount' => ['nullable', 'integer', 'min:0'],
+                'facilities' => ['nullable', 'string', 'max:2000'],
+            ]);
+            $category = $data['category'] ?? ResidenceRate::DEFAULT_CATEGORY;
             $building = Gedung::whereKey($data['gedung_id'])->firstOrFail();
             if (! RoomEligibility::allowsType($building, $data['tipe_kamar'])) {
                 throw ValidationException::withMessages(['tipe_kamar' => 'Aktifkan tipe kamar pada master gedung sebelum menetapkan tarif.']);
@@ -72,7 +83,7 @@ class ResidenceManagementController extends Controller
                 $data['facilities'] = collect($building->room_types)->firstWhere('type', $data['tipe_kamar'])['facilities'];
             }
             ResidenceRate::updateOrCreate(
-                ['gedung_id' => $data['gedung_id'], 'tipe_kamar' => $data['tipe_kamar'], 'unit' => $data['unit']],
+                ['gedung_id' => $data['gedung_id'], 'category' => $category, 'tipe_kamar' => $data['tipe_kamar'], 'unit' => $data['unit']],
                 ['amount' => $data['amount'], 'facilities' => $data['facilities'] ?? null, ...array_intersect_key($data, ['student_amount' => true, 'room_amount' => true])],
             );
             ResidenceRate::query()
@@ -123,7 +134,7 @@ class ResidenceManagementController extends Controller
                 'nama_gedung' => ['nullable', 'required_without:gedung_id', 'string', 'max:150'],
                 'gender_peruntukan' => ['nullable', 'in:laki_laki,perempuan,campur'],
                 'allowed_categories' => ['present', 'array'],
-                'allowed_categories.*' => ['required', Rule::in(['local_kipk', 'local_non_kipk', 'student', 'international_student', 'international_free_facility', 'non_student', 'summer_course'])],
+                'allowed_categories.*' => ['required', Rule::in(['local_kipk', 'local_non_kipk', 'student', 'international_student', 'international_free_facility', 'non_student', 'summer_course', 'asn'])],
             ]);
             $building = ! empty($data['gedung_id']) ? Gedung::whereKey($data['gedung_id'])->firstOrFail() : new Gedung;
             $building->fill(array_filter(array_diff_key($data, ['gedung_id' => true]), fn (mixed $value): bool => $value !== null))->save();

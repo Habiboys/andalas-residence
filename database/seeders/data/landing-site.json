@@ -140,8 +140,16 @@
       "title": "Sewa Harian / Umum & Kegiatan",
       "description": "Layanan hunian fleksibel bagi peserta Summer Course, tamu akademik, peserta kegiatan kampus, atau penyewa umum jangka pendek sesuai ketersediaan kamar.",
       "points_text": "Tarif transparan per hari atau per periode kegiatan tanpa biaya tersembunyi.\nPenempatan kelompok kegiatan maupun tamu difasilitasi pengelola dan fasilitator gedung.\nBukti tagihan, pembayaran, dan administrasi check-out tercatat rapi secara digital.",
-      "cta_label": "Cek Ketersediaan Unit",
-      "cta_href": "#katalog-hunian"
+      "cta_label": "Ajukan Sewa Umum / Summer Course",
+      "cta_href": "#pengajuan-umum-summer"
+    },
+    {
+      "badge": "Khusus Rusun ASN",
+      "title": "ASN / Dosen Universitas Andalas",
+      "description": "Jalur hunian khusus bagi Aparatur Sipil Negara (ASN) dan Dosen Universitas Andalas dengan pilihan hunian eksklusif di Gedung Rusun ASN.",
+      "points_text": "Dapat langsung masuk menggunakan akun SSO Dosen / Pegawai UNAND atau daftar manual menggunakan NIP.\nPilihan hunian terfokus khusus pada Gedung Rusun ASN sesuai ketersediaan kamar.\nTersedia skema sewa bulanan, per 6 bulan, maupun tahunan yang dikelola secara transparan.",
+      "cta_label": "Masuk SSO Dosen / ASN",
+      "cta_href": "/api/auth/sso/redirect?intent=asn"
     }
   ],
   "facilities": [

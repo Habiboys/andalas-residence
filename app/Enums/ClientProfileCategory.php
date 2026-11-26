@@ -11,4 +11,5 @@ enum ClientProfileCategory: string
     case InternationalStudent = 'international_student';
     case InternationalFreeFacility = 'international_free_facility';
     case NonStudent = 'non_student';
+    case Asn = 'asn';
 }

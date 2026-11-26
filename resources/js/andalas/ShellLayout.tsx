@@ -180,6 +180,10 @@ function ShellInner({
                           : pimpinanRoutes;
 
     const nav = (slug: string) => {
+        if (slug === 'pengaturan-harga') {
+            router.visit('/admin/pengaturan-harga');
+            return;
+        }
         if (slug === 'pelaporan') {
             router.visit('/pelaporan');
             return;

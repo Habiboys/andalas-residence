@@ -9,6 +9,10 @@ import {
     RegistrationTracksSection,
     TariffMatrixSection,
 } from '@/andalas/components/LandingResidenceGuide';
+import {
+    PublicStayBookingSection,
+    type PublicBookingCatalog,
+} from '@/andalas/components/PublicStayBookingSection';
 import { informasi as informasiPage } from '@/routes/landing';
 import { type LandingSettings, mediaUrl } from '@/andalas/lib/landing-settings';
 import { Head, Link } from '@inertiajs/react';
@@ -29,6 +33,7 @@ type GalleryPhoto = {
 };
 type Props = {
     residenceCatalog?: ResidenceListing[];
+    publicBookingCatalog?: PublicBookingCatalog;
     paymentAccounts?: PublicPaymentAccount[];
     regulationDocs?: PublicRegulationDoc[];
     landingSettings?: LandingSettings;
@@ -41,6 +46,7 @@ type Props = {
 
 export default function Beranda({
     residenceCatalog = [],
+    publicBookingCatalog = {},
     paymentAccounts = [],
     regulationDocs = [],
     landingSettings,
@@ -146,6 +152,11 @@ export default function Beranda({
                 <TariffMatrixSection
                     listings={residenceCatalog}
                     headings={headings}
+                />
+
+                <PublicStayBookingSection
+                    catalog={publicBookingCatalog}
+                    supportPhone={site.phone}
                 />
 
                 <FacilitiesAndRulesSection

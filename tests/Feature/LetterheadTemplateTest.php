@@ -5,9 +5,11 @@ use App\Models\DokumenTagihan;
 use App\Models\FreeResidenceLetterDocumentIntent;
 use App\Models\InvoiceGroup;
 use App\Models\MahasiswaProfil;
+use App\Models\PaymentBankAccount;
 use App\Models\PengajuanBebasAsrama;
 use App\Models\Tagihan;
 use App\Models\User;
+use App\Services\BillingDocumentRenderer;
 use App\Services\LetterheadTemplateService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -172,5 +174,73 @@ it('refreshes existing cached PDFs on disk using the docx letterhead template', 
         ->and($intent->fresh()->checksum_sha256)->not->toBe(hash('sha256', 'OLD-PDF'))
         ->and(Storage::disk('local')->get($billingPath))->toStartWith('%PDF-')
         ->and($billingDoc->fresh()->checksum_sha256)->not->toBe(hash('sha256', 'OLD-BILLING'))
+        ->and($billingDoc->fresh()->template_version)->toBe(BillingDocumentRenderer::VERSION)
         ->and(Storage::disk('local')->get($groupPath))->toStartWith('%PDF-');
+});
+
+it('renders a formal single-page invoice PDF with bank accounts and upgrades legacy v1 documents on download', function () {
+    Storage::fake('local');
+
+    PaymentBankAccount::create([
+        'bank_name' => 'Bank Nagari',
+        'account_number' => '210001010101',
+        'account_name' => 'Rektor Universitas Andalas',
+        'is_active' => true,
+    ]);
+
+    $user = User::factory()->create(['nama' => 'JEKI ANWAR', 'nim_nip' => '2699880003']);
+    $student = MahasiswaProfil::create([
+        'user_id' => $user->id,
+        'angkatan' => 2026,
+        'barcode_code' => fake()->unique()->uuid(),
+    ]);
+    $invoice = Tagihan::create([
+        'nomor' => 'REG-2699880003-2',
+        'mahasiswa_id' => $student->id,
+        'total' => 150000,
+        'total_dibayar' => 0,
+        'status' => 'terbit',
+        'residence_snapshot' => [
+            'building' => 'Oren (F)',
+            'room' => '1A.03',
+            'type' => 'umum',
+            'unit' => 'day',
+            'quantity' => 2,
+            'amount' => 75000,
+        ],
+    ]);
+
+    $html = view('pdf.billing-document', app(BillingDocumentRenderer::class)->viewData(
+        invoice: $invoice,
+        title: 'INVOICE TAGIHAN',
+        number: $invoice->nomor,
+        jenis: 'invoice',
+    ))->render();
+
+    expect($html)
+        ->toContain('INVOICE TAGIHAN', 'BELUM LUNAS', 'JEKI ANWAR', 'Oren (F)', '2 hari x Rp 75.000', 'Seratus Lima Puluh Ribu Rupiah', 'Bank Nagari', '210001010101')
+        ->not->toContain('2 hari ? Rp');
+
+    $pdf = Pdf::loadHTML($html)->setPaper('a4');
+    expect($pdf->output())->toStartWith('%PDF-')
+        ->and($pdf->getDomPDF()->getCanvas()->get_page_count())->toBe(1);
+
+    $path = 'documents/billing/reg-2699880003-2.pdf';
+    Storage::disk('local')->put($path, 'STALE-V1-PDF');
+    $doc = DokumenTagihan::create([
+        'tagihan_id' => $invoice->id,
+        'jenis' => 'invoice',
+        'nomor' => 'REG-2699880003-2',
+        'path' => $path,
+        'checksum_sha256' => hash('sha256', 'STALE-V1-PDF'),
+        'template_version' => 'billing-v1',
+        'diterbitkan_pada' => now(),
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('andalas.tagihan.document', $doc))
+        ->assertDownload('REG-2699880003-2.pdf');
+
+    expect($doc->fresh()->template_version)->toBe(BillingDocumentRenderer::VERSION)
+        ->and(Storage::disk('local')->get($path))->toStartWith('%PDF-');
 });

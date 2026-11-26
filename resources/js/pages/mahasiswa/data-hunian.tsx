@@ -22,6 +22,10 @@ export default function DataHunian({
         prodi_id?: string;
         city_id?: string;
         angkatan?: number;
+        is_external_campus?: boolean;
+        external_campus_name?: string | null;
+        external_program_name?: string | null;
+        unit_kerja?: string | null;
         nik?: string;
         email_pribadi?: string;
         alamat?: string;
@@ -48,12 +52,19 @@ export default function DataHunian({
     const [confirmOpen, setConfirmOpen] = useState(false);
     const isSso =
         identity.is_sso ?? identity.email.toLowerCase().endsWith('unand.ac.id');
+    const isAsn = identity.category === 'asn';
+    const currentYear = new Date().getFullYear();
     const form = useForm({
         nama: profile?.nik && identity.nama ? identity.nama.toUpperCase() : '',
         nim_nip: identity.nim_pending ? '' : identity.nim_nip,
         email_pribadi: profile?.email_pribadi ?? (isSso ? '' : identity.email),
         no_hp: identity.no_hp ?? '',
         gender: identity.gender ?? '',
+        is_external_campus: Boolean(profile?.is_external_campus),
+        external_campus_name: profile?.external_campus_name ?? '',
+        external_program_name: profile?.external_program_name ?? '',
+        angkatan: profile?.angkatan ? String(profile.angkatan) : '',
+        unit_kerja: profile?.unit_kerja ?? '',
         prodi_id: profile?.prodi_id ?? '',
         city_id: profile?.city_id ?? '',
         nik: profile?.nik ?? '',
@@ -120,8 +131,19 @@ export default function DataHunian({
         form.data.gender &&
         /^\d{16}$/.test(form.data.nik)
     );
+    const academicReady = isAsn
+        ? true
+        : form.data.is_external_campus
+          ? !!(
+                form.data.external_campus_name.trim() &&
+                form.data.external_program_name.trim() &&
+                form.data.angkatan &&
+                Number(form.data.angkatan) >= 2000 &&
+                Number(form.data.angkatan) <= currentYear
+            )
+          : !!program;
     const addressReady = !!(
-        program &&
+        academicReady &&
         provinceId &&
         city &&
         form.data.alamat.trim()
@@ -131,6 +153,7 @@ export default function DataHunian({
         local_kipk: 'Mahasiswa KIP-K',
         local_non_kipk: 'Mahasiswa lokal non-KIP-K',
         international_student: 'Mahasiswa internasional',
+        asn: 'ASN / Dosen (Rusun ASN)',
     };
 
     return (
@@ -375,79 +398,266 @@ export default function DataHunian({
 
                 {step === 1 && (
                     <div className="space-y-4">
-                        <div className="grid gap-4 sm:grid-cols-2">
-                            <label className="block space-y-1.5 text-sm font-medium">
-                                <span>Fakultas</span>
-                                <select
-                                    className="select select-bordered w-full"
-                                    value={facultyId}
-                                    onChange={(e) => {
-                                        setFacultyId(e.target.value);
-                                        setDepartmentId('');
-                                        form.setData('prodi_id', '');
-                                    }}
-                                >
-                                    <option value="">Pilih fakultas</option>
-                                    {faculties.map((item) => (
-                                        <option key={item.id} value={item.id}>
-                                            {item.name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </label>
+                        {isAsn ? (
+                            <div className="space-y-4">
+                                <div className="bg-primary/5 border-primary/30 rounded-lg border p-3 text-sm">
+                                    <p className="font-medium">
+                                        Jalur Hunian ASN / Dosen (Rusun ASN)
+                                    </p>
+                                    <p className="text-base-content/70 mt-0.5 text-xs">
+                                        Data Fakultas/Departemen/Prodi mahasiswa
+                                        tidak diperlukan untuk kategori ASN.
+                                    </p>
+                                </div>
+                                <label className="block space-y-1.5 text-sm font-medium">
+                                    <span>
+                                        Unit Kerja / Fakultas / Instansi
+                                        (Opsional)
+                                    </span>
+                                    <input
+                                        className={control}
+                                        maxLength={150}
+                                        placeholder="Contoh: Fakultas Teknik UNAND"
+                                        value={form.data.unit_kerja}
+                                        onChange={(e) =>
+                                            form.setData(
+                                                'unit_kerja',
+                                                e.target.value,
+                                            )
+                                        }
+                                    />
+                                </label>
+                            </div>
+                        ) : (
+                            <>
+                                {!isSso && (
+                                    <div className="bg-base-200/40 border-base-300 space-y-2 rounded-xl border p-3.5">
+                                        <p className="text-base-content/70 text-xs font-semibold tracking-wide uppercase">
+                                            Asal Kampus
+                                        </p>
+                                        <div className="flex flex-wrap gap-4 text-sm">
+                                            <label className="inline-flex cursor-pointer items-center gap-2 font-medium">
+                                                <input
+                                                    type="radio"
+                                                    name="data_hunian_campus_origin"
+                                                    className="radio radio-sm radio-primary"
+                                                    checked={
+                                                        !form.data
+                                                            .is_external_campus
+                                                    }
+                                                    onChange={() =>
+                                                        form.setData(
+                                                            (prev) => ({
+                                                                ...prev,
+                                                                is_external_campus: false,
+                                                                external_campus_name:
+                                                                    '',
+                                                                external_program_name:
+                                                                    '',
+                                                            }),
+                                                        )
+                                                    }
+                                                />
+                                                <span>Mahasiswa UNAND</span>
+                                            </label>
+                                            <label className="inline-flex cursor-pointer items-center gap-2 font-medium">
+                                                <input
+                                                    type="radio"
+                                                    name="data_hunian_campus_origin"
+                                                    className="radio radio-sm radio-primary"
+                                                    checked={
+                                                        form.data
+                                                            .is_external_campus
+                                                    }
+                                                    onChange={() => {
+                                                        setFacultyId('');
+                                                        setDepartmentId('');
+                                                        form.setData(
+                                                            (prev) => ({
+                                                                ...prev,
+                                                                is_external_campus: true,
+                                                                prodi_id: '',
+                                                            }),
+                                                        );
+                                                    }}
+                                                />
+                                                <span>
+                                                    Mahasiswa Luar Kampus UNAND
+                                                    (contoh: PNP)
+                                                </span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                )}
 
-                            <label className="block space-y-1.5 text-sm font-medium">
-                                <span>Departemen</span>
-                                <select
-                                    className="select select-bordered w-full"
-                                    value={departmentId}
-                                    disabled={!facultyId}
-                                    onChange={(e) => {
-                                        setDepartmentId(e.target.value);
-                                        form.setData('prodi_id', '');
-                                    }}
-                                >
-                                    <option value="">
-                                        {facultyId
-                                            ? 'Pilih departemen'
-                                            : 'Pilih fakultas terlebih dahulu'}
-                                    </option>
-                                    {departments.map((item) => (
-                                        <option key={item.id} value={item.id}>
-                                            {item.name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </label>
-                        </div>
+                                {form.data.is_external_campus ? (
+                                    <div className="grid gap-4 sm:grid-cols-2">
+                                        <label className="block space-y-1.5 text-sm font-medium sm:col-span-2">
+                                            <span>
+                                                Nama Kampus / Perguruan Tinggi
+                                                Asal
+                                            </span>
+                                            <input
+                                                required
+                                                className={control}
+                                                maxLength={150}
+                                                placeholder="Contoh: Politeknik Negeri Padang (PNP)"
+                                                value={
+                                                    form.data
+                                                        .external_campus_name
+                                                }
+                                                onChange={(e) =>
+                                                    form.setData(
+                                                        'external_campus_name',
+                                                        e.target.value,
+                                                    )
+                                                }
+                                            />
+                                        </label>
+                                        <label className="block space-y-1.5 text-sm font-medium">
+                                            <span>Program Studi / Jurusan</span>
+                                            <input
+                                                required
+                                                className={control}
+                                                maxLength={150}
+                                                placeholder="Contoh: Teknologi Informasi"
+                                                value={
+                                                    form.data
+                                                        .external_program_name
+                                                }
+                                                onChange={(e) =>
+                                                    form.setData(
+                                                        'external_program_name',
+                                                        e.target.value,
+                                                    )
+                                                }
+                                            />
+                                        </label>
+                                        <label className="block space-y-1.5 text-sm font-medium">
+                                            <span>Tahun Angkatan</span>
+                                            <input
+                                                required
+                                                type="number"
+                                                min={2000}
+                                                max={currentYear}
+                                                className={control}
+                                                value={form.data.angkatan}
+                                                onChange={(e) =>
+                                                    form.setData(
+                                                        'angkatan',
+                                                        e.target.value,
+                                                    )
+                                                }
+                                            />
+                                        </label>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className="grid gap-4 sm:grid-cols-2">
+                                            <label className="block space-y-1.5 text-sm font-medium">
+                                                <span>Fakultas</span>
+                                                <select
+                                                    className="select select-bordered w-full"
+                                                    value={facultyId}
+                                                    onChange={(e) => {
+                                                        setFacultyId(
+                                                            e.target.value,
+                                                        );
+                                                        setDepartmentId('');
+                                                        form.setData(
+                                                            'prodi_id',
+                                                            '',
+                                                        );
+                                                    }}
+                                                >
+                                                    <option value="">
+                                                        Pilih fakultas
+                                                    </option>
+                                                    {faculties.map((item) => (
+                                                        <option
+                                                            key={item.id}
+                                                            value={item.id}
+                                                        >
+                                                            {item.name}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </label>
 
-                        <label className="block space-y-1.5 text-sm font-medium">
-                            <span>Program studi / jenjang</span>
-                            <select
-                                className="select select-bordered w-full"
-                                value={form.data.prodi_id}
-                                disabled={!departmentId}
-                                onChange={(e) =>
-                                    form.setData('prodi_id', e.target.value)
-                                }
-                            >
-                                <option value="">
-                                    {departmentId
-                                        ? 'Pilih program studi'
-                                        : 'Pilih departemen terlebih dahulu'}
-                                </option>
-                                {filteredPrograms.map((item) => (
-                                    <option key={item.id} value={item.id}>
-                                        {item.name} ({item.jenjang})
-                                    </option>
-                                ))}
-                            </select>
-                        </label>
+                                            <label className="block space-y-1.5 text-sm font-medium">
+                                                <span>Departemen</span>
+                                                <select
+                                                    className="select select-bordered w-full"
+                                                    value={departmentId}
+                                                    disabled={!facultyId}
+                                                    onChange={(e) => {
+                                                        setDepartmentId(
+                                                            e.target.value,
+                                                        );
+                                                        form.setData(
+                                                            'prodi_id',
+                                                            '',
+                                                        );
+                                                    }}
+                                                >
+                                                    <option value="">
+                                                        {facultyId
+                                                            ? 'Pilih departemen'
+                                                            : 'Pilih fakultas terlebih dahulu'}
+                                                    </option>
+                                                    {departments.map((item) => (
+                                                        <option
+                                                            key={item.id}
+                                                            value={item.id}
+                                                        >
+                                                            {item.name}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </label>
+                                        </div>
 
-                        <p className="bg-base-200/60 border-base-300 rounded-lg border p-3 text-sm font-medium">
-                            Angkatan{' '}
-                            {profile?.angkatan || 'ditentukan dari NIM'}
-                        </p>
+                                        <label className="block space-y-1.5 text-sm font-medium">
+                                            <span>Program studi / jenjang</span>
+                                            <select
+                                                className="select select-bordered w-full"
+                                                value={form.data.prodi_id}
+                                                disabled={!departmentId}
+                                                onChange={(e) =>
+                                                    form.setData(
+                                                        'prodi_id',
+                                                        e.target.value,
+                                                    )
+                                                }
+                                            >
+                                                <option value="">
+                                                    {departmentId
+                                                        ? 'Pilih program studi'
+                                                        : 'Pilih departemen terlebih dahulu'}
+                                                </option>
+                                                {filteredPrograms.map(
+                                                    (item) => (
+                                                        <option
+                                                            key={item.id}
+                                                            value={item.id}
+                                                        >
+                                                            {item.name} (
+                                                            {item.jenjang})
+                                                        </option>
+                                                    ),
+                                                )}
+                                            </select>
+                                        </label>
+
+                                        <p className="bg-base-200/60 border-base-300 rounded-lg border p-3 text-sm font-medium">
+                                            Angkatan{' '}
+                                            {profile?.angkatan ||
+                                                'ditentukan dari NIM'}
+                                        </p>
+                                    </>
+                                )}
+                            </>
+                        )}
 
                         {cities.length === 0 ? (
                             <p
@@ -590,12 +800,18 @@ export default function DataHunian({
                             </div>
                             <div className="sm:col-span-2">
                                 <span className="text-base-content/60 block text-xs">
-                                    Fakultas, Departemen &amp; Program Studi
+                                    {isAsn
+                                        ? 'Unit Kerja / Jalur Hunian'
+                                        : form.data.is_external_campus
+                                          ? 'Asal Kampus & Program Studi'
+                                          : 'Fakultas, Departemen & Program Studi'}
                                 </span>
                                 <p>
-                                    {program?.departemen?.faculty?.name} ·{' '}
-                                    {program?.departemen?.name} ·{' '}
-                                    {program?.name} ({program?.jenjang})
+                                    {isAsn
+                                        ? `${form.data.unit_kerja || 'ASN / Dosen UNAND'} · Rusun ASN`
+                                        : form.data.is_external_campus
+                                          ? `${form.data.external_campus_name} · ${form.data.external_program_name} (Angkatan ${form.data.angkatan})`
+                                          : `${program?.departemen?.faculty?.name} · ${program?.departemen?.name} · ${program?.name} (${program?.jenjang})`}
                                 </p>
                             </div>
                             <div className="sm:col-span-2">

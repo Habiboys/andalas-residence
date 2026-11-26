@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\DokumenTagihan;
 use App\Models\FreeResidenceLetterDocumentIntent;
 use App\Models\InvoiceGroup;
+use App\Services\BillingDocumentRenderer;
 use App\Services\DocumentVerificationQr;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Console\Command;
@@ -67,8 +68,9 @@ class RefreshPdfDocuments extends Command
     private function refreshBillingDocuments(): int
     {
         $count = 0;
+        $renderer = app(BillingDocumentRenderer::class);
         $documents = DokumenTagihan::query()
-            ->with(['tagihan.mahasiswa.user', 'tagihan.registration.periode', 'tagihan.registration.placement.kamar.lantai.gedung', 'pembayaran'])
+            ->with(['tagihan.mahasiswa.user', 'tagihan.items', 'tagihan.penyesuaian', 'tagihan.pembayaran', 'tagihan.registration.periode', 'tagihan.registration.placement.kamar.lantai.gedung', 'pembayaran'])
             ->get();
 
         foreach ($documents as $document) {
@@ -77,20 +79,20 @@ class RefreshPdfDocuments extends Command
                 continue;
             }
 
-            $contents = Pdf::loadView('pdf.billing-document', [
-                'title' => $document->jenis === 'invoice' ? 'TAGIHAN' : 'KWITANSI',
-                'number' => $document->nomor,
-                'invoice' => $invoice,
-                'payment' => $document->pembayaran,
-                'student' => $invoice->mahasiswa,
-                'registration' => $invoice->registration,
-                'placement' => $invoice->registration?->placement,
-            ])->setPaper('a4')->output();
+            $contents = $renderer->renderPdf(
+                invoice: $invoice,
+                jenis: (string) $document->jenis,
+                number: (string) $document->nomor,
+                payment: $document->pembayaran,
+            );
 
             Storage::disk('local')->put($document->path, $contents);
             DB::table('dokumen_tagihan')
                 ->where('id', $document->id)
-                ->update(['checksum_sha256' => hash('sha256', $contents)]);
+                ->update([
+                    'checksum_sha256' => hash('sha256', $contents),
+                    'template_version' => BillingDocumentRenderer::VERSION,
+                ]);
             $count++;
         }
 

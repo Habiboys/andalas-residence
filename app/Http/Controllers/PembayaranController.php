@@ -12,6 +12,7 @@ use App\Models\Tagihan;
 use App\Models\TransaksiKeuangan;
 use App\Models\VirtualAccount;
 use App\Services\AuditLogService;
+use App\Services\BillingDocumentRenderer;
 use App\Services\ResidencePolicyService;
 use App\Services\ResidenceWorkflow;
 use App\Services\ResidenceWorkflowAccess;
@@ -277,6 +278,8 @@ class PembayaranController extends Controller
     {
         abort_unless($request->user()->can('pembayaran.verify')
             || $document->tagihan->mahasiswa_id === $request->user()->mahasiswaProfil?->id, 403);
+
+        app(BillingDocumentRenderer::class)->ensureLatest($document);
         abort_unless(Storage::disk('local')->exists($document->path), 404);
 
         return Storage::disk('local')->download($document->path, $document->nomor.'.pdf');

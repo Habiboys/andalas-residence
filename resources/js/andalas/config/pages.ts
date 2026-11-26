@@ -45,6 +45,7 @@ const ADMIN_PAGES: Record<string, string> = {
     'kelola-aset': 'Kelola Aset',
     'approval-bebas-asrama': 'Approval Pengajuan',
     'kelola-penandatangan': 'Kelola Penandatangan',
+    'pengaturan-harga': 'Harga Gedung',
     'pemetaan-kamar': 'Pemetaan Kamar',
     keuangan: 'Keuangan',
     'jadwal-kegiatan': 'Jadwal Kegiatan',
@@ -105,6 +106,7 @@ const ADMIN_LAYANAN_PAGES: Record<string, string> = {
     'penempatan-kamar': 'Penempatan Kamar',
     'approval-bebas-asrama': 'Approval Bebas Asrama',
     'kelola-penandatangan': 'Kelola Penandatangan',
+    'pengaturan-harga': 'Harga Gedung',
     keuangan: 'Keuangan',
     'jadwal-kegiatan': 'Jadwal Kegiatan',
     'registration-review': 'Review Pendaftaran',
@@ -115,6 +117,7 @@ const ADMIN_ASET_PAGES: Record<string, string> = {
     dashboard: 'Dashboard Aset',
     'pemetaan-kamar': 'Pemetaan Kamar',
     'kelola-bangunan': 'Kelola Bangunan',
+    'pengaturan-harga': 'Harga Gedung',
     'kelola-aset': 'Kelola Aset',
 };
 

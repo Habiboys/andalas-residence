@@ -273,6 +273,7 @@ export const CATEGORY_LABELS: Record<string, string> = {
     postgraduate: 'S2 / S3 mandiri',
     summer_course: 'Summer Course',
     non_student: 'Penyewa Umum',
+    asn: 'ASN / Dosen (Rusun ASN)',
 };
 
 export const WORKFLOW_STATUS_LABELS: Record<string, string> = {

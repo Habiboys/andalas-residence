@@ -20,6 +20,7 @@ class UserProfileSummary
             ClientProfileCategory::InternationalStudent => 'Mahasiswa internasional berbayar',
             ClientProfileCategory::InternationalFreeFacility => 'Mahasiswa internasional fasilitas gratis',
             ClientProfileCategory::NonStudent => 'Nonmahasiswa',
+            ClientProfileCategory::Asn => 'ASN / Dosen (Rusun ASN)',
             ClientProfileCategory::Parent => 'Orang tua',
             default => 'Petugas internal',
         };
@@ -51,15 +52,30 @@ class UserProfileSummary
         if ($student) {
             $placement = $student->penempatanKamar->firstWhere('status', 'aktif');
             $legacy = $life->legacy($student);
-            $sections[] = ['title' => 'Data akademik dan asal', 'fields' => [
-                'Angkatan' => $student->angkatan === null ? null : (string) $student->angkatan,
-                'Fakultas' => $student->prodi?->departemen?->faculty?->name,
-                'Departemen' => $student->prodi?->departemen?->name,
-                'Program studi' => $student->prodi?->name,
-                'Jenjang' => $student->prodi?->jenjang,
-                ...($student->prodi && in_array($student->prodi->jenjang, ['S2', 'S3'], true) ? [
-                    'Jalur pendaftaran asrama' => 'Internasional / S2 / S3 (melalui permohonan pengelola)',
-                ] : []),
+            $isAsn = $user->client_profile_category === ClientProfileCategory::Asn;
+            $academicFields = $isAsn
+                ? [
+                    'Unit kerja / instansi' => $student->unit_kerja,
+                    'Jalur hunian' => 'Rusun ASN (khusus ASN / Dosen)',
+                ]
+                : ($student->is_external_campus
+                    ? [
+                        'Asal kampus' => $student->external_campus_name ?? 'Luar Kampus UNAND',
+                        'Program studi / jurusan' => $student->external_program_name,
+                        'Angkatan' => $student->angkatan === null ? null : (string) $student->angkatan,
+                    ]
+                    : [
+                        'Angkatan' => $student->angkatan === null ? null : (string) $student->angkatan,
+                        'Fakultas' => $student->prodi?->departemen?->faculty?->name,
+                        'Departemen' => $student->prodi?->departemen?->name,
+                        'Program studi' => $student->prodi?->name,
+                        'Jenjang' => $student->prodi?->jenjang,
+                        ...($student->prodi && in_array($student->prodi->jenjang, ['S2', 'S3'], true) ? [
+                            'Jalur pendaftaran asrama' => 'Internasional / S2 / S3 (melalui permohonan pengelola)',
+                        ] : []),
+                    ]);
+            $sections[] = ['title' => $isAsn ? 'Data kepegawaian dan asal' : 'Data akademik dan asal', 'fields' => [
+                ...$academicFields,
                 'NIK' => $student->nik,
                 'Alamat lengkap' => $student->alamat,
                 'Kota / kabupaten' => $student->city?->name,

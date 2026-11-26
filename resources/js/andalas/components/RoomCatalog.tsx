@@ -47,7 +47,7 @@ export function roomPrice(
     basis: string,
     isStudent = true,
 ): number {
-    const rate =
+    const directRate =
         rates.find(
             (item) =>
                 item.gedung_id === room.lantai?.gedung_id &&
@@ -62,6 +62,31 @@ export function roomPrice(
                       item.unit === 'day',
               )
             : undefined);
+    const derivedSemester =
+        !directRate && unit === 'semester'
+            ? (() => {
+                  const yearly = rates.find(
+                      (item) =>
+                          item.gedung_id === room.lantai?.gedung_id &&
+                          item.tipe_kamar === room.tipe_kamar &&
+                          item.unit === 'year',
+                  );
+                  if (!yearly) return undefined;
+                  return {
+                      ...yearly,
+                      unit: 'semester',
+                      amount: String(Math.round(Number(yearly.amount) / 2)),
+                      room_amount:
+                          yearly.room_amount != null &&
+                          Number(yearly.room_amount) > 0
+                              ? String(
+                                    Math.round(Number(yearly.room_amount) / 2),
+                                )
+                              : null,
+                  };
+              })()
+            : undefined;
+    const rate = directRate ?? derivedSemester;
     if (basis === 'room') return Number(rate?.room_amount ?? 0);
     if (basis === 'group') {
         const roomAmt = Number(rate?.room_amount ?? 0);
@@ -69,7 +94,11 @@ export function roomPrice(
         return (
             Number(
                 rate?.amount ??
-                    (unit === 'year' ? room.tarif_per_periode : 0) ??
+                    (unit === 'year'
+                        ? room.tarif_per_periode
+                        : unit === 'semester'
+                          ? Math.round(Number(room.tarif_per_periode ?? 0) / 2)
+                          : 0) ??
                     0,
             ) * Math.max(1, Number(room.kapasitas ?? 1))
         );
@@ -78,7 +107,11 @@ export function roomPrice(
         (unit === 'day' && isStudent
             ? (rate?.student_amount ?? rate?.amount)
             : rate?.amount) ??
-            (unit === 'year' ? room.tarif_per_periode : 0) ??
+            (unit === 'year'
+                ? room.tarif_per_periode
+                : unit === 'semester'
+                  ? Math.round(Number(room.tarif_per_periode ?? 0) / 2)
+                  : 0) ??
             0,
     );
 }
@@ -93,6 +126,7 @@ function parseFacilities(raw?: string): string[] {
 
 const unitLabelMap: Record<string, string> = {
     year: 'tahun',
+    semester: '6 bulan',
     month: 'bulan',
     day: 'hari',
 };

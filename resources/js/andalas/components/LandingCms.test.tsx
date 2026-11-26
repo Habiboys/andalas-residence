@@ -196,3 +196,74 @@ it('renders editable residence guide sections in beranda management and reflects
     expect(homeHtml).toContain('Tata Cara Bayar CMS');
     expect(homeHtml).toContain('Cek Invoice');
 });
+
+it('displays day, month, 6-month, and year tariffs side-by-side on the homepage', () => {
+    const html = renderToStaticMarkup(
+        <Beranda
+            landingSettings={settings}
+            testimoni={[]}
+            statistik={{ gedung: 1, kamar: 20, penghuni: 10 }}
+            residenceCatalog={[
+                {
+                    id: 'b-1',
+                    name: 'Pupera Putera (F)',
+                    code: 'F',
+                    gender: 'laki_laki',
+                    address: 'Limau Manis',
+                    description: 'Gedung putra',
+                    image: null,
+                    floors: 3,
+                    rooms: 20,
+                    types: [
+                        {
+                            type: 'reguler',
+                            rooms: 20,
+                            capacity: 4,
+                            facilities: 'Kasur, lemari',
+                        },
+                    ],
+                    offers: [
+                        {
+                            category: 'local_non_kipk',
+                            type: 'reguler',
+                            unit: 'day',
+                            amount: 75000,
+                            places: 4,
+                        },
+                        {
+                            category: 'local_non_kipk',
+                            type: 'reguler',
+                            unit: 'month',
+                            amount: 300000,
+                            places: 4,
+                        },
+                        {
+                            category: 'local_non_kipk',
+                            type: 'reguler',
+                            unit: 'semester',
+                            amount: 1250000,
+                            places: 4,
+                        },
+                        {
+                            category: 'local_non_kipk',
+                            type: 'reguler',
+                            unit: 'year',
+                            amount: 2500000,
+                            room_amount: 10000000,
+                            places: 4,
+                        },
+                    ],
+                },
+            ]}
+        />,
+    );
+
+    expect(html).toContain('Per Hari');
+    expect(html).toContain('Per Bulan');
+    expect(html).toContain('Per 6 Bulan');
+    expect(html).toContain('Per Tahun');
+    expect(html).toContain('75.000');
+    expect(html).toContain('300.000');
+    expect(html).toContain('1.250.000');
+    expect(html).toContain('2.500.000');
+});

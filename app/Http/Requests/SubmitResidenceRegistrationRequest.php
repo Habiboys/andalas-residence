@@ -41,7 +41,7 @@ class SubmitResidenceRegistrationRequest extends FormRequest
             'preferences.*.notes' => ['nullable', 'string', 'max:1000'],
             'notes' => ['nullable', 'string', 'max:2000'],
             'rate_unit' => ['sometimes', 'in:period,year,semester,month,day'],
-            'billing_basis' => ['sometimes', 'in:person,room,group', Rule::when(in_array($this->input('billing_basis'), ['room', 'group'], true), ['prohibited_unless:rate_unit,period,year', Rule::prohibitedIf($this->boolean('is_kipk'))])],
+            'billing_basis' => ['sometimes', 'in:person,room,group', Rule::when(in_array($this->input('billing_basis'), ['room', 'group'], true), ['prohibited_unless:rate_unit,period,year,semester', Rule::prohibitedIf($this->boolean('is_kipk'))])],
             'starts_at' => ['required_if:rate_unit,month,day', 'nullable', 'date', 'after_or_equal:today'],
             'ends_at' => ['required_if:rate_unit,month,day', 'nullable', 'date', 'after:starts_at'],
             'funding' => ['sometimes', 'in:personal,sponsor'],

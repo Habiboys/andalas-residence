@@ -30,22 +30,100 @@ class PublicResidenceCatalog
                 return max(0, $room->kapasitas - $room->penempatanKamar->count() - ($reserved?->count() ?? 0));
             };
             $offers = [];
+            $buildingMasterRates = $rates->get($building->id, collect());
             foreach ($policies as $policy) {
                 if (! ($policy->settings['open'] ?? false) || ! in_array($building->id, $policy->settings['building_ids'], true)) {
                     continue;
                 }
-                $eligible = $rooms->filter(fn (Kamar $room) => $available($room) > 0 && collect($policy->settings['rates'])->contains(fn ($rate) => $rate['gedung_id'] === $building->id && $rate['type'] === $room->tipe_kamar));
+                $policyBuildingRates = collect($policy->settings['rates'])->where('gedung_id', $building->id)->values();
+                $eligible = $rooms->filter(fn (Kamar $room) => $available($room) > 0 && $policyBuildingRates->contains(fn ($rate) => $rate['type'] === $room->tipe_kamar));
                 $floor = $eligible->sortBy(fn (Kamar $room) => [$room->lantai->booking_priority, $room->lantai->nomor_lantai, $room->lantai_id])->first()?->lantai_id;
-                foreach ($policy->settings['rates'] as $rate) {
-                    if ($rate['gedung_id'] !== $building->id) {
-                        continue;
-                    }
+
+                $seenKeys = [];
+                $yearOfferByType = [];
+                $placesByType = [];
+
+                foreach ($policyBuildingRates as $rate) {
                     $matching = $rooms->where('tipe_kamar', $rate['type']);
                     if ($matching->isEmpty()) {
                         continue;
                     }
                     $places = $matching->where('lantai_id', $floor)->sum($available);
-                    $offers[] = ['category' => $policy->category, 'type' => $rate['type'], 'unit' => $rate['unit'], 'amount' => (float) $rate['amount'], 'places' => $places];
+                    $placesByType[$rate['type']] = $places;
+                    $amount = (float) $rate['amount'];
+                    $roomAmount = isset($rate['room_amount']) && (float) $rate['room_amount'] > 0
+                        ? (float) $rate['room_amount']
+                        : null;
+
+                    $key = $rate['type'].'|'.$rate['unit'];
+                    $seenKeys[$key] = true;
+                    if ($rate['unit'] === 'year' && $amount > 0) {
+                        $yearOfferByType[$rate['type']] = ['amount' => $amount, 'room_amount' => $roomAmount, 'places' => $places];
+                    }
+
+                    $offers[] = [
+                        'category' => $policy->category,
+                        'type' => $rate['type'],
+                        'unit' => $rate['unit'],
+                        'amount' => $amount,
+                        'room_amount' => $roomAmount,
+                        'places' => $places,
+                    ];
+                }
+
+                // Supplement missing units (day/month/semester/year) from master ResidenceRate when available for this building & category.
+                $allowedUnits = match ($policy->category) {
+                    'local_kipk' => ['year'],
+                    'summer_course' => ['day'],
+                    default => ResidencePolicyService::RATE_UNITS,
+                };
+                foreach ($placesByType as $type => $places) {
+                    $typeMasterRates = $buildingMasterRates->where('tipe_kamar', $type);
+                    foreach ($allowedUnits as $unit) {
+                        $key = $type.'|'.$unit;
+                        if (isset($seenKeys[$key])) {
+                            continue;
+                        }
+                        $specific = $typeMasterRates->first(fn (ResidenceRate $r): bool => $r->unit === $unit && $r->category === $policy->category);
+                        $default = $typeMasterRates->first(fn (ResidenceRate $r): bool => $r->unit === $unit && $r->category === ResidenceRate::DEFAULT_CATEGORY);
+                        $chosen = $specific ?? $default;
+                        if ($chosen) {
+                            $amount = $specific === null && $policy->category !== 'non_student' && $unit === 'day' && $chosen->student_amount !== null
+                                ? (float) $chosen->student_amount
+                                : (float) $chosen->amount;
+                            $roomAmount = $chosen->room_amount !== null && (float) $chosen->room_amount > 0
+                                ? (float) $chosen->room_amount
+                                : null;
+                            if ($amount > 0) {
+                                $seenKeys[$key] = true;
+                                if ($unit === 'year') {
+                                    $yearOfferByType[$type] = ['amount' => $amount, 'room_amount' => $roomAmount, 'places' => $places];
+                                }
+                                $offers[] = [
+                                    'category' => $policy->category,
+                                    'type' => $type,
+                                    'unit' => $unit,
+                                    'amount' => $amount,
+                                    'room_amount' => $roomAmount,
+                                    'places' => $places,
+                                ];
+                            }
+                        }
+                    }
+
+                    // Always derive 6-month (semester) rate as half of yearly rate if not explicitly configured.
+                    if (in_array('semester', $allowedUnits, true) && ! isset($seenKeys[$type.'|semester']) && isset($yearOfferByType[$type])) {
+                        $yearOffer = $yearOfferByType[$type];
+                        $seenKeys[$type.'|semester'] = true;
+                        $offers[] = [
+                            'category' => $policy->category,
+                            'type' => $type,
+                            'unit' => 'semester',
+                            'amount' => round($yearOffer['amount'] / 2),
+                            'room_amount' => $yearOffer['room_amount'] !== null ? round($yearOffer['room_amount'] / 2) : null,
+                            'places' => $yearOffer['places'],
+                        ];
+                    }
                 }
             }
             $roomTypes = $rooms->groupBy('tipe_kamar')->map(function ($typedRooms, $type) use ($rates, $building): array {

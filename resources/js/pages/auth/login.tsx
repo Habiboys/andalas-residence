@@ -17,9 +17,15 @@ type Props = {
     status?: string;
     canResetPassword: boolean;
     ssoUrl?: string | null;
+    ssoAsnUrl?: string | null;
 };
 
-export default function Login({ status, canResetPassword, ssoUrl }: Props) {
+export default function Login({
+    status,
+    canResetPassword,
+    ssoUrl,
+    ssoAsnUrl,
+}: Props) {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
 
@@ -46,10 +52,27 @@ export default function Login({ status, canResetPassword, ssoUrl }: Props) {
                  */}
                 {ssoUrl && (
                     <>
-                        <a href={ssoUrl} className="btn btn-accent mb-6 w-full">
-                            <KeyRound className="size-4" aria-hidden="true" />
-                            Masuk dengan SSO UNAND
-                        </a>
+                        <div className="mb-6 space-y-2.5">
+                            <a href={ssoUrl} className="btn btn-accent w-full">
+                                <KeyRound
+                                    className="size-4"
+                                    aria-hidden="true"
+                                />
+                                Masuk dengan SSO UNAND (Mahasiswa)
+                            </a>
+                            {ssoAsnUrl && (
+                                <a
+                                    href={ssoAsnUrl}
+                                    className="btn btn-outline btn-primary w-full"
+                                >
+                                    <KeyRound
+                                        className="size-4"
+                                        aria-hidden="true"
+                                    />
+                                    Masuk dengan SSO Dosen / ASN (Rusun ASN)
+                                </a>
+                            )}
+                        </div>
 
                         <div className="divider text-muted mb-6 text-xs">
                             Atau masuk dengan akun Residence

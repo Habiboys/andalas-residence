@@ -37,6 +37,7 @@ class LandingController extends Controller
             'testimoni' => Testimoni::where('published', true)->orderBy('urutan')->get(),
             'statistik' => $this->statistik(),
             'residenceCatalog' => app(PublicResidenceCatalog::class)->buildings(),
+            'publicBookingCatalog' => PublicStayApplicationController::availableCatalog(),
             'paymentAccounts' => PaymentBankAccount::where('is_active', true)
                 ->orderBy('bank_name')
                 ->orderBy('account_number')

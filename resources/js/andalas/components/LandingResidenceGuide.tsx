@@ -4,6 +4,7 @@ import {
     ArrowRight,
     Bath,
     BookOpen,
+    Building2,
     Car,
     CheckCircle2,
     Download,
@@ -44,11 +45,12 @@ const CATEGORY_LABELS: Record<string, string> = {
     international: 'Internasional / S2 / S3',
     summer_course: 'Summer Course / Kegiatan',
     non_student: 'Umum / Sewa Harian',
+    asn: 'ASN / Dosen (Rusun ASN)',
 };
 
 const UNIT_LABELS: Record<string, string> = {
     year: 'tahun',
-    semester: 'semester',
+    semester: '6 bulan',
     month: 'bulan',
     day: 'hari',
 };
@@ -98,8 +100,22 @@ const TRACKS = [
             'Penempatan kelompok kegiatan maupun tamu difasilitasi pengelola dan fasilitator gedung.',
             'Bukti tagihan, pembayaran, dan administrasi check-out tercatat rapi secara digital.',
         ],
-        ctaLabel: 'Cek Ketersediaan Unit',
-        ctaHref: '#katalog-hunian',
+        ctaLabel: 'Ajukan Sewa Umum / Summer Course',
+        ctaHref: '#pengajuan-umum-summer',
+    },
+    {
+        badge: 'Khusus Rusun ASN',
+        title: 'ASN / Dosen Universitas Andalas',
+        icon: Building2,
+        description:
+            'Jalur hunian khusus bagi Aparatur Sipil Negara (ASN) dan Dosen Universitas Andalas dengan pilihan hunian eksklusif di Gedung Rusun ASN.',
+        points: [
+            'Dapat langsung masuk menggunakan akun SSO Dosen / Pegawai UNAND atau daftar manual menggunakan NIP.',
+            'Pilihan hunian terfokus khusus pada Gedung Rusun ASN sesuai ketersediaan kamar.',
+            'Tersedia skema sewa bulanan, per 6 bulan, maupun tahunan yang dikelola secara transparan.',
+        ],
+        ctaLabel: 'Masuk SSO Dosen / ASN',
+        ctaHref: '/api/auth/sso/redirect?intent=asn',
     },
 ];
 
@@ -186,6 +202,9 @@ const PAYMENT_STEPS = [
 
 function resolveTrackIcon(title: string, index: number) {
     const lower = title.toLowerCase();
+    if (lower.includes('asn') || lower.includes('dosen')) {
+        return Building2;
+    }
     if (
         lower.includes('internasional') ||
         lower.includes('s2') ||
@@ -207,7 +226,7 @@ function resolveTrackIcon(title: string, index: number) {
     ) {
         return GraduationCap;
     }
-    return [GraduationCap, Globe2, Users][index % 3];
+    return [GraduationCap, Globe2, Users, Building2][index % 4];
 }
 
 function resolveFacilityIcon(title: string, index: number) {
@@ -281,11 +300,18 @@ export function RegistrationTracksSection({
                     </p>
                 </div>
 
-                <div className="mt-10 grid gap-6 lg:grid-cols-3">
+                <div
+                    className={`mt-10 grid gap-6 ${items.length >= 4 ? 'md:grid-cols-2 xl:grid-cols-4' : 'lg:grid-cols-3'}`}
+                >
                     {items.map((track, idx) => {
                         const Icon = track.icon;
                         const highlighted = idx === 0;
-                        const isAnchor = track.ctaHref.startsWith('#');
+                        const isDirectAnchor =
+                            track.ctaHref.startsWith('#') ||
+                            track.ctaHref.startsWith('/api/auth/sso');
+                        const isAsnTrack = track.title
+                            .toLowerCase()
+                            .includes('asn');
 
                         return (
                             <article
@@ -333,11 +359,15 @@ export function RegistrationTracksSection({
                                         </li>
                                     ))}
                                 </ul>
-                                <div className="mt-6 pt-2">
-                                    {isAnchor ? (
+                                <div className="mt-6 space-y-2 pt-2">
+                                    {isDirectAnchor ? (
                                         <a
                                             href={track.ctaHref}
-                                            className="btn btn-outline w-full justify-between"
+                                            className={`btn w-full justify-between ${
+                                                isAsnTrack
+                                                    ? 'btn-primary btn-outline'
+                                                    : 'btn-outline'
+                                            }`}
                                         >
                                             <span>{track.ctaLabel}</span>
                                             <ArrowRight className="size-4" />
@@ -353,6 +383,14 @@ export function RegistrationTracksSection({
                                         >
                                             <span>{track.ctaLabel}</span>
                                             <ArrowRight className="size-4" />
+                                        </Link>
+                                    )}
+                                    {isAsnTrack && (
+                                        <Link
+                                            href={`${register.url()}?category=asn`}
+                                            className="text-primary block text-center text-xs font-medium hover:underline"
+                                        >
+                                            Atau daftar manual dengan NIP
                                         </Link>
                                     )}
                                 </div>
@@ -379,15 +417,7 @@ export function TariffMatrixSection({
     const [selectedBuildingId, setSelectedBuildingId] = useState<string>('all');
     const [selectedUnit, setSelectedUnit] = useState<string>('all');
 
-    const availableUnits = useMemo(() => {
-        const set = new Set<string>();
-        for (const building of buildingsWithRates) {
-            for (const offer of building.offers) {
-                set.add(offer.unit);
-            }
-        }
-        return ['year', 'semester', 'month', 'day'].filter((u) => set.has(u));
-    }, [buildingsWithRates]);
+    const unitFilters = ['day', 'month', 'semester', 'year'] as const;
 
     const rows = useMemo(() => {
         const filteredBuildings =
@@ -395,42 +425,125 @@ export function TariffMatrixSection({
                 ? buildingsWithRates
                 : buildingsWithRates.filter((b) => b.id === selectedBuildingId);
 
-        const list: Array<{
+        type MatrixCell = {
+            amount: number;
+            roomAmount: number | null;
+        };
+
+        type MatrixRow = {
             key: string;
             buildingName: string;
             gender: string;
             type: string;
             capacity: number | null;
+            categoryKey: string;
             category: string;
-            unit: string;
-            amount: number;
             places: number;
-        }> = [];
+            rates: Record<
+                'day' | 'month' | 'semester' | 'year',
+                MatrixCell | null
+            >;
+        };
+
+        const grouped = new Map<string, MatrixRow>();
 
         for (const building of filteredBuildings) {
             for (const offer of building.offers) {
-                if (selectedUnit !== 'all' && offer.unit !== selectedUnit) {
-                    continue;
-                }
+                const groupKey = `${building.id}-${offer.category}-${offer.type}`;
                 const typeMeta = building.types.find(
                     (t) => t.type === offer.type,
                 );
-                list.push({
-                    key: `${building.id}-${offer.category}-${offer.type}-${offer.unit}`,
-                    buildingName: building.name,
-                    gender: GENDER_LABELS[building.gender] ?? building.gender,
-                    type: offer.type,
-                    capacity: typeMeta?.capacity ?? null,
-                    category: CATEGORY_LABELS[offer.category] ?? offer.category,
-                    unit: UNIT_LABELS[offer.unit] ?? offer.unit,
-                    amount: offer.amount,
-                    places: offer.places,
-                });
+                let row = grouped.get(groupKey);
+                if (!row) {
+                    row = {
+                        key: groupKey,
+                        buildingName: building.name,
+                        gender:
+                            GENDER_LABELS[building.gender] ?? building.gender,
+                        type: offer.type,
+                        capacity: typeMeta?.capacity ?? null,
+                        categoryKey: offer.category,
+                        category:
+                            CATEGORY_LABELS[offer.category] ?? offer.category,
+                        places: offer.places,
+                        rates: {
+                            day: null,
+                            month: null,
+                            semester: null,
+                            year: null,
+                        },
+                    };
+                    grouped.set(groupKey, row);
+                }
+                row.places = Math.max(row.places, offer.places);
+                if (
+                    offer.unit === 'day' ||
+                    offer.unit === 'month' ||
+                    offer.unit === 'semester' ||
+                    offer.unit === 'year'
+                ) {
+                    row.rates[offer.unit] = {
+                        amount: offer.amount,
+                        roomAmount:
+                            offer.room_amount && offer.room_amount > 0
+                                ? offer.room_amount
+                                : null,
+                    };
+                }
             }
         }
 
-        return list;
+        const list = Array.from(grouped.values()).map((row) => {
+            if (
+                row.rates.semester === null &&
+                row.rates.year !== null &&
+                !['local_kipk', 'summer_course'].includes(row.categoryKey)
+            ) {
+                row.rates.semester = {
+                    amount: Math.round(row.rates.year.amount / 2),
+                    roomAmount: row.rates.year.roomAmount
+                        ? Math.round(row.rates.year.roomAmount / 2)
+                        : null,
+                };
+            }
+            return row;
+        });
+
+        if (selectedUnit === 'all') {
+            return list;
+        }
+
+        return list.filter(
+            (row) =>
+                row.rates[
+                    selectedUnit as 'day' | 'month' | 'semester' | 'year'
+                ] !== null,
+        );
     }, [buildingsWithRates, selectedBuildingId, selectedUnit]);
+
+    const renderRateCell = (
+        cell: { amount: number; roomAmount: number | null } | null,
+        highlighted: boolean,
+    ) => (
+        <td
+            className={`whitespace-nowrap ${highlighted ? 'bg-primary/5' : ''}`}
+        >
+            {cell ? (
+                <div>
+                    <span className="text-primary font-semibold">
+                        {formatRupiah(cell.amount)}
+                    </span>
+                    {cell.roomAmount !== null && (
+                        <span className="text-muted block text-[11px]">
+                            1 kamar: {formatRupiah(cell.roomAmount)}
+                        </span>
+                    )}
+                </div>
+            ) : (
+                <span className="text-muted">—</span>
+            )}
+        </td>
+    );
 
     return (
         <section
@@ -448,10 +561,10 @@ export function TariffMatrixSection({
                         </h2>
                         <p className="text-muted mt-2 text-sm leading-6">
                             {headings.tariffs_intro ||
-                                'Bandingkan tarif resmi asrama per gedung dan satuan masa tinggal sesuai kebijakan aktif dari pengelola.'}
+                                'Bandingkan tarif resmi asrama per gedung untuk skema per hari, per bulan, per 6 bulan, dan per tahun sesuai kebijakan aktif pengelola.'}
                         </p>
                     </div>
-                    {availableUnits.length > 0 && (
+                    {buildingsWithRates.length > 0 && (
                         <div
                             className="flex flex-wrap gap-1.5"
                             role="group"
@@ -469,7 +582,7 @@ export function TariffMatrixSection({
                             >
                                 Semua Satuan
                             </button>
-                            {availableUnits.map((unit) => (
+                            {unitFilters.map((unit) => (
                                 <button
                                     key={unit}
                                     type="button"
@@ -537,8 +650,42 @@ export function TariffMatrixSection({
                                         <th>Gedung &amp; Gender</th>
                                         <th>Kategori</th>
                                         <th>Tipe Kamar</th>
-                                        <th>Kapasitas</th>
-                                        <th>Tarif / Orang</th>
+                                        <th
+                                            className={
+                                                selectedUnit === 'day'
+                                                    ? 'bg-primary/10 text-primary'
+                                                    : ''
+                                            }
+                                        >
+                                            Per Hari
+                                        </th>
+                                        <th
+                                            className={
+                                                selectedUnit === 'month'
+                                                    ? 'bg-primary/10 text-primary'
+                                                    : ''
+                                            }
+                                        >
+                                            Per Bulan
+                                        </th>
+                                        <th
+                                            className={
+                                                selectedUnit === 'semester'
+                                                    ? 'bg-primary/10 text-primary'
+                                                    : ''
+                                            }
+                                        >
+                                            Per 6 Bulan
+                                        </th>
+                                        <th
+                                            className={
+                                                selectedUnit === 'year'
+                                                    ? 'bg-primary/10 text-primary'
+                                                    : ''
+                                            }
+                                        >
+                                            Per Tahun
+                                        </th>
                                         <th>Sisa Slot</th>
                                     </tr>
                                 </thead>
@@ -555,20 +702,33 @@ export function TariffMatrixSection({
                                                     </span>
                                                 </td>
                                                 <td>{row.category}</td>
-                                                <td className="capitalize">
-                                                    {row.type}
-                                                </td>
                                                 <td>
-                                                    {row.capacity
-                                                        ? `${row.capacity} orang`
-                                                        : '-'}
-                                                </td>
-                                                <td className="text-primary font-semibold whitespace-nowrap">
-                                                    {formatRupiah(row.amount)}{' '}
-                                                    <span className="text-muted text-xs font-normal">
-                                                        / {row.unit}
+                                                    <span className="font-medium capitalize">
+                                                        {row.type}
                                                     </span>
+                                                    {row.capacity ? (
+                                                        <span className="text-muted block text-xs">
+                                                            Maks. {row.capacity}{' '}
+                                                            orang
+                                                        </span>
+                                                    ) : null}
                                                 </td>
+                                                {renderRateCell(
+                                                    row.rates.day,
+                                                    selectedUnit === 'day',
+                                                )}
+                                                {renderRateCell(
+                                                    row.rates.month,
+                                                    selectedUnit === 'month',
+                                                )}
+                                                {renderRateCell(
+                                                    row.rates.semester,
+                                                    selectedUnit === 'semester',
+                                                )}
+                                                {renderRateCell(
+                                                    row.rates.year,
+                                                    selectedUnit === 'year',
+                                                )}
                                                 <td>
                                                     <span
                                                         className={`badge badge-sm ${
@@ -587,7 +747,7 @@ export function TariffMatrixSection({
                                     ) : (
                                         <tr>
                                             <td
-                                                colSpan={6}
+                                                colSpan={8}
                                                 className="text-muted py-6 text-center text-sm"
                                             >
                                                 Belum ada tarif pada satuan yang
@@ -600,7 +760,7 @@ export function TariffMatrixSection({
                         </div>
                         <p className="text-muted mt-3 text-xs">
                             {headings.tariffs_note ||
-                                'Catatan: Tarif KIP-K mengikuti ketentuan beasiswa KIP-K Universitas Andalas; tarif booking penuh 1 kamar menyesuaikan jumlah kapasitas kamar pada saat pendaftaran.'}
+                                'Catatan: Tarif di atas adalah tarif per orang. Untuk mahasiswa hunian (non-maba), tarif per 6 bulan otomatis sebesar tarif tahunan dibagi 2 kecuali ditetapkan khusus oleh pengelola; tarif KIP-K mengikuti ketentuan beasiswa Universitas Andalas.'}
                         </p>
                     </>
                 ) : (

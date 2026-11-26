@@ -17,7 +17,10 @@ class ResidenceApplication extends BaseModel
     /** @use HasFactory<ResidenceApplicationFactory> */
     use HasFactory;
 
-    protected $fillable = ['number', 'kind', 'institution', 'recipient_email', 'letter_path', 'starts_at', 'ends_at', 'funding', 'approved_at', 'approved_by', 'created_by'];
+    protected $fillable = [
+        'number', 'kind', 'institution', 'recipient_email', 'applicant_phone', 'booking_token',
+        'letter_path', 'starts_at', 'ends_at', 'funding', 'approved_at', 'approved_by', 'created_by',
+    ];
 
     protected function casts(): array
     {

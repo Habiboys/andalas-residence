@@ -7,6 +7,7 @@ use App\Actions\Checkout\ReturnResidenceKeys;
 use App\Actions\Registration\AllocateResidenceRoom;
 use App\Actions\Registration\ConfirmResidenceCheckIn;
 use App\Actions\Registration\CreateResidenceBilling;
+use App\Enums\ClientProfileCategory;
 use App\Enums\TagihanStatus;
 use App\Http\Requests\PublishResidencePolicyRequest;
 use App\Models\CheckoutRequest;
@@ -275,14 +276,26 @@ class ResidenceWorkflowController extends Controller
         abort_unless($request->user()->hasRole('mahasiswa') && $request->user()->mahasiswaProfil, 403);
         $housing = $request->routeIs('residence.housing-profile');
         $user = $request->user();
+        $existingProfile = $user->mahasiswaProfil;
         $isSso = filled($user->sso_id);
         $needsNim = $user->hasPendingNim();
+        $isAsn = $user->client_profile_category === ClientProfileCategory::Asn;
+        $isExternalCampus = ! $isAsn && filter_var(
+            $request->input('is_external_campus', $existingProfile->is_external_campus),
+            FILTER_VALIDATE_BOOLEAN,
+        );
+        $skipUnandAcademic = $isAsn || $isExternalCampus;
         $data = $request->validate([
             'nim_nip' => $needsNim ? ['required', 'string', 'max:50', Rule::unique('users', 'nim_nip')->ignore($user->id)] : ['nullable', 'string', 'max:50'],
             'gender' => ['required', 'in:laki_laki,perempuan'],
-            'prodi_id' => ['required', 'uuid', 'exists:prodi,id'],
+            'is_external_campus' => ['sometimes', 'boolean'],
+            'external_campus_name' => [Rule::requiredIf($isExternalCampus), 'nullable', 'string', 'max:150'],
+            'external_program_name' => [Rule::requiredIf($isExternalCampus), 'nullable', 'string', 'max:150'],
+            'angkatan' => [Rule::requiredIf($isExternalCampus), 'nullable', 'integer', 'min:2000', 'max:'.now()->year],
+            'unit_kerja' => ['nullable', 'string', 'max:150'],
+            'prodi_id' => [Rule::requiredIf(! $skipUnandAcademic), 'nullable', 'uuid', 'exists:prodi,id'],
             'no_hp' => [$housing ? 'required' : 'nullable', 'string', 'max:20', ...($housing ? ['regex:/^\+?[0-9][0-9 ()-]{6,18}[0-9]$/D'] : [])],
-            'client_profile_category' => ['nullable', 'in:local_student,local_kipk,local_non_kipk,international_student'],
+            'client_profile_category' => ['nullable', 'in:local_student,local_kipk,local_non_kipk,international_student,asn'],
             'email_pribadi' => [$housing && $isSso ? 'required' : 'nullable', 'string', 'email', 'max:255'],
             ...($housing ? [
                 'nama' => ['required', 'string', 'max:255'],
@@ -291,19 +304,27 @@ class ResidenceWorkflowController extends Controller
                 'alamat' => ['required', 'string', 'max:500'],
             ] : []),
         ]);
-        DB::transaction(function () use ($request, $data, $isSso, $needsNim): void {
+        DB::transaction(function () use ($request, $data, $isSso, $needsNim, $isAsn, $isExternalCampus): void {
             $user = $request->user();
             $profile = $user->mahasiswaProfil()->lockForUpdate()->firstOrFail();
             if ($profile->residenceRegistrations()->whereNull('completed_at')->whereNotIn('status', ['draft', 'rejected', 'cancelled'])->exists() || $profile->penempatanKamar()->where('status', 'aktif')->exists()) {
                 throw ValidationException::withMessages(['profile' => 'Data kategori penghuni berjalan hanya dapat dikoreksi pengelola.']);
             }
             $nim = $needsNim ? trim((string) $data['nim_nip']) : $user->nim_nip;
-            $year = StudentCohort::fromNim($nim);
+            $year = $isAsn
+                ? null
+                : ($isExternalCampus
+                    ? (int) ($data['angkatan'] ?? $profile->angkatan)
+                    : (int) StudentCohort::fromNim($nim));
             $categoryInput = $data['client_profile_category'] ?? ($user->getRawOriginal('client_profile_category') ?? 'local_student');
-            if ($categoryInput === 'international_student') {
+            if ($isAsn || $categoryInput === 'asn') {
+                $resolvedCategory = 'asn';
+            } elseif ($categoryInput === 'international_student') {
                 $resolvedCategory = 'international_student';
+            } elseif ($isExternalCampus) {
+                $resolvedCategory = 'local_non_kipk';
             } else {
-                $resolvedCategory = app(ResidenceLifecycle::class)->resolveLocalCategory($nim, $data['prodi_id'], $year);
+                $resolvedCategory = app(ResidenceLifecycle::class)->resolveLocalCategory($nim, $data['prodi_id'] ?? null, $year);
             }
 
             $user->update([
@@ -314,8 +335,12 @@ class ResidenceWorkflowController extends Controller
                 'client_profile_category' => $resolvedCategory,
             ]);
             $profile->update([
-                'prodi_id' => $data['prodi_id'],
+                'prodi_id' => ($isAsn || $isExternalCampus) ? null : ($data['prodi_id'] ?? null),
                 'angkatan' => $year,
+                'is_external_campus' => $isExternalCampus,
+                'external_campus_name' => $isExternalCampus ? trim((string) ($data['external_campus_name'] ?? '')) : null,
+                'external_program_name' => $isExternalCampus ? trim((string) ($data['external_program_name'] ?? '')) : null,
+                'unit_kerja' => $isAsn ? (filled($data['unit_kerja'] ?? null) ? trim((string) $data['unit_kerja']) : $profile->unit_kerja) : null,
                 'email_pribadi' => $data['email_pribadi'] ?? $profile->email_pribadi ?? (! $isSso ? $user->email : null),
                 ...Arr::only($data, ['nik', 'city_id', 'alamat']),
             ]);

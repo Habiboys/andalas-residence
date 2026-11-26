@@ -26,6 +26,15 @@ class RoomEligibility
     public static function allowsCanonicalBuilding(string $category, Gedung $building, ?string $gender = null): bool
     {
         $code = strtoupper(trim($building->kode_gedung));
+
+        if ($category === 'asn') {
+            return $code === 'ASN';
+        }
+
+        if ($code === 'ASN') {
+            return false;
+        }
+
         if (! in_array($code, ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'], true)) {
             return true;
         }

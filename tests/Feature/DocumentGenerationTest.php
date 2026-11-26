@@ -12,6 +12,7 @@ use App\Models\MahasiswaProfil;
 use App\Models\PengajuanBebasAsrama;
 use App\Models\User;
 use App\Notifications\DocumentReadyNotification;
+use App\Services\BillingDocumentRenderer;
 use App\Services\FreeResidenceLetterFormat;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Notification;
@@ -66,7 +67,7 @@ it('generates immutable private billing documents idempotently and notifies the 
     $document = $invoice->dokumen()->sole();
     Storage::disk('local')->assertExists($document->path);
     expect($document->nomor)->toBe('INV-DOC-002')
-        ->and($document->template_version)->toBe('billing-v1')
+        ->and($document->template_version)->toBe(BillingDocumentRenderer::VERSION)
         ->and($document->checksum_sha256)->toHaveLength(64);
     $this->assertDatabaseCount('dokumen_tagihan', 1);
     Notification::assertSentTo(

@@ -33,6 +33,7 @@ export type ResidenceListing = {
         type: string;
         unit: string;
         amount: number;
+        room_amount?: number | null;
         places: number;
     }[];
 };
@@ -40,15 +41,22 @@ const categories: Record<string, string> = {
     local_non_kipk: 'Mahasiswa lokal',
     local_kipk: 'KIP-K',
     international: 'Internasional / S2 / S3',
+    asn: 'ASN / Dosen (Rusun ASN)',
     summer_course: 'Summer Course',
     non_student: 'Umum',
 };
 const units: Record<string, string> = {
-    year: 'tahun',
-    semester: 'semester',
-    month: 'bulan',
     day: 'hari',
+    month: 'bulan',
+    semester: '6 bulan',
+    year: 'tahun',
 };
+const UNIT_SUMMARY_ORDER = [
+    { key: 'day', label: 'Per Hari' },
+    { key: 'month', label: 'Per Bulan' },
+    { key: 'semester', label: 'Per 6 Bulan' },
+    { key: 'year', label: 'Per Tahun' },
+] as const;
 const currency = (value: number) =>
     new Intl.NumberFormat('id-ID', {
         style: 'currency',
@@ -71,16 +79,44 @@ export default function ResidenceMarketplace({
         () =>
             listings
                 .map((item) => {
-                    const offers = item.offers.filter(
-                        (offer) =>
-                            offer.category === category && offer.unit === unit,
+                    const categoryOffers = item.offers.filter(
+                        (offer) => offer.category === category,
                     );
-                    const lowest = offers.length
-                        ? Math.min(...offers.map((offer) => offer.amount))
-                        : null;
+                    const offers = categoryOffers.filter(
+                        (offer) => offer.unit === unit,
+                    );
+                    const unitLowest: Record<string, number | null> = {
+                        day: null,
+                        month: null,
+                        semester: null,
+                        year: null,
+                    };
+                    for (const u of UNIT_SUMMARY_ORDER) {
+                        const matching = categoryOffers.filter(
+                            (o) => o.unit === u.key && o.amount > 0,
+                        );
+                        if (matching.length > 0) {
+                            unitLowest[u.key] = Math.min(
+                                ...matching.map((o) => o.amount),
+                            );
+                        }
+                    }
+                    if (
+                        unitLowest.semester === null &&
+                        unitLowest.year !== null &&
+                        !['local_kipk', 'summer_course'].includes(category)
+                    ) {
+                        unitLowest.semester = Math.round(unitLowest.year / 2);
+                    }
+                    const lowest =
+                        unitLowest[unit] ??
+                        (offers.length
+                            ? Math.min(...offers.map((offer) => offer.amount))
+                            : null);
                     return {
                         ...item,
                         filteredOffers: offers,
+                        unitLowest,
                         lowest,
                         places: offers.reduce(
                             (sum, offer) => sum + offer.places,
@@ -368,6 +404,38 @@ export default function ResidenceMarketplace({
                                             </span>
                                         )}
                                     </p>
+                                    <div className="mt-3 grid grid-cols-2 gap-1.5 text-[11px]">
+                                        {UNIT_SUMMARY_ORDER.map((u) => {
+                                            const price =
+                                                item.unitLowest[u.key];
+                                            const isSelected = unit === u.key;
+                                            return (
+                                                <div
+                                                    key={u.key}
+                                                    className={`rounded-lg border px-2 py-1.5 ${
+                                                        isSelected
+                                                            ? 'border-primary/40 bg-primary/5'
+                                                            : 'border-base-200 bg-base-200/40'
+                                                    }`}
+                                                >
+                                                    <span className="text-base-content/60 block">
+                                                        {u.label}
+                                                    </span>
+                                                    <span
+                                                        className={`font-semibold ${
+                                                            price !== null
+                                                                ? 'text-base-content'
+                                                                : 'text-base-content/40'
+                                                        }`}
+                                                    >
+                                                        {price !== null
+                                                            ? currency(price)
+                                                            : '—'}
+                                                    </span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
                                     <Link
                                         href={login.url()}
                                         className="bg-primary text-primary-content mt-4 flex items-center justify-between rounded-xl px-4 py-3 text-sm font-semibold transition-opacity hover:opacity-90"

@@ -2,6 +2,7 @@
 
 namespace App\Actions\Registration;
 
+use App\Enums\ClientProfileCategory;
 use App\Models\Kamar;
 use App\Models\MahasiswaProfil;
 use App\Models\Periode;
@@ -27,7 +28,8 @@ class SubmitResidenceRegistration
             }
             app(ResidencePolicyService::class)->assertProfile($student);
             $life = app(ResidenceLifecycle::class);
-            if (! $life->isLocal($student)) {
+            $isAsn = $student->user->client_profile_category === ClientProfileCategory::Asn;
+            if (! $isAsn && ! $life->isLocal($student)) {
                 throw ValidationException::withMessages(['periode_id' => 'Permohonan internasional/S2/S3 dicatat melalui pengelola.']);
             }
             app(RoomReservations::class)->expire();
@@ -35,23 +37,36 @@ class SubmitResidenceRegistration
                 throw ValidationException::withMessages(['periode_id' => 'Selesaikan hunian atau pendaftaran yang sedang berjalan.']);
             }
             $period = Periode::where('status', 'aktif')->whereKey($data['periode_id'])->firstOrFail();
-            $startsAt = Carbon::parse($data['starts_at'] ?? $period->tanggal_mulai)->startOfDay();
-            $endsAt = Carbon::parse($data['ends_at'] ?? $period->tanggal_selesai)->startOfDay();
-            if ($startsAt->lt($period->tanggal_mulai) || $endsAt->gt($period->tanggal_selesai) || $endsAt->lt($startsAt)) {
-                throw ValidationException::withMessages(['ends_at' => 'Masa hunian harus berada dalam rentang periode pendaftaran.']);
-            }
-            $kipk = $life->isKipk($student);
-            $policy = app(ResidencePolicyService::class)->current($kipk ? 'local_kipk' : 'local_non_kipk');
+            $kipk = ! $isAsn && $life->isKipk($student);
+            $policyCategory = $isAsn ? 'asn' : ($kipk ? 'local_kipk' : 'local_non_kipk');
+            $policy = app(ResidencePolicyService::class)->current($policyCategory);
             $deadline = app(ResidencePolicyService::class)->registrationDeadline($policy);
             $unit = $kipk ? 'year' : ($data['rate_unit'] ?? 'year');
             $unit = $unit === 'period' ? 'year' : $unit;
-            if ($unit === 'month' && ((int) $student->angkatan === (int) $period->angkatan_maba || ! ($policy->settings['monthly_allowed'] ?? false))) {
-                throw ValidationException::withMessages(['rate_unit' => 'Skema bulanan hanya untuk non-maba yang diizinkan kebijakan pengelola.']);
+
+            $startsAt = Carbon::parse($data['starts_at'] ?? $period->tanggal_mulai)->startOfDay();
+            $defaultEnd = $unit === 'semester'
+                ? $startsAt->copy()->addMonths(6)->min(Carbon::parse($period->tanggal_selesai)->startOfDay())
+                : Carbon::parse($period->tanggal_selesai)->startOfDay();
+            $endsAt = Carbon::parse($data['ends_at'] ?? $defaultEnd)->startOfDay();
+            if ($startsAt->lt($period->tanggal_mulai) || $endsAt->gt($period->tanggal_selesai) || $endsAt->lt($startsAt)) {
+                throw ValidationException::withMessages(['ends_at' => 'Masa hunian harus berada dalam rentang periode pendaftaran.']);
+            }
+
+            $isMaba = $life->isMaba($student, $period);
+            $isSeniorOverFiveYears = $life->isSeniorOverFiveYears($student, $period);
+            if ($unit === 'semester' && ! $isAsn && $isMaba) {
+                throw ValidationException::withMessages(['rate_unit' => 'Skema per 6 bulan hanya tersedia untuk mahasiswa hunian (non-maba).']);
+            }
+            if ($unit === 'month' && ! $isAsn && ! $isSeniorOverFiveYears && ($isMaba || ! ($policy->settings['monthly_allowed'] ?? false))) {
+                throw ValidationException::withMessages(['rate_unit' => 'Skema bulanan hanya tersedia untuk mahasiswa tahun studi > 5 atau non-maba yang diizinkan kebijakan pengelola.']);
             }
             if (($data['funding'] ?? 'personal') !== 'personal') {
-                throw ValidationException::withMessages(['funding' => 'Mahasiswa lokal memiliki kewajiban pembayaran pribadi.']);
+                throw ValidationException::withMessages(['funding' => 'Pendaftaran jalur ini memiliki kewajiban pembayaran pribadi.']);
             }
-            $student->user->update(['client_profile_category' => $kipk ? 'local_kipk' : 'local_non_kipk']);
+            if (! $isAsn) {
+                $student->user->update(['client_profile_category' => $kipk ? 'local_kipk' : 'local_non_kipk']);
+            }
             $reservationHours = max(1, (int) ($policy->settings['reservation_hours'] ?? $period->reservation_hours ?? 168));
             if ($unit === 'day') {
                 $tz = config('residence.timezone', 'Asia/Jakarta');
@@ -79,8 +94,8 @@ class SubmitResidenceRegistration
                 'student_profile_id' => $student->id, 'periode_id' => $period->id,
                 'status' => 'submitted', 'is_kipk' => $kipk, 'submitted_at' => now(), 'notes' => $data['notes'] ?? null,
                 'billing_basis' => $billingBasis,
-                'starts_at' => $data['starts_at'] ?? $period->tanggal_mulai,
-                'ends_at' => $data['ends_at'] ?? $period->tanggal_selesai,
+                'starts_at' => $startsAt->toDateString(),
+                'ends_at' => $endsAt->toDateString(),
                 'rate_unit' => $unit, 'funding' => 'personal', 'allocation_status' => 'waiting',
                 'reservation_expires_at' => $kipk ? null : $expiresAt,
             ]);

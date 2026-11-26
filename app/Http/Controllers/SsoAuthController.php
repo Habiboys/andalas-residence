@@ -28,9 +28,11 @@ class SsoAuthController extends Controller
 
         $state = Str::random(64);
         $verifier = Str::random(96);
+        $intent = $request->query('intent') === 'asn' ? 'asn' : 'default';
         $request->session()->put('unand_sso', [
             'state' => $state,
             'verifier' => $verifier,
+            'intent' => $intent,
             'expires_at' => now()->addMinutes(10)->timestamp,
         ]);
 
@@ -82,8 +84,10 @@ class SsoAuthController extends Controller
             return $this->fail('SSO tidak memberikan NIM/NIP yang valid. Hubungi administrator.');
         }
 
+        $intent = (string) ($flow['intent'] ?? 'default');
+
         try {
-            $user = DB::transaction(function () use ($claims, $identifier, $sso): User {
+            $user = DB::transaction(function () use ($claims, $identifier, $sso, $intent): User {
                 $subject = $claims['sub'];
                 $linkedUser = User::query()->where('sso_id', $subject)->first();
                 $user = $linkedUser ?? User::query()->where('nim_nip', $identifier)->first();
@@ -99,32 +103,41 @@ class SsoAuthController extends Controller
                 if (! $user) {
                     $email = $claims['email'] ?? null;
                     $name = $sso->displayName($claims);
-                    if (! preg_match('/^\d{10}$/D', $identifier)
+                    $isStudentNim = preg_match('/^\d{10}$/D', $identifier) === 1;
+                    $isAsn = $intent === 'asn';
+
+                    if (! $isAsn && ! $isStudentNim && preg_match('/^\d{4,50}$/D', $identifier) === 1) {
+                        throw ValidationException::withMessages(['sso' => 'Akun NIP dosen/ASN belum terdaftar. Gunakan tombol "Masuk dengan SSO Dosen / ASN" untuk mendaftar hunian Rusun ASN, atau hubungi administrator.']);
+                    }
+
+                    if ((! $isAsn && ! $isStudentNim)
+                        || ($isAsn && ! preg_match('/^\d{4,50}$/D', $identifier))
                         || ! is_string($email) || strlen($email) > 255 || ! filter_var($email, FILTER_VALIDATE_EMAIL)
                         || ! is_string($name) || trim($name) === '' || mb_strlen($name) > 255) {
                         Log::warning('SSO auto-create ditolak', [
                             'identifier' => $identifier,
+                            'intent' => $intent,
                             'email' => $email,
                             'name' => $name,
                             'preferred_username' => $claims['preferred_username'] ?? null,
                             'claims' => $claims,
                         ]);
 
-                        throw ValidationException::withMessages(['sso' => 'Pembuatan akun otomatis memerlukan NIM mahasiswa 10 digit, nama, dan email dari SSO.']);
+                        throw ValidationException::withMessages(['sso' => 'Pembuatan akun otomatis memerlukan NIM mahasiswa 10 digit atau NIP dosen/ASN, nama, dan email dari SSO.']);
                     }
 
                     if (User::query()->where('email', $email)->exists()) {
                         throw ValidationException::withMessages(['sso' => 'Email SSO sudah digunakan akun lain. Hubungi administrator.']);
                     }
 
-                    $cohort = StudentCohort::fromNim($identifier);
+                    $cohort = $isAsn ? null : StudentCohort::fromNim($identifier);
                     $user = User::create([
                         'nim_nip' => $identifier,
                         'nama' => trim($name),
                         'email' => $email,
                         'email_verified_at' => now(),
                         'password' => Str::random(64),
-                        'client_profile_category' => ClientProfileCategory::Student,
+                        'client_profile_category' => $isAsn ? ClientProfileCategory::Asn : ClientProfileCategory::Student,
                         'status' => 'aktif',
                     ]);
                     $user->assignRole('mahasiswa');
@@ -152,7 +165,14 @@ class SsoAuthController extends Controller
         $request->session()->put('unand_sso_authenticated', true);
 
         $profile = $user->mahasiswaProfil;
-        if ($user->hasRole('mahasiswa') && $profile && (! $user->gender || ! $profile->prodi_id || ! $profile->angkatan)) {
+        if ($user->client_profile_category === ClientProfileCategory::Asn) {
+            if ($profile && ! $profile->hasCompleteHousingIdentity()) {
+                return redirect()->route('mahasiswa.data-hunian');
+            }
+
+            return redirect()->intended(route('mahasiswa.registration'));
+        }
+        if ($user->hasRole('mahasiswa') && $profile && (! $user->gender || (! $profile->is_external_campus && ! $profile->prodi_id) || ! $profile->angkatan)) {
             return redirect()->route('mahasiswa.layanan');
         }
 

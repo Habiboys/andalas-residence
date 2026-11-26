@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\ClientProfileCategory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -11,19 +12,29 @@ class MahasiswaProfil extends BaseModel
 
     protected $fillable = [
         'user_id', 'prodi_id', 'periode_id', 'city_id', 'angkatan',
+        'is_external_campus', 'external_campus_name', 'external_program_name', 'unit_kerja',
         'barcode_code', 'nik', 'email_pribadi', 'alamat', 'bpjs_path', 'riwayat_penyakit_path',
         'bukti_lulus_path', 'status_huni', 'tanggal_masuk',
     ];
 
     protected function casts(): array
     {
-        return ['tanggal_masuk' => 'date'];
+        return [
+            'tanggal_masuk' => 'date',
+            'is_external_campus' => 'boolean',
+        ];
     }
 
     public function hasCompleteHousingIdentity(): bool
     {
         $hasPersonalEmail = filled($this->email_pribadi)
             || (! filled($this->user->sso_id) && filled($this->user->email));
+        $isAsn = $this->user->client_profile_category === ClientProfileCategory::Asn;
+        $hasAcademicData = $isAsn
+            ? true
+            : ($this->is_external_campus
+                ? filled($this->external_campus_name) && filled($this->external_program_name) && filled($this->angkatan)
+                : filled($this->prodi_id) && filled($this->angkatan));
 
         return filled($this->user->nama)
             && filled($this->user->nim_nip)
@@ -32,8 +43,7 @@ class MahasiswaProfil extends BaseModel
             && $hasPersonalEmail
             && filled($this->user->no_hp)
             && in_array($this->user->gender, ['laki_laki', 'perempuan'], true)
-            && filled($this->prodi_id)
-            && filled($this->angkatan)
+            && $hasAcademicData
             && preg_match('/^\d{16}$/D', (string) $this->nik) === 1
             && filled($this->city_id)
             && filled($this->alamat);

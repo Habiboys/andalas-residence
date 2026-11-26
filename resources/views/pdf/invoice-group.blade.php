@@ -52,7 +52,7 @@
                         @if (!empty($row['residence']['building']))
                             {{ $row['residence']['building'] }} / {{ $row['residence']['room'] ?? '' }} / {{ $row['residence']['type'] ?? '' }}<br>
                             @if (!empty($row['residence']['starts_at']) && !empty($row['residence']['ends_at'])){{ $row['residence']['starts_at'] }} sampai {{ $row['residence']['ends_at'] }}<br>@endif
-                            {{ $row['residence']['quantity'] ?? 1 }} {{ match ($row['residence']['unit'] ?? '') { 'day' => 'hari', 'month' => 'bulan', 'year' => 'tahun', default => 'periode' } }} x Rp {{ number_format((float) ($row['residence']['amount'] ?? $row['amount']), 0, ',', '.') }}<br>
+                            {{ $row['residence']['quantity'] ?? 1 }} {{ match ($row['residence']['unit'] ?? '') { 'day' => 'hari', 'month' => 'bulan', 'semester' => 'periode (6 bulan)', 'year' => 'tahun', default => 'periode' } }} x Rp {{ number_format((float) ($row['residence']['amount'] ?? $row['amount']), 0, ',', '.') }}<br>
                         @endif
                         {{ $row['nomor'] }}</span>
                     </td>

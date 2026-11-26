@@ -25,6 +25,12 @@ type EditableProfile = {
     gender?: string;
     email_pribadi?: string;
     nik?: string;
+    is_external_campus?: boolean;
+    external_campus_name?: string;
+    external_program_name?: string;
+    angkatan?: string;
+    unit_kerja?: string;
+    is_asn?: boolean;
     faculty_id?: string;
     departemen_id?: string;
     prodi_id?: string;
@@ -123,6 +129,11 @@ export default function Profile({
         gender: editableProfile?.gender ?? '',
         email_pribadi: editableProfile?.email_pribadi ?? '',
         nik: editableProfile?.nik ?? '',
+        is_external_campus: Boolean(editableProfile?.is_external_campus),
+        external_campus_name: editableProfile?.external_campus_name ?? '',
+        external_program_name: editableProfile?.external_program_name ?? '',
+        angkatan: editableProfile?.angkatan ?? '',
+        unit_kerja: editableProfile?.unit_kerja ?? '',
         faculty_id: editableProfile?.faculty_id ?? '',
         departemen_id: editableProfile?.departemen_id ?? '',
         prodi_id: editableProfile?.prodi_id ?? '',
@@ -431,133 +442,275 @@ export default function Profile({
                                     Data akademik dan asal
                                 </h2>
                                 <div className="divide-base-300 divide-y">
-                                    <ReadonlyRow
-                                        label="Angkatan"
-                                        value={academicFields['Angkatan']}
-                                    />
-
-                                    {academicOptions && (
+                                    {editableProfile?.is_asn ? (
+                                        <ProfileFieldRow
+                                            label="Unit kerja / instansi"
+                                            htmlFor="unit_kerja"
+                                            error={form.errors.unit_kerja}
+                                        >
+                                            <input
+                                                id="unit_kerja"
+                                                name="unit_kerja"
+                                                className="input input-bordered w-full max-w-md"
+                                                value={form.data.unit_kerja}
+                                                onChange={(e) =>
+                                                    form.setData(
+                                                        'unit_kerja',
+                                                        e.target.value,
+                                                    )
+                                                }
+                                                placeholder="Contoh: Fakultas Teknik UNAND"
+                                            />
+                                        </ProfileFieldRow>
+                                    ) : form.data.is_external_campus ? (
                                         <>
                                             <ProfileFieldRow
-                                                label="Fakultas"
-                                                htmlFor="faculty_id"
+                                                label="Kampus asal"
+                                                htmlFor="external_campus_name"
+                                                error={
+                                                    form.errors
+                                                        .external_campus_name
+                                                }
                                             >
-                                                <select
-                                                    id="faculty_id"
-                                                    className="select select-bordered w-full max-w-md"
+                                                <input
+                                                    id="external_campus_name"
+                                                    name="external_campus_name"
+                                                    className="input input-bordered w-full max-w-md"
                                                     disabled={academicLocked}
-                                                    value={form.data.faculty_id}
-                                                    onChange={(e) =>
-                                                        form.setData({
-                                                            ...form.data,
-                                                            faculty_id:
-                                                                e.target.value,
-                                                            departemen_id: '',
-                                                            prodi_id: '',
-                                                        })
-                                                    }
-                                                >
-                                                    <option value="">
-                                                        Pilih fakultas
-                                                    </option>
-                                                    {(
-                                                        academicOptions.fakultas ??
-                                                        []
-                                                    ).map((item) => (
-                                                        <option
-                                                            key={item.id}
-                                                            value={item.id}
-                                                        >
-                                                            {item.name}
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                            </ProfileFieldRow>
-
-                                            <ProfileFieldRow
-                                                label="Departemen"
-                                                htmlFor="departemen_id"
-                                            >
-                                                <select
-                                                    id="departemen_id"
-                                                    className="select select-bordered w-full max-w-md"
-                                                    disabled={
-                                                        academicLocked ||
-                                                        !form.data.faculty_id
-                                                    }
                                                     value={
-                                                        form.data.departemen_id
+                                                        form.data
+                                                            .external_campus_name
                                                     }
-                                                    onChange={(e) =>
-                                                        form.setData({
-                                                            ...form.data,
-                                                            departemen_id:
-                                                                e.target.value,
-                                                            prodi_id: '',
-                                                        })
-                                                    }
-                                                >
-                                                    <option value="">
-                                                        Pilih departemen
-                                                    </option>
-                                                    {filteredDepartments.map(
-                                                        (item) => (
-                                                            <option
-                                                                key={item.id}
-                                                                value={item.id}
-                                                            >
-                                                                {item.name}
-                                                            </option>
-                                                        ),
-                                                    )}
-                                                </select>
-                                            </ProfileFieldRow>
-
-                                            <ProfileFieldRow
-                                                label="Program studi"
-                                                htmlFor="prodi_id"
-                                                error={form.errors.prodi_id}
-                                            >
-                                                <select
-                                                    id="prodi_id"
-                                                    name="prodi_id"
-                                                    className="select select-bordered w-full max-w-md"
-                                                    disabled={
-                                                        academicLocked ||
-                                                        !form.data.departemen_id
-                                                    }
-                                                    value={form.data.prodi_id}
                                                     onChange={(e) =>
                                                         form.setData(
-                                                            'prodi_id',
+                                                            'external_campus_name',
                                                             e.target.value,
                                                         )
                                                     }
-                                                >
-                                                    <option value="">
-                                                        Pilih program studi
-                                                    </option>
-                                                    {filteredPrograms.map(
-                                                        (item) => (
-                                                            <option
-                                                                key={item.id}
-                                                                value={item.id}
-                                                            >
-                                                                {item.name} (
-                                                                {item.jenjang})
-                                                            </option>
-                                                        ),
-                                                    )}
-                                                </select>
+                                                    placeholder="Contoh: Politeknik Negeri Padang (PNP)"
+                                                />
                                             </ProfileFieldRow>
-
+                                            <ProfileFieldRow
+                                                label="Program studi / jurusan"
+                                                htmlFor="external_program_name"
+                                                error={
+                                                    form.errors
+                                                        .external_program_name
+                                                }
+                                            >
+                                                <input
+                                                    id="external_program_name"
+                                                    name="external_program_name"
+                                                    className="input input-bordered w-full max-w-md"
+                                                    disabled={academicLocked}
+                                                    value={
+                                                        form.data
+                                                            .external_program_name
+                                                    }
+                                                    onChange={(e) =>
+                                                        form.setData(
+                                                            'external_program_name',
+                                                            e.target.value,
+                                                        )
+                                                    }
+                                                />
+                                            </ProfileFieldRow>
+                                            <ProfileFieldRow
+                                                label="Angkatan"
+                                                htmlFor="angkatan"
+                                                error={form.errors.angkatan}
+                                            >
+                                                <input
+                                                    id="angkatan"
+                                                    name="angkatan"
+                                                    type="number"
+                                                    className="input input-bordered w-full max-w-md"
+                                                    disabled={academicLocked}
+                                                    value={form.data.angkatan}
+                                                    onChange={(e) =>
+                                                        form.setData(
+                                                            'angkatan',
+                                                            e.target.value,
+                                                        )
+                                                    }
+                                                />
+                                            </ProfileFieldRow>
+                                        </>
+                                    ) : (
+                                        <>
                                             <ReadonlyRow
-                                                label="Jenjang"
+                                                label="Angkatan"
                                                 value={
-                                                    selectedProgram?.jenjang ??
-                                                    academicFields['Jenjang']
+                                                    academicFields['Angkatan']
                                                 }
                                             />
+
+                                            {academicOptions && (
+                                                <>
+                                                    <ProfileFieldRow
+                                                        label="Fakultas"
+                                                        htmlFor="faculty_id"
+                                                    >
+                                                        <select
+                                                            id="faculty_id"
+                                                            className="select select-bordered w-full max-w-md"
+                                                            disabled={
+                                                                academicLocked
+                                                            }
+                                                            value={
+                                                                form.data
+                                                                    .faculty_id
+                                                            }
+                                                            onChange={(e) =>
+                                                                form.setData({
+                                                                    ...form.data,
+                                                                    faculty_id:
+                                                                        e.target
+                                                                            .value,
+                                                                    departemen_id:
+                                                                        '',
+                                                                    prodi_id:
+                                                                        '',
+                                                                })
+                                                            }
+                                                        >
+                                                            <option value="">
+                                                                Pilih fakultas
+                                                            </option>
+                                                            {(
+                                                                academicOptions.fakultas ??
+                                                                []
+                                                            ).map((item) => (
+                                                                <option
+                                                                    key={
+                                                                        item.id
+                                                                    }
+                                                                    value={
+                                                                        item.id
+                                                                    }
+                                                                >
+                                                                    {item.name}
+                                                                </option>
+                                                            ))}
+                                                        </select>
+                                                    </ProfileFieldRow>
+
+                                                    <ProfileFieldRow
+                                                        label="Departemen"
+                                                        htmlFor="departemen_id"
+                                                    >
+                                                        <select
+                                                            id="departemen_id"
+                                                            className="select select-bordered w-full max-w-md"
+                                                            disabled={
+                                                                academicLocked ||
+                                                                !form.data
+                                                                    .faculty_id
+                                                            }
+                                                            value={
+                                                                form.data
+                                                                    .departemen_id
+                                                            }
+                                                            onChange={(e) =>
+                                                                form.setData({
+                                                                    ...form.data,
+                                                                    departemen_id:
+                                                                        e.target
+                                                                            .value,
+                                                                    prodi_id:
+                                                                        '',
+                                                                })
+                                                            }
+                                                        >
+                                                            <option value="">
+                                                                Pilih departemen
+                                                            </option>
+                                                            {filteredDepartments.map(
+                                                                (item) => (
+                                                                    <option
+                                                                        key={
+                                                                            item.id
+                                                                        }
+                                                                        value={
+                                                                            item.id
+                                                                        }
+                                                                    >
+                                                                        {
+                                                                            item.name
+                                                                        }
+                                                                    </option>
+                                                                ),
+                                                            )}
+                                                        </select>
+                                                    </ProfileFieldRow>
+
+                                                    <ProfileFieldRow
+                                                        label="Program studi"
+                                                        htmlFor="prodi_id"
+                                                        error={
+                                                            form.errors.prodi_id
+                                                        }
+                                                    >
+                                                        <select
+                                                            id="prodi_id"
+                                                            name="prodi_id"
+                                                            className="select select-bordered w-full max-w-md"
+                                                            disabled={
+                                                                academicLocked ||
+                                                                !form.data
+                                                                    .departemen_id
+                                                            }
+                                                            value={
+                                                                form.data
+                                                                    .prodi_id
+                                                            }
+                                                            onChange={(e) =>
+                                                                form.setData(
+                                                                    'prodi_id',
+                                                                    e.target
+                                                                        .value,
+                                                                )
+                                                            }
+                                                        >
+                                                            <option value="">
+                                                                Pilih program
+                                                                studi
+                                                            </option>
+                                                            {filteredPrograms.map(
+                                                                (item) => (
+                                                                    <option
+                                                                        key={
+                                                                            item.id
+                                                                        }
+                                                                        value={
+                                                                            item.id
+                                                                        }
+                                                                    >
+                                                                        {
+                                                                            item.name
+                                                                        }{' '}
+                                                                        (
+                                                                        {
+                                                                            item.jenjang
+                                                                        }
+                                                                        )
+                                                                    </option>
+                                                                ),
+                                                            )}
+                                                        </select>
+                                                    </ProfileFieldRow>
+
+                                                    <ReadonlyRow
+                                                        label="Jenjang"
+                                                        value={
+                                                            selectedProgram?.jenjang ??
+                                                            academicFields[
+                                                                'Jenjang'
+                                                            ]
+                                                        }
+                                                    />
+                                                </>
+                                            )}
                                         </>
                                     )}
 

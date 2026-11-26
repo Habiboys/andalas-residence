@@ -54,6 +54,12 @@ class ProfileController extends Controller
                 ...($student ? [
                     'email_pribadi' => $student->email_pribadi ?? '',
                     'nik' => $student->nik ?? '',
+                    'is_external_campus' => (bool) $student->is_external_campus,
+                    'external_campus_name' => $student->external_campus_name ?? '',
+                    'external_program_name' => $student->external_program_name ?? '',
+                    'angkatan' => $student->angkatan ? (string) $student->angkatan : '',
+                    'unit_kerja' => $student->unit_kerja ?? '',
+                    'is_asn' => $user->client_profile_category === ClientProfileCategory::Asn,
                     'faculty_id' => $student->prodi?->departemen?->faculty_id ?? '',
                     'departemen_id' => $student->prodi?->departemen_id ?? '',
                     'prodi_id' => $student->prodi_id ?? '',
@@ -120,13 +126,26 @@ class ProfileController extends Controller
             }
 
             if ($student) {
+                $isAsn = $user->client_profile_category === ClientProfileCategory::Asn;
                 $studentUpdates = Arr::only($validated, array_filter([
                     'email_pribadi',
                     'nik',
                     'city_id',
                     'alamat',
+                    $isAsn ? 'unit_kerja' : null,
                     $academicLocked ? null : 'prodi_id',
+                    $academicLocked || $isAsn ? null : 'is_external_campus',
+                    $academicLocked || $isAsn ? null : 'external_campus_name',
+                    $academicLocked || $isAsn ? null : 'external_program_name',
+                    $academicLocked || $isAsn ? null : 'angkatan',
                 ]));
+
+                if (array_key_exists('is_external_campus', $studentUpdates) && (bool) $studentUpdates['is_external_campus']) {
+                    $studentUpdates['prodi_id'] = null;
+                } elseif (array_key_exists('is_external_campus', $studentUpdates) && ! (bool) $studentUpdates['is_external_campus']) {
+                    $studentUpdates['external_campus_name'] = null;
+                    $studentUpdates['external_program_name'] = null;
+                }
 
                 if ($studentUpdates !== []) {
                     $student->update($studentUpdates);
@@ -135,7 +154,7 @@ class ProfileController extends Controller
 
                 $effectiveNim = $userUpdates['nim_nip'] ?? $user->nim_nip;
                 $effectiveProdiId = $student->prodi_id;
-                if (! $academicLocked && ! str_starts_with((string) $effectiveNim, $user::PENDING_NIM_PREFIX) && filled($effectiveProdiId)
+                if (! $academicLocked && ! $isAsn && ! $student->is_external_campus && ! str_starts_with((string) $effectiveNim, $user::PENDING_NIM_PREFIX) && filled($effectiveProdiId)
                     && in_array($user->client_profile_category, [ClientProfileCategory::Student, ClientProfileCategory::LocalKipk, ClientProfileCategory::LocalNonKipk], true)) {
                     $userUpdates['client_profile_category'] = app(ResidenceLifecycle::class)->resolveLocalCategory(
                         $effectiveNim,

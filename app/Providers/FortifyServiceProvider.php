@@ -104,16 +104,19 @@ class FortifyServiceProvider extends ServiceProvider
      */
     private function configureViews(): void
     {
-        Fortify::registerView(fn () => Inertia::render('auth/register', [
+        Fortify::registerView(fn (Request $request) => Inertia::render('auth/register', [
             'fakultas' => Faculty::orderBy('name')->get(['id', 'name']),
             'departemen' => Departemen::orderBy('name')->get(['id', 'name', 'faculty_id']),
             'prodi' => Prodi::orderBy('name')->get(['id', 'name', 'jenjang', 'departemen_id']),
+            'initialCategory' => (string) $request->query('category', ''),
+            'ssoAsnUrl' => route('sso.redirect', ['intent' => 'asn']),
         ]));
 
         Fortify::loginView(fn (Request $request) => Inertia::render('auth/login', [
             'canResetPassword' => Features::enabled(Features::resetPasswords()),
             'status' => $request->session()->get('status'),
             'ssoUrl' => route('sso.redirect'),
+            'ssoAsnUrl' => route('sso.redirect', ['intent' => 'asn']),
         ]));
 
         Fortify::resetPasswordView(fn (Request $request) => Inertia::render('auth/reset-password', [

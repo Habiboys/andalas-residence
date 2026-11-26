@@ -39,8 +39,8 @@ class AllocateResidenceRoom
                         $roomTotalAmount = ! empty($rate['room_amount']) && (float) $rate['room_amount'] > 0
                             ? (float) $rate['room_amount']
                             : ($r->billing_basis === 'group' ? (float) ($rate['amount'] ?? 0) * max(1, (int) $room->kapasitas) : 0.0);
-                        if ($isFullRoomBasis && ($r->rate_unit !== 'year' || $roomTotalAmount <= 0)) {
-                            throw ValidationException::withMessages(['billing_basis' => 'Tarif tahunan per kamar belum tersedia.']);
+                        if ($isFullRoomBasis && (! in_array($r->rate_unit, ['year', 'semester'], true) || $roomTotalAmount <= 0)) {
+                            throw ValidationException::withMessages(['billing_basis' => 'Tarif per kamar belum tersedia untuk satuan ini.']);
                         }
                         if (! RoomEligibility::allowsType($room->lantai->gedung, $room->tipe_kamar, $room->kapasitas)) {
                             continue;
@@ -50,7 +50,7 @@ class AllocateResidenceRoom
                         if ($occupied + $held >= $room->kapasitas || ($isFullRoomBasis && $occupied + $held > 0)) {
                             continue;
                         }
-                        $initialAllocationStatus = ($r->is_kipk || $r->funding === 'sponsor' || $r->stay_kind === 'summer_course')
+                        $initialAllocationStatus = ($r->is_kipk || $r->funding === 'sponsor')
                             ? 'admin_occupied'
                             : 'held';
                         $r->update(['reserved_room_id' => $room->id, 'allocation_status' => $initialAllocationStatus]);

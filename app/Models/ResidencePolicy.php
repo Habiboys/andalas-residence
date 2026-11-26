@@ -7,9 +7,10 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Support\Carbon;
 
 /**
- * @property array{open: bool, building_ids: list<string>, documents: list<string>, month_days: int, day_basis: string, monthly_allowed: bool, rates: list<array{gedung_id: string, type: string, unit: string, amount: numeric-string|int|float, room_amount?: numeric-string|int|float|null}>} $settings
+ * @property array{open: bool, building_ids: list<string>, documents: list<string>, month_days: int, day_basis: string, monthly_allowed: bool, rates: list<array{gedung_id: string, type: string, unit: string, amount: numeric-string|int|float, room_amount?: numeric-string|int|float|null}>, registration_deadline?: string|null, reservation_hours?: int|null} $settings
  * @property int $version
  * @property Carbon|null $published_at
+ * @property string|null $created_by
  */
 class ResidencePolicy extends BaseModel
 {

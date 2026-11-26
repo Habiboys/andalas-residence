@@ -50,6 +50,9 @@ class ResidenceLifecycle
 
     public function isBinaan(MahasiswaProfil $student): bool
     {
+        if ($student->is_external_campus || $student->user->client_profile_category === ClientProfileCategory::Asn) {
+            return false;
+        }
         $year = Periode::where('status', 'aktif')->value('angkatan_maba') ?? (int) now()->format('Y');
 
         return (int) $student->angkatan === (int) $year && $this->isLocal($student)
@@ -57,8 +60,36 @@ class ResidenceLifecycle
             && ! $this->hasEndedStay($student);
     }
 
+    public function isMaba(MahasiswaProfil $student, ?Periode $period = null): bool
+    {
+        if ($student->is_external_campus || $student->user->client_profile_category === ClientProfileCategory::Asn || ! $student->angkatan) {
+            return false;
+        }
+        $year = $period !== null && $period->angkatan_maba !== null
+            ? (int) $period->angkatan_maba
+            : (int) (Periode::where('status', 'aktif')->value('angkatan_maba') ?? now()->format('Y'));
+
+        return (int) $student->angkatan === $year;
+    }
+
+    public function isSeniorOverFiveYears(MahasiswaProfil $student, ?Periode $period = null): bool
+    {
+        if ($student->user->client_profile_category === ClientProfileCategory::Asn || ! $student->angkatan) {
+            return false;
+        }
+        $year = $period !== null && $period->angkatan_maba !== null
+            ? (int) $period->angkatan_maba
+            : (int) (Periode::where('status', 'aktif')->value('angkatan_maba') ?? now()->format('Y'));
+
+        return ($year - (int) $student->angkatan) >= 5;
+    }
+
     public function isKipk(MahasiswaProfil $student): bool
     {
+        if ($student->is_external_campus) {
+            return false;
+        }
+
         return $this->isBinaan($student) && KipkRecipient::where('nim', $student->user->nim_nip)
             ->where('angkatan', $student->angkatan)->exists();
     }

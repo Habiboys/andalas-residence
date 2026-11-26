@@ -86,16 +86,28 @@ class CreateResidenceBilling
             throw ValidationException::withMessages(['kamar_id' => 'Tentukan kamar sebelum menerbitkan tagihan pembayaran pribadi.']);
         }
         $rateUnit = in_array($registration->rate_unit, ['period', 'year'], true) ? 'year' : $registration->rate_unit;
-        $rate = $room === null ? null : ResidenceRate::where('gedung_id', $room->lantai->gedung_id)->where('tipe_kamar', $room->tipe_kamar)->where('unit', $rateUnit)->first();
+        $category = app(ResidencePolicyService::class)->category($registration->studentProfile, $registration->stay_kind ?? 'regular');
+        $rate = $room === null ? null : (ResidenceRate::where('gedung_id', $room->lantai->gedung_id)->where('tipe_kamar', $room->tipe_kamar)->where('unit', $rateUnit)->where('category', $category)->first()
+            ?? ResidenceRate::where('gedung_id', $room->lantai->gedung_id)->where('tipe_kamar', $room->tipe_kamar)->where('unit', $rateUnit)->where('category', ResidenceRate::DEFAULT_CATEGORY)->first());
+        $derivedSemesterFromYear = false;
+        if (! $rate && $room && $rateUnit === 'semester') {
+            $rate = ResidenceRate::where('gedung_id', $room->lantai->gedung_id)->where('tipe_kamar', $room->tipe_kamar)->where('unit', 'year')->where('category', $category)->first()
+                ?? ResidenceRate::where('gedung_id', $room->lantai->gedung_id)->where('tipe_kamar', $room->tipe_kamar)->where('unit', 'year')->where('category', ResidenceRate::DEFAULT_CATEGORY)->first();
+            $derivedSemesterFromYear = $rate !== null;
+        }
         if (! $rate && $room && $rateUnit === 'day') {
-            $rate = ResidenceRate::where('gedung_id', $room->lantai->gedung_id)->where('tipe_kamar', 'umum')->where('unit', 'day')->first();
+            $rate = ResidenceRate::where('gedung_id', $room->lantai->gedung_id)->where('tipe_kamar', 'umum')->where('unit', 'day')->where('category', $category)->first()
+                ?? ResidenceRate::where('gedung_id', $room->lantai->gedung_id)->where('tipe_kamar', 'umum')->where('unit', 'day')->where('category', ResidenceRate::DEFAULT_CATEGORY)->first();
         }
         $amount = $rate ? (float) $rate->amount : (in_array($registration->rate_unit, ['period', 'year'], true) && $room !== null ? (float) $room->tarif_per_periode : 0);
+        if ($derivedSemesterFromYear) {
+            $amount = round($amount / 2);
+        }
         if ($registration->billing_basis === 'room') {
-            if ($rateUnit !== 'year' || ! $rate || (float) $rate->room_amount <= 0) {
-                throw ValidationException::withMessages(['billing_basis' => 'Tarif tahunan per kamar belum tersedia.']);
+            if (! in_array($rateUnit, ['year', 'semester'], true) || ! $rate || (float) $rate->room_amount <= 0) {
+                throw ValidationException::withMessages(['billing_basis' => 'Tarif per kamar belum tersedia untuk satuan ini.']);
             }
-            $amount = (float) $rate->room_amount;
+            $amount = $derivedSemesterFromYear ? round((float) $rate->room_amount / 2) : (float) $rate->room_amount;
         }
         if ($rate && $rateUnit === 'day' && $registration->studentProfile->user->client_profile_category?->value !== 'non_student' && $rate->student_amount !== null) {
             $amount = (float) $rate->student_amount;

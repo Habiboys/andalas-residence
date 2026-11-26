@@ -178,6 +178,11 @@ const ADMIN_ASET_NAV: NavGroup[] = [
                 page: 'kelola-bangunan',
                 icon: Building2,
             },
+            {
+                label: 'Harga Gedung',
+                page: 'pengaturan-harga',
+                icon: CreditCard,
+            },
             { label: 'Stok Keseluruhan', page: 'stok-aset', icon: Package },
             { label: 'Kelola Aset', page: 'kelola-aset', icon: Package },
         ],
@@ -493,6 +498,11 @@ const registrationAdminNav: NavGroup = {
             label: 'Rekening Koran & Invoice',
             page: 'residence-workflow/finance',
             icon: Landmark,
+        },
+        {
+            label: 'Harga Gedung',
+            page: 'pengaturan-harga',
+            icon: CreditCard,
         },
         {
             label: 'Pengaturan Layanan',

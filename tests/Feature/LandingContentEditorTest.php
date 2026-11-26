@@ -148,7 +148,7 @@ test('beranda CMS settings can save registration tracks, facilities, core rules,
     $user = landingEditorUser();
     $settings = LandingContentService::settings();
 
-    expect($settings['registration_tracks'])->toBeArray()->toHaveCount(3);
+    expect($settings['registration_tracks'])->toBeArray()->toHaveCount(4);
     expect($settings['registration_tracks'][0]['points_text'])->not->toContain('Pembayaran fleksibel sesuai kebijakan periode');
 
     $settings['headings']['tracks'] = 'Judul Jalur Diedit';

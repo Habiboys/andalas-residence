@@ -198,23 +198,35 @@ export default function Registration({
     });
     const selectedPeriod =
         periods.find((p) => p.id === form.data.periode_id) ?? periods[0];
+    const isAsn = initialUser?.client_profile_category === 'asn';
+    const isExternalCampus = Boolean(
+        (initialUser as { is_external_campus?: boolean } | undefined)
+            ?.is_external_campus,
+    );
     const isMaba =
+        !isAsn &&
+        !isExternalCampus &&
         initialUser?.angkatan != null &&
         selectedPeriod?.angkatan_maba != null &&
         Number(initialUser.angkatan) === Number(selectedPeriod.angkatan_maba);
-    const canSelectMonthly = policy_monthly_allowed && !isMaba;
+    const isSeniorOverFiveYears =
+        !isAsn &&
+        initialUser?.angkatan != null &&
+        selectedPeriod?.angkatan_maba != null &&
+        Number(selectedPeriod.angkatan_maba) - Number(initialUser.angkatan) >=
+            5;
+    const canSelectSemester = isAsn || !isMaba;
+    const canSelectMonthly =
+        isAsn || isSeniorOverFiveYears || (policy_monthly_allowed && !isMaba);
     const room = rooms.find((r) => r.id === form.data.preferences[0].kamar_id);
     const rateUnit =
         form.data.rate_unit === 'period' ? 'year' : form.data.rate_unit;
-    const rate =
+    const directRate =
         rates.find(
             (r) =>
                 r.gedung_id === room?.lantai?.gedung_id &&
                 r.tipe_kamar === room?.tipe_kamar &&
-                r.unit ===
-                    (form.data.rate_unit === 'period'
-                        ? 'year'
-                        : form.data.rate_unit),
+                r.unit === rateUnit,
         ) ??
         (rateUnit === 'day'
             ? rates.find(
@@ -224,6 +236,29 @@ export default function Registration({
                       r.unit === 'day',
               )
             : undefined);
+    const fallbackSemesterRate =
+        !directRate && rateUnit === 'semester'
+            ? (() => {
+                  const yearly = rates.find(
+                      (r) =>
+                          r.gedung_id === room?.lantai?.gedung_id &&
+                          r.tipe_kamar === room?.tipe_kamar &&
+                          r.unit === 'year',
+                  );
+                  if (!yearly) return undefined;
+                  return {
+                      ...yearly,
+                      unit: 'semester',
+                      amount: Math.round(Number(yearly.amount) / 2),
+                      room_amount:
+                          yearly.room_amount != null &&
+                          Number(yearly.room_amount) > 0
+                              ? Math.round(Number(yearly.room_amount) / 2)
+                              : null,
+                  };
+              })()
+            : undefined;
+    const rate = directRate ?? fallbackSemesterRate;
     const price = Number(
         (form.data.billing_basis === 'room'
             ? rate?.room_amount
@@ -647,9 +682,18 @@ export default function Registration({
                                                     <option value="period">
                                                         Per tahun
                                                     </option>
+                                                    {canSelectSemester && (
+                                                        <option value="semester">
+                                                            Per 6 bulan
+                                                            (Non-Maba)
+                                                        </option>
+                                                    )}
                                                     {canSelectMonthly && (
                                                         <option value="month">
                                                             Per bulan
+                                                            {isSeniorOverFiveYears
+                                                                ? ' (Tahun studi > 5)'
+                                                                : ''}
                                                         </option>
                                                     )}
                                                     <option value="day">
@@ -657,7 +701,9 @@ export default function Registration({
                                                     </option>
                                                 </select>
                                             </label>
-                                            {rateUnit === 'year' && (
+                                            {['year', 'semester'].includes(
+                                                rateUnit,
+                                            ) && (
                                                 <label className="block text-sm">
                                                     Dasar tarif
                                                     <select
@@ -847,7 +893,11 @@ export default function Registration({
                                                                         .rate_unit ===
                                                                     'month'
                                                                   ? 'Per bulan'
-                                                                  : 'Per tahun'}{' '}
+                                                                  : form.data
+                                                                          .rate_unit ===
+                                                                      'semester'
+                                                                    ? 'Per 6 bulan'
+                                                                    : 'Per tahun'}{' '}
                                                             ·{' '}
                                                             {form.data
                                                                 .billing_basis ===
@@ -1081,7 +1131,12 @@ export default function Registration({
                                                                             .rate_unit ===
                                                                         'month'
                                                                       ? `${Math.max(1, Math.ceil(days / policy_month_days))} bulan`
-                                                                      : '1 tahun'}
+                                                                      : form
+                                                                              .data
+                                                                              .rate_unit ===
+                                                                          'semester'
+                                                                        ? '6 bulan (1 semester)'
+                                                                        : '1 tahun'}
                                                             </span>
                                                         </div>
                                                     </div>
@@ -1198,7 +1253,12 @@ export default function Registration({
                                                                                   .billing_basis ===
                                                                               'group'
                                                                             ? `estimasi per penghuni (${formatRupiah(price)} ÷ ${groupSize} orang)`
-                                                                            : 'per tahun'}
+                                                                            : form
+                                                                                    .data
+                                                                                    .rate_unit ===
+                                                                                'semester'
+                                                                              ? 'per 6 bulan'
+                                                                              : 'per tahun'}
                                                                 </span>
                                                             </>
                                                         );

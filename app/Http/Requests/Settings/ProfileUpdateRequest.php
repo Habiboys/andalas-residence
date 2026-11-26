@@ -30,6 +30,11 @@ class ProfileUpdateRequest extends FormRequest
             'email_pribadi' => ['nullable', 'string', 'email', 'max:255'],
             'nik' => ['nullable', 'digits:16'],
             'prodi_id' => ['nullable', 'uuid', 'exists:prodi,id'],
+            'is_external_campus' => ['sometimes', 'boolean'],
+            'external_campus_name' => ['nullable', 'string', 'max:150'],
+            'external_program_name' => ['nullable', 'string', 'max:150'],
+            'angkatan' => ['nullable', 'integer', 'min:2000', 'max:'.now()->year],
+            'unit_kerja' => ['nullable', 'string', 'max:150'],
             'city_id' => ['nullable', 'uuid', 'exists:cities,id'],
             'alamat' => ['nullable', 'string', 'max:500'],
         ];
